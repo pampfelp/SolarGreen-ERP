@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relatório de Ponto Eletrônico</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg: #F4F1EA;
+    --panel: #FFFFFF;
+    --ink: #1F2421;
+    --ink-soft: #5B6058;
+    --ink-faint: #9A9D94;
+    --line: #DEDACE;
+    --accent: #2F6F4E;
+    --accent-soft: #E3EEE3;
+    --accent-deep: #1E4A33;
+    --warn: #B5481E;
+    --warn-soft: #FBE9E1;
+    --debit: #9A2D2D;
+    --debit-soft: #FBE7E7;
+    --credit: #1E6B45;
+    --credit-soft: #E5F2E9;
+    --radius: 10px;
+    --serif: "Source Serif 4","Iowan Old Style","Georgia",serif;
+    --sans: "Inter","Helvetica Neue",Arial,sans-serif;
+    --mono: "JetBrains Mono","SFMono-Regular",Consolas,monospace;
+  }
+  @font-face{
+    font-family:"Inter";
+    src:local("Inter");
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;-webkit-font-smoothing:antialiased;}
+  body{min-height:100vh;}
+
+  .app{max-width:1180px;margin:0 auto;padding:32px 28px 80px;}
+
+  /* ---------- Header ---------- */
+  header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;border-bottom:2px solid var(--ink);padding-bottom:18px;margin-bottom:28px;}
+  .brand{display:flex;align-items:baseline;gap:14px;}
+  .brand .mark{font-family:var(--serif);font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);border:1px solid var(--line);padding:3px 8px;border-radius:20px;}
+  h1{font-family:var(--serif);font-weight:600;font-size:30px;margin:0;letter-spacing:-.01em;}
+  .top-sub{font-size:12.5px;color:var(--ink-soft);margin-top:4px;}
+  .clock{font-family:var(--mono);font-size:12px;color:var(--ink-faint);text-align:right;line-height:1.5;}
+
+  /* ---------- Upload zone ---------- */
+  .upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:28px;}
+  .dropcard{position:relative;background:var(--panel);border:1.5px dashed var(--line);border-radius:var(--radius);padding:20px 18px;display:flex;align-items:center;gap:14px;transition:border-color .15s,background .15s;}
+  .dropcard.has-file{border-style:solid;border-color:var(--accent);background:var(--accent-soft);}
+  .dropcard.drag{border-color:var(--accent);background:var(--accent-soft);}
+  .dropcard .icon{width:38px;height:38px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;flex:none;font-family:var(--serif);font-size:16px;color:var(--ink-soft);}
+  .dropcard.has-file .icon{background:var(--accent);color:#fff;}
+  .dropcard .txt{flex:1;min-width:0;}
+  .dropcard .label{font-weight:600;font-size:13.5px;}
+  .dropcard .detail{font-size:12px;color:var(--ink-soft);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .dropcard input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;}
+  .dropcard .clear{position:relative;z-index:2;font-size:11px;color:var(--ink-faint);text-decoration:underline;cursor:pointer;background:none;border:none;padding:0;}
+
+  /* ---------- Filter bar ---------- */
+  .filters{display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:28px;}
+  .field{display:flex;flex-direction:column;gap:5px;}
+  .field label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint);font-weight:600;}
+  .field input[type=date], .field select{
+    font-family:var(--sans);font-size:13.5px;color:var(--ink);background:#fff;
+    border:1px solid var(--line);border-radius:6px;padding:7px 10px;min-width:148px;
+  }
+  .field select{min-width:200px;}
+  .field input:focus,.field select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent);}
+  .quickranges{display:flex;gap:6px;}
+  .qr-btn{font-size:12px;border:1px solid var(--line);background:#fff;border-radius:6px;padding:6px 10px;cursor:pointer;color:var(--ink-soft);}
+  .qr-btn:hover{border-color:var(--accent);color:var(--accent-deep);}
+  .qr-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .spacer{flex:1;}
+  .reset-btn{font-size:12px;color:var(--ink-faint);border:none;background:none;text-decoration:underline;cursor:pointer;}
+
+  /* ---------- Empty state ---------- */
+  .empty{text-align:center;padding:70px 20px;color:var(--ink-faint);}
+  .empty .glyph{font-family:var(--serif);font-size:42px;color:var(--line);margin-bottom:10px;}
+  .empty p{font-size:14px;max-width:380px;margin:6px auto 0;line-height:1.6;}
+
+  /* ---------- KPIs ---------- */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:28px;}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;position:relative;overflow:hidden;}
+  .kpi .tag{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-faint);font-weight:600;}
+  .kpi .num{font-family:var(--serif);font-size:28px;font-weight:600;margin-top:6px;letter-spacing:-.01em;}
+  .kpi .sub{font-size:12px;color:var(--ink-soft);margin-top:3px;}
+  .kpi.balance-pos .num{color:var(--credit);}
+  .kpi.balance-neg .num{color:var(--debit);}
+  .kpi.discount-active .num{color:var(--debit);}
+  .kpi.discount-active .bar{background:var(--debit);}
+  .kpi .bar{position:absolute;left:0;bottom:0;height:3px;width:100%;background:var(--line);}
+  .kpi.worked .bar{background:var(--accent);}
+  .kpi.target .bar{background:var(--ink-faint);}
+
+  /* ---------- Person selector chips (when "todos") ---------- */
+  .person-summary{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px;}
+  .person-chip{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:12.5px;min-width:150px;}
+  .person-chip .nm{font-weight:600;margin-bottom:3px;}
+  .person-chip .bal{font-family:var(--mono);font-size:13px;}
+  .person-chip .bal.pos{color:var(--credit);}
+  .person-chip .bal.neg{color:var(--debit);}
+
+  /* ---------- Table ---------- */
+  .table-wrap{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead th{
+    text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--ink-faint);font-weight:600;padding:11px 12px;border-bottom:1.5px solid var(--ink);
+    background:var(--panel);position:sticky;top:0;
+  }
+  thead th.num, tbody td.num{text-align:right;}
+  tbody td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:#FAFAF7;}
+  tbody tr.weekend{background:#FAF7F0;}
+  tbody tr.weekend:hover{background:#F5F0E5;}
+  tbody tr.group-start td{border-top:2px solid var(--ink);}
+  .person-name{font-weight:600;}
+  .inactive-tag{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-faint);background:var(--bg);border-radius:10px;padding:1px 6px;vertical-align:middle;}
+  .daynum{font-family:var(--serif);font-size:15px;}
+  .dow{font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.04em;margin-left:6px;}
+  .mark{font-family:var(--mono);font-size:13px;}
+  .mark.missing{color:var(--warn);font-family:var(--sans);font-size:12px;}
+  .bal{font-family:var(--mono);font-weight:600;}
+  .bal.pos{color:var(--credit);}
+  .bal.neg{color:var(--debit);}
+  .bal.zero{color:var(--ink-faint);}
+  .pill{display:inline-block;font-size:10.5px;padding:2px 7px;border-radius:20px;font-weight:600;letter-spacing:.02em;}
+  .pill.incomplete{background:var(--warn-soft);color:var(--warn);}
+  .pill.weekend{background:var(--bg);color:var(--ink-faint);}
+  .pill.ok{background:var(--accent-soft);color:var(--accent-deep);}
+  .pill.abonado{background:#E8E3F5;color:#5B4A99;}
+  .edited-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#8B6FD6;margin-left:6px;vertical-align:middle;}
+  .row-edit-btn{background:none;border:none;cursor:pointer;color:var(--ink-faint);padding:4px 6px;border-radius:6px;font-size:13px;line-height:1;}
+  .row-edit-btn:hover{background:var(--bg);color:var(--accent-deep);}
+
+  footer.note{margin-top:16px;font-size:11.5px;color:var(--ink-faint);line-height:1.6;}
+
+  /* ---------- Edit modal ---------- */
+  .modal-overlay{position:fixed;inset:0;background:rgba(31,36,33,0.45);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;}
+  .modal-overlay.hidden{display:none;}
+  .modal-card{background:var(--panel);border-radius:var(--radius);max-width:420px;width:100%;padding:24px 26px;box-shadow:0 12px 40px rgba(0,0,0,0.18);}
+  .modal-card h3{font-family:var(--serif);font-size:19px;font-weight:600;margin:0 0 2px;}
+  .modal-sub{font-size:12.5px;color:var(--ink-soft);margin-bottom:18px;}
+  .modal-toggle-row{display:flex;align-items:center;justify-content:space-between;background:var(--bg);border-radius:8px;padding:10px 14px;margin-bottom:18px;}
+  .modal-toggle-row .lbl{font-size:13px;font-weight:600;}
+  .modal-toggle-row .hint{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
+  .switch{position:relative;display:inline-block;width:38px;height:22px;flex:none;}
+  .switch input{opacity:0;width:0;height:0;}
+  .switch .slider{position:absolute;cursor:pointer;inset:0;background:var(--line);border-radius:22px;transition:.15s;}
+  .switch .slider:before{position:absolute;content:"";height:16px;width:16px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.15s;}
+  .switch input:checked + .slider{background:var(--accent);}
+  .switch input:checked + .slider:before{transform:translateX(16px);}
+  .modal-times{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px;}
+  .modal-times.disabled{opacity:.45;pointer-events:none;}
+  .modal-field label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint);font-weight:600;display:block;margin-bottom:5px;}
+  .modal-field input[type=time]{width:100%;font-family:var(--sans);font-size:13.5px;border:1px solid var(--line);border-radius:6px;padding:7px 10px;}
+  .modal-field input[type=time]:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent);}
+  .modal-note{font-size:11.5px;color:var(--ink-faint);margin:14px 0 0;line-height:1.5;}
+  .modal-actions{display:flex;justify-content:space-between;align-items:center;margin-top:22px;gap:10px;}
+  .modal-actions .btn{font-size:13px;border-radius:7px;padding:9px 16px;cursor:pointer;border:1px solid var(--line);background:#fff;}
+  .modal-actions .btn-primary{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .modal-actions .btn-clear{color:var(--debit);border:none;background:none;text-decoration:underline;padding:9px 4px;}
+
+  /* ---------- Connection card ---------- */
+  .connect-bar{display:flex;align-items:center;gap:8px;background:var(--accent-soft);border:1px solid var(--accent);border-radius:8px;padding:8px 14px;margin-bottom:18px;font-size:12.5px;color:var(--accent-deep);}
+  .connect-bar .dot{width:7px;height:7px;border-radius:50%;background:var(--credit);flex:none;}
+  .connect-bar-link{margin-left:auto;font-size:11.5px;color:var(--ink-faint);text-decoration:underline;cursor:pointer;background:none;border:none;padding:0;}
+  .connect-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;margin-bottom:28px;}
+  .connect-card h2{font-family:var(--serif);font-size:18px;font-weight:600;margin:0 0 4px;}
+  .connect-card .sub{font-size:12.5px;color:var(--ink-soft);margin-bottom:16px;line-height:1.5;}
+  .connect-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
+  .connect-field{flex:1;min-width:220px;display:flex;flex-direction:column;gap:5px;}
+  .connect-field label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint);font-weight:600;}
+  .connect-field input{font-family:var(--sans);font-size:13.5px;border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:100%;}
+  .connect-field input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent);}
+  .connect-btn{background:var(--ink);color:#fff;border:none;border-radius:7px;padding:9px 18px;font-size:13.5px;cursor:pointer;white-space:nowrap;}
+  .connect-btn:hover{background:var(--accent-deep);}
+  .connect-btn:disabled{opacity:.5;cursor:default;}
+  .connect-status{font-size:12px;margin-top:10px;display:flex;align-items:center;gap:7px;}
+  .connect-status .dot{width:7px;height:7px;border-radius:50%;background:var(--ink-faint);}
+  .connect-status.online .dot{background:var(--credit);}
+  .connect-status.error .dot{background:var(--debit);}
+  .connect-status.online{color:var(--credit);}
+  .connect-status.error{color:var(--debit);}
+  .connect-toggle-manual{font-size:12px;color:var(--ink-faint);text-decoration:underline;cursor:pointer;background:none;border:none;padding:0;margin-top:12px;display:inline-block;}
+  .sync-pill{font-size:11px;color:var(--ink-soft);display:flex;align-items:center;gap:6px;}
+  .sync-pill .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);}
+  .sync-pill.saving .dot{background:var(--warn);}
+  .sync-pill.error{color:var(--debit);}
+  .sync-pill.error .dot{background:var(--debit);}
+
+  @media (max-width:900px){
+    .upload-grid{grid-template-columns:1fr;}
+    .kpis{grid-template-columns:repeat(2,1fr);}
+    .table-wrap{overflow-x:auto;}
+    table{min-width:760px;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="top">
+    <div class="brand">
+      <div>
+        <h1>Relatório de ponto eletrônico</h1>
+        <div class="top-sub">Cálculo de jornada, saldo de horas e horas extras por colaborador</div>
+      </div>
+    </div>
+    <div style="text-align:right;">
+      <div class="clock" id="lastUpdate"></div>
+      <div class="sync-pill" id="syncPill" style="display:none;justify-content:flex-end;margin-top:4px;"><span class="dot"></span><span id="syncPillText">Sincronizado</span></div>
+    </div>
+  </header>
+
+  <div class="connect-bar" id="connectBar" style="display:none;">
+    <span class="dot"></span>
+    <span id="connectBarText">Conectado à planilha</span>
+    <button class="connect-bar-link" id="showConnectFormBtn">trocar conexão</button>
+  </div>
+
+  <div class="connect-card" id="connectCard">
+    <h2>Conectar à planilha do Google Sheets</h2>
+    <div class="sub">Cole aqui o link da Web App e a chave que você configurou no Apps Script. Depois da primeira vez, fica salvo neste navegador e conecta automaticamente.</div>
+    <div class="connect-row">
+      <div class="connect-field">
+        <label for="apiUrl">Link da web app (URL de implantação)</label>
+        <input type="text" id="apiUrl" placeholder="https://script.google.com/macros/s/.../exec">
+      </div>
+      <div class="connect-field" style="max-width:220px;">
+        <label for="apiKey">Chave secreta</label>
+        <input type="password" id="apiKey" placeholder="sua chave">
+      </div>
+      <button class="connect-btn" id="connectBtn">Conectar</button>
+    </div>
+    <div class="connect-status" id="connectStatus" style="display:none;"><span class="dot"></span><span id="connectStatusText"></span></div>
+    <button class="connect-toggle-manual" id="toggleManualBtn">Prefiro subir os arquivos manualmente</button>
+  </div>
+
+  <div class="upload-grid" id="uploadGrid" style="display:none;">
+    <div class="dropcard" id="cardVendedores">
+      <div class="icon">V</div>
+      <div class="txt">
+        <div class="label">Planilha de Vendedores</div>
+        <div class="detail" id="detailVendedores">Arraste o arquivo ou clique para selecionar (.xlsx, .xls, .csv)</div>
+      </div>
+      <button class="clear" id="clearVendedores" style="display:none;">remover</button>
+      <input type="file" id="fileVendedores" accept=".xlsx,.xls,.csv">
+    </div>
+    <div class="dropcard" id="cardPonto">
+      <div class="icon">P</div>
+      <div class="txt">
+        <div class="label">Planilha de Ponto Eletrônico</div>
+        <div class="detail" id="detailPonto">Arraste o arquivo ou clique para selecionar (.xlsx, .xls, .csv)</div>
+      </div>
+      <button class="clear" id="clearPonto" style="display:none;">remover</button>
+      <input type="file" id="filePonto" accept=".xlsx,.xls,.csv">
+    </div>
+  </div>
+
+  <div id="mainContent" style="display:none;">
+
+    <div class="filters">
+      <div class="field">
+        <label for="dateFrom">Período de</label>
+        <input type="date" id="dateFrom">
+      </div>
+      <div class="field">
+        <label for="dateTo">até</label>
+        <input type="date" id="dateTo">
+      </div>
+      <div class="field">
+        <label>Atalhos</label>
+        <div class="quickranges">
+          <button class="qr-btn" data-range="7">7 dias</button>
+          <button class="qr-btn" data-range="30">30 dias</button>
+          <button class="qr-btn" data-range="month">Este mês</button>
+          <button class="qr-btn" data-range="all">Tudo</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="selColaborador">Colaborador</label>
+        <select id="selColaborador">
+          <option value="__all__">Todos os colaboradores</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Status</label>
+        <div class="quickranges">
+          <button class="qr-btn status-btn active" data-status="ativos">Ativos</button>
+          <button class="qr-btn status-btn" data-status="todos">Todos</button>
+        </div>
+      </div>
+      <div class="spacer"></div>
+      <button class="reset-btn" id="resetFiltros">Limpar filtros</button>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi worked">
+        <div class="tag">Horas trabalhadas</div>
+        <div class="num" id="kpiWorked">00:00</div>
+        <div class="sub" id="kpiWorkedSub">no período selecionado</div>
+        <div class="bar"></div>
+      </div>
+      <div class="kpi target">
+        <div class="tag">Horas devidas (esperado)</div>
+        <div class="num" id="kpiTarget">00:00</div>
+        <div class="sub" id="kpiTargetSub">seg–sex, 8h/dia úteis</div>
+        <div class="bar"></div>
+      </div>
+      <div class="kpi" id="kpiBalanceCard">
+        <div class="tag">Saldo do período</div>
+        <div class="num" id="kpiBalance">00:00</div>
+        <div class="sub" id="kpiBalanceSub">trabalhadas − devidas</div>
+        <div class="bar"></div>
+      </div>
+      <div class="kpi">
+        <div class="tag">Dias com pendência</div>
+        <div class="num" id="kpiIncomplete">0</div>
+        <div class="sub" id="kpiIncompleteSub">marcações incompletas</div>
+        <div class="bar"></div>
+      </div>
+      <div class="kpi" id="kpiFaltaCard">
+        <div class="tag">Dias de falta</div>
+        <div class="num" id="kpiFalta">0</div>
+        <div class="sub" id="kpiFaltaSub">dias úteis sem marcação</div>
+        <div class="bar"></div>
+      </div>
+      <div class="kpi" id="kpiDiscountCard">
+        <div class="tag">Percentual de desconto</div>
+        <div class="num" id="kpiDiscount">0%</div>
+        <div class="sub" id="kpiDiscountSub">faltas ÷ horas devidas</div>
+        <div class="bar"></div>
+      </div>
+    </div>
+
+    <div id="personSummary" class="person-summary"></div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th id="colColaborador" style="display:none;">Colaborador</th>
+            <th>Dia</th>
+            <th class="num">Entrada</th>
+            <th class="num">Almoço</th>
+            <th class="num">Retorno almoço</th>
+            <th class="num">Saída</th>
+            <th class="num">Horas trabalhadas</th>
+            <th class="num">Saldo do dia</th>
+            <th class="num">Saldo acumulado</th>
+            <th>Status</th>
+            <th class="num">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+
+    <footer class="note">
+      Jornada padrão considerada: segunda a sexta, 8h efetivas de trabalho por dia (1h de almoço descontada). Sábados, domingos e dias abonados não geram horas devidas, mas marcações nesses dias somam saldo. O saldo acumulado soma os saldos diários dentro do período e colaborador filtrados, na ordem cronológica. Abonos e edições de horário são salvos direto na sua planilha do Google Sheets (aba "Abonos").
+    </footer>
+  </div>
+
+  <div class="empty" id="emptyState">
+    <div class="glyph">⧗</div>
+    <p>Envie as duas planilhas acima — Vendedores e Ponto Eletrônico — para gerar o relatório.</p>
+  </div>
+
+</div>
+
+<div class="modal-overlay hidden" id="editModal">
+  <div class="modal-card">
+    <h3 id="editModalTitle">Editar dia</h3>
+    <div class="modal-sub" id="editModalSub">01/06 · seg</div>
+
+    <div class="modal-toggle-row">
+      <div>
+        <div class="lbl">Abonar este dia</div>
+        <div class="hint">Não conta meta de 8h. Se houver marcação, soma como saldo extra.</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="editAbonado">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="modal-times" id="editTimesGrid">
+      <div class="modal-field">
+        <label for="editEntrada">Entrada</label>
+        <input type="time" id="editEntrada">
+      </div>
+      <div class="modal-field">
+        <label for="editAlmoco">Almoço</label>
+        <input type="time" id="editAlmoco">
+      </div>
+      <div class="modal-field">
+        <label for="editRetorno">Retorno almoço</label>
+        <input type="time" id="editRetorno">
+      </div>
+      <div class="modal-field">
+        <label for="editSaida">Saída</label>
+        <input type="time" id="editSaida">
+      </div>
+    </div>
+    <p class="modal-note">Deixe um campo em branco para usar a marcação original do ponto (se houver). Editar aqui não altera a planilha enviada — fica salvo só neste navegador.</p>
+
+    <div class="modal-actions">
+      <button class="btn btn-clear" id="editClearBtn">Remover edição</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" id="editCancelBtn">Cancelar</button>
+        <button class="btn btn-primary" id="editSaveBtn">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+
+  var rawVendedores = null;
+  var rawPonto = null;
+  var vendedoresMap = {};
+  var pontoRecords = [];
+  var dailyRecords = [];
+  var overrides = {};
+  var useApi = true; // modo padrão: buscar do Google Sheets via Apps Script
+
+  var OVERRIDES_STORAGE_KEY = 'ponto_overrides_v1';
+  var API_URL_KEY = 'ponto_api_url';
+  var API_KEY_KEY = 'ponto_api_key';
+
+  // Pré-configurado: conecta sozinho em qualquer navegador/dispositivo,
+  // sem precisar colar a URL e a chave manualmente. Se o campo "Conectar"
+  // for usado para salvar outra URL/chave, ela passa a valer no lugar desta.
+  var DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA34xrlLTVUUNhKBIlguJT3ectH7Yus-VW1n41GcCclc5q_Yj0Di2O7g/exec';
+  var DEFAULT_API_KEY = '1234';
+
+  function loadOverrides(){
+    try{
+      var raw = localStorage.getItem(OVERRIDES_STORAGE_KEY);
+      overrides = raw ? JSON.parse(raw) : {};
+    }catch(e){
+      overrides = {};
+    }
+  }
+
+  function saveOverridesLocalCache(){
+    try{
+      localStorage.setItem(OVERRIDES_STORAGE_KEY, JSON.stringify(overrides));
+    }catch(e){}
+  }
+
+  function overrideKey(funcionario, dateKeyStr){
+    return funcionario + '|' + dateKeyStr;
+  }
+
+  function getOverride(funcionario, dateKeyStr){
+    return overrides[overrideKey(funcionario, dateKeyStr)] || null;
+  }
+
+  // ---------- Conexão com o Google Apps Script ----------
+
+  function getApiUrl(){
+    var saved = (localStorage.getItem(API_URL_KEY) || '').trim();
+    return saved || DEFAULT_API_URL;
+  }
+  function getApiKey(){
+    var saved = (localStorage.getItem(API_KEY_KEY) || '').trim();
+    return saved || DEFAULT_API_KEY;
+  }
+  function setApiCreds(url, key){
+    localStorage.setItem(API_URL_KEY, url.trim());
+    localStorage.setItem(API_KEY_KEY, key.trim());
+  }
+  function hasApiCreds(){ return !!getApiUrl() && !!getApiKey(); }
+
+
+  function apiCall(action, extraBody){
+    var url = getApiUrl();
+    var key = getApiKey();
+    var body = Object.assign({ action: action, chave: key }, extraBody || {});
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(body)
+    }).then(function(resp){ return resp.json(); });
+  }
+
+  function setSyncPill(state, text){
+    var pill = document.getElementById('syncPill');
+    var pillText = document.getElementById('syncPillText');
+    if(!pill) return;
+    pill.style.display = 'flex';
+    pill.classList.remove('saving','error');
+    if(state === 'saving') pill.classList.add('saving');
+    if(state === 'error') pill.classList.add('error');
+    pillText.textContent = text;
+  }
+
+  // Envia um override para a planilha (Apps Script) e atualiza o cache local.
+  // Se a chamada à API falhar, o override ainda fica salvo localmente,
+  // para não perder a edição feita pelo usuário.
+  function setOverride(funcionario, dateKeyStr, data){
+    var key = overrideKey(funcionario, dateKeyStr);
+    if(!data || (!data.abonado && !data.entrada && !data.almoco && !data.retorno && !data.saida)){
+      delete overrides[key];
+    } else {
+      overrides[key] = data;
+    }
+    saveOverridesLocalCache();
+
+    if(useApi && hasApiCreds()){
+      setSyncPill('saving', 'Salvando na planilha…');
+      apiCall('setOverride', {
+        funcionario: funcionario,
+        data: dateKeyStr,
+        abonado: !!(data && data.abonado),
+        entrada: (data && data.entrada) || '',
+        almoco: (data && data.almoco) || '',
+        retorno: (data && data.retorno) || '',
+        saida: (data && data.saida) || ''
+      }).then(function(resp){
+        if(resp && resp.ok){
+          setSyncPill('ok', 'Sincronizado com a planilha');
+        } else {
+          setSyncPill('error', 'Falha ao salvar na planilha (guardado só neste navegador)');
+        }
+      }).catch(function(){
+        setSyncPill('error', 'Sem conexão (guardado só neste navegador)');
+      });
+    }
+  }
+
+  loadOverrides();
+
+  function setUpdateClock(){
+    var d = new Date();
+    document.getElementById('lastUpdate').textContent = 'Atualizado em ' + d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  }
+  setUpdateClock();
+
+  function readFile(file, cb){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      var data = new Uint8Array(e.target.result);
+      var wb = XLSX.read(data, {type:'array', cellDates:true});
+      var sheetName = wb.SheetNames[0];
+      var sheet = wb.Sheets[sheetName];
+      var json = XLSX.utils.sheet_to_json(sheet, {header:1, raw:false, defval:''});
+      cb(json);
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function findHeaderRowIndex(rows, mustHaveCols){
+    for(var i=0;i<Math.min(rows.length,10);i++){
+      var row = rows[i].map(function(c){return (c||'').toString().trim();});
+      var hits = mustHaveCols.filter(function(col){return row.indexOf(col) !== -1;});
+      if(hits.length === mustHaveCols.length) return i;
+    }
+    return -1;
+  }
+
+  function rowsToObjects(rows, headerIdx){
+    var headers = rows[headerIdx].map(function(c){return (c||'').toString().trim();});
+    var out = [];
+    for(var i=headerIdx+1;i<rows.length;i++){
+      var row = rows[i];
+      if(!row || row.every(function(c){return (c===''||c===undefined||c===null);})) continue;
+      var obj = {};
+      headers.forEach(function(h,idx){
+        if(h) obj[h] = (row[idx]!==undefined && row[idx]!==null) ? row[idx].toString().trim() : '';
+      });
+      out.push(obj);
+    }
+    return out;
+  }
+
+  function processVendedores(rows){
+    var headerIdx = findHeaderRowIndex(rows, ['IdVendedor','Nome']);
+    if(headerIdx === -1) headerIdx = 0;
+    var objs = rowsToObjects(rows, headerIdx);
+    var map = {};
+    objs.forEach(function(o){
+      if(o.IdVendedor){
+        map[o.IdVendedor] = { nome: o.Nome || o.IdVendedor, status: (o.Status || '').trim() };
+      }
+    });
+    return map;
+  }
+
+  function parseDateTime(str){
+    if(!str) return null;
+    str = str.toString().trim();
+    var m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if(m){
+      return new Date(parseInt(m[3]), parseInt(m[2])-1, parseInt(m[1]), parseInt(m[4]), parseInt(m[5]), m[6]?parseInt(m[6]):0);
+    }
+    var d = new Date(str);
+    if(!isNaN(d.getTime())) return d;
+    return null;
+  }
+
+  function dateKey(d){
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+
+  function processPonto(rows){
+    var headerIdx = findHeaderRowIndex(rows, ['Funcionario','Tipo']);
+    if(headerIdx === -1) headerIdx = 0;
+    var objs = rowsToObjects(rows, headerIdx);
+    var recs = [];
+    objs.forEach(function(o){
+      var dt = parseDateTime(o['Data e Hora'] || o['Data'] || '');
+      if(!dt) return;
+      recs.push({
+        funcionario: o['Funcionario'] || o['Colaborador'] || '',
+        tipo: (o['Tipo']||'').trim(),
+        dt: dt,
+        dateKey: dateKey(dt)
+      });
+    });
+    return recs;
+  }
+
+  function processVendedoresFromObjects(objs){
+    var map = {};
+    objs.forEach(function(o){
+      if(o.IdVendedor){
+        map[o.IdVendedor] = { nome: o.Nome || o.IdVendedor, status: (o.Status || '').trim() };
+      }
+    });
+    return map;
+  }
+
+  function processPontoFromObjects(objs){
+    var recs = [];
+    objs.forEach(function(o){
+      var dt = parseDateTime(o['Data e Hora'] || o['Data'] || '');
+      if(!dt) return;
+      recs.push({
+        funcionario: o['Funcionario'] || o['Colaborador'] || '',
+        tipo: (o['Tipo']||'').trim(),
+        dt: dt,
+        dateKey: dateKey(dt)
+      });
+    });
+    return recs;
+  }
+
+  function fmtHM(totalMinutes, withSign){
+    var sign = totalMinutes < 0 ? '-' : (withSign ? '+' : '');
+    var abs = Math.abs(Math.round(totalMinutes));
+    var h = Math.floor(abs/60);
+    var m = abs % 60;
+    return sign + String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+  }
+
+  function fmtHMfromTime(dt){
+    if(!dt) return null;
+    return String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0');
+  }
+
+  var DOW_NAMES = ['dom','seg','ter','qua','qui','sex','sáb'];
+
+  function addDays(dateObj, n){
+    var d = new Date(dateObj.getTime());
+    d.setDate(d.getDate() + n);
+    return d;
+  }
+
+  function timeStrToDateOnDay(dateObj, timeStr){
+    if(!timeStr) return null;
+    var m = timeStr.match(/^(\d{1,2}):(\d{2})$/);
+    if(!m) return null;
+    var d = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), parseInt(m[1],10), parseInt(m[2],10), 0);
+    return d;
+  }
+
+  function buildDayRecordFromMarks(funcionario, dateKeyStr, dateObj, marks){
+    var dow = dateObj.getDay();
+    var isWeekend = (dow === 0 || dow === 6);
+
+    var entrada = (marks && marks.entrada) || null;
+    var almoco = (marks && marks.almoco) || null;
+    var retorno = (marks && marks.retorno) || null;
+    var saida = (marks && marks.saida) || null;
+
+    var override = getOverride(funcionario, dateKeyStr);
+    var isAbonado = false;
+    var isEdited = false;
+
+    if(override){
+      if(override.entrada !== undefined && override.entrada !== null && override.entrada !== ''){
+        entrada = timeStrToDateOnDay(dateObj, override.entrada); isEdited = true;
+      }
+      if(override.almoco !== undefined && override.almoco !== null && override.almoco !== ''){
+        almoco = timeStrToDateOnDay(dateObj, override.almoco); isEdited = true;
+      }
+      if(override.retorno !== undefined && override.retorno !== null && override.retorno !== ''){
+        retorno = timeStrToDateOnDay(dateObj, override.retorno); isEdited = true;
+      }
+      if(override.saida !== undefined && override.saida !== null && override.saida !== ''){
+        saida = timeStrToDateOnDay(dateObj, override.saida); isEdited = true;
+      }
+      if(override.abonado){
+        isAbonado = true;
+      }
+    }
+
+    var workedMinutes = 0;
+    var hasAnyMark = !!(entrada || almoco || retorno || saida);
+    var complete = !!(entrada && almoco && retorno && saida);
+
+    if(entrada && saida){
+      var totalSpan = (saida.getTime() - entrada.getTime()) / 60000;
+      var lunchSpan = 0;
+      if(almoco && retorno){
+        lunchSpan = (retorno.getTime() - almoco.getTime()) / 60000;
+        if(lunchSpan < 0) lunchSpan = 0;
+      }
+      workedMinutes = totalSpan - lunchSpan;
+      if(workedMinutes < 0) workedMinutes = 0;
+    }
+
+    // Dias úteis (seg-sex) têm meta de 8h. Fins de semana e dias abonados
+    // não têm meta, mas se houver marcação, o que for trabalhado entra
+    // como saldo positivo (crédito puro, sem comparação com meta).
+    var noTargetDay = isWeekend || isAbonado;
+    var targetMinutes = noTargetDay ? 0 : 480;
+    var dayBalance;
+    if(noTargetDay){
+      dayBalance = workedMinutes;
+    } else {
+      dayBalance = hasAnyMark ? (workedMinutes - targetMinutes) : -targetMinutes;
+    }
+
+    return {
+      funcionario: funcionario,
+      dateKey: dateKeyStr,
+      dateObj: dateObj,
+      dow: dow,
+      isWeekend: isWeekend,
+      isAbonado: isAbonado,
+      isEdited: isEdited,
+      entrada: entrada, almoco: almoco, retorno: retorno, saida: saida,
+      hasAnyMark: hasAnyMark,
+      complete: complete,
+      workedMinutes: workedMinutes,
+      targetMinutes: targetMinutes,
+      dayBalance: dayBalance
+    };
+  }
+
+  function buildDailyRecords(){
+    dailyRecords = [];
+    if(!pontoRecords.length) return;
+
+    var byPersonDay = {};
+    var globalMin = null, globalMax = null;
+
+    pontoRecords.forEach(function(r){
+      var key = r.funcionario + '|' + r.dateKey;
+      if(!byPersonDay[key]) byPersonDay[key] = {funcionario:r.funcionario, dateKey:r.dateKey, marks:{}};
+      var bucket = byPersonDay[key];
+      var tipo = r.tipo;
+      if(tipo === 'Entrada'){
+        if(!bucket.marks.entrada || r.dt < bucket.marks.entrada) bucket.marks.entrada = r.dt;
+      } else if(tipo === 'Almoço'){
+        if(!bucket.marks.almoco || r.dt < bucket.marks.almoco) bucket.marks.almoco = r.dt;
+      } else if(tipo === 'Retorno Almoço'){
+        if(!bucket.marks.retorno || r.dt < bucket.marks.retorno) bucket.marks.retorno = r.dt;
+      } else if(tipo === 'Saída'){
+        if(!bucket.marks.saida || r.dt > bucket.marks.saida) bucket.marks.saida = r.dt;
+      }
+      if(globalMin === null || r.dt < globalMin) globalMin = r.dt;
+      if(globalMax === null || r.dt > globalMax) globalMax = r.dt;
+    });
+
+    if(globalMin === null) return;
+    var rangeStart = new Date(globalMin.getFullYear(), globalMin.getMonth(), globalMin.getDate());
+    var rangeEnd = new Date(globalMax.getFullYear(), globalMax.getMonth(), globalMax.getDate());
+
+    var allFuncionarios = Array.from(new Set(pontoRecords.map(function(r){ return r.funcionario; })));
+
+    allFuncionarios.forEach(function(funcionario){
+      var cursor = new Date(rangeStart.getTime());
+      while(cursor <= rangeEnd){
+        var dk = dateKey(cursor);
+        var key = funcionario + '|' + dk;
+        var bucket = byPersonDay[key];
+        var dateObj = new Date(cursor.getTime());
+        dailyRecords.push(buildDayRecordFromMarks(funcionario, dk, dateObj, bucket ? bucket.marks : null));
+        cursor = addDays(cursor, 1);
+      }
+    });
+
+    dailyRecords.sort(function(a,b){
+      if(a.funcionario !== b.funcionario) return 0;
+      return a.dateObj - b.dateObj;
+    });
+  }
+
+  function nomeFor(idVendedor){
+    var v = vendedoresMap[idVendedor];
+    return (v && v.nome) || ('Colaborador ' + idVendedor.slice(0,8));
+  }
+
+  function statusFor(idVendedor){
+    var v = vendedoresMap[idVendedor];
+    return (v && v.status) || '';
+  }
+
+  // Considera "ativo" quando o Status não indica explicitamente inatividade.
+  // Cadastros sem essa coluna preenchida continuam aparecendo (não somem do relatório).
+  function isAtivo(idVendedor){
+    var s = statusFor(idVendedor).toLowerCase();
+    if(!s) return true;
+    return s.indexOf('inativ') === -1 && s.indexOf('demit') === -1 && s.indexOf('desligad') === -1;
+  }
+
+  var statusFilter = 'ativos'; // 'ativos' ou 'todos'
+
+  function populateColaboradorSelect(){
+    var sel = document.getElementById('selColaborador');
+    var currentValue = sel.value || '__all__';
+    var ids = Array.from(new Set(pontoRecords.map(function(r){return r.funcionario;})));
+    if(statusFilter === 'ativos'){
+      ids = ids.filter(function(id){ return isAtivo(id); });
+    }
+    ids.sort(function(a,b){ return nomeFor(a).localeCompare(nomeFor(b), 'pt-BR'); });
+    sel.innerHTML = '<option value="__all__">Todos os colaboradores</option>';
+    ids.forEach(function(id){
+      var opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = nomeFor(id) + (!isAtivo(id) ? ' (inativo)' : '');
+      sel.appendChild(opt);
+    });
+    // Mantém a seleção anterior se ela ainda for válida nesta lista; senão volta para "Todos".
+    sel.value = ids.indexOf(currentValue) !== -1 || currentValue === '__all__' ? currentValue : '__all__';
+  }
+
+  function setDefaultDateRange(){
+    if(!dailyRecords.length) return;
+    var min = dailyRecords[0].dateObj;
+    var max = dailyRecords[dailyRecords.length-1].dateObj;
+    document.getElementById('dateFrom').value = dateKey(min);
+    document.getElementById('dateTo').value = dateKey(max);
+  }
+
+  function getFiltered(){
+    var from = document.getElementById('dateFrom').value;
+    var to = document.getElementById('dateTo').value;
+    var colab = document.getElementById('selColaborador').value;
+
+    return dailyRecords.filter(function(d){
+      if(from && d.dateKey < from) return false;
+      if(to && d.dateKey > to) return false;
+      if(colab !== '__all__' && d.funcionario !== colab) return false;
+      if(statusFilter === 'ativos' && !isAtivo(d.funcionario)) return false;
+      return true;
+    });
+  }
+
+  function render(){
+    var filtered = getFiltered();
+    var colab = document.getElementById('selColaborador').value;
+    var showingAll = (colab === '__all__');
+
+    document.getElementById('colColaborador').style.display = showingAll ? '' : 'none';
+
+    // running balance per person, in chronological order
+    var runningByPerson = {};
+    var rowsHtml = '';
+    var totalWorked = 0, totalTarget = 0, incompleteCount = 0, faltaCount = 0;
+
+    var sortedFiltered = filtered.slice().sort(function(a,b){
+      if(showingAll){
+        var nameCmp = nomeFor(a.funcionario).localeCompare(nomeFor(b.funcionario),'pt-BR');
+        if(nameCmp !== 0) return nameCmp;
+      }
+      return a.dateObj - b.dateObj;
+    });
+
+    var lastPerson = null;
+
+    sortedFiltered.forEach(function(d){
+      totalWorked += d.workedMinutes;
+      totalTarget += d.targetMinutes;
+      if(d.hasAnyMark && !d.complete) incompleteCount++;
+      if(!d.isAbonado && !d.isWeekend && !d.hasAnyMark) faltaCount++;
+
+      if(runningByPerson[d.funcionario] === undefined) runningByPerson[d.funcionario] = 0;
+      runningByPerson[d.funcionario] += d.dayBalance;
+      var running = runningByPerson[d.funcionario];
+
+      var isNewGroup = showingAll && d.funcionario !== lastPerson;
+      lastPerson = d.funcionario;
+
+      var statusPill, statusClass;
+      if(d.isAbonado){
+        statusPill = 'Abonado'; statusClass='abonado';
+      } else if(d.isWeekend && !d.hasAnyMark){
+        statusPill = 'Fim de semana'; statusClass='weekend';
+      } else if(!d.hasAnyMark){
+        statusPill = 'Falta'; statusClass='incomplete';
+      } else if(!d.complete){
+        statusPill = 'Incompleto'; statusClass='incomplete';
+      } else {
+        statusPill = 'Completo'; statusClass='ok';
+      }
+
+      var dayBalClass = d.dayBalance > 0.4 ? 'pos' : (d.dayBalance < -0.4 ? 'neg' : 'zero');
+      var runBalClass = running > 0.4 ? 'pos' : (running < -0.4 ? 'neg' : 'zero');
+
+      rowsHtml += '<tr class="' + (d.isWeekend?'weekend ':'') + (isNewGroup?'group-start':'') + '">';
+      if(showingAll){
+        rowsHtml += '<td class="person-name">' + (isNewGroup ? escapeHtml(nomeFor(d.funcionario)) + (!isAtivo(d.funcionario) ? ' <span class="inactive-tag">inativo</span>' : '') : '') + '</td>';
+      }
+      rowsHtml += '<td><span class="daynum">' + String(d.dateObj.getDate()).padStart(2,'0') + '/' + String(d.dateObj.getMonth()+1).padStart(2,'0') + '</span><span class="dow">' + DOW_NAMES[d.dow] + '</span>' + (d.isEdited ? '<span class="edited-dot" title="Horário editado manualmente"></span>' : '') + '</td>';
+      rowsHtml += '<td class="num mark' + (d.entrada?'':' missing') + '">' + (fmtHMfromTime(d.entrada) || '—') + '</td>';
+      rowsHtml += '<td class="num mark' + (d.almoco?'':' missing') + '">' + (fmtHMfromTime(d.almoco) || '—') + '</td>';
+      rowsHtml += '<td class="num mark' + (d.retorno?'':' missing') + '">' + (fmtHMfromTime(d.retorno) || '—') + '</td>';
+      rowsHtml += '<td class="num mark' + (d.saida?'':' missing') + '">' + (fmtHMfromTime(d.saida) || '—') + '</td>';
+      rowsHtml += '<td class="num mark">' + (d.hasAnyMark ? fmtHM(d.workedMinutes,false) : '—') + '</td>';
+      rowsHtml += '<td class="num bal ' + dayBalClass + '">' + fmtHM(d.dayBalance, true) + '</td>';
+      rowsHtml += '<td class="num bal ' + runBalClass + '">' + fmtHM(running, true) + '</td>';
+      rowsHtml += '<td><span class="pill ' + statusClass + '">' + statusPill + '</span></td>';
+      rowsHtml += '<td class="num"><button class="row-edit-btn" data-funcionario="' + escapeHtml(d.funcionario) + '" data-datekey="' + d.dateKey + '" title="Editar este dia">&#9998;</button></td>';
+      rowsHtml += '</tr>';
+    });
+
+    document.getElementById('tbody').innerHTML = rowsHtml || '<tr><td colspan="11" style="text-align:center;color:var(--ink-faint);padding:30px;">Nenhum registro no período selecionado.</td></tr>';
+
+    document.querySelectorAll('.row-edit-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        openEditModal(btn.getAttribute('data-funcionario'), btn.getAttribute('data-datekey'));
+      });
+    });
+
+    var totalBalance = totalWorked - totalTarget;
+    document.getElementById('kpiWorked').textContent = fmtHM(totalWorked,false);
+    document.getElementById('kpiTarget').textContent = fmtHM(totalTarget,false);
+    document.getElementById('kpiBalance').textContent = fmtHM(totalBalance,true);
+    document.getElementById('kpiIncomplete').textContent = incompleteCount;
+    document.getElementById('kpiFalta').textContent = faltaCount;
+
+    var faltaCard = document.getElementById('kpiFaltaCard');
+    faltaCard.classList.remove('discount-active');
+    if(faltaCount > 0) faltaCard.classList.add('discount-active');
+
+    var balCard = document.getElementById('kpiBalanceCard');
+    balCard.classList.remove('balance-pos','balance-neg');
+    if(totalBalance > 0.4) balCard.classList.add('balance-pos');
+    else if(totalBalance < -0.4) balCard.classList.add('balance-neg');
+
+    // Percentual de desconto: proporção do saldo negativo (faltas) sobre o total de horas devidas.
+    // Ex.: devia 136:00, saldo -42:33 -> 42:33 ÷ 136:00 ≈ 31,29% do esperado não cumprido.
+    var discountPct = 0;
+    if(totalBalance < -0.4 && totalTarget > 0){
+      discountPct = (Math.abs(totalBalance) / totalTarget) * 100;
+    }
+    document.getElementById('kpiDiscount').textContent = discountPct.toFixed(2).replace('.', ',') + '%';
+    var discountCard = document.getElementById('kpiDiscountCard');
+    discountCard.classList.remove('discount-active');
+    if(discountPct > 0) discountCard.classList.add('discount-active');
+    document.getElementById('kpiDiscountSub').textContent = discountPct > 0
+      ? fmtHM(Math.abs(totalBalance),false) + ' de falta ÷ ' + fmtHM(totalTarget,false) + ' devidas'
+      : 'sem déficit no período';
+
+    var nDays = filtered.length;
+    var nWeekdays = filtered.filter(function(d){ return !d.isWeekend; }).length;
+    var nPeople = new Set(filtered.map(function(d){return d.funcionario;})).size;
+    document.getElementById('kpiWorkedSub').textContent = nPeople + (nPeople===1?' colaborador':' colaboradores') + ' · ' + nDays + ' dia(s)';
+    document.getElementById('kpiTargetSub').textContent = 'seg–sex, 8h/dia úteis';
+    document.getElementById('kpiBalanceSub').textContent = totalBalance >= 0 ? 'saldo positivo (crédito)' : 'saldo negativo (débito)';
+    document.getElementById('kpiIncompleteSub').textContent = 'de ' + nWeekdays + ' dia(s) útil(eis) no período';
+    document.getElementById('kpiFaltaSub').textContent = faltaCount > 0
+      ? 'de ' + nWeekdays + ' dia(s) útil(eis) no período'
+      : 'nenhuma falta no período';
+
+    // person summary chips, only when "todos" selected and more than 1 person
+    var summaryEl = document.getElementById('personSummary');
+    if(showingAll && nPeople > 1){
+      var perPerson = {};
+      filtered.forEach(function(d){
+        if(!perPerson[d.funcionario]) perPerson[d.funcionario] = 0;
+        perPerson[d.funcionario] += d.dayBalance;
+      });
+      var ids = Object.keys(perPerson).sort(function(a,b){return nomeFor(a).localeCompare(nomeFor(b),'pt-BR');});
+      summaryEl.innerHTML = ids.map(function(id){
+        var bal = perPerson[id];
+        var cls = bal > 0.4 ? 'pos' : (bal < -0.4 ? 'neg' : '');
+        return '<div class="person-chip"><div class="nm">' + escapeHtml(nomeFor(id)) + '</div><div class="bal ' + cls + '">' + fmtHM(bal,true) + '</div></div>';
+      }).join('');
+      summaryEl.style.display = 'flex';
+    } else {
+      summaryEl.style.display = 'none';
+      summaryEl.innerHTML = '';
+    }
+  }
+
+  function escapeHtml(s){
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function buildReportFrom(vMap, pRecords, ov){
+    vendedoresMap = vMap;
+    pontoRecords = pRecords;
+    if(ov){ overrides = ov; saveOverridesLocalCache(); }
+    buildDailyRecords();
+    populateColaboradorSelect();
+    setDefaultDateRange();
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
+    render();
+    setUpdateClock();
+  }
+
+  function tryBuildReport(){
+    if(rawVendedores && rawPonto){
+      var vMap = processVendedores(rawVendedores);
+      var pRecords = processPonto(rawPonto);
+      buildReportFrom(vMap, pRecords, null);
+    }
+  }
+
+  function showConnectBar(){
+    document.getElementById('connectCard').style.display = 'none';
+    document.getElementById('connectBar').style.display = 'flex';
+  }
+
+  function showConnectForm(){
+    document.getElementById('connectBar').style.display = 'none';
+    document.getElementById('connectCard').style.display = 'block';
+  }
+
+  function fetchFromApi(showStatus){
+    if(!hasApiCreds()) return;
+    if(showStatus){
+      document.getElementById('connectStatus').style.display = 'flex';
+      document.getElementById('connectStatus').className = 'connect-status';
+      document.getElementById('connectStatus').querySelector('span:last-child').textContent = 'Conectando…';
+    }
+    var connectBtn = document.getElementById('connectBtn');
+    if(connectBtn) connectBtn.disabled = true;
+
+    apiCall('getData').then(function(resp){
+      if(connectBtn) connectBtn.disabled = false;
+      if(!resp || !resp.ok){
+        if(showStatus){
+          document.getElementById('connectStatus').className = 'connect-status error';
+          document.getElementById('connectStatus').querySelector('span:last-child').textContent = (resp && resp.erro) || 'Não foi possível conectar.';
+        }
+        return;
+      }
+      var vMap = processVendedoresFromObjects(resp.vendedores || []);
+      var pRecords = processPontoFromObjects(resp.ponto || []);
+      buildReportFrom(vMap, pRecords, resp.overrides || {});
+      setSyncPill('ok', 'Sincronizado com a planilha');
+      showConnectBar();
+      if(showStatus){
+        document.getElementById('connectStatus').className = 'connect-status online';
+        document.getElementById('connectStatus').querySelector('span:last-child').textContent = 'Conectado — dados carregados da planilha.';
+      }
+    }).catch(function(err){
+      if(connectBtn) connectBtn.disabled = false;
+      if(showStatus){
+        document.getElementById('connectStatus').className = 'connect-status error';
+        document.getElementById('connectStatus').querySelector('span:last-child').textContent = 'Erro de conexão: ' + err.message;
+      }
+    });
+  }
+
+  function wireUpload(inputId, cardId, detailId, clearId, onLoaded){
+    var input = document.getElementById(inputId);
+    var card = document.getElementById(cardId);
+    var detail = document.getElementById(detailId);
+    var clearBtn = document.getElementById(clearId);
+
+    function handleFile(file){
+      if(!file) return;
+      detail.textContent = 'Lendo ' + file.name + '…';
+      readFile(file, function(rows){
+        onLoaded(rows);
+        card.classList.add('has-file');
+        detail.textContent = file.name;
+        clearBtn.style.display = 'inline';
+        tryBuildReport();
+      });
+    }
+
+    input.addEventListener('change', function(e){
+      handleFile(e.target.files[0]);
+    });
+
+    card.addEventListener('dragover', function(e){ e.preventDefault(); card.classList.add('drag'); });
+    card.addEventListener('dragleave', function(e){ card.classList.remove('drag'); });
+    card.addEventListener('drop', function(e){
+      e.preventDefault();
+      card.classList.remove('drag');
+      if(e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+    });
+
+    clearBtn.addEventListener('click', function(e){
+      e.preventDefault(); e.stopPropagation();
+      input.value = '';
+      card.classList.remove('has-file');
+      detail.textContent = 'Arraste o arquivo ou clique para selecionar (.xlsx, .xls, .csv)';
+      clearBtn.style.display = 'none';
+      if(inputId === 'fileVendedores'){ rawVendedores = null; }
+      if(inputId === 'filePonto'){ rawPonto = null; }
+      document.getElementById('mainContent').style.display = 'none';
+      document.getElementById('emptyState').style.display = 'block';
+    });
+  }
+
+  wireUpload('fileVendedores','cardVendedores','detailVendedores','clearVendedores', function(rows){ rawVendedores = rows; });
+  wireUpload('filePonto','cardPonto','detailPonto','clearPonto', function(rows){ rawPonto = rows; });
+
+  document.getElementById('showConnectFormBtn').addEventListener('click', function(){
+    showConnectForm();
+  });
+
+  document.getElementById('connectBtn').addEventListener('click', function(){
+    var url = document.getElementById('apiUrl').value.trim();
+    var key = document.getElementById('apiKey').value.trim();
+    if(!url || !key){
+      document.getElementById('connectStatus').style.display = 'flex';
+      document.getElementById('connectStatus').className = 'connect-status error';
+      document.getElementById('connectStatus').querySelector('span:last-child').textContent = 'Preencha o link e a chave.';
+      return;
+    }
+    setApiCreds(url, key);
+    fetchFromApi(true);
+  });
+
+  document.getElementById('toggleManualBtn').addEventListener('click', function(){
+    var grid = document.getElementById('uploadGrid');
+    var isHidden = grid.style.display === 'none';
+    grid.style.display = isHidden ? 'grid' : 'none';
+    useApi = !isHidden ? true : false;
+    document.getElementById('toggleManualBtn').textContent = isHidden ? 'Prefiro conectar pela planilha do Google' : 'Prefiro subir os arquivos manualmente';
+  });
+
+  // Ao abrir a página, conecta sozinho: usa credenciais salvas neste
+  // navegador (se a pessoa já trocou alguma vez) ou as pré-configuradas
+  // no próprio arquivo (DEFAULT_API_URL / DEFAULT_API_KEY).
+  (function autoConnect(){
+    var savedUrl = getApiUrl();
+    var savedKey = getApiKey();
+    if(savedUrl && savedKey){
+      document.getElementById('apiUrl').value = savedUrl;
+      document.getElementById('apiKey').value = savedKey;
+      fetchFromApi(true);
+    }
+  })();
+
+  document.getElementById('dateFrom').addEventListener('change', render);
+  document.getElementById('dateTo').addEventListener('change', render);
+  document.getElementById('selColaborador').addEventListener('change', render);
+
+  document.getElementById('resetFiltros').addEventListener('click', function(){
+    document.getElementById('selColaborador').value = '__all__';
+    setDefaultDateRange();
+    document.querySelectorAll('.qr-btn[data-range]').forEach(function(b){b.classList.remove('active');});
+    statusFilter = 'ativos';
+    document.querySelectorAll('.status-btn').forEach(function(b){
+      b.classList.toggle('active', b.getAttribute('data-status') === 'ativos');
+    });
+    populateColaboradorSelect();
+    render();
+  });
+
+  document.querySelectorAll('.qr-btn[data-range]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.qr-btn[data-range]').forEach(function(b){b.classList.remove('active');});
+      btn.classList.add('active');
+      if(!dailyRecords.length) return;
+      var max = dailyRecords[dailyRecords.length-1].dateObj;
+      var range = btn.getAttribute('data-range');
+      if(range === 'all'){
+        setDefaultDateRange();
+      } else if(range === 'month'){
+        var first = new Date(max.getFullYear(), max.getMonth(), 1);
+        document.getElementById('dateFrom').value = dateKey(first);
+        document.getElementById('dateTo').value = dateKey(max);
+      } else {
+        var n = parseInt(range,10);
+        var from = new Date(max); from.setDate(from.getDate() - (n-1));
+        document.getElementById('dateFrom').value = dateKey(from);
+        document.getElementById('dateTo').value = dateKey(max);
+      }
+      render();
+    });
+  });
+
+  document.querySelectorAll('.status-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.status-btn').forEach(function(b){b.classList.remove('active');});
+      btn.classList.add('active');
+      statusFilter = btn.getAttribute('data-status');
+      populateColaboradorSelect();
+      render();
+    });
+  });
+
+  // ---------- Edit modal ----------
+  var editingFuncionario = null;
+  var editingDateKey = null;
+
+  function fmtHMfromTimeForInput(dt){
+    if(!dt) return '';
+    return String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0');
+  }
+
+  function openEditModal(funcionario, dk){
+    editingFuncionario = funcionario;
+    editingDateKey = dk;
+
+    var record = dailyRecords.filter(function(d){ return d.funcionario === funcionario && d.dateKey === dk; })[0];
+    if(!record) return;
+
+    var override = getOverride(funcionario, dk) || {};
+
+    document.getElementById('editModalTitle').textContent = nomeFor(funcionario);
+    document.getElementById('editModalSub').textContent =
+      String(record.dateObj.getDate()).padStart(2,'0') + '/' + String(record.dateObj.getMonth()+1).padStart(2,'0') + '/' + record.dateObj.getFullYear() +
+      ' · ' + DOW_NAMES[record.dow];
+
+    document.getElementById('editAbonado').checked = !!override.abonado;
+
+    // Show override value if set, otherwise show the original mark (read-only baseline) as placeholder-ish value
+    document.getElementById('editEntrada').value = override.entrada || fmtHMfromTimeForInput(record.entrada);
+    document.getElementById('editAlmoco').value = override.almoco || fmtHMfromTimeForInput(record.almoco);
+    document.getElementById('editRetorno').value = override.retorno || fmtHMfromTimeForInput(record.retorno);
+    document.getElementById('editSaida').value = override.saida || fmtHMfromTimeForInput(record.saida);
+
+    document.getElementById('editModal').classList.remove('hidden');
+  }
+
+  function closeEditModal(){
+    document.getElementById('editModal').classList.add('hidden');
+    editingFuncionario = null;
+    editingDateKey = null;
+  }
+
+  document.getElementById('editCancelBtn').addEventListener('click', closeEditModal);
+  document.getElementById('editModal').addEventListener('click', function(e){
+    if(e.target.id === 'editModal') closeEditModal();
+  });
+
+  document.getElementById('editSaveBtn').addEventListener('click', function(){
+    if(!editingFuncionario || !editingDateKey) return;
+    var data = {
+      abonado: document.getElementById('editAbonado').checked,
+      entrada: document.getElementById('editEntrada').value || '',
+      almoco: document.getElementById('editAlmoco').value || '',
+      retorno: document.getElementById('editRetorno').value || '',
+      saida: document.getElementById('editSaida').value || ''
+    };
+    setOverride(editingFuncionario, editingDateKey, data);
+    buildDailyRecords();
+    closeEditModal();
+    render();
+  });
+
+  document.getElementById('editClearBtn').addEventListener('click', function(){
+    if(!editingFuncionario || !editingDateKey) return;
+    setOverride(editingFuncionario, editingDateKey, null);
+    buildDailyRecords();
+    closeEditModal();
+    render();
+  });
+
+})();
+</script>
+</body>
+</html>
