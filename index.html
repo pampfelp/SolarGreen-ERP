@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Relatório de Ponto Eletrônico</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -207,7 +210,7 @@
     <div class="brand">
       <div>
         <h1>Relatório de ponto eletrônico</h1>
-        <div class="top-sub">Cálculo de jornada, saldo de horas e horas extras por colaborador</div>
+        <div class="top-sub">Cálculo de jornada, saldo de horas e horas extras por colaborador · <span id="appVersion"></span></div>
       </div>
     </div>
     <div style="text-align:right;">
@@ -439,6 +442,11 @@
   var DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA34xrlLTVUUNhKBIlguJT3ectH7Yus-VW1n41GcCclc5q_Yj0Di2O7g/exec';
   var DEFAULT_API_KEY = '1234';
 
+  // Identificador de versão do arquivo — ajuda a confirmar se o navegador
+  // está exibindo a versão mais recente (útil para descartar problemas de cache).
+  var APP_VERSION = '2026-06-29-3';
+  document.getElementById('appVersion').textContent = 'v' + APP_VERSION;
+
   function loadOverrides(){
     try{
       var raw = localStorage.getItem(OVERRIDES_STORAGE_KEY);
@@ -485,6 +493,7 @@
     var body = Object.assign({ action: action, chave: key }, extraBody || {});
     return fetch(url, {
       method: 'POST',
+      cache: 'no-store',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(body)
     }).then(function(resp){ return resp.json(); });
@@ -781,11 +790,35 @@
       if(globalMax === null || r.dt > globalMax) globalMax = r.dt;
     });
 
+    // O intervalo de dias e a lista de funcionários não podem se basear só
+    // nas marcações de ponto: um dia abonado ou editado manualmente pode
+    // não ter nenhuma marcação original (ex: falta total), e ainda assim
+    // precisa aparecer no relatório. Por isso, também consideramos as
+    // datas e funcionários presentes nos overrides.
+    var funcionariosSet = {};
+    pontoRecords.forEach(function(r){ funcionariosSet[r.funcionario] = true; });
+
+    Object.keys(overrides).forEach(function(key){
+      var sep = key.lastIndexOf('|');
+      if(sep === -1) return;
+      var funcionario = key.substring(0, sep);
+      var dk = key.substring(sep + 1);
+      funcionariosSet[funcionario] = true;
+
+      var parts = dk.split('-');
+      if(parts.length !== 3) return;
+      var y = parseInt(parts[0], 10), mo = parseInt(parts[1], 10) - 1, da = parseInt(parts[2], 10);
+      var dt = new Date(y, mo, da);
+      if(isNaN(dt.getTime())) return;
+      if(globalMin === null || dt < globalMin) globalMin = dt;
+      if(globalMax === null || dt > globalMax) globalMax = dt;
+    });
+
     if(globalMin === null) return;
     var rangeStart = new Date(globalMin.getFullYear(), globalMin.getMonth(), globalMin.getDate());
     var rangeEnd = new Date(globalMax.getFullYear(), globalMax.getMonth(), globalMax.getDate());
 
-    var allFuncionarios = Array.from(new Set(pontoRecords.map(function(r){ return r.funcionario; })));
+    var allFuncionarios = Object.keys(funcionariosSet);
 
     allFuncionarios.forEach(function(funcionario){
       var cursor = new Date(rangeStart.getTime());
