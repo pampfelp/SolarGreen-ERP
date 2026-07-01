@@ -850,9 +850,9 @@
         <div class="arrow">→</div>
       </div>
       <div class="meta-step">
-        <div class="tag">Meta diária</div>
+        <div class="tag">Meta diária individual</div>
         <div class="num" id="metaDiaria">R$ 0,00</div>
-        <div class="sub" id="metaDiariaSub">÷ dias úteis do mês</div>
+        <div class="sub" id="metaDiariaSub">por vendedor, ÷ dias úteis do mês</div>
         <div class="arrow">→</div>
       </div>
       <div class="meta-step highlight">
@@ -2569,7 +2569,7 @@
     document.getElementById('metaIndividualSub').textContent = '÷ ' + ctx.nVendedoresAtivos + ' vendedor(es) ativo(s)';
 
     document.getElementById('metaDiaria').textContent = fmtMoney(ctx.metaDiariaPorVendedor);
-    document.getElementById('metaDiariaSub').textContent = '÷ ' + ctx.diasUteisMes + ' dias úteis no mês';
+    document.getElementById('metaDiariaSub').textContent = 'meta individual ÷ ' + ctx.diasUteisMes + ' dias úteis no mês';
 
     var metaAteHoje = vendedorSel === '__all__' ? ctx.metaAteHojeEmpresa : ctx.metaAteHojeIndividual;
     document.getElementById('metaAteHoje').textContent = fmtMoney(metaAteHoje);
