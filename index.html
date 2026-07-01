@@ -915,7 +915,7 @@
     <!-- ===== TICKET MÉDIO POR VENDEDOR ===== -->
     <div class="section-head">
       <h2>Ticket médio por <span>vendedor</span></h2>
-      <div class="hint">vendas necessárias considera a meta individual de cada um</div>
+      <div class="hint">vendas necessárias considera a meta individual de cada um · ritmo até hoje compara com a meta acumulada nos dias úteis já decorridos</div>
     </div>
     <div class="table-wrap">
       <table>
@@ -924,6 +924,8 @@
             <th class="sortable" data-sort="vendedor">Vendedor<span class="arrow-sort">▾</span></th>
             <th class="num sortable" data-sort="meta">Meta<span class="arrow-sort">▾</span></th>
             <th class="num sortable" data-sort="faturado">Faturado<span class="arrow-sort">▾</span></th>
+            <th class="num sortable" data-sort="metaAteHoje">Meta até hoje<span class="arrow-sort">▾</span></th>
+            <th class="num sortable" data-sort="ritmo">Ritmo até hoje<span class="arrow-sort">▾</span></th>
             <th class="num sortable" data-sort="vendas">Vendas feitas<span class="arrow-sort">▾</span></th>
             <th class="num sortable" data-sort="ticket">Ticket médio<span class="arrow-sort">▾</span></th>
             <th class="num sortable" data-sort="necessarias">Vendas p/ meta<span class="arrow-sort">▾</span></th>
@@ -2409,7 +2411,7 @@
         var cmp = a.nome.localeCompare(b.nome,'pt-BR');
         return dir === 'asc' ? cmp : -cmp;
       }
-      var fieldMap = { meta:'meta', faturado:'faturado', vendas:'vendas', ticket:'ticket', necessarias:'necessarias', progresso:'progresso' };
+      var fieldMap = { meta:'meta', faturado:'faturado', metaAteHoje:'metaAteHoje', ritmo:'ritmo', vendas:'vendas', ticket:'ticket', necessarias:'necessarias', progresso:'progresso' };
       var key = fieldMap[col] || 'faturado';
       var av = a[key], bv = b[key];
       if(key === 'necessarias'){
@@ -2643,8 +2645,17 @@
       var restanteV = Math.max(metaIndV - faturadoV, 0);
       var necessariasV = ticketV > 0 ? Math.ceil(restanteV / ticketV) : (restanteV > 0 ? null : 0);
       var pctV = metaIndV > 0 ? Math.min((faturadoV/metaIndV)*100,100) : 0;
+      // Meta acumulada até hoje: mesma lógica do card "Meta até hoje" no
+      // topo da tela, mas aplicada individualmente. Ela cresce um dia útil
+      // de cada vez (ex: 371,74 no dia 1, 743,48 no dia 2, 1.115,22 no dia 3...)
+      // e o "ritmo" é a diferença entre o que o vendedor já faturou no
+      // período e essa meta acumulada: positivo = à frente do ritmo,
+      // negativo = atrás do ritmo necessário para bater a meta do mês.
+      var metaAteHojeV = ctx.metaAteHojeIndividual;
+      var ritmoV = faturadoV - metaAteHojeV;
       return {
         id: id, nome: nomeFor(id), meta: metaIndV, faturado: faturadoV,
+        metaAteHoje: metaAteHojeV, ritmo: ritmoV,
         vendas: nV, ticket: ticketV, ticketProjetado: ticketVEhProjetado,
         necessarias: necessariasV === null ? -1 : necessariasV,
         progresso: pctV
@@ -2655,17 +2666,20 @@
 
     var rowsHtml = '';
     linhasVendedores.forEach(function(row){
+      var ritmoClass = row.ritmo > 0.4 ? 'pos' : (row.ritmo < -0.4 ? 'neg' : 'zero');
       rowsHtml += '<tr>';
       rowsHtml += '<td class="person-name">' + escapeHtml(row.nome) + '</td>';
       rowsHtml += '<td class="num">' + fmtMoney(row.meta) + '</td>';
       rowsHtml += '<td class="num">' + fmtMoney(row.faturado) + '</td>';
+      rowsHtml += '<td class="num">' + fmtMoney(row.metaAteHoje) + '</td>';
+      rowsHtml += '<td class="num bal ' + ritmoClass + '">' + (row.ritmo >= 0 ? '+' : '-') + fmtMoney(Math.abs(row.ritmo)) + '</td>';
       rowsHtml += '<td class="num">' + row.vendas + '</td>';
       rowsHtml += '<td class="num">' + fmtMoney(row.ticket) + (row.ticketProjetado ? ' <span title="Projetado pela média histórica — sem vendas no período filtrado" style="color:var(--ink-faint);cursor:help;">*</span>' : '') + '</td>';
       rowsHtml += '<td class="num">' + (row.necessarias === -1 ? '—' : row.necessarias) + '</td>';
       rowsHtml += '<td><span class="mini-track"><span class="mini-fill" style="width:' + row.progresso.toFixed(0) + '%;"></span></span><span style="font-size:11.5px;color:var(--ink-soft);">' + row.progresso.toFixed(0) + '%</span></td>';
       rowsHtml += '</tr>';
     });
-    document.getElementById('tbodyVendedores').innerHTML = rowsHtml || '<tr><td colspan="7" style="text-align:center;color:var(--ink-faint);padding:30px;">Nenhum vendedor no filtro atual.</td></tr>';
+    document.getElementById('tbodyVendedores').innerHTML = rowsHtml || '<tr><td colspan="9" style="text-align:center;color:var(--ink-faint);padding:30px;">Nenhum vendedor no filtro atual.</td></tr>';
 
     var totContatos = filtered.relatorios.reduce(function(s,r){return s+r.contatos;},0);
     var totConversas = filtered.relatorios.reduce(function(s,r){return s+r.conversas;},0);
