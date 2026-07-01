@@ -7,6 +7,9 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Solar Green · Painéis</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="apple-touch-icon" href="favicon-180.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -476,15 +479,17 @@
   .chart-card .chart-sub{ font-size:11.5px; color:var(--ink-faint); }
   .chart-wrap{ position:relative; height:180px; width:100%; }
   .chart-bars{ display:flex; align-items:flex-end; height:100%; gap:3px; overflow-x:auto; padding-bottom:22px; }
-  .chart-col{ display:flex; flex-direction:column; align-items:center; flex:1; min-width:28px; max-width:52px; height:100%; justify-content:flex-end; position:relative; }
-  .chart-col .bar-fill{ width:100%; background:var(--accent); border-radius:4px 4px 0 0; transition:height .3s; min-height:2px; position:relative; cursor:pointer; }
-  .chart-col .bar-fill:hover{ background:var(--accent-deep); }
-  .chart-col .bar-fill .tooltip{
-    display:none; position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%);
-    background:#1E1E1E; color:#fff; font-size:11px; padding:4px 8px; border-radius:5px;
-    white-space:nowrap; pointer-events:none; z-index:10;
+  .chart-col{ display:flex; flex-direction:column; align-items:center; flex:1; min-width:28px; max-width:52px; height:100%; justify-content:flex-end; position:relative; cursor:pointer; user-select:none; }
+  .chart-col .bar-fill{ width:100%; background:var(--accent); border-radius:4px 4px 0 0; transition:height .3s,background .12s; min-height:2px; position:relative; }
+  .chart-col:hover .bar-fill{ background:var(--accent-deep); }
+  .chart-col.selected .bar-fill{ background:#003122; }
+  .chart-col.selected .bar-count{ color:#003122; }
+  .chart-col.selected .bar-label{ color:#003122; font-weight:700; }
+  .chart-col .bar-fill .bar-count{
+    position:absolute; bottom:calc(100% + 4px); left:50%; transform:translateX(-50%);
+    font-family:var(--sans); font-size:11px; font-weight:700; color:var(--ink);
+    white-space:nowrap; pointer-events:none;
   }
-  .chart-col .bar-fill:hover .tooltip{ display:block; }
   .chart-col .bar-label{ font-size:9px; color:var(--ink-faint); margin-top:4px; text-align:center; position:absolute; bottom:0; }
   .chart-empty{ display:flex; align-items:center; justify-content:center; height:100%; color:var(--ink-faint); font-size:13px; }
 
@@ -1220,8 +1225,10 @@
           <span class="stage-divider">·</span>
           <button class="stage-pill" data-stage="Novo Lead">Novo Lead</button>
           <button class="stage-pill" data-stage="Tentativa de Contato">Tentativa de Contato</button>
+          <button class="stage-pill" data-stage="Retomar Contato">Retomar Contato</button>
           <button class="stage-pill" data-stage="Gerar Proposta">Gerar Proposta</button>
           <button class="stage-pill" data-stage="Negociação">Negociação</button>
+          <button class="stage-pill" data-stage="Serviço Agendado">Serviço Agendado</button>
           <span class="stage-divider">·</span>
           <button class="stage-pill stage-won" data-stage="Ganho">Ganho</button>
           <button class="stage-pill stage-lost" data-stage="Perdido">Perdido</button>
@@ -1270,6 +1277,7 @@
           <div class="chart-empty">Nenhum dado no período</div>
         </div>
       </div>
+      <div style="font-size:11px;color:var(--ink-faint);margin-top:10px;">Clique num dia pra filtrar só ele · segure <strong>Shift</strong> e clique em outro dia pra selecionar o período entre os dois</div>
     </div>
 
     <!-- Tabela de leads -->
@@ -1281,12 +1289,13 @@
       <table>
         <thead>
           <tr>
-            <th>Data</th>
-            <th>Vendedor</th>
-            <th>Etapa</th>
-            <th>Observação</th>
-            <th class="num">Valor</th>
-            <th>Motivo perda</th>
+            <th class="sortable" data-sort="data">Data<span class="arrow-sort">▾</span></th>
+            <th class="sortable" data-sort="cliente">Cliente<span class="arrow-sort">▾</span></th>
+            <th class="sortable" data-sort="vendedor">Vendedor<span class="arrow-sort">▾</span></th>
+            <th class="sortable" data-sort="etapa">Etapa<span class="arrow-sort">▾</span></th>
+            <th class="sortable" data-sort="obs">Observação<span class="arrow-sort">▾</span></th>
+            <th class="num sortable" data-sort="valor">Valor<span class="arrow-sort">▾</span></th>
+            <th class="sortable" data-sort="motivoPerda">Motivo perda<span class="arrow-sort">▾</span></th>
           </tr>
         </thead>
         <tbody id="f-tbody"></tbody>
@@ -2912,7 +2921,7 @@
   });
 
   function updateSortHeaders(){
-    document.querySelectorAll('th.sortable').forEach(function(th){
+    document.querySelectorAll('#view-vendas th.sortable').forEach(function(th){
       var col = th.getAttribute('data-sort');
       th.classList.toggle('sort-active', col === sortState.col);
       var arrow = th.querySelector('.arrow-sort');
@@ -2924,7 +2933,7 @@
     });
   }
 
-  document.querySelectorAll('th.sortable').forEach(function(th){
+  document.querySelectorAll('#view-vendas th.sortable').forEach(function(th){
     th.addEventListener('click', function(){
       var col = th.getAttribute('data-sort');
       if(sortState.col === col){
@@ -2948,7 +2957,9 @@
 
   var funilRecords  = [];
   var vendedoresMap = {};
+  var clientesMap   = {};
   var _initialized  = false;
+  var sortState     = { col: 'data', dir: 'desc' };
 
   var DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA34xrlLTVUUNhKBIlguJT3ectH7Yus-VW1n41GcCclc5q_Yj0Di2O7g/exec';
   var DEFAULT_API_KEY = '1234';
@@ -2999,22 +3010,66 @@
     return (v && (v.Nome||v.nome)) || id.slice(0,8);
   }
 
+  function nomeClienteFor(id){
+    if(!id) return '—';
+    var c = clientesMap[id];
+    return (c && (c['Nome Razao Social'] || c.Nome)) || id.slice(0,8);
+  }
+
+  // Ordena a lista de leads de acordo com sortState.col/dir. Nome de
+  // cliente e vendedor são resolvidos na hora da comparação (mesmo texto
+  // que aparece na tabela), não pelo id cru.
+  function sortLeadRows(rows){
+    var col = sortState.col, dir = sortState.dir;
+    var mult = dir === 'asc' ? 1 : -1;
+    rows.sort(function(a,b){
+      var av, bv;
+      switch(col){
+        case 'data':        av = a.dt.getTime();               bv = b.dt.getTime();               break;
+        case 'cliente':     av = nomeClienteFor(a.idCliente);   bv = nomeClienteFor(b.idCliente);   break;
+        case 'vendedor':    av = nomeFor(a.idVendedor);         bv = nomeFor(b.idVendedor);         break;
+        case 'etapa':       av = a.etapa;                       bv = b.etapa;                       break;
+        case 'obs':         av = a.obs;                         bv = b.obs;                         break;
+        case 'valor':       av = a.valor;                       bv = b.valor;                       break;
+        case 'motivoPerda': av = a.motivoPerda;                 bv = b.motivoPerda;                 break;
+        default:            av = a.dt.getTime();                bv = b.dt.getTime();
+      }
+      if(typeof av === 'string'){
+        return mult * av.localeCompare(bv, 'pt-BR');
+      }
+      return mult * (av - bv);
+    });
+  }
+
   function processFunil(list){
     return list.map(function(o){
       var dt = parseBRDate(o.DataCriacao || o['Data Criacao'] || o.Data || '');
       return {
-        id:         o.IdFunil,
+        id:         o.IdFunil || o.IdOportunidade,
         idCliente:  o.IdCliente,
         idVendedor: o.IdVendedor,
         idServico:  o.IdServico,
         etapa:      (o.Etapa||'').trim(),
-        obs:        (o.Observacao||o.Observação||'').trim(),
+        // A planilha real usa "Observacoes" (plural); mantém os outros
+        // nomes como sinônimos de segurança caso a coluna mude de novo.
+        obs:        (o.Observacoes||o.Observacao||o.Observação||'').trim(),
         motivoPerda:(o.MotivoPerda||o['Motivo Perda']||'').trim(),
         dt:         dt,
         dateKey:    dt ? dateKey(dt) : null,
-        valor:      parseFloat(String(o.Valor||'0').replace(',','.')) || 0
+        // A planilha real usa "Valor Estimado", não "Valor".
+        valor:      parseFloat(String((o['Valor Estimado'] !== undefined && o['Valor Estimado'] !== '') ? o['Valor Estimado'] : (o.Valor || '0')).replace(',','.')) || 0
       };
     }).filter(function(r){ return !!r.dt; });
+  }
+
+  function updateSortHeaders(){
+    document.querySelectorAll('#view-funil th.sortable').forEach(function(th){
+      var col = th.getAttribute('data-sort');
+      th.classList.toggle('sort-active', col === sortState.col);
+      var arrow = th.querySelector('.arrow-sort');
+      if(!arrow) return;
+      arrow.textContent = (col === sortState.col) ? (sortState.dir === 'asc' ? '▴' : '▾') : '▾';
+    });
   }
 
   function getEtapaAtiva(){
@@ -3042,7 +3097,7 @@
     return { allPeriod:allPeriod, byStage:byStage };
   }
 
-  function render(){
+  function refreshKpisAndTable(){
     var f = getFiltered();
     var etapa = getEtapaAtiva();
     var etapaLabel = etapa === '__all__' ? 'todas as etapas' : etapa;
@@ -3067,15 +3122,15 @@
     else if(etapa === 'Perdido') kpiCard.classList.add('lost');
     else kpiCard.classList.add('accent');
 
-    renderChart(f.allPeriod);
-
-    var sorted = f.byStage.slice().sort(function(a,b){ return b.dt - a.dt; });
+    var sorted = f.byStage.slice();
+    sortLeadRows(sorted);
     var rows = '';
     sorted.forEach(function(r){
       var badgeClass = r.etapa==='Ganho' ? 'ganho' : (r.etapa==='Perdido' ? 'perdido' : 'ativo');
       rows +=
         '<tr>' +
         '<td>' + fmtDateBR(r.dt) + '</td>' +
+        '<td>' + escapeHtml(nomeClienteFor(r.idCliente)) + '</td>' +
         '<td>' + escapeHtml(nomeFor(r.idVendedor)) + '</td>' +
         '<td><span class="stage-badge ' + badgeClass + '">' + escapeHtml(r.etapa) + '</span></td>' +
         '<td class="obs-cell" title="' + escapeHtml(r.obs) + '">' + escapeHtml(r.obs||'—') + '</td>' +
@@ -3084,7 +3139,7 @@
         '</tr>';
     });
     document.getElementById('f-tbody').innerHTML = rows ||
-      '<tr><td colspan="6" style="text-align:center;color:var(--ink-faint);padding:30px;">Nenhum lead nesta etapa/período.</td></tr>';
+      '<tr><td colspan="7" style="text-align:center;color:var(--ink-faint);padding:30px;">Nenhum lead nesta etapa/período.</td></tr>';
 
     document.getElementById('f-tableTitle').textContent = etapa === '__all__' ? 'no período' : '— ' + etapa;
     document.getElementById('f-tableHint').textContent = count + ' lead(s) encontrado(s)';
@@ -3093,6 +3148,17 @@
     document.getElementById('f-lastUpdate').textContent =
       'Atualizado em ' + d.toLocaleDateString('pt-BR') +
       ' às ' + d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+
+    return f;
+  }
+
+  function render(){
+    // Qualquer atualização "cheia" (filtro de data digitado, atalho,
+    // vendedor, etapa, limpar filtros) reinicia a âncora de seleção do
+    // gráfico — só o clique direto nas colunas deve continuar de onde parou.
+    chartAnchorDay = null;
+    var f = refreshKpisAndTable();
+    renderChart(f.allPeriod);
   }
 
   function renderChart(records){
@@ -3124,19 +3190,73 @@
 
     var html = '';
     days.forEach(function(day){
-      var pct = Math.round((day.count / maxVal) * 100);
+      // Limita a 85% (em vez de 100%) pra sobrar espaço em cima pro
+      // número do lead ficar visível mesmo no dia com mais entradas.
+      var pct = Math.round((day.count / maxVal) * 85);
       html +=
-        '<div class="chart-col">' +
+        '<div class="chart-col" data-day="' + day.k + '" title="Clique para filtrar este dia · Shift+clique para selecionar um período">' +
         '<div class="bar-fill" style="height:' + (pct||1) + '%;">' +
-        '<div class="tooltip">' + day.label + ': ' + day.count + ' lead(s)</div>' +
+        (day.count > 0 ? '<span class="bar-count">' + day.count + '</span>' : '') +
         '</div>' +
         '<span class="bar-label">' + day.label + '</span>' +
         '</div>';
     });
     container.innerHTML = html;
 
+    container.querySelectorAll('.chart-col').forEach(function(col){
+      col.addEventListener('click', function(e){
+        var k = col.getAttribute('data-day');
+        if(!k) return;
+        selectChartDay(k, e.shiftKey);
+      });
+    });
+
+    highlightChartSelection();
+
     document.getElementById('f-chartSub').textContent =
       days.length + ' dia(s) · ' + records.length + ' lead(s) no período';
+  }
+
+  // Guarda o último dia clicado (sem shift) como âncora, pra permitir
+  // estender a seleção com shift+clique em qualquer outra coluna, do
+  // jeito que planilhas/exploradores de arquivo fazem.
+  var chartAnchorDay = null;
+
+  function selectChartDay(dayKey, isShiftClick){
+    var fromInput = document.getElementById('f-dateFrom');
+    var toInput   = document.getElementById('f-dateTo');
+
+    if(isShiftClick && chartAnchorDay){
+      var lo = dayKey < chartAnchorDay ? dayKey : chartAnchorDay;
+      var hi = dayKey < chartAnchorDay ? chartAnchorDay : dayKey;
+      fromInput.value = lo;
+      toInput.value = hi;
+    } else {
+      chartAnchorDay = dayKey;
+      fromInput.value = dayKey;
+      toInput.value = dayKey;
+    }
+
+    // Selecionar pelo gráfico é um período personalizado — tira o
+    // destaque dos atalhos ("Este mês", "7 dias" etc.), já que eles não
+    // representam mais o período que está de fato filtrado.
+    document.querySelectorAll('#view-funil .qr-btn[data-frange]').forEach(function(b){ b.classList.remove('active'); });
+
+    // Só atualiza KPIs e a tabela — o gráfico continua com as mesmas
+    // colunas visíveis, pra dar pra continuar clicando/shift+clicando
+    // nos outros dias sem o gráfico "sumir" com eles.
+    refreshKpisAndTable();
+    highlightChartSelection();
+  }
+
+  function highlightChartSelection(){
+    var from = document.getElementById('f-dateFrom').value;
+    var to   = document.getElementById('f-dateTo').value;
+    document.querySelectorAll('#f-chartBars .chart-col').forEach(function(col){
+      var k = col.getAttribute('data-day');
+      var isSel = !!(k && from && to && k >= from && k <= to);
+      col.classList.toggle('selected', isSel);
+    });
   }
 
   function populateVendedorSelect(){
@@ -3189,6 +3309,11 @@
         if(v.IdVendedor) vendedoresMap[v.IdVendedor] = v;
       });
 
+      clientesMap = {};
+      (resp.clientes||[]).forEach(function(c){
+        if(c.IdCliente) clientesMap[c.IdCliente] = c;
+      });
+
       funilRecords = processFunil(resp.funil||[]);
       populateVendedorSelect();
       setDefaultRange();
@@ -3232,6 +3357,23 @@
       document.querySelectorAll('.qr-btn[data-frange]').forEach(function(b){ b.classList.remove('active'); });
       render();
     });
+
+    document.querySelectorAll('#view-funil th.sortable').forEach(function(th){
+      th.addEventListener('click', function(){
+        var col = th.getAttribute('data-sort');
+        if(sortState.col === col){
+          sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+        } else {
+          sortState.col = col;
+          // Texto começa ascendente (A→Z), números/data começam
+          // descendente (mais recente/maior primeiro).
+          sortState.dir = (col === 'cliente' || col === 'vendedor' || col === 'etapa' || col === 'obs' || col === 'motivoPerda') ? 'asc' : 'desc';
+        }
+        updateSortHeaders();
+        render();
+      });
+    });
+    updateSortHeaders();
 
     document.querySelectorAll('.stage-pill').forEach(function(pill){
       pill.addEventListener('click', function(){
