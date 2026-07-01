@@ -64,7 +64,7 @@
   .sidebar .foot{margin-top:auto;padding:14px 22px 0;font-size:10px;color:rgba(255,255,255,0.3);border-top:1px solid rgba(255,255,255,0.1);font-family:var(--mono);}
 
   /* ── Layout principal ── */
-  .app{flex:1;min-width:0;max-width:1200px;margin:0 auto;padding:36px 30px 100px;}
+  .app{flex:1;min-width:0;margin:0;padding:36px 40px 100px;}
 
   /* ── Header ── */
   header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;border-bottom:2px solid #003122;padding-bottom:20px;margin-bottom:32px;}
@@ -1146,6 +1146,165 @@
 </div>
 </div>
 
+<!-- ═══ VIEW: FUNIL ═══ -->
+<div id="view-funil" class="view">
+<div class="app">
+
+  <header class="top">
+    <div>
+      <h1>Funil de <span>Vendas</span></h1>
+      <div class="top-sub">Acompanhamento de leads por etapa · <span id="f-appVersion"></span></div>
+    </div>
+    <div style="text-align:right;">
+      <div class="clock" id="f-lastUpdate"></div>
+      <div class="sync-pill" id="f-syncPill" style="display:none;"><span class="dot"></span><span id="f-syncPillText">Sincronizado</span></div>
+    </div>
+  </header>
+
+  <div class="connect-bar" id="f-connectBar" style="display:none;">
+    <span class="dot"></span>
+    <span>Conectado à planilha</span>
+    <button class="connect-bar-link" id="f-showConnectFormBtn">trocar conexão</button>
+  </div>
+
+  <div class="connect-card" id="f-connectCard">
+    <h2>Conectar à planilha do Google Sheets</h2>
+    <div class="sub">Usa as mesmas credenciais das outras abas.</div>
+    <div class="connect-row">
+      <div class="connect-field">
+        <label for="f-apiUrl">Link da web app</label>
+        <input type="text" id="f-apiUrl" placeholder="https://script.google.com/macros/s/.../exec">
+      </div>
+      <div class="connect-field" style="max-width:220px;">
+        <label for="f-apiKey">Chave secreta</label>
+        <input type="password" id="f-apiKey" placeholder="sua chave">
+      </div>
+      <button class="connect-btn" id="f-connectBtn">Conectar</button>
+    </div>
+    <div class="connect-status" id="f-connectStatus" style="display:none;"><span class="dot"></span><span id="f-connectStatusText"></span></div>
+  </div>
+
+  <div id="f-mainContent" style="display:none;">
+
+    <!-- Filtros -->
+    <div class="filters" style="align-items:flex-start;">
+      <div class="field">
+        <label for="f-dateFrom">Período de</label>
+        <input type="date" id="f-dateFrom">
+      </div>
+      <div class="field">
+        <label for="f-dateTo">até</label>
+        <input type="date" id="f-dateTo">
+      </div>
+      <div class="field">
+        <label>Atalhos</label>
+        <div class="quickranges">
+          <button class="qr-btn" data-frange="month">Este mês</button>
+          <button class="qr-btn" data-frange="7">7 dias</button>
+          <button class="qr-btn" data-frange="30">30 dias</button>
+          <button class="qr-btn" data-frange="all">Tudo</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="f-selVendedor">Vendedor</label>
+        <select id="f-selVendedor">
+          <option value="__all__">Todos os vendedores</option>
+        </select>
+      </div>
+      <div class="stage-filter-group">
+        <label>Etapa</label>
+        <div class="stage-pills">
+          <button class="stage-pill active" data-stage="__all__">Todas</button>
+          <span class="stage-divider">·</span>
+          <button class="stage-pill" data-stage="Novo Lead">Novo Lead</button>
+          <button class="stage-pill" data-stage="Tentativa de Contato">Tentativa de Contato</button>
+          <button class="stage-pill" data-stage="Gerar Proposta">Gerar Proposta</button>
+          <button class="stage-pill" data-stage="Negociação">Negociação</button>
+          <span class="stage-divider">·</span>
+          <button class="stage-pill stage-won" data-stage="Ganho">Ganho</button>
+          <button class="stage-pill stage-lost" data-stage="Perdido">Perdido</button>
+        </div>
+      </div>
+      <div class="spacer"></div>
+      <button class="reset-btn" id="f-resetFiltros">Limpar filtros</button>
+    </div>
+
+    <!-- KPIs -->
+    <div class="funil-kpis">
+      <div class="funil-kpi accent" id="f-kpiEtapaCard">
+        <div class="tag">Leads na etapa</div>
+        <div class="num" id="f-kpiLeads">0</div>
+        <div class="sub" id="f-kpiLeadsSub">no período filtrado</div>
+        <div class="bar"></div>
+      </div>
+      <div class="funil-kpi">
+        <div class="tag">Valor estimado</div>
+        <div class="num" id="f-kpiValor">R$ 0,00</div>
+        <div class="sub" id="f-kpiValorSub">soma dos leads na etapa</div>
+        <div class="bar"></div>
+      </div>
+      <div class="funil-kpi">
+        <div class="tag">% do total de leads</div>
+        <div class="num" id="f-kpiPct">0%</div>
+        <div class="sub" id="f-kpiPctSub">em relação ao período</div>
+        <div class="bar"></div>
+      </div>
+      <div class="funil-kpi">
+        <div class="tag">Ticket médio da etapa</div>
+        <div class="num" id="f-kpiTicket">R$ 0,00</div>
+        <div class="sub" id="f-kpiTicketSub">valor ÷ leads na etapa</div>
+        <div class="bar"></div>
+      </div>
+    </div>
+
+    <!-- Gráfico -->
+    <div class="chart-card">
+      <div class="chart-head">
+        <span class="chart-title">Entradas no funil por dia</span>
+        <span class="chart-sub" id="f-chartSub">data de criação do lead, todos os leads do período</span>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-bars" id="f-chartBars">
+          <div class="chart-empty">Nenhum dado no período</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabela de leads -->
+    <div class="section-head">
+      <h2>Leads <span id="f-tableTitle">no período</span></h2>
+      <div class="hint" id="f-tableHint">ordenados por data de criação (mais recente primeiro)</div>
+    </div>
+    <div class="funil-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Vendedor</th>
+            <th>Etapa</th>
+            <th>Observação</th>
+            <th class="num">Valor</th>
+            <th>Motivo perda</th>
+          </tr>
+        </thead>
+        <tbody id="f-tbody"></tbody>
+      </table>
+    </div>
+
+    <footer class="note" style="margin-top:18px;">
+      Leads filtrados pela DataCriacao dentro do período selecionado. O gráfico de entradas por dia considera todos os leads do período independente da etapa filtrada, para mostrar o ritmo de prospecção. Os KPIs e a tabela refletem apenas a etapa selecionada.
+    </footer>
+
+  </div>
+
+  <div class="empty" id="f-emptyState">
+    <div class="glyph">◈</div>
+    <p>Conectando à planilha para carregar o funil de vendas…</p>
+  </div>
+
+</div>
+</div>
+
 <script>
 // ════ PONTO ELETRÔNICO ════
 (function(){
@@ -1465,9 +1624,6 @@
       if(workedMinutes < 0) workedMinutes = 0;
     }
 
-    // Dias úteis (seg-sex) têm meta de 8h. Fins de semana e dias abonados
-    // não têm meta, mas se houver marcação, o que for trabalhado entra
-    // como saldo positivo (crédito puro, sem comparação com meta).
     var noTargetDay = isWeekend || isAbonado;
     var targetMinutes = noTargetDay ? 0 : 480;
     var dayBalance;
@@ -1519,11 +1675,6 @@
       if(globalMax === null || r.dt > globalMax) globalMax = r.dt;
     });
 
-    // O intervalo de dias e a lista de funcionários não podem se basear só
-    // nas marcações de ponto: um dia abonado ou editado manualmente pode
-    // não ter nenhuma marcação original (ex: falta total), e ainda assim
-    // precisa aparecer no relatório. Por isso, também consideramos as
-    // datas e funcionários presentes nos overrides.
     var funcionariosSet = {};
     pontoRecords.forEach(function(r){ funcionariosSet[r.funcionario] = true; });
 
@@ -1577,15 +1728,13 @@
     return (v && v.status) || '';
   }
 
-  // Considera "ativo" quando o Status não indica explicitamente inatividade.
-  // Cadastros sem essa coluna preenchida continuam aparecendo (não somem do relatório).
   function isAtivo(idVendedor){
     var s = statusFor(idVendedor).toLowerCase();
     if(!s) return true;
     return s.indexOf('inativ') === -1 && s.indexOf('demit') === -1 && s.indexOf('desligad') === -1;
   }
 
-  var statusFilter = 'ativos'; // 'ativos' ou 'todos'
+  var statusFilter = 'ativos';
 
   function populateColaboradorSelect(){
     var sel = document.getElementById('selColaborador');
@@ -1602,7 +1751,6 @@
       opt.textContent = nomeFor(id) + (!isAtivo(id) ? ' (inativo)' : '');
       sel.appendChild(opt);
     });
-    // Mantém a seleção anterior se ela ainda for válida nesta lista; senão volta para "Todos".
     sel.value = ids.indexOf(currentValue) !== -1 || currentValue === '__all__' ? currentValue : '__all__';
   }
 
@@ -1635,7 +1783,6 @@
 
     document.getElementById('colColaborador').style.display = showingAll ? '' : 'none';
 
-    // running balance per person, in chronological order
     var runningByPerson = {};
     var rowsHtml = '';
     var totalWorked = 0, totalTarget = 0, incompleteCount = 0, faltaCount = 0;
@@ -1720,8 +1867,6 @@
     if(totalBalance > 0.4) balCard.classList.add('balance-pos');
     else if(totalBalance < -0.4) balCard.classList.add('balance-neg');
 
-    // Percentual de desconto: proporção do saldo negativo (faltas) sobre o total de horas devidas.
-    // Ex.: devia 136:00, saldo -42:33 -> 42:33 ÷ 136:00 ≈ 31,29% do esperado não cumprido.
     var discountPct = 0;
     if(totalBalance < -0.4 && totalTarget > 0){
       discountPct = (Math.abs(totalBalance) / totalTarget) * 100;
@@ -1745,7 +1890,6 @@
       ? 'de ' + nWeekdays + ' dia(s) útil(eis) no período'
       : 'nenhuma falta no período';
 
-    // person summary chips, only when "todos" selected and more than 1 person
     var summaryEl = document.getElementById('personSummary');
     if(showingAll && nPeople > 1){
       var perPerson = {};
@@ -1911,9 +2055,6 @@
     document.getElementById('toggleManualBtn').textContent = isHidden ? 'Prefiro conectar pela planilha do Google' : 'Prefiro subir os arquivos manualmente';
   });
 
-  // Ao abrir a página, conecta sozinho: usa credenciais salvas neste
-  // navegador (se a pessoa já trocou alguma vez) ou as pré-configuradas
-  // no próprio arquivo (DEFAULT_API_URL / DEFAULT_API_KEY).
   (function autoConnect(){
     var savedUrl = getApiUrl();
     var savedKey = getApiKey();
@@ -1973,7 +2114,6 @@
     });
   });
 
-  // ---------- Edit modal ----------
   var editingFuncionario = null;
   var editingDateKey = null;
 
@@ -1998,7 +2138,6 @@
 
     document.getElementById('editAbonado').checked = !!override.abonado;
 
-    // Show override value if set, otherwise show the original mark (read-only baseline) as placeholder-ish value
     document.getElementById('editEntrada').value = override.entrada || fmtHMfromTimeForInput(record.entrada);
     document.getElementById('editAlmoco').value = override.almoco || fmtHMfromTimeForInput(record.almoco);
     document.getElementById('editRetorno').value = override.retorno || fmtHMfromTimeForInput(record.retorno);
@@ -2051,8 +2190,8 @@
 (function(){
 
   var vendedoresMap = {};
-  var sortState = { col: 'faturado', dir: 'desc' }; // ordenação atual da tabela de vendedores
-  var vendedoresAtivosVenda = []; // Tipo=Vendedor & Status=Ativo
+  var sortState = { col: 'faturado', dir: 'desc' };
+  var vendedoresAtivosVenda = [];
   var vendasRecords = [];
   var metasRecords = [];
   var relatoriosRecords = [];
@@ -2064,8 +2203,6 @@
   var DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA34xrlLTVUUNhKBIlguJT3ectH7Yus-VW1n41GcCclc5q_Yj0Di2O7g/exec';
   var DEFAULT_API_KEY = '1234';
 
-  // Custos lançados com este IdVenda na aba Custos_da_Venda são custos
-  // de escritório (não ligados a uma venda real), não custos de operação.
   var ID_VENDA_CUSTOS_ESCRITORIO = '2b45b472';
 
   var APP_VERSION = '2026-06-30-4';
@@ -2115,16 +2252,12 @@
   }
   setUpdateClock();
 
-  // ---------- Parsing helpers ----------
-
   function parseBRNumber(val){
     if(val === '' || val === null || val === undefined) return 0;
     if(typeof val === 'number') return val;
     var str = String(val).trim();
     if(!str) return 0;
-    // remove "R$", espaços; troca milhar "." e decimal "," para padrão JS
     str = str.replace(/R\$\s?/g,'').trim();
-    // se tem vírgula, assume formato BR (1.234,56)
     if(str.indexOf(',') !== -1){
       str = str.replace(/\./g,'').replace(',', '.');
     }
@@ -2159,7 +2292,6 @@
     return d.innerHTML;
   }
 
-  // Mesmo critério de dia útil usado no Ponto Eletrônico: segunda a sexta.
   function isDiaUtil(d){
     var dow = d.getDay();
     return dow !== 0 && dow !== 6;
@@ -2174,8 +2306,6 @@
     }
     return count;
   }
-
-  // ---------- Processing ----------
 
   function isVendedorAtivo(v){
     return (v.Tipo || '').trim() === 'Vendedor' && (v.Status || '').trim() === 'Ativo';
@@ -2272,10 +2402,6 @@
     return map;
   }
 
-  // Ordena as linhas da tabela de vendedores de acordo com sortState.
-  // "vendedor" e "progresso" ordenam por nome/percentual; as demais são
-  // colunas numéricas diretas. Linhas sem projeção (necessarias=-1) ficam
-  // sempre no fim, independente da direção escolhida.
   function sortVendedorRows(rows){
     var col = sortState.col, dir = sortState.dir;
     rows.sort(function(a,b){
@@ -2329,15 +2455,12 @@
   }
 
   function setDefaultDateRange(){
-    // Padrão: mês corrente
     var now = new Date();
     var first = new Date(now.getFullYear(), now.getMonth(), 1);
     var last = new Date(now.getFullYear(), now.getMonth()+1, 0);
     document.getElementById('v-dateFrom').value = dateKey(first);
     document.getElementById('v-dateTo').value = dateKey(last);
   }
-
-  // ---------- Meta lógica ----------
 
   function getMetaDoMes(ano, mes){
     var m = metasRecords.filter(function(x){ return x.ano === ano && x.mes === mes; })[0];
@@ -2348,7 +2471,7 @@
     var toStr = document.getElementById('v-dateTo').value;
     var refDate = toStr ? parseISODate(toStr) : new Date();
     var ano = refDate.getFullYear();
-    var mes = refDate.getMonth() + 1; // 1-12
+    var mes = refDate.getMonth() + 1;
 
     var metaEmpresa = getMetaDoMes(ano, mes);
     var nVendedoresAtivos = vendedoresAtivosVenda.length || 1;
@@ -2360,20 +2483,16 @@
     var metaDiariaPorVendedor = diasUteisMes > 0 ? metaIndividual / diasUteisMes : 0;
     var metaDiariaEmpresa = diasUteisMes > 0 ? metaEmpresa / diasUteisMes : 0;
 
-    // dias úteis já decorridos no mês até a data final do filtro (ou hoje, o que vier primeiro)
     var hoje = new Date();
     hoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
     var limite = refDate < hoje ? refDate : hoje;
-    if(limite < primeiroDia) limite = new Date(primeiroDia.getTime() - 86400000); // mês ainda não começou
+    if(limite < primeiroDia) limite = new Date(primeiroDia.getTime() - 86400000);
     var fimContagem = limite > ultimoDia ? ultimoDia : limite;
     var diasUteisDecorridos = fimContagem >= primeiroDia ? countDiasUteis(primeiroDia, fimContagem) : 0;
 
     var metaAteHojeEmpresa = metaDiariaEmpresa * diasUteisDecorridos;
     var metaAteHojeIndividual = metaDiariaPorVendedor * diasUteisDecorridos;
 
-    // Dias úteis que ainda restam até o fim do mês de referência, contados
-    // a partir de hoje (não da data final do filtro) — é sobre quanto tempo
-    // real ainda há para agir, então sempre olha pra frente a partir de agora.
     var inicioRestante = hoje > primeiroDia ? hoje : primeiroDia;
     var diasUteisRestantes = inicioRestante <= ultimoDia ? countDiasUteis(inicioRestante, ultimoDia) : 0;
 
@@ -2396,8 +2515,6 @@
     var parts = s.split('-');
     return new Date(parseInt(parts[0],10), parseInt(parts[1],10)-1, parseInt(parts[2],10));
   }
-
-  // ---------- Filtering ----------
 
   function getFiltered(){
     var from = document.getElementById('v-dateFrom').value;
@@ -2423,32 +2540,28 @@
     var vendaIdsNoFiltro = {};
     vendas.forEach(function(v){ vendaIdsNoFiltro[v.idVenda] = true; });
     var custosPagos = custosVendaRecords.filter(function(c){
-      if(c.status !== 'Pago') return false;
+      // Comparação tolerante a espaços e maiúsculas/minúsculas (ex: "Pago ",
+      // "pago", "PAGO" também devem contar como pago).
+      if((c.status || '').trim().toLowerCase() !== 'pago') return false;
       if(c.dateKey){
         if(from && c.dateKey < from) return false;
         if(to && c.dateKey > to) return false;
         return true;
       }
-      // sem data própria: considera se a venda associada está no filtro
       return !!vendaIdsNoFiltro[c.idVenda];
     });
 
-    // Custos lançados com o IdVenda fixo de escritório não são custo de
-    // operação de uma venda real; mostramos os dois separadamente.
     var custosOperacao = custosPagos.filter(function(c){ return c.idVenda !== ID_VENDA_CUSTOS_ESCRITORIO; });
     var custosEscritorio = custosPagos.filter(function(c){ return c.idVenda === ID_VENDA_CUSTOS_ESCRITORIO; });
 
     return { vendas: vendas, relatorios: relatorios, custos: custosOperacao, custosEscritorio: custosEscritorio };
   }
 
-  // ---------- Render ----------
-
   function render(){
     var ctx = computeMetaContext();
     var filtered = getFiltered();
     var vendedorSel = document.getElementById('selVendedor').value;
 
-    // ----- Meta flow -----
     document.getElementById('metaEmpresa').textContent = fmtMoney(ctx.metaEmpresa);
     document.getElementById('metaEmpresaSub').textContent = 'cadastrada para ' + String(ctx.mes).padStart(2,'0') + '/' + ctx.ano;
 
@@ -2466,7 +2579,6 @@
       ? 'meta da empresa, distribuída entre ' + ctx.nVendedoresAtivos + ' vendedor(es) ativo(s)'
       : 'cota individual de ' + nomeFor(vendedorSel);
 
-    // ----- Progress -----
     var faturadoPeriodo = filtered.vendas.reduce(function(s,v){ return s + v.valor; }, 0);
     var metaAlvo = vendedorSel === '__all__' ? ctx.metaEmpresa : ctx.metaIndividual;
     var pct = metaAlvo > 0 ? (faturadoPeriodo / metaAlvo) * 100 : 0;
@@ -2479,12 +2591,8 @@
     document.getElementById('progressFaturado').textContent = fmtMoney(faturadoPeriodo) + ' faturado';
     document.getElementById('progressFaltante').textContent = fmtMoney(Math.max(metaAlvo - faturadoPeriodo,0)) + ' faltam até a meta';
 
-    // ----- KPIs -----
     var nVendas = filtered.vendas.length;
     var ticketMedioPeriodo = nVendas > 0 ? faturadoPeriodo / nVendas : 0;
-    // Sem vendas no período filtrado (ex: mês futuro), cai pro ticket médio
-    // histórico (todas as vendas já lançadas, ignorando o filtro de data),
-    // só pra termos uma base de projeção em vez de travar tudo em zero.
     var ticketMedioHistorico = vendasRecords.length > 0
       ? vendasRecords.reduce(function(s,v){ return s+v.valor; }, 0) / vendasRecords.length
       : 0;
@@ -2493,8 +2601,6 @@
 
     var metaRestante = Math.max(metaAlvo - faturadoPeriodo, 0);
     var vendasNecessarias = ticketMedio > 0 ? Math.ceil(metaRestante / ticketMedio) : (metaRestante > 0 ? null : 0);
-    // Versão "do zero": quantas vendas a meta INTEIRA representa, sem
-    // descontar o que já foi faturado — usada no bloco de previsão "meta total".
     var vendasNecessariasTotal = ticketMedio > 0 ? Math.ceil(metaAlvo / ticketMedio) : (metaAlvo > 0 ? null : 0);
     var custosVendaTotal = filtered.custos.reduce(function(s,c){ return s + c.valor; }, 0);
     var custosEscritorioTotal = filtered.custosEscritorio.reduce(function(s,c){ return s + c.valor; }, 0);
@@ -2515,10 +2621,8 @@
     document.getElementById('kpiCustosVendaSub').textContent = filtered.custos.length + ' lançamento(s) pago(s) no período';
     document.getElementById('kpiCustosEscritorio').textContent = fmtMoney(custosEscritorioTotal);
 
-    // ----- Tabela por vendedor -----
     var idsParaTabela = vendedorSel === '__all__' ? vendedoresAtivosVenda.slice() : [vendedorSel];
     if(idsParaTabela.length === 0){
-      // fallback: mostra qualquer vendedor que tenha vendas no período, mesmo que inativo/sem tipo correto
       var setIds = {};
       filtered.vendas.forEach(function(v){ setIds[v.idVendedor] = true; });
       idsParaTabela = Object.keys(setIds);
@@ -2529,9 +2633,6 @@
       var faturadoV = vendasDoVendedor.reduce(function(s,v){ return s+v.valor; }, 0);
       var nV = vendasDoVendedor.length;
       var ticketVPeriodo = nV > 0 ? faturadoV / nV : 0;
-      // Sem vendas do vendedor no período filtrado, cai pro ticket médio
-      // histórico DELE; se ele nunca vendeu nada ainda, cai pro ticket
-      // médio histórico geral da empresa (já calculado acima).
       var vendasHistoricasDoVendedor = vendasRecords.filter(function(v){ return v.idVendedor === id; });
       var ticketHistoricoV = vendasHistoricasDoVendedor.length > 0
         ? vendasHistoricasDoVendedor.reduce(function(s,v){ return s+v.valor; }, 0) / vendasHistoricasDoVendedor.length
@@ -2545,7 +2646,7 @@
       return {
         id: id, nome: nomeFor(id), meta: metaIndV, faturado: faturadoV,
         vendas: nV, ticket: ticketV, ticketProjetado: ticketVEhProjetado,
-        necessarias: necessariasV === null ? -1 : necessariasV, // -1 ordena como "sem projeção" no fim
+        necessarias: necessariasV === null ? -1 : necessariasV,
         progresso: pctV
       };
     });
@@ -2566,7 +2667,6 @@
     });
     document.getElementById('tbodyVendedores').innerHTML = rowsHtml || '<tr><td colspan="7" style="text-align:center;color:var(--ink-faint);padding:30px;">Nenhum vendedor no filtro atual.</td></tr>';
 
-    // ----- Funil de conversão -----
     var totContatos = filtered.relatorios.reduce(function(s,r){return s+r.contatos;},0);
     var totConversas = filtered.relatorios.reduce(function(s,r){return s+r.conversas;},0);
     var totPropostas = filtered.relatorios.reduce(function(s,r){return s+r.propostas;},0);
@@ -2581,12 +2681,6 @@
     document.getElementById('funilConvConversa').textContent = totConversas>0 ? ((totPropostas/totConversas)*100).toFixed(1).replace('.',',')+'%' : '—';
     document.getElementById('funilConvProposta').textContent = totPropostas>0 ? ((totVendasRel/totPropostas)*100).toFixed(1).replace('.',',')+'%' : '—';
 
-    // ----- Previsão de funil -----
-    // Taxas médias do período (mesmas do funil acima). Quando uma etapa não
-    // tem volume suficiente no período filtrado (ex: mês futuro, sem nenhum
-    // lançamento ainda), cai pra mesma taxa calculada sobre TODO o histórico
-    // já lançado na aba Relatórios (ignorando o filtro de data) — só para
-    // termos uma base de projeção em vez de travar tudo em "—".
     var histContatos = relatoriosRecords.reduce(function(s,r){return s+r.contatos;},0);
     var histConversas = relatoriosRecords.reduce(function(s,r){return s+r.conversas;},0);
     var histPropostas = relatoriosRecords.reduce(function(s,r){return s+r.propostas;},0);
@@ -2604,7 +2698,6 @@
     var taxaPropostaConversa = taxaPropostaConversaPeriodo !== null ? taxaPropostaConversaPeriodo : taxaPropostaConversaHist;
     var taxaConversaContato = taxaConversaContatoPeriodo !== null ? taxaConversaContatoPeriodo : taxaConversaContatoHist;
 
-    // true se QUALQUER uma das três taxas usadas veio do histórico (não do período filtrado)
     var taxasSaoProjetadas = (taxaVendaPropostaPeriodo === null && taxaVendaProposta !== null)
       || (taxaPropostaConversaPeriodo === null && taxaPropostaConversa !== null)
       || (taxaConversaContatoPeriodo === null && taxaConversaContato !== null);
@@ -2642,10 +2735,6 @@
     renderForecast('fcRestante', projecaoRestante, 'fcRestanteSub',
       vendasNecessarias === 0 ? 'meta já atingida, nada restando' : 'considerando ' + vendasNecessarias + ' venda(s) restante(s)');
 
-    // Divide uma projeção já calculada por um divisor (vendedores, ou
-    // vendedores × dias úteis restantes). Arredonda cada etapa para cima,
-    // mesmo critério usado na projeção original — evita subestimar a cota
-    // de cada vendedor/dia. Projeções "—" (sem taxa suficiente) permanecem "—".
     function dividirProjecao(projecao, divisor){
       if(divisor <= 0) return { leads: null, conversas: null, propostas: null, vendas: null };
       function div(v){ return v === null ? null : (v === 0 ? 0 : Math.ceil(v / divisor)); }
@@ -2664,7 +2753,6 @@
       document.getElementById(prefix+'Vendas').textContent = projecao.vendas === null ? '—' : projecao.vendas;
     }
 
-    // ----- Previsão por vendedor ativo -----
     var nAtivos = ctx.nVendedoresAtivos || 1;
     renderForecastSimples('fcTotalVendedor', dividirProjecao(projecaoTotal, nAtivos));
     renderForecastSimples('fcRestanteVendedor', dividirProjecao(projecaoRestante, nAtivos));
@@ -2672,7 +2760,6 @@
     document.getElementById('fcRestanteVendedorSub').textContent = '÷ ' + nAtivos + ' vendedor(es) ativo(s)';
     document.getElementById('fcPorVendedorHint').textContent = 'meta total e meta restante, divididas por ' + nAtivos + ' vendedor(es) ativo(s)' + (taxasSaoProjetadas ? ' · taxas projetadas pelo histórico' : '');
 
-    // ----- Previsão por vendedor ativo, por dia útil restante -----
     var diasRestantes = ctx.diasUteisRestantes || 0;
     var divisorDia = nAtivos * diasRestantes;
     renderForecastSimples('fcTotalDia', dividirProjecao(projecaoTotal, divisorDia));
@@ -2688,8 +2775,6 @@
 
     setUpdateClock();
   }
-
-  // ---------- Connection ----------
 
   function showConnectBar(){
     document.getElementById('v-connectCard').style.display = 'none';
@@ -2722,6 +2807,9 @@
       }
 
       processVendedores(resp.vendedores || []);
+      if(resp.diagnostico){
+        console.log('[Vendas] Diagnóstico de abas:', resp.diagnostico);
+      }
       vendasRecords = processVendas(resp.vendas || []);
       metasRecords = processMetas(resp.metas || []);
       relatoriosRecords = processRelatorios(resp.relatorios || []);
@@ -2775,7 +2863,6 @@
     }
   })();
 
-  // ---------- Filter events ----------
   document.getElementById('v-dateFrom').addEventListener('change', render);
   document.getElementById('v-dateTo').addEventListener('change', render);
   document.getElementById('selVendedor').addEventListener('change', render);
@@ -2810,7 +2897,6 @@
     });
   });
 
-  // ---------- Ordenação da tabela de vendedores ----------
   function updateSortHeaders(){
     document.querySelectorAll('th.sortable').forEach(function(th){
       var col = th.getAttribute('data-sort');
@@ -2831,7 +2917,6 @@
         sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
       } else {
         sortState.col = col;
-        // Para texto começa ascendente, para números começa descendente (maior primeiro)
         sortState.dir = (col === 'vendedor') ? 'asc' : 'desc';
       }
       updateSortHeaders();
@@ -2845,15 +2930,10 @@
 })();
 
 // ════ FUNIL ════
-// ════════════════════════════════════════════
-//  JS DA VIEW FUNIL  —  injetar no app unificado
-//  Prefixo de variáveis: funil*  IDs: f-*
-// ════════════════════════════════════════════
 (function(){
 
-  // ── Estado ──
-  var funilRecords  = [];   // dados brutos do funil
-  var vendedoresMap = {};   // id → {Nome}
+  var funilRecords  = [];
+  var vendedoresMap = {};
   var _initialized  = false;
 
   var DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA34xrlLTVUUNhKBIlguJT3ectH7Yus-VW1n41GcCclc5q_Yj0Di2O7g/exec';
@@ -2863,7 +2943,6 @@
 
   var APP_VERSION = '2026-06-30-5';
 
-  // ── Helpers ──
   function getApiUrl(){ return (localStorage.getItem(API_URL_KEY)||'').trim() || DEFAULT_API_URL; }
   function getApiKey(){ return (localStorage.getItem(API_KEY_KEY)||'').trim() || DEFAULT_API_KEY; }
 
@@ -2883,7 +2962,6 @@
   function parseBRDate(str){
     if(!str) return null;
     str = str.toString().trim();
-    // "22/06/2026 14:22:26" ou "2026-06-22..."
     var m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
     if(m) return new Date(+m[3], +m[2]-1, +m[1]);
     var d = new Date(str.substring(0,10));
@@ -2907,7 +2985,6 @@
     return (v && (v.Nome||v.nome)) || id.slice(0,8);
   }
 
-  // ── Processar dados ──
   function processFunil(list){
     return list.map(function(o){
       var dt = parseBRDate(o.DataCriacao || o['Data Criacao'] || o.Data || '');
@@ -2926,7 +3003,6 @@
     }).filter(function(r){ return !!r.dt; });
   }
 
-  // ── Filtros ──
   function getEtapaAtiva(){
     var pill = document.querySelector('.stage-pill.active');
     return pill ? pill.getAttribute('data-stage') : '__all__';
@@ -2938,7 +3014,6 @@
     var vend = document.getElementById('f-selVendedor').value;
     var etapa= getEtapaAtiva();
 
-    // Todos no período (para o gráfico)
     var allPeriod = funilRecords.filter(function(r){
       if(from && r.dateKey < from) return false;
       if(to   && r.dateKey > to)   return false;
@@ -2946,7 +3021,6 @@
       return true;
     });
 
-    // Filtrados pela etapa (para KPIs e tabela)
     var byStage = etapa === '__all__' ? allPeriod : allPeriod.filter(function(r){
       return r.etapa === etapa;
     });
@@ -2954,13 +3028,11 @@
     return { allPeriod:allPeriod, byStage:byStage };
   }
 
-  // ── Render ──
   function render(){
     var f = getFiltered();
     var etapa = getEtapaAtiva();
     var etapaLabel = etapa === '__all__' ? 'todas as etapas' : etapa;
 
-    // KPIs
     var total   = f.allPeriod.length;
     var count   = f.byStage.length;
     var valor   = f.byStage.reduce(function(s,r){ return s+r.valor; }, 0);
@@ -2975,17 +3047,14 @@
     document.getElementById('f-kpiPctSub').textContent = count + ' de ' + total + ' lead(s) no período';
     document.getElementById('f-kpiTicket').textContent = fmtMoney(ticket);
 
-    // Cor do KPI de leads conforme etapa
     var kpiCard = document.getElementById('f-kpiEtapaCard');
     kpiCard.classList.remove('won','lost','accent');
     if(etapa === 'Ganho') kpiCard.classList.add('won');
     else if(etapa === 'Perdido') kpiCard.classList.add('lost');
     else kpiCard.classList.add('accent');
 
-    // Gráfico: entradas por dia (allPeriod, não filtrado por etapa)
     renderChart(f.allPeriod);
 
-    // Tabela
     var sorted = f.byStage.slice().sort(function(a,b){ return b.dt - a.dt; });
     var rows = '';
     sorted.forEach(function(r){
@@ -3006,7 +3075,6 @@
     document.getElementById('f-tableTitle').textContent = etapa === '__all__' ? 'no período' : '— ' + etapa;
     document.getElementById('f-tableHint').textContent = count + ' lead(s) encontrado(s)';
 
-    // Relógio
     var d = new Date();
     document.getElementById('f-lastUpdate').textContent =
       'Atualizado em ' + d.toLocaleDateString('pt-BR') +
@@ -3020,7 +3088,6 @@
       return;
     }
 
-    // Agrupar por dia
     var byDay = {};
     var minDt = null, maxDt = null;
     records.forEach(function(r){
@@ -3030,7 +3097,6 @@
       if(!maxDt || r.dt > maxDt) maxDt = r.dt;
     });
 
-    // Gerar todos os dias do intervalo
     var days = [];
     var cursor = new Date(minDt.getFullYear(), minDt.getMonth(), minDt.getDate());
     var end    = new Date(maxDt.getFullYear(), maxDt.getMonth(), maxDt.getDate());
@@ -3059,7 +3125,6 @@
       days.length + ' dia(s) · ' + records.length + ' lead(s) no período';
   }
 
-  // ── Select de vendedores ──
   function populateVendedorSelect(){
     var sel = document.getElementById('f-selVendedor');
     var cur = sel.value || '__all__';
@@ -3075,7 +3140,6 @@
     if(list.indexOf(cur) !== -1) sel.value = cur;
   }
 
-  // ── Data range padrão ──
   function setDefaultRange(){
     if(!funilRecords.length) return;
     var dates = funilRecords.map(function(r){ return r.dateKey; }).sort();
@@ -3083,7 +3147,6 @@
     document.getElementById('f-dateTo').value   = dates[dates.length-1];
   }
 
-  // ── Conexão ──
   function showConnectBar(){
     document.getElementById('f-connectCard').style.display = 'none';
     document.getElementById('f-connectBar').style.display  = 'flex';
@@ -3107,7 +3170,6 @@
         return;
       }
 
-      // Vendedores
       vendedoresMap = {};
       (resp.vendedores||[]).forEach(function(v){
         if(v.IdVendedor) vendedoresMap[v.IdVendedor] = v;
@@ -3137,7 +3199,6 @@
     });
   }
 
-  // ── Inicialização (lazy — só quando a view for aberta) ──
   function init(){
     if(_initialized) return;
     _initialized = true;
@@ -3146,7 +3207,6 @@
     document.getElementById('f-apiUrl').value = getApiUrl();
     document.getElementById('f-apiKey').value = getApiKey();
 
-    // Eventos de filtro
     document.getElementById('f-dateFrom').addEventListener('change', render);
     document.getElementById('f-dateTo').addEventListener('change', render);
     document.getElementById('f-selVendedor').addEventListener('change', render);
@@ -3159,7 +3219,6 @@
       render();
     });
 
-    // Stage pills
     document.querySelectorAll('.stage-pill').forEach(function(pill){
       pill.addEventListener('click', function(){
         document.querySelectorAll('.stage-pill').forEach(function(p){ p.classList.remove('active'); });
@@ -3168,7 +3227,6 @@
       });
     });
 
-    // Atalhos de período
     document.querySelectorAll('.qr-btn[data-frange]').forEach(function(btn){
       btn.addEventListener('click', function(){
         document.querySelectorAll('.qr-btn[data-frange]').forEach(function(b){ b.classList.remove('active'); });
@@ -3190,7 +3248,6 @@
       });
     });
 
-    // Conexão manual
     document.getElementById('f-showConnectFormBtn').addEventListener('click', function(){
       document.getElementById('f-connectBar').style.display  = 'none';
       document.getElementById('f-connectCard').style.display = 'block';
@@ -3204,11 +3261,9 @@
       fetchData(true);
     });
 
-    // Auto-conecta
     fetchData(true);
   }
 
-  // Expõe para o controller
   window.funilApp = { init: init };
 
 })();
@@ -3216,7 +3271,6 @@
 
 // ════ CONTROLLER ════
 
-  // ── View controller ──
   (function(){
     var views = {
       ponto: document.getElementById('view-ponto'),
@@ -3228,15 +3282,14 @@
       vendas: document.getElementById('nav-vendas'),
       funil: document.getElementById('nav-funil')
     };
-    var vendasInited = false;
 
     function switchTo(name){
       Object.keys(views).forEach(function(k){
+        if(!views[k] || !navLinks[k]) return;
         views[k].classList.toggle('active', k === name);
         navLinks[k].classList.toggle('active', k === name);
       });
       localStorage.setItem('sg_active_view', name);
-      // Inicializa a view se necessário
       if(name === 'funil' && window.funilApp) window.funilApp.init();
     }
 
@@ -3250,14 +3303,11 @@
       e.preventDefault(); switchTo('funil');
     });
 
-    // Restaura view ativa
     var saved = localStorage.getItem('sg_active_view') || 'ponto';
-    // Valida que a view salva ainda existe
     if(!views[saved]) saved = 'ponto';
     switchTo(saved);
   })();
 
-  // ── Sidebar toggle ──
   (function(){
     var sidebar = document.querySelector('.sidebar');
     var btn = document.getElementById('sidebarToggle');
@@ -3278,163 +3328,6 @@
   })();
 
 </script>
-<div id="view-funil" class="view">
-<div class="app">
-
-  <header class="top">
-    <div>
-      <h1>Funil de <span>Vendas</span></h1>
-      <div class="top-sub">Acompanhamento de leads por etapa · <span id="f-appVersion"></span></div>
-    </div>
-    <div style="text-align:right;">
-      <div class="clock" id="f-lastUpdate"></div>
-      <div class="sync-pill" id="f-syncPill" style="display:none;"><span class="dot"></span><span id="f-syncPillText">Sincronizado</span></div>
-    </div>
-  </header>
-
-  <div class="connect-bar" id="f-connectBar" style="display:none;">
-    <span class="dot"></span>
-    <span>Conectado à planilha</span>
-    <button class="connect-bar-link" id="f-showConnectFormBtn">trocar conexão</button>
-  </div>
-
-  <div class="connect-card" id="f-connectCard">
-    <h2>Conectar à planilha do Google Sheets</h2>
-    <div class="sub">Usa as mesmas credenciais das outras abas.</div>
-    <div class="connect-row">
-      <div class="connect-field">
-        <label for="f-apiUrl">Link da web app</label>
-        <input type="text" id="f-apiUrl" placeholder="https://script.google.com/macros/s/.../exec">
-      </div>
-      <div class="connect-field" style="max-width:220px;">
-        <label for="f-apiKey">Chave secreta</label>
-        <input type="password" id="f-apiKey" placeholder="sua chave">
-      </div>
-      <button class="connect-btn" id="f-connectBtn">Conectar</button>
-    </div>
-    <div class="connect-status" id="f-connectStatus" style="display:none;"><span class="dot"></span><span id="f-connectStatusText"></span></div>
-  </div>
-
-  <div id="f-mainContent" style="display:none;">
-
-    <!-- Filtros -->
-    <div class="filters" style="align-items:flex-start;">
-      <div class="field">
-        <label for="f-dateFrom">Período de</label>
-        <input type="date" id="f-dateFrom">
-      </div>
-      <div class="field">
-        <label for="f-dateTo">até</label>
-        <input type="date" id="f-dateTo">
-      </div>
-      <div class="field">
-        <label>Atalhos</label>
-        <div class="quickranges">
-          <button class="qr-btn" data-frange="month">Este mês</button>
-          <button class="qr-btn" data-frange="7">7 dias</button>
-          <button class="qr-btn" data-frange="30">30 dias</button>
-          <button class="qr-btn" data-frange="all">Tudo</button>
-        </div>
-      </div>
-      <div class="field">
-        <label for="f-selVendedor">Vendedor</label>
-        <select id="f-selVendedor">
-          <option value="__all__">Todos os vendedores</option>
-        </select>
-      </div>
-      <div class="stage-filter-group">
-        <label>Etapa</label>
-        <div class="stage-pills">
-          <button class="stage-pill active" data-stage="__all__">Todas</button>
-          <span class="stage-divider">·</span>
-          <button class="stage-pill" data-stage="Novo Lead">Novo Lead</button>
-          <button class="stage-pill" data-stage="Tentativa de Contato">Tentativa de Contato</button>
-          <button class="stage-pill" data-stage="Gerar Proposta">Gerar Proposta</button>
-          <button class="stage-pill" data-stage="Negociação">Negociação</button>
-          <span class="stage-divider">·</span>
-          <button class="stage-pill stage-won" data-stage="Ganho">Ganho</button>
-          <button class="stage-pill stage-lost" data-stage="Perdido">Perdido</button>
-        </div>
-      </div>
-      <div class="spacer"></div>
-      <button class="reset-btn" id="f-resetFiltros">Limpar filtros</button>
-    </div>
-
-    <!-- KPIs -->
-    <div class="funil-kpis">
-      <div class="funil-kpi accent" id="f-kpiEtapaCard">
-        <div class="tag">Leads na etapa</div>
-        <div class="num" id="f-kpiLeads">0</div>
-        <div class="sub" id="f-kpiLeadsSub">no período filtrado</div>
-        <div class="bar"></div>
-      </div>
-      <div class="funil-kpi">
-        <div class="tag">Valor estimado</div>
-        <div class="num" id="f-kpiValor">R$ 0,00</div>
-        <div class="sub" id="f-kpiValorSub">soma dos leads na etapa</div>
-        <div class="bar"></div>
-      </div>
-      <div class="funil-kpi">
-        <div class="tag">% do total de leads</div>
-        <div class="num" id="f-kpiPct">0%</div>
-        <div class="sub" id="f-kpiPctSub">em relação ao período</div>
-        <div class="bar"></div>
-      </div>
-      <div class="funil-kpi">
-        <div class="tag">Ticket médio da etapa</div>
-        <div class="num" id="f-kpiTicket">R$ 0,00</div>
-        <div class="sub" id="f-kpiTicketSub">valor ÷ leads na etapa</div>
-        <div class="bar"></div>
-      </div>
-    </div>
-
-    <!-- Gráfico -->
-    <div class="chart-card">
-      <div class="chart-head">
-        <span class="chart-title">Entradas no funil por dia</span>
-        <span class="chart-sub" id="f-chartSub">data de criação do lead, todos os leads do período</span>
-      </div>
-      <div class="chart-wrap">
-        <div class="chart-bars" id="f-chartBars">
-          <div class="chart-empty">Nenhum dado no período</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Tabela de leads -->
-    <div class="section-head">
-      <h2>Leads <span id="f-tableTitle">no período</span></h2>
-      <div class="hint" id="f-tableHint">ordenados por data de criação (mais recente primeiro)</div>
-    </div>
-    <div class="funil-table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Data</th>
-            <th>Vendedor</th>
-            <th>Etapa</th>
-            <th>Observação</th>
-            <th class="num">Valor</th>
-            <th>Motivo perda</th>
-          </tr>
-        </thead>
-        <tbody id="f-tbody"></tbody>
-      </table>
-    </div>
-
-    <footer class="note" style="margin-top:18px;">
-      Leads filtrados pela DataCriacao dentro do período selecionado. O gráfico de entradas por dia considera todos os leads do período independente da etapa filtrada, para mostrar o ritmo de prospecção. Os KPIs e a tabela refletem apenas a etapa selecionada.
-    </footer>
-
-  </div>
-
-  <div class="empty" id="f-emptyState">
-    <div class="glyph">◈</div>
-    <p>Conectando à planilha para carregar o funil de vendas…</p>
-  </div>
-
-</div>
-</div>
 
 </body>
 </html>
