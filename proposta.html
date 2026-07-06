@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>Gerador de Proposta · Solar Green</title>
+<link rel="icon" type="image/png" href="favicon_1.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F2F7F2;--panel:#fff;--ink:#1E1E1E;--ink-soft:#5a6b5a;--ink-faint:#9aab9a;
+  --line:#dde8dd;--accent:#78D800;--accent-soft:#eef9d6;--accent-deep:#5aaa00;
+  --warn:#d97706;--warn-soft:#fef3c7;--debit:#dc2626;--debit-soft:#fee2e2;
+  --credit:#16a34a;--credit-soft:#dcfce7;--solar:#f59e0b;--solar-soft:#fef3c7;
+  --radius:10px;--sans:'Inter','Helvetica Neue',Arial,sans-serif;
+  --unbounded:'Unbounded',sans-serif;--mono:'JetBrains Mono',Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;min-height:100vh;}
+
+/* ── Layout ── */
+.pg-header{background:#003122;color:#fff;padding:18px 40px;display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid var(--accent);}
+.pg-header h1{font-family:var(--unbounded);font-size:20px;font-weight:900;}
+.pg-header h1 span{color:var(--accent);}
+.pg-header .sub{font-size:11px;color:rgba(255,255,255,0.5);margin-top:3px;}
+.back-link{font-size:12px;color:rgba(255,255,255,0.6);text-decoration:none;display:flex;align-items:center;gap:6px;}
+.back-link:hover{color:var(--accent);}
+.container{display:grid;grid-template-columns:1fr 360px;gap:24px;padding:28px 40px;max-width:1600px;margin:0 auto;}
+.main{min-width:0;}
+.aside{display:flex;flex-direction:column;gap:18px;}
+
+/* ── Cards ── */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;margin-bottom:20px;}
+.card:last-child{margin-bottom:0;}
+.card-head{font-family:var(--unbounded);font-size:11px;font-weight:700;color:#003122;letter-spacing:.06em;text-transform:uppercase;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid var(--accent-soft);display:flex;align-items:center;justify-content:space-between;}
+
+/* ── Toggle switch ── */
+.toggle-row{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;color:var(--ink-soft);}
+.toggle-row.active{color:var(--ink);}
+.sw{position:relative;display:inline-block;width:36px;height:20px;flex:none;}
+.sw input{opacity:0;width:0;height:0;}
+.sw .sl{position:absolute;cursor:pointer;inset:0;background:#d1d5db;border-radius:20px;transition:.15s;}
+.sw .sl:before{position:absolute;content:'';height:14px;width:14px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.15s;}
+.sw input:checked + .sl{background:var(--accent);}
+.sw input:checked + .sl:before{transform:translateX(16px);}
+
+/* ── Análise de Perdas ── */
+.perda-card{background:linear-gradient(135deg,#003122 0%,#004d35 100%);border:none;border-radius:var(--radius);padding:20px 22px;margin-bottom:20px;}
+.perda-card .card-head{color:#78D800;border-bottom-color:rgba(120,216,0,.3);}
+.perda-card label{color:rgba(255,255,255,0.6)!important;}
+.perda-card input,.perda-card select{background:rgba(255,255,255,0.1)!important;border-color:rgba(255,255,255,0.2)!important;color:#fff!important;}
+.perda-card input:focus,.perda-card select:focus{background:rgba(255,255,255,0.15)!important;outline-color:var(--accent)!important;border-color:var(--accent)!important;}
+.perda-card input::placeholder{color:rgba(255,255,255,0.3)!important;}
+.perda-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:16px;}
+.perda-kpi{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:14px 16px;}
+.perda-kpi .pk-label{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,0.5);font-weight:600;margin-bottom:6px;}
+.perda-kpi .pk-val{font-family:var(--unbounded);font-size:20px;font-weight:700;color:#fff;}
+.perda-kpi .pk-sub{font-size:11px;color:rgba(255,255,255,0.4);margin-top:3px;}
+.perda-kpi.destaque .pk-val{color:#78D800;}
+.perda-kpi.destaque{border-color:rgba(120,216,0,.4);}
+.perda-kpi.alerta .pk-val{color:#f87171;}
+.perda-kpi.alerta{border-color:rgba(248,113,113,.4);}
+
+/* ── Fields ── */
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;}
+.field:last-child{margin-bottom:0;}
+.field label{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-faint);font-weight:600;}
+.field input,.field select,.field textarea{font-family:var(--sans);font-size:13px;border:1px solid var(--line);border-radius:7px;padding:8px 12px;background:#fff;color:var(--ink);}
+.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent);}
+.field input[type=number]{font-family:var(--mono);}
+.field textarea{resize:vertical;min-height:56px;}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.frow.tri{grid-template-columns:2fr 1fr 1fr;}
+.frow.quad{grid-template-columns:1fr 1fr 1fr 1fr;}
+
+/* ── Lead info ── */
+.lead-card{background:var(--accent-soft);border:1px solid rgba(120,216,0,.3);border-radius:8px;padding:12px 14px;margin-top:10px;display:none;}
+.lead-card .lc-nome{font-weight:700;font-size:14px;color:var(--ink);margin-bottom:6px;}
+.lead-card .lc-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;font-size:12px;color:var(--ink-soft);}
+.lead-card .lc-grid span{color:var(--ink);font-weight:600;}
+
+/* ── Service blocks ── */
+.blocks-wrap{display:flex;flex-direction:column;gap:14px;}
+.svc-block{background:var(--panel);border:1.5px solid var(--line);border-radius:var(--radius);padding:16px;transition:border-color .15s;}
+.svc-block:hover{border-color:rgba(120,216,0,.5);}
+.svc-block.block-plano{border-color:rgba(245,158,11,.4);background:linear-gradient(to bottom right,#fffbeb,#fff);}
+.svc-block.block-desconto{border-color:rgba(59,130,246,.4);background:linear-gradient(to bottom right,#eff6ff,#fff);}
+.svc-block-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--line);}
+.svc-block-title{font-weight:700;font-size:13px;color:var(--ink);}
+.svc-block-badges{display:flex;gap:5px;margin-top:4px;flex-wrap:wrap;}
+.ico-btn{background:none;border:none;cursor:pointer;font-size:13px;color:var(--ink-faint);padding:5px 7px;border-radius:6px;transition:all .12s;}
+.ico-btn:hover{background:var(--debit-soft);color:var(--debit);}
+
+/* ── Badges ── */
+.badge{display:inline-block;font-size:9.5px;padding:2px 7px;border-radius:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
+.badge.unitario{background:rgba(120,216,0,.15);color:#3a6b00;}
+.badge.recorrente{background:rgba(59,130,246,.15);color:#1e40af;}
+.badge.campo{background:rgba(234,88,12,.12);color:#c2410c;}
+.badge.adm{background:rgba(168,85,247,.12);color:#6b21a8;}
+.badge.calc-fixo{background:#f1f5f9;color:#475569;}
+.badge.calc-modulo{background:rgba(59,130,246,.12);color:#1e40af;}
+.badge.calc-custo{background:rgba(168,85,247,.12);color:#6b21a8;}
+.badge.calc-plano{background:rgba(245,158,11,.15);color:#92400e;font-weight:700;}
+.badge.calc-desconto{background:rgba(59,130,246,.12);color:#1e40af;}
+
+/* ── Bloco Plano Anual ── */
+.plano-result{background:linear-gradient(135deg,#003122 0%,#004d35 100%);border-radius:8px;padding:16px;margin-top:12px;color:#fff;}
+.plano-result-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+.pr-item .pr-label{font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.5);margin-bottom:5px;font-weight:600;}
+.pr-item .pr-val{font-family:var(--unbounded);font-size:16px;font-weight:700;color:#fff;}
+.pr-item.destaque .pr-val{color:#78D800;}
+.pr-item.avista .pr-val{color:#fbbf24;}
+.plano-parcelas{margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.15);font-size:12px;color:rgba(255,255,255,.6);}
+.plano-parcelas strong{color:#fff;}
+.plano-monitor-info{font-size:11px;color:rgba(255,255,255,.5);margin-top:6px;font-style:italic;}
+
+/* ── Bloco total genérico ── */
+.bloco-total{background:var(--accent-soft);border:1px solid rgba(120,216,0,.25);border-radius:8px;padding:10px 14px;margin-top:10px;display:flex;align-items:center;justify-content:space-between;}
+.bloco-total .formula{font-size:11px;color:var(--ink-soft);}
+.bloco-total .valor{font-family:var(--unbounded);font-size:16px;font-weight:700;color:var(--accent-deep);}
+.bloco-total.desconto-total{background:#eff6ff;border-color:rgba(59,130,246,.25);}
+.bloco-total.desconto-total .valor{color:#1e40af;}
+
+/* ── Botões ── */
+.add-svc-btn{width:100%;padding:11px;border:2px dashed var(--line);background:none;border-radius:var(--radius);font-size:13px;color:var(--ink-faint);cursor:pointer;transition:all .15s;margin-top:4px;font-family:var(--sans);}
+.add-svc-btn:hover{border-color:var(--accent);color:var(--accent-deep);background:var(--accent-soft);}
+.add-btn-row{display:flex;gap:10px;margin-top:14px;}
+.add-btn-row .add-svc-btn{margin-top:0;}
+.add-btn-row .add-svc-btn.plano{border-color:rgba(245,158,11,.5);color:#92400e;}
+.add-btn-row .add-svc-btn.plano:hover{background:rgba(245,158,11,.1);border-color:#f59e0b;}
+.add-btn-row .add-svc-btn.desc{border-color:rgba(59,130,246,.4);color:#1e40af;}
+.add-btn-row .add-svc-btn.desc:hover{background:#eff6ff;border-color:#3b82f6;}
+.btn{font-family:var(--sans);font-size:13px;font-weight:600;padding:10px 18px;border-radius:8px;border:none;cursor:pointer;transition:all .12s;}
+.btn-primary{background:var(--accent);color:#003122;}
+.btn-primary:hover{background:var(--accent-deep);}
+.btn-secondary{background:var(--panel);border:1.5px solid var(--line);color:var(--ink);}
+.btn-secondary:hover{border-color:var(--accent);color:var(--accent-deep);}
+.btn:disabled{opacity:.45;cursor:default;}
+.actions-row{display:flex;gap:10px;flex-wrap:wrap;}
+
+/* ── Summary sidebar ── */
+.summary-card{background:var(--panel);border:2px solid var(--accent);border-radius:var(--radius);padding:18px 20px;position:sticky;top:28px;}
+.sum-row{display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--line);font-size:12px;}
+.sum-row:last-of-type{border-bottom:none;}
+.sum-label{color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:190px;}
+.sum-val{font-family:var(--mono);font-weight:600;flex:none;margin-left:8px;}
+.sum-row.deducao .sum-val{color:var(--debit);}
+.sum-total-row{display:flex;justify-content:space-between;align-items:baseline;margin-top:12px;padding-top:12px;border-top:2px solid var(--accent);}
+.sum-total-val{font-family:var(--unbounded);font-size:20px;font-weight:700;color:var(--accent-deep);}
+.sum-parcelas{margin-top:12px;padding:10px 12px;background:var(--accent-soft);border-radius:8px;font-size:12px;color:var(--ink-soft);}
+.sum-parcelas strong{color:var(--accent-deep);font-family:var(--mono);}
+
+/* ── History ── */
+.history-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 20px;}
+.hist-item{padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer;transition:padding .1s;}
+.hist-item:last-child{border-bottom:none;}
+.hist-item:hover{padding-left:4px;}
+.hist-item .hi-num{font-family:var(--mono);font-size:10px;color:var(--ink-faint);}
+.hist-item .hi-nome{font-weight:600;font-size:13px;margin:2px 0;}
+.hist-item .hi-meta{font-size:11px;color:var(--ink-soft);display:flex;justify-content:space-between;align-items:center;gap:6px;}
+.hi-total{font-family:var(--mono);font-weight:600;color:var(--ink);}
+.status-pill{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:.04em;}
+.status-pill.rascunho{background:#f1f5f9;color:#64748b;}
+.status-pill.enviada{background:rgba(59,130,246,.12);color:#1e40af;}
+.status-pill.aceita{background:var(--credit-soft);color:var(--credit);}
+.status-pill.recusada{background:var(--debit-soft);color:var(--debit);}
+
+/* ── Connect ── */
+.connect-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:22px;margin-bottom:24px;}
+.connect-card h2{font-family:var(--unbounded);font-size:14px;margin-bottom:6px;}
+.connect-card .sub{font-size:12px;color:var(--ink-soft);margin-bottom:16px;}
+.connect-row{display:flex;gap:10px;flex-wrap:wrap;}
+.connect-field{flex:1;min-width:200px;display:flex;flex-direction:column;gap:5px;}
+.connect-field label{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-faint);font-weight:600;}
+.connect-field input{font-family:var(--sans);font-size:13px;border:1px solid var(--line);border-radius:7px;padding:9px 12px;background:#fff;color:var(--ink);}
+.connect-field input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent);}
+.connect-status{font-size:11px;color:var(--ink-soft);margin-top:10px;display:flex;align-items:center;gap:6px;}
+.connect-status .dot{width:6px;height:6px;border-radius:50%;background:var(--ink-faint);}
+.connect-status.online{color:var(--accent);}
+.connect-status.online .dot{background:var(--accent);}
+.connect-status.error{color:var(--debit);}
+.connect-status.error .dot{background:var(--debit);}
+
+/* ── Toast / Save bar ── */
+.save-bar{background:var(--accent-soft);border:1px solid rgba(120,216,0,.3);border-radius:8px;padding:12px 14px;margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.save-bar .sbi{font-size:12px;color:var(--ink-soft);}
+.save-bar .sbi strong{color:var(--accent-deep);font-family:var(--mono);}
+.save-bar a{font-size:11px;color:var(--accent-deep);text-decoration:underline;word-break:break-all;}
+.toast{position:fixed;bottom:24px;right:24px;background:#003122;color:#fff;padding:12px 18px;border-radius:10px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px;z-index:999;opacity:0;transform:translateY(10px);transition:all .3s;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.3);}
+.toast.show{opacity:1;transform:translateY(0);}
+.connect-wrap-pad{padding:28px 40px 0;}
+@media(max-width:700px){.connect-wrap-pad{padding:16px 18px 0;}}
+.empty{text-align:center;padding:40px 16px;color:var(--ink-faint);}
+.empty .icon{font-size:32px;opacity:.3;margin-bottom:8px;}
+.empty p{font-size:12px;}
+@media(max-width:1100px){.container{grid-template-columns:1fr;}.summary-card{position:static;}.aside{order:-1;}}
+
+/* ── Mobile ── */
+@media(max-width:700px){
+  .pg-header{padding:14px 18px;}
+  .pg-header h1{font-size:16px;}
+  .pg-header .sub{font-size:10px;}
+  .back-link span{display:none;}
+
+  /* Container e seções */
+  div[style*="padding:28px 40px"]{padding:16px 18px 0!important;}
+  .container{padding:16px 18px;gap:16px;}
+
+  /* Grids de campos — tudo vira coluna única */
+  .frow,.frow.tri,.frow.quad{grid-template-columns:1fr!important;}
+
+  /* Perda: KPIs em coluna */
+  .perda-grid{grid-template-columns:1fr!important;}
+  .perda-kpi .pk-val{font-size:16px;}
+
+  /* Plano anual: resultado em 2 colunas em vez de 3 */
+  .plano-result-grid{grid-template-columns:1fr 1fr!important;}
+
+  /* Botões de adicionar bloco */
+  .add-btn-row{flex-direction:column;}
+  .add-btn-row .add-svc-btn{width:100%;}
+
+  /* Ações */
+  .actions-row{flex-direction:column;}
+  .actions-row .btn{width:100%;text-align:center;}
+  .actions-row #newBtn{margin-left:0!important;}
+
+  /* Save bar */
+  .save-bar{flex-direction:column;align-items:flex-start;gap:6px;}
+  .save-bar a{font-size:10px;}
+
+  /* Cards */
+  .card{padding:14px 16px;}
+  .card-head{font-size:10px;}
+  .svc-block{padding:12px;}
+
+  /* Summary */
+  .sum-total-val{font-size:16px;}
+
+  /* History */
+  .hist-item .hi-meta{flex-wrap:wrap;gap:4px;}
+
+  /* Toast */
+  .toast{left:16px;right:16px;bottom:16px;}
+}
+</style>
+</head>
+<body>
+
+<div class="pg-header">
+  <div>
+    <h1>Gerador de <span>Proposta</span></h1>
+    <div class="sub">Solar Green Suporte · Plano Anual, serviços avulsos, cálculo de perda</div>
+  </div>
+  <a class="back-link" href="index.html">&#8592; Voltar ao Dashboard</a>
+</div>
+
+<div id="connectWrap" class="connect-wrap-pad">
+  <div class="connect-card">
+    <h2>Conectar à planilha</h2>
+    <div class="sub">Mesmas credenciais do dashboard principal</div>
+    <div class="connect-row">
+      <div class="connect-field"><label>Link da web app</label><input type="text" id="apiUrl" placeholder="https://script.google.com/macros/s/.../exec"></div>
+      <div class="connect-field" style="max-width:220px;"><label>Chave secreta</label><input type="password" id="apiKey" placeholder="sua chave"></div>
+      <button class="btn btn-primary" id="connectBtn" style="align-self:flex-end;">Conectar</button>
+    </div>
+    <div class="connect-status" id="connectStatus" style="display:none;"><span class="dot"></span><span id="connectStatusText"></span></div>
+  </div>
+</div>
+
+<div class="container" id="mainContent" style="display:none;">
+<div class="main">
+
+  <!-- ── ANÁLISE DE DESEMPENHO (opcional) ── -->
+  <div class="card" id="perdaCard" style="margin-bottom:0;padding:14px 22px;">
+    <div class="card-head" style="margin-bottom:0;border-bottom:none;padding-bottom:0;">
+      <span>Análise de Desempenho da Usina</span>
+      <label class="toggle-row" id="perdaToggleRow">
+        <span id="perdaToggleLabel">Desativado</span>
+        <label class="sw"><input type="checkbox" id="perdaToggle"><span class="sl"></span></label>
+      </label>
+    </div>
+  </div>
+  <div id="perdaSection" style="display:none;margin-bottom:20px;">
+    <div class="perda-card">
+      <div class="card-head">Dados da Usina do Cliente</div>
+      <div class="frow quad">
+        <div class="field"><label>Potência (kWp)</label><input type="number" id="perdaKwp" placeholder="ex: 3,85" step="0.01" min="0" onchange="calcPerda()"></div>
+        <div class="field"><label>Constante de Geração</label><input type="number" id="perdaConst" value="114" step="1" min="1" onchange="calcPerda()"></div>
+        <div class="field"><label>Tarifa (R$/kWh)</label><input type="number" id="perdaTarifa" value="0.98" step="0.01" min="0" onchange="calcPerda()"></div>
+        <div class="field"><label>Desempenho Atual (%)</label><input type="number" id="perdaDesempenho" placeholder="ex: 93" step="0.01" min="0" max="100" onchange="calcPerda()"></div>
+      </div>
+      <div class="perda-grid">
+        <div class="perda-kpi"><div class="pk-label">Desempenho Esperado</div><div class="pk-val">100%</div><div class="pk-sub">gerando 100% da capacidade</div></div>
+        <div class="perda-kpi alerta" id="perdaKpiMensal"><div class="pk-label">Perda Mensal</div><div class="pk-val" id="perdaValMensal">—</div><div class="pk-sub">por mês no rendimento atual</div></div>
+        <div class="perda-kpi alerta" id="perdaKpiAnual"><div class="pk-label">Perda Anual Estimada</div><div class="pk-val" id="perdaValAnual">—</div><div class="pk-sub">projeção 12 meses</div></div>
+      </div>
+      <div style="margin-top:12px;font-size:11px;color:rgba(255,255,255,.4);">
+        Fórmula: Perda mensal = kWp × Constante × Tarifa × (1 − Desempenho%)
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LEAD ── -->
+  <div class="card">
+    <div class="card-head">Lead do Funil</div>
+    <div class="field"><label>Cliente / Oportunidade</label><select id="selLead"><option value="">— Selecionar lead…</option></select></div>
+    <div id="leadCard" class="lead-card">
+      <div class="lc-nome" id="lcNome">—</div>
+      <div class="lc-grid">
+        <div>Vendedor: <span id="lcVendedor">—</span></div>
+        <div>Etapa: <span id="lcEtapa">—</span></div>
+        <div>Telefone: <span id="lcTelefone">—</span></div>
+        <div>Valor estimado: <span id="lcValor">—</span></div>
+        <div style="grid-column:span 2;">Endereço: <span id="lcEndereco">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SERVIÇOS ── -->
+  <div class="card">
+    <div class="card-head">Serviços e Plano</div>
+    <div class="blocks-wrap" id="blocksList"></div>
+    <div class="add-btn-row">
+      <button class="add-svc-btn" id="addBlockBtn">+ Serviço Avulso</button>
+      <button class="add-svc-btn plano" id="addPlanoBtn">&#9788; Plano Anual</button>
+      <button class="add-svc-btn desc" id="addDescontoBtn">% Desconto</button>
+    </div>
+  </div>
+
+  <!-- ── DESLOCAMENTO ── -->
+  <div class="card">
+    <div class="card-head">Custos Adicionais</div>
+    <div class="frow">
+      <div class="field"><label>Deslocamento (R$)</label><input type="number" id="deslocamento" min="0" step="0.01" placeholder="0,00" oninput="updateSummary()"></div>
+      <div class="field"><label>Observação</label><input type="text" id="deslocObs" placeholder="ex: 40 km ida e volta"></div>
+    </div>
+  </div>
+
+  <!-- ── DADOS DA PROPOSTA ── -->
+  <div class="card">
+    <div class="card-head">Dados da Proposta</div>
+    <div class="frow tri">
+      <div class="field"><label>Número da proposta</label><input type="text" id="numeroProp" placeholder="ex: PROP-2026-001"></div>
+      <div class="field"><label>Data</label><input type="date" id="dataProp"></div>
+      <div class="field"><label>Status</label>
+        <select id="statusProp">
+          <option value="Rascunho">Rascunho</option>
+          <option value="Enviada">Enviada</option>
+          <option value="Aceita">Aceita</option>
+          <option value="Recusada">Recusada</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>Observações gerais</label><textarea id="obsGerais" placeholder="Condições de pagamento, prazo de execução, garantias…"></textarea></div>
+  </div>
+
+  <div class="actions-row">
+    <button class="btn btn-primary" id="saveBtn">&#128190; Salvar Proposta</button>
+    <button class="btn btn-secondary" id="printBtn">&#128438; Imprimir / PDF</button>
+    <button class="btn btn-secondary" id="newBtn" style="margin-left:auto;">+ Nova proposta</button>
+  </div>
+  <div class="save-bar" id="saveBar" style="display:none;">
+    <div class="sbi">Salvo · ID <strong id="savedId">—</strong></div>
+    <a id="savedLink" href="#" target="_blank">Abrir link &#8599;</a>
+  </div>
+
+</div>
+
+<!-- ── SIDEBAR ── -->
+<div class="aside">
+  <div class="summary-card">
+    <div class="card-head" style="margin-bottom:8px;">Resumo</div>
+    <div id="summaryBlocks"></div>
+    <div class="sum-row" id="sumDeslocRow"><span class="sum-label">Deslocamento</span><span class="sum-val" id="sumDeslocamento">R$ 0,00</span></div>
+    <div class="sum-total-row"><span style="font-weight:700;font-size:15px;">Total</span><span class="sum-total-val" id="sumTotal">R$ 0,00</span></div>
+    <div class="sum-parcelas" id="sumParcelas" style="display:none;"></div>
+  </div>
+  <div class="history-card">
+    <div class="card-head" style="margin-bottom:12px;">Histórico</div>
+    <div id="historyList"><div class="empty"><div class="icon">&#128203;</div><p>Nenhuma proposta salva</p></div></div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<div class="toast" id="toast"><span id="toastIcon">✓</span><span id="toastMsg"></span></div>
+
+<script>
+(function(){
+'use strict';
+
+// ── Tabelas de precificação (da planilha Precificação) ────────────────
+var MONITORING_TABLE = [
+  { min:0,  label:'Residencial até 6kWp',           valor:34.90 },
+  { min:10, label:'Residencial 6–10kWp',             valor:39.90 },
+  { min:17, label:'Residencial 10–15kWp',            valor:49.90 },
+  { min:25, label:'Comercial Médio 15–20kWp',        valor:59.90 },
+  { min:32, label:'Comercial Médio 20–25kWp',        valor:69.90 },
+  { min:41, label:'Comercial Grande 25–30kWp',       valor:79.90 },
+  { min:50, label:'Comercial Grande 30–35kWp',       valor:89.90 },
+  { min:59, label:'Comercial Grande >35kWp',         valor:99.90 }
+];
+
+var INSTALLMENT_TABLE = [
+  { min:0,       max:100,    parcelas:1  },
+  { min:100.01,  max:150,    parcelas:2  },
+  { min:150.01,  max:400,    parcelas:3  },
+  { min:400.01,  max:800,    parcelas:5  },
+  { min:800.01,  max:1000,   parcelas:6  },
+  { min:1000.01, max:1500,   parcelas:8  },
+  { min:1500.01, max:2000,   parcelas:9  },
+  { min:2000.01, max:Infinity,parcelas:10 }
+];
+
+var LAVAGEM_UNIT = 45.00; // R$ por módulo (plano)
+
+function getMonitoramento(qtdModulos) {
+  var result = MONITORING_TABLE[0];
+  for (var i = 0; i < MONITORING_TABLE.length; i++) {
+    if (qtdModulos >= MONITORING_TABLE[i].min) result = MONITORING_TABLE[i];
+    else break;
+  }
+  return result;
+}
+
+function getMaxParcelas(total) {
+  var result = 1;
+  for (var i = 0; i < INSTALLMENT_TABLE.length; i++) {
+    if (total >= INSTALLMENT_TABLE[i].min) result = INSTALLMENT_TABLE[i].parcelas;
+  }
+  return result;
+}
+
+// Determina o tipo de cálculo e valor a partir das colunas da planilha Servicos.
+// Regra: ValorPorModulo > 0 → módulo; Valor > 0 → fixo; nenhum → custo (travado).
+function inferFromService(svc) {
+  if (!svc) return { tipo:'fixo', locked:false, valorUnit:0 };
+  if (svc.valorPorModulo > 0) return { tipo:'modulo', locked:true, valorUnit:svc.valorPorModulo };
+  if (svc.valor > 0)          return { tipo:'fixo',   locked:true, valorUnit:svc.valor };
+  return                             { tipo:'custo',  locked:true, valorUnit:0 };
+}
+
+// ── API ───────────────────────────────────────────────────────────────
+var BASE_URL        = window.location.origin + window.location.pathname;
+var DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA34xrlLTVUUNhKBIlguJT3ectH7Yus-VW1n41GcCclc5q_Yj0Di2O7g/exec';
+var DEFAULT_API_KEY = '1234';
+var API_URL_KEY     = 'ponto_api_url';
+var API_KEY_KEY     = 'ponto_api_key';
+
+function getApiUrl(){ return (localStorage.getItem(API_URL_KEY)||'').trim()||DEFAULT_API_URL; }
+function getApiKey(){ return (localStorage.getItem(API_KEY_KEY)||'').trim()||DEFAULT_API_KEY; }
+function setApiCreds(u,k){ localStorage.setItem(API_URL_KEY,u.trim()); localStorage.setItem(API_KEY_KEY,k.trim()); }
+
+function apiCall(action,extra){
+  var body=Object.assign({action:action,chave:getApiKey()},extra||{});
+  return fetch(getApiUrl(),{method:'POST',cache:'no-store',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)}).then(function(r){return r.json();});
+}
+
+// ── Utilitários ────────────────────────────────────────────────────────
+function fmtMoney(n){ return 'R$\u00a0'+(Math.abs(parseFloat(n)||0)).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function escH(s){ var d=document.createElement('div'); d.textContent=String(s||''); return d.innerHTML; }
+function dateKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function fmtDateBR(s){ if(!s)return'—'; var m=String(s).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m)return m[1].padStart(2,'0')+'/'+m[2].padStart(2,'0')+'/'+m[3]; return String(s).substring(0,10); }
+function statusCls(s){ return (s||'rascunho').toLowerCase().replace(/\s/g,''); }
+function showToast(msg,ok){ var t=document.getElementById('toast'); document.getElementById('toastMsg').textContent=msg; document.getElementById('toastIcon').textContent=ok===false?'✕':'✓'; t.className='toast '+(ok===false?'error':'success')+' show'; setTimeout(function(){t.classList.remove('show');},3400); }
+
+// ── Estado global ──────────────────────────────────────────────────────
+var S={
+  funilRecords:[],clientesMap:{},vendedoresMap:{},servicosMap:{},servicosArray:[],
+  propostas:[],blocks:[],seq:0,propostaId:null
+};
+
+// ── Processar dados da API ─────────────────────────────────────────────
+function buildMaps(resp){
+  S.vendedoresMap={};
+  (resp.vendedores||[]).forEach(function(v){ if(v.IdVendedor)S.vendedoresMap[v.IdVendedor]=v; });
+  S.clientesMap={};
+  (resp.clientes||[]).forEach(function(c){
+    if(!c.IdCliente)return;
+    S.clientesMap[c.IdCliente]={ nome:(c['Nome Razao Social']||c.Nome||c.IdCliente).trim(), telefone:String(c.Telefone||'').trim(), email:String(c.Email||'').trim(), endereco:String(c.Endereco||'').trim() };
+  });
+  S.servicosMap={};S.servicosArray=[];
+  (resp.servicos||[]).forEach(function(s){
+    if(!s.IdServico)return;
+    var obj={
+      id:s.IdServico,
+      nome:(s['Nome Servico']||s.NomeServico||s.Nome||s.IdServico).trim(),
+      tipoCobranca:(s['Tipo Cobranca']||s.TipoCobranca||'Unitário').trim(),
+      tipoServico:(s.TipoServico||'').trim(),
+      descricao:(s.Descricao||s.Descrição||'').trim(),
+      valor:parseFloat(String(s.Valor||'0').replace(',','.'))||0,
+      valorPorModulo:parseFloat(String(s.ValorPorModulo||'0').replace(',','.'))||0
+    };
+    S.servicosMap[s.IdServico]=obj; S.servicosArray.push(obj);
+  });
+  S.funilRecords=(resp.funil||[]).map(function(o){
+    var cli=S.clientesMap[o.IdCliente]||{},vend=S.vendedoresMap[o.IdVendedor]||{};
+    return{ id:o.IdOportunidade||o.IdFunil, idCliente:o.IdCliente, idVendedor:o.IdVendedor, nomeCliente:cli.nome||o.IdCliente||'—', telefone:cli.telefone||'', email:cli.email||'', endereco:cli.endereco||'', nomeVendedor:vend.Nome||o.IdVendedor||'—', etapa:(o.Etapa||'').trim(), valor:parseFloat(String(o['Valor Estimado']||o.Valor||'0').replace(',','.'))||0, obs:(o.Observacoes||'').trim() };
+  }).filter(function(r){return !!r.id;});
+}
+
+// ── Leads ──────────────────────────────────────────────────────────────
+function populateLeads(){
+  var sel=document.getElementById('selLead');
+  sel.innerHTML='<option value="">— Selecionar lead…</option>';
+  S.funilRecords.slice().sort(function(a,b){return a.nomeCliente.localeCompare(b.nomeCliente,'pt-BR');}).forEach(function(r){
+    var opt=document.createElement('option'); opt.value=r.id;
+    opt.textContent=r.nomeCliente+' · '+r.etapa+' · '+r.nomeVendedor;
+    sel.appendChild(opt);
+  });
+}
+
+function onLeadChange(){
+  var id=document.getElementById('selLead').value,lc=document.getElementById('leadCard');
+  if(!id){lc.style.display='none';return;}
+  var r=S.funilRecords.find(function(x){return x.id===id;});
+  if(!r){lc.style.display='none';return;}
+  document.getElementById('lcNome').textContent=r.nomeCliente;
+  document.getElementById('lcVendedor').textContent=r.nomeVendedor;
+  document.getElementById('lcEtapa').textContent=r.etapa;
+  document.getElementById('lcTelefone').textContent=r.telefone||'—';
+  document.getElementById('lcValor').textContent=fmtMoney(r.valor);
+  document.getElementById('lcEndereco').textContent=r.endereco||'—';
+  lc.style.display='block';
+}
+
+// ── Cálculo de Perda ───────────────────────────────────────────────────
+window.calcPerda = function(){
+  var kwp   = parseFloat(document.getElementById('perdaKwp').value)||0;
+  var konst = parseFloat(document.getElementById('perdaConst').value)||114;
+  var tarifa= parseFloat(document.getElementById('perdaTarifa').value)||0;
+  var desemp= parseFloat(document.getElementById('perdaDesempenho').value)||0;
+  if(!kwp||!tarifa||!desemp){ document.getElementById('perdaValMensal').textContent='—'; document.getElementById('perdaValAnual').textContent='—'; return; }
+  var perdaMensal = kwp * konst * tarifa * (1 - desemp/100);
+  var perdaAnual  = perdaMensal * 12;
+  document.getElementById('perdaValMensal').textContent = fmtMoney(perdaMensal)+'/mês';
+  document.getElementById('perdaValAnual').textContent  = fmtMoney(perdaAnual)+'/ano';
+};
+
+// ── Blocos de serviços ─────────────────────────────────────────────────
+function newBlock(tipo){
+  S.seq++;
+  if(tipo==='plano')    return {bId:'b'+S.seq,calcTipo:'plano',    qtdModulos:7, lavagemUnit:LAVAGEM_UNIT, descricaoExtra:''};
+  if(tipo==='desconto') return {bId:'b'+S.seq,calcTipo:'desconto', descDesc:'Desconto', descontoTipo:'pct', descontoVal:10, descricaoExtra:''};
+  return {bId:'b'+S.seq,calcTipo:'fixo', idServico:'', quantidade:1, valorUnit:0, custoBase:0, margemPct:30, descricaoExtra:''};
+}
+
+function blkTotal(b){
+  switch(b.calcTipo){
+    case 'plano':{
+      var mon=getMonitoramento(b.qtdModulos||0);
+      return (mon.valor*12)+((b.lavagemUnit||LAVAGEM_UNIT)*(b.qtdModulos||0));
+    }
+    case 'desconto':{
+      // O desconto reduz o subtotal — o valor real é calculado no summary
+      return 0; // placeholder; o summary cuida disso
+    }
+    case 'modulo': return (b.quantidade||0)*(b.valorUnit||0);
+    case 'custo':  { var c=b.custoBase||0,m=(b.margemPct||0)/100; return m>=1?c*100:(m>0?c/(1-m):c); }
+    default:       return b.valorUnit||0;
+  }
+}
+
+function subtotalServicos(){
+  return S.blocks.filter(function(b){return b.calcTipo!=='desconto';}).reduce(function(s,b){return s+blkTotal(b);},0);
+}
+
+function totalDescontos(subtotal){
+  return S.blocks.filter(function(b){return b.calcTipo==='desconto';}).reduce(function(s,b){
+    if(b.descontoTipo==='pct') return s + subtotal*(b.descontoVal/100);
+    return s + (b.descontoVal||0);
+  },0);
+}
+
+function renderBlock(b){
+  var svc=S.servicosMap[b.idServico]||{};
+  var html='';
+
+  if(b.calcTipo==='plano'){
+    var mon   = getMonitoramento(b.qtdModulos||0);
+    var lavUnit= b.lavagemUnit||LAVAGEM_UNIT;
+    var total  = (mon.valor*12) + lavUnit*(b.qtdModulos||0);
+    var avista = total*0.90;
+    var mensal = total/12;
+    var maxParc= getMaxParcelas(total);
+    html=
+      '<div class="svc-block block-plano" id="'+b.bId+'">'+
+      '<div class="svc-block-head"><div>'+
+        '<div class="svc-block-title">&#9788; Plano Anual</div>'+
+        '<div class="svc-block-badges"><span class="badge calc-plano">Plano Anual</span><span class="badge adm">ADM</span></div>'+
+      '</div><button class="ico-btn" onclick="_br(\''+b.bId+'\')">✕</button></div>'+
+      '<div class="frow">'+
+        '<div class="field"><label>Quantidade de Módulos</label><input type="number" value="'+(b.qtdModulos||7)+'" min="1" step="1" onchange="_bc(\''+b.bId+'\',\'qtdModulos\',this.value)"></div>'+
+        '<div class="field"><label>Lavagem por módulo (R$)</label><input type="number" value="'+(lavUnit)+'" min="0" step="0.01" onchange="_bc(\''+b.bId+'\',\'lavagemUnit\',this.value)"></div>'+
+      '</div>'+
+      '<div class="field"><label>Observação adicional</label><textarea onchange="_bc(\''+b.bId+'\',\'descricaoExtra\',this.value)" placeholder="Especificações, observações…">'+escH(b.descricaoExtra)+'</textarea></div>'+
+      '<div class="plano-result">'+
+        '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.5);margin-bottom:10px;font-weight:700;">'+escH(mon.label)+' → Monitoramento '+fmtMoney(mon.valor)+'/mês</div>'+
+        '<div class="plano-result-grid">'+
+          '<div class="pr-item destaque"><div class="pr-label">Valor Anual</div><div class="pr-val">'+fmtMoney(total)+'</div></div>'+
+          '<div class="pr-item avista"><div class="pr-label">À Vista (10% desc.)</div><div class="pr-val">'+fmtMoney(avista)+'</div></div>'+
+          '<div class="pr-item"><div class="pr-label">Valor Mensal (c/ carência)</div><div class="pr-val">'+fmtMoney(mensal)+'</div></div>'+
+        '</div>'+
+        '<div class="plano-parcelas">Parcelamento disponível: até <strong>'+maxParc+'x</strong> · Valor por parcela: <strong>'+fmtMoney(total/maxParc)+'</strong></div>'+
+        '<div class="plano-monitor-info">Inclui: 1 limpeza · 1 vistoria de diagnóstico · 1 manutenção · 12 meses de app de monitoramento · 12 meses de acompanhamento Solar Green</div>'+
+      '</div>'+
+      '</div>';
+  }
+  else if(b.calcTipo==='desconto'){
+    var dLabel = b.descontoTipo==='pct' ? b.descontoVal+'%' : fmtMoney(b.descontoVal);
+    html=
+      '<div class="svc-block block-desconto" id="'+b.bId+'">'+
+      '<div class="svc-block-head"><div>'+
+        '<div class="svc-block-title">% '+escH(b.descDesc||'Desconto')+'</div>'+
+        '<div class="svc-block-badges"><span class="badge calc-desconto">Desconto</span></div>'+
+      '</div><button class="ico-btn" onclick="_br(\''+b.bId+'\')">✕</button></div>'+
+      '<div class="frow tri">'+
+        '<div class="field"><label>Descrição do desconto</label><input type="text" value="'+escH(b.descDesc||'')+'" placeholder="ex: Desconto especial" onchange="_bc(\''+b.bId+'\',\'descDesc\',this.value)"></div>'+
+        '<div class="field"><label>Tipo</label><select onchange="_bc(\''+b.bId+'\',\'descontoTipo\',this.value)"><option value="pct"'+(b.descontoTipo==='pct'?' selected':'')+'>Percentual (%)</option><option value="fixo"'+(b.descontoTipo==='fixo'?' selected':'')+'>Valor Fixo (R$)</option></select></div>'+
+        '<div class="field"><label>'+(b.descontoTipo==='pct'?'Desconto (%)':'Desconto (R$)')+'</label><input type="number" value="'+(b.descontoVal||10)+'" min="0" step="0.01" onchange="_bc(\''+b.bId+'\',\'descontoVal\',this.value)"></div>'+
+      '</div>'+
+      '<div class="bloco-total desconto-total">'+
+        '<span class="formula">'+escH(b.descDesc||'Desconto')+' — '+dLabel+'</span>'+
+        '<span class="valor">−'+fmtMoney(b.descontoTipo==='pct'? subtotalServicos()*(b.descontoVal/100) : (b.descontoVal||0))+'</span>'+
+      '</div>'+
+      '</div>';
+  }
+  else {
+    // Blocos de serviço avulso (fixo / modulo / custo)
+    var nome=svc.nome||'Novo serviço',total2=blkTotal(b);
+    var badges='';
+    if(b.idServico){ var tc=(svc.tipoCobranca||'').toLowerCase(),ts=(svc.tipoServico||'').toLowerCase(); badges+='<span class="badge '+(tc==='recorrente'?'recorrente':'unitario')+'">'+escH(svc.tipoCobranca||'Unitário')+'</span>'; if(ts)badges+='<span class="badge '+ts+'">'+escH(svc.tipoServico)+'</span>'; }
+    badges+='<span class="badge calc-'+b.calcTipo+'">'+(b.calcTipo==='fixo'?'Valor fixo':b.calcTipo==='modulo'?'Por módulo':'Custo+margem')+'</span>';
+    if(b._locked&&b.idServico) badges+='<span class="badge" style="background:#f1f5f9;color:#64748b;letter-spacing:.02em;">&#128274; tipo fixado</span>';
+    var sOpts='<option value="">— Selecione —</option>';
+    S.servicosArray.forEach(function(s){ sOpts+='<option value="'+escH(s.id)+'"'+(b.idServico===s.id?' selected':'')+'>'+escH(s.nome)+'</option>'; });
+    var calcHtml='';
+    if(b.calcTipo==='fixo') calcHtml='<div class="field"><label>Valor total (R$)</label><input type="number" value="'+(b.valorUnit||0)+'" min="0" step="0.01" onchange="_bc(\''+b.bId+'\',\'valorUnit\',this.value)"></div>';
+    else if(b.calcTipo==='modulo') calcHtml='<div class="frow"><div class="field"><label>Quantidade</label><input type="number" value="'+(b.quantidade||1)+'" min="1" step="1" onchange="_bc(\''+b.bId+'\',\'quantidade\',this.value)"></div><div class="field"><label>Valor unitário (R$)</label><input type="number" value="'+(b.valorUnit||0)+'" min="0" step="0.01" onchange="_bc(\''+b.bId+'\',\'valorUnit\',this.value)"></div></div>';
+    else calcHtml='<div class="frow"><div class="field"><label>Custo base (R$)</label><input type="number" value="'+(b.custoBase||0)+'" min="0" step="0.01" onchange="_bc(\''+b.bId+'\',\'custoBase\',this.value)"></div><div class="field"><label>Margem (%)</label><input type="number" value="'+(b.margemPct||30)+'" min="0" max="500" step="1" onchange="_bc(\''+b.bId+'\',\'margemPct\',this.value)"></div></div>';
+    var formula=''; if(b.calcTipo==='modulo')formula=b.quantidade+'×'+fmtMoney(b.valorUnit); else if(b.calcTipo==='custo'){var m2=b.margemPct||0;formula=fmtMoney(b.custoBase)+' ÷ (1−'+m2+'%) = '+fmtMoney(blkTotal(b));} else formula='Valor fixo';
+    // Select de tipo: desabilitado quando serviço tem tipo pré-determinado pela planilha
+    var lockedAttr=(b._locked&&b.idServico)?'disabled style="opacity:.55;cursor:not-allowed;background:#f8fafc;"':'';
+    var lockedHint=(b._locked&&b.idServico)?'<div style="font-size:10px;color:var(--ink-faint);margin-top:2px;">&#128274; definido pela tabela de serviços</div>':'';
+    html=
+      '<div class="svc-block" id="'+b.bId+'">'+
+      '<div class="svc-block-head"><div><div class="svc-block-title">'+escH(nome)+'</div><div class="svc-block-badges">'+badges+'</div></div><button class="ico-btn" onclick="_br(\''+b.bId+'\')">✕</button></div>'+
+      '<div class="frow"><div class="field"><label>Serviço</label><select onchange="_bc(\''+b.bId+'\',\'idServico\',this.value)">'+sOpts+'</select></div>'+
+      '<div class="field"><label>Tipo de cálculo</label><select '+lockedAttr+' onchange="_bc(\''+b.bId+'\',\'calcTipo\',this.value)"><option value="fixo"'+(b.calcTipo==='fixo'?' selected':'')+'>Valor Fixo</option><option value="modulo"'+(b.calcTipo==='modulo'?' selected':'')+'>Por Módulo / Qtd</option><option value="custo"'+(b.calcTipo==='custo'?' selected':'')+'>Custo + Margem</option></select>'+lockedHint+'</div></div>'+
+      calcHtml+
+      '<div class="field" style="margin-top:4px;"><label>Descrição / Especificação</label><textarea onchange="_bc(\''+b.bId+'\',\'descricaoExtra\',this.value)" placeholder="Detalhes…">'+escH(b.descricaoExtra)+'</textarea></div>'+
+      '<div class="bloco-total"><span class="formula">'+escH(formula)+'</span><span class="valor">'+fmtMoney(total2)+'</span></div>'+
+      '</div>';
+  }
+  var ex=document.getElementById(b.bId);
+  if(ex) ex.outerHTML=html;
+  else    document.getElementById('blocksList').insertAdjacentHTML('beforeend',html);
+}
+
+window._bc=function(bId,field,value){
+  var b=S.blocks.find(function(x){return x.bId===bId;});
+  if(!b)return;
+  if(['qtdModulos','quantidade','valorUnit','custoBase','margemPct','lavagemUnit','descontoVal'].indexOf(field)!==-1) b[field]=parseFloat(value)||0;
+  else b[field]=value;
+  if(field==='idServico'){
+    var svc=S.servicosMap[value];
+    if(svc){
+      // Descrição sempre atualiza ao mudar de serviço
+      b.descricaoExtra = svc.descricao || '';
+      // Auto-determina tipo e valor com base nas colunas da planilha
+      var inf = inferFromService(svc);
+      b.calcTipo  = inf.tipo;
+      b.valorUnit = inf.valorUnit;
+      b._locked   = inf.locked;
+      if(inf.tipo==='modulo' && !b.quantidade) b.quantidade = 1;
+    } else {
+      b._locked = false;
+    }
+  }
+  renderBlock(b); updateSummary();
+};
+window._br=function(bId){ S.blocks=S.blocks.filter(function(x){return x.bId!==bId;}); var el=document.getElementById(bId); if(el)el.remove(); updateSummary(); };
+
+// ── Resumo sidebar ─────────────────────────────────────────────────────
+function updateSummary(){
+  var html='',subTotal=0;
+  // Serviços não-desconto
+  S.blocks.filter(function(b){return b.calcTipo!=='desconto';}).forEach(function(b){
+    var svc=S.servicosMap[b.idServico]||{};
+    var nome=b.calcTipo==='plano'?'Plano Anual':(svc.nome||'—');
+    var t=blkTotal(b); subTotal+=t;
+    html+='<div class="sum-row"><span class="sum-label" title="'+escH(nome)+'">'+escH(nome)+'</span><span class="sum-val">'+fmtMoney(t)+'</span></div>';
+  });
+  // Descontos
+  var totalDesc=0;
+  S.blocks.filter(function(b){return b.calcTipo==='desconto';}).forEach(function(b){
+    var desc=b.descontoTipo==='pct'?subTotal*(b.descontoVal/100):(b.descontoVal||0);
+    totalDesc+=desc;
+    html+='<div class="sum-row deducao"><span class="sum-label">% '+escH(b.descDesc||'Desconto')+'</span><span class="sum-val">−'+fmtMoney(desc)+'</span></div>';
+    // re-render desconto block com valor atualizado
+    var el=document.getElementById(b.bId); if(el) renderBlock(b);
+  });
+  if(!S.blocks.length) html='<div style="font-size:12px;color:var(--ink-faint);padding:8px 0 4px;">Nenhum serviço adicionado</div>';
+  document.getElementById('summaryBlocks').innerHTML=html;
+  var desl=parseFloat(document.getElementById('deslocamento').value)||0;
+  document.getElementById('sumDeslocamento').textContent=fmtMoney(desl);
+  var total=subTotal-totalDesc+desl;
+  document.getElementById('sumTotal').textContent=fmtMoney(total);
+  // Parcelamento e à vista: desconto de 10% só nos serviços (não no deslocamento)
+  var maxParc=getMaxParcelas(total);
+  var baseDesconto=subTotal-totalDesc; // sem deslocamento
+  var aVista=baseDesconto*0.90+desl;  // desconto só nos serviços
+  var spEl=document.getElementById('sumParcelas');
+  if(total>0){
+    spEl.style.display='block';
+    spEl.innerHTML='Parcelamento: até <strong>'+maxParc+'x</strong> de <strong>'+fmtMoney(total/maxParc)+'</strong><br>À vista: <strong>'+fmtMoney(aVista)+'</strong> (10% desc. s/ serviços)';
+  } else { spEl.style.display='none'; }
+}
+
+// ── Histórico ──────────────────────────────────────────────────────────
+function renderHistory(){
+  var el=document.getElementById('historyList');
+  if(!S.propostas.length){el.innerHTML='<div class="empty"><div class="icon">&#128203;</div><p>Nenhuma proposta salva</p></div>';return;}
+  var sorted=S.propostas.slice().sort(function(a,b){return String(b.Data||'').localeCompare(String(a.Data||''));});
+  el.innerHTML=sorted.map(function(p){
+    return '<div class="hist-item" onclick="_loadProp(\''+escH(p.IdProposta)+'\')">'+
+      '<div class="hi-num">'+escH(p.Numero||p.IdProposta)+'</div>'+
+      '<div class="hi-nome">'+escH(p.NomeCliente||'—')+'</div>'+
+      '<div class="hi-meta"><span>'+escH(fmtDateBR(p.Data))+'</span><span class="hi-total">'+fmtMoney(p.Total)+'</span><span class="status-pill '+statusCls(p.Status)+'">'+escH(p.Status||'Rascunho')+'</span></div>'+
+    '</div>';
+  }).join('');
+}
+
+function loadHistory(){ apiCall('getProposals').then(function(resp){ if(resp&&resp.ok){S.propostas=resp.propostas||[];renderHistory();} }).catch(function(){}); }
+
+window._loadProp=function(pid){
+  apiCall('getProposals',{id:pid}).then(function(resp){
+    if(!resp||!resp.ok||!resp.proposta){showToast('Proposta não encontrada',false);return;}
+    var p=resp.proposta;
+    document.getElementById('selLead').value=p.IdOportunidade||''; onLeadChange();
+    document.getElementById('numeroProp').value=p.Numero||'';
+    document.getElementById('dataProp').value=String(p.Data||'').substring(0,10);
+    document.getElementById('statusProp').value=p.Status||'Rascunho';
+    document.getElementById('obsGerais').value=p.Observacoes||'';
+    document.getElementById('deslocamento').value=p.TotalDeslocamento||0;
+    var blocos=[]; try{blocos=JSON.parse(p.Blocos||'[]');}catch(e){}
+    S.blocks=[]; document.getElementById('blocksList').innerHTML='';
+    blocos.forEach(function(b){ S.seq++;b.bId='b'+S.seq;S.blocks.push(b);renderBlock(b); });
+    S.propostaId=pid; showSaveBar(pid,p.LinkProposta||''); updateSummary();
+    showToast('Proposta carregada'); window.scrollTo(0,0);
+  }).catch(function(err){showToast('Erro: '+err.message,false);});
+};
+
+function showSaveBar(id,link){
+  document.getElementById('savedId').textContent=id;
+  var a=document.getElementById('savedLink'); a.href=link; a.textContent=link;
+  document.getElementById('saveBar').style.display='flex';
+}
+
+// ── Salvar ──────────────────────────────────────────────────────────────
+function saveProposal(){
+  var btn=document.getElementById('saveBtn'); btn.disabled=true;btn.textContent='Salvando…';
+  var lead=S.funilRecords.find(function(r){return r.id===document.getElementById('selLead').value;})||{};
+  var subT=subtotalServicos(),totalDesc=totalDescontos(subT),desl=parseFloat(document.getElementById('deslocamento').value)||0;
+  var total=subT-totalDesc+desl;
+  apiCall('saveProposal',{
+    id:S.propostaId||undefined,data:document.getElementById('dataProp').value,numero:document.getElementById('numeroProp').value,
+    idOportunidade:lead.id||'',nomeCliente:lead.nomeCliente||'',idVendedor:lead.idVendedor||'',nomeVendedor:lead.nomeVendedor||'',
+    totalServicos:subT,totalDeslocamento:desl,total:total,blocos:S.blocks,
+    observacoes:document.getElementById('obsGerais').value,status:document.getElementById('statusProp').value,baseUrl:BASE_URL
+  }).then(function(resp){
+    btn.disabled=false;btn.textContent='💾 Salvar Proposta';
+    if(!resp||!resp.ok){showToast((resp&&resp.erro)||'Erro ao salvar',false);return;}
+    S.propostaId=resp.id; showSaveBar(resp.id,resp.link);
+    showToast('Proposta '+(resp.acao==='criado'?'criada':'atualizada')+'!');
+    loadHistory();
+  }).catch(function(err){btn.disabled=false;btn.textContent='💾 Salvar Proposta';showToast('Erro: '+err.message,false);});
+}
+
+// ── Imprimir ────────────────────────────────────────────────────────────
+function printProposal(){
+  var lead=S.funilRecords.find(function(r){return r.id===document.getElementById('selLead').value;})||{};
+  var data=document.getElementById('dataProp').value,num=document.getElementById('numeroProp').value;
+  var obs=document.getElementById('obsGerais').value,desl=parseFloat(document.getElementById('deslocamento').value)||0;
+  var dObs=document.getElementById('deslocObs').value;
+  var subT=subtotalServicos(),totalDesc=totalDescontos(subT),total=subT-totalDesc+desl;
+  var baseDesconto=subT-totalDesc;       // base para o desconto à vista (sem deslocamento)
+  var aVistaPrint=baseDesconto*0.90+desl; // 10% só sobre serviços
+  var maxParc=getMaxParcelas(total);
+
+  // Perda
+  var perdaSection='';
+  if(document.getElementById('perdaToggle').checked){
+    var kwp=parseFloat(document.getElementById('perdaKwp').value)||0;
+    var konst=parseFloat(document.getElementById('perdaConst').value)||114;
+    var tarifa2=parseFloat(document.getElementById('perdaTarifa').value)||0;
+    var desemp=parseFloat(document.getElementById('perdaDesempenho').value)||0;
+    if(kwp&&tarifa2&&desemp){
+      var pm=kwp*konst*tarifa2*(1-desemp/100);
+      perdaSection=
+        '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#003122;border-radius:10px;padding:20px;margin-bottom:24px;color:#fff;">'+
+        '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#78D800;margin-bottom:12px;">Análise de Desempenho da Usina</div>'+
+        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">'+
+          '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#004d35;border:1px solid #006644;border-radius:8px;padding:12px;">'+
+            '<div style="font-size:10px;color:#7ec49a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Sistema</div>'+
+            '<div style="font-size:18px;font-weight:700;color:#ffffff;">'+kwp+' kWp</div>'+
+            '<div style="font-size:11px;color:#7ec49a;margin-top:2px;">Desempenho atual: '+desemp+'%</div>'+
+          '</div>'+
+          '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#7f1d1d;border:1px solid #b91c1c;border-radius:8px;padding:12px;">'+
+            '<div style="font-size:10px;color:#fca5a5;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Perda Mensal</div>'+
+            '<div style="font-size:18px;font-weight:700;color:#ffffff;">'+fmtMoney(pm)+'/mês</div>'+
+            '<div style="font-size:11px;color:#fca5a5;margin-top:2px;">no ritmo atual</div>'+
+          '</div>'+
+          '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#7f1d1d;border:1px solid #b91c1c;border-radius:8px;padding:12px;">'+
+            '<div style="font-size:10px;color:#fca5a5;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Perda Anual Estimada</div>'+
+            '<div style="font-size:18px;font-weight:700;color:#ffffff;">'+fmtMoney(pm*12)+'/ano</div>'+
+            '<div style="font-size:11px;color:#fca5a5;margin-top:2px;">projeção 12 meses</div>'+
+          '</div>'+
+        '</div>'+
+        '</div>';
+    }
+  }
+
+  // ── Ícones SVG inline por serviço ──
+  var SVC_ICONS={
+    'plano':'<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#003122"/><path d="M24 8L28 16H40L31 22L34 32L24 26L14 32L17 22L8 16H20L24 8Z" fill="#78D800"/><circle cx="24" cy="26" r="6" stroke="#78D800" stroke-width="1.5" fill="none"/></svg>',
+    'e1010a0f':'<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#0f766e"/><rect x="8" y="14" width="32" height="20" rx="3" fill="#99f6e4"/><rect x="10" y="16" width="28" height="16" rx="2" fill="#0d9488"/><path d="M14 24h20M14 20h20M14 28h12" stroke="#ccfbf1" stroke-width="1.5" stroke-linecap="round"/><circle cx="34" cy="33" r="3" fill="#78D800"/></svg>',
+    'c14c16bd':'<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#1e3a5f"/><path d="M8 28L24 12L40 28H8Z" fill="#3b82f6"/><rect x="14" y="28" width="20" height="12" fill="#2563eb"/><rect x="20" y="32" width="8" height="8" fill="#1e3a5f"/><circle cx="36" cy="18" r="6" stroke="#fbbf24" stroke-width="2" fill="none"/><path d="M36 15v6M33 18h6" stroke="#fbbf24" stroke-width="1.5" stroke-linecap="round"/></svg>',
+    'c2ad6230':'<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#1e3a5f"/><circle cx="20" cy="22" r="10" stroke="#60a5fa" stroke-width="2.5" fill="none"/><path d="M28 28l8 8" stroke="#78D800" stroke-width="2.5" stroke-linecap="round"/><path d="M16 22h8M20 18v8" stroke="#60a5fa" stroke-width="1.5" stroke-linecap="round"/></svg>',
+    '610f5ddb':'<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#312e81"/><rect x="10" y="14" width="28" height="20" rx="3" fill="#4338ca"/><path d="M18 24h12M24 19v10" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round"/><circle cx="24" cy="24" r="4" stroke="#78D800" stroke-width="2" fill="none"/></svg>',
+    '90045b6d':'<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#312e81"/><rect x="10" y="14" width="28" height="20" rx="3" fill="#4338ca"/><path d="M18 24h12M24 19v10" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round"/><circle cx="24" cy="24" r="4" stroke="#78D800" stroke-width="2" fill="none"/></svg>',
+    '432b86ed':'<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#7c2d12"/><path d="M30 10a8 8 0 0 1 0 14l-2-2 2-2a4 4 0 1 0-4-4l-2 2-2-2A8 8 0 0 1 30 10Z" fill="#fb923c"/><path d="M12 38l14-14" stroke="#fbbf24" stroke-width="3" stroke-linecap="round"/></svg>',
+    '3c6daecf':'<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#134e4a"/><rect x="8" y="16" width="32" height="18" rx="3" fill="#0f766e"/><rect x="12" y="20" width="8" height="10" rx="1.5" fill="#99f6e4"/><path d="M26 22h10M26 26h8" stroke="#ccfbf1" stroke-width="1.5" stroke-linecap="round"/></svg>',
+    'ea592cfa':'<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#003122"/><rect x="8" y="12" width="32" height="20" rx="3" fill="#065f46"/><path d="M12 28l6-8 6 4 6-10 6 8" stroke="#78D800" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>',
+    '65238191':'<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#003122"/><rect x="8" y="12" width="32" height="20" rx="3" fill="#065f46"/><path d="M12 28l6-8 6 4 6-10 6 8" stroke="#78D800" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>',
+    '9e810fa5':'<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#003122"/><rect x="8" y="12" width="32" height="20" rx="3" fill="#065f46"/><path d="M12 28l6-8 6 4 6-10 6 8" stroke="#78D800" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>',
+    'ec9b68f7':'<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#450a0a"/><path d="M8 20L24 10L40 20V36H8V20Z" fill="#991b1b"/><path d="M18 15l12 12M30 15L18 27" stroke="#f87171" stroke-width="2" stroke-linecap="round"/></svg>',
+    '797b8508':'<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#14532d"/><path d="M8 22L24 12L40 22V38H8V22Z" fill="#166534"/><rect x="12" y="18" width="10" height="6" rx="1" fill="#86efac"/><rect x="26" y="18" width="10" height="6" rx="1" fill="#86efac"/><rect x="12" y="27" width="10" height="6" rx="1" fill="#86efac"/><rect x="26" y="27" width="10" height="6" rx="1" fill="#86efac"/></svg>',
+    'd1c5ba47':'<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#1c1917"/><rect x="10" y="8" width="28" height="36" rx="2" fill="#292524"/><circle cx="24" cy="18" r="4" stroke="#fbbf24" stroke-width="1.5" fill="none"/><path d="M20 26h8M20 30h6M20 34h4" stroke="#a8a29e" stroke-width="1.5" stroke-linecap="round"/><circle cx="36" cy="10" r="5" fill="#78D800"/><path d="M33.5 10l2 2 3-3" stroke="#003122" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    '07fcd577':'<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#422006"/><path d="M24 8l3 10h10l-8 6 3 10-8-6-8 6 3-10-8-6h10Z" fill="#f59e0b"/><path d="M24 16v8" stroke="#fef3c7" stroke-width="1.5" stroke-linecap="round"/></svg>',
+    'ac85fbb6':'<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#003122"/><circle cx="24" cy="20" r="8" stroke="#78D800" stroke-width="2" fill="none"/><path d="M12 38c0-6.627 5.373-12 12-12s12 5.373 12 12" stroke="#78D800" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M21 20l2 2 4-4" stroke="#78D800" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    'b7afb112':'<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#003122"/><path d="M24 8L28 16H40L31 22L34 32L24 26L14 32L17 22L8 16H20L24 8Z" fill="#78D800"/></svg>',
+    'default': '<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#1e3a5f"/><circle cx="24" cy="24" r="12" stroke="#60a5fa" stroke-width="2" fill="none"/><path d="M24 18v6l4 4" stroke="#60a5fa" stroke-width="2" stroke-linecap="round"/></svg>'
+  };
+  function getSvcIcon(b){return b.calcTipo==='plano'?SVC_ICONS['plano']:(SVC_ICONS[b.idServico]||SVC_ICONS['default']);}
+
+  // Linhas de serviços — layout visual com ícone + descrição expandida
+  var rows=S.blocks.filter(function(b){return b.calcTipo!=='desconto';}).map(function(b,i){
+    var svc=S.servicosMap[b.idServico]||{};
+    var nomeB=b.calcTipo==='plano'?'Plano Anual Solar Green':(svc.nome||'Serviço');
+    var descFinal=b.calcTipo==='plano'
+      ?'Inclui: 1 limpeza · 1 vistoria de diagnóstico · 1 manutenção · 12 meses de app de monitoramento · 12 meses de acompanhamento Solar Green'
+      :(b.descricaoExtra||svc.descricao||'');
+    var detalheCalc='';
+    if(b.calcTipo==='modulo')detalheCalc=b.quantidade+' módulo(s) × '+fmtMoney(b.valorUnit);
+    else if(b.calcTipo==='custo')detalheCalc=fmtMoney(b.custoBase)+' ÷ (1−'+b.margemPct+'%)';
+    var iconSvg=getSvcIcon(b);
+    return (
+      '<tr>'+
+      '<td style="-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:16px 12px;border-bottom:1px solid #e5e7eb;vertical-align:top;">'+
+        '<div style="display:flex;gap:14px;align-items:flex-start;">'+
+          '<div style="flex:none;border-radius:10px;overflow:hidden;width:48px;height:48px;">'+iconSvg+'</div>'+
+          '<div style="flex:1;min-width:0;">'+
+            '<div style="font-size:15px;font-weight:800;color:#003122;margin-bottom:5px;">'+(i+1)+'. '+escH(nomeB)+'</div>'+
+            (descFinal?'<div style="font-size:13px;color:#5a6b5a;line-height:1.7;margin-bottom:'+(detalheCalc?'6':'0')+'px;">'+escH(descFinal)+'</div>':'')+
+            (detalheCalc?'<div style="font-size:11px;color:#9aab9a;font-family:monospace;margin-top:2px;">'+escH(detalheCalc)+'</div>':'')+
+          '</div>'+
+        '</div>'+
+      '</td>'+
+      '<td style="padding:16px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:800;font-family:monospace;font-size:15px;color:#003122;vertical-align:top;white-space:nowrap;">'+fmtMoney(blkTotal(b))+'</td>'+
+      '</tr>'
+    );
+  }).join('');
+
+  var discRows=S.blocks.filter(function(b){return b.calcTipo==='desconto';}).map(function(b){
+    var desc=b.descontoTipo==='pct'?subT*(b.descontoVal/100):(b.descontoVal||0);
+    return '<tr><td style="padding:6px 8px;color:#1e40af;">% '+escH(b.descDesc||'Desconto')+(b.descontoTipo==='pct'?' ('+b.descontoVal+'%)':'')+
+      '</td><td style="padding:6px 8px;text-align:right;color:#1e40af;font-weight:700;font-family:monospace;">−'+fmtMoney(desc)+'</td></tr>';
+  }).join('');
+
+  var win=window.open('','_blank');
+
+  // Dados do vendedor (busca no map completo para pegar telefone)
+  var vendObj = S.vendedoresMap[lead.idVendedor] || {};
+  var vendNome = vendObj.Nome || lead.nomeVendedor || '';
+  var vendTel  = vendObj.Telefone || '';
+  var vendEmail= vendObj.Email || '';
+
+  win.document.write('<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Proposta'+(num?' '+num:'')+'</title>'+
+  '<style>'+
+  '*{box-sizing:border-box;margin:0;padding:0;}'+
+  'body{font-family:Inter,sans-serif;font-size:14px;color:#1e1e1e;padding:48px;max-width:820px;margin:auto;}'+
+  'h1{font-size:22px;font-weight:900;color:#003122;font-family:sans-serif;}h1 span{color:#78D800;}'+
+  '.prop-sub{color:#9aab9a;font-size:11px;letter-spacing:.06em;text-transform:uppercase;margin-top:3px;margin-bottom:32px;}'+
+  '.exclusiva{margin-bottom:28px;padding:24px 28px;border-left:5px solid #78D800;background:#f9fcf9;}'+
+  '.exclusiva .label{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#9aab9a;font-weight:600;margin-bottom:8px;}'+
+  '.exclusiva .nome{font-size:32px;font-weight:900;color:#003122;line-height:1.1;letter-spacing:-.01em;}'+
+  'table{width:100%;border-collapse:collapse;margin-bottom:20px;}'+
+  'th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#9aab9a;padding:10px 8px;border-bottom:2px solid #003122;}'+
+  'th:last-child{text-align:right;}'+
+  '.totals{text-align:right;padding-top:4px;}'+
+  '.tot-row{margin-bottom:6px;font-size:13px;color:#5a6b5a;}'+
+  '.tot-final{font-size:24px;font-weight:900;color:#003122;border-top:2px solid #78D800;padding-top:14px;margin-top:14px;}'+
+  '.tot-avista{font-size:14px;color:#16a34a;font-weight:600;margin-top:8px;}'+
+  '.tot-parcela{font-size:12px;color:#9aab9a;margin-top:3px;}'+
+  '.obs{margin-top:24px;padding:16px;background:#f2f7f2;border-radius:8px;font-size:12px;color:#5a6b5a;line-height:1.7;}'+
+  '.vendedor-card{margin-top:40px;padding:16px 20px;border:1px solid #dde8dd;border-radius:10px;display:flex;justify-content:space-between;align-items:center;}'+
+  '.vc-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#9aab9a;font-weight:600;margin-bottom:6px;}'+
+  '.vc-nome{font-size:15px;font-weight:700;color:#003122;}'+
+  '.vc-contato{font-size:13px;color:#5a6b5a;margin-top:2px;}'+
+  '.sg-logo{font-size:13px;font-weight:900;color:#003122;}'+
+  '.sg-logo span{color:#78D800;}'+
+  '.footer{margin-top:20px;text-align:center;font-size:10px;color:#c4d4c4;letter-spacing:.04em;}'+
+  '@media print{body{padding:24px;}@page{margin:1.5cm;}}'+
+  '*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}'+
+  '</style></head><body>'+
+
+  '<h1>SOLAR GREEN <span>SUPORTE</span></h1>'+
+  '<div class="prop-sub">Proposta Comercial'+(num?' &nbsp;·&nbsp; '+escH(num):'')+'</div>'+
+
+  perdaSection+
+
+  '<div class="exclusiva">'+
+    '<div class="label">Proposta exclusiva para</div>'+
+    '<div class="nome">'+escH(lead.nomeCliente||'Cliente')+'</div>'+
+  '</div>'+
+
+  '<table><thead><tr><th>Serviço</th><th style="text-align:right;">Valor</th></tr></thead><tbody>'+rows+discRows+'</tbody></table>'+
+
+  '<div class="totals">'+
+    (desl>0?'<div class="tot-row">Deslocamento'+(dObs?' ('+escH(dObs)+')':'')+': <strong>'+fmtMoney(desl)+'</strong></div>':'')+
+    (totalDesc>0?'<div class="tot-row">Descontos: <strong style="color:#dc2626">−'+fmtMoney(totalDesc)+'</strong></div>':'')+
+    '<div class="tot-final">TOTAL: '+fmtMoney(total)+'</div>'+
+    '<div class="tot-avista">&#10003; À vista: '+fmtMoney(aVistaPrint)+' <span style="font-size:12px;font-weight:400;color:#5a6b5a;">(10% de desconto sobre serviços)</span></div>'+
+    '<div class="tot-parcela">Parcelamento: até '+maxParc+'x de '+fmtMoney(total/maxParc)+'</div>'+
+  '</div>'+
+
+  (obs?'<div class="obs"><strong>Observações:</strong><br>'+escH(obs)+'</div>':'')+
+
+  (vendNome?
+    '<div class="vendedor-card">'+
+      '<div>'+
+        '<div class="vc-label">Seu consultor Solar Green</div>'+
+        '<div class="vc-nome">'+escH(vendNome)+'</div>'+
+        (vendTel?'<div class="vc-contato">&#128222; '+escH(vendTel)+'</div>':'')+
+        (vendEmail?'<div class="vc-contato" style="font-size:12px;color:#9aab9a;">'+escH(vendEmail)+'</div>':'')+
+      '</div>'+
+      '<div class="sg-logo">SOLAR<br>GREEN <span>&#9679;</span><br>SUPORTE</div>'+
+    '</div>'
+  :'')+
+
+  '<div class="footer">Solar Green Suporte &nbsp;·&nbsp; Proposta gerada em '+new Date().toLocaleDateString('pt-BR')+'</div>'+
+
+  '</body></html>');
+  win.document.close();
+  setTimeout(function(){win.print();},500);
+}
+
+// ── Reset ──────────────────────────────────────────────────────────────
+function resetForm(){
+  document.getElementById('selLead').value=''; document.getElementById('leadCard').style.display='none';
+  document.getElementById('numeroProp').value=''; document.getElementById('dataProp').value=dateKey(new Date());
+  document.getElementById('statusProp').value='Rascunho'; document.getElementById('obsGerais').value='';
+  document.getElementById('deslocamento').value=''; document.getElementById('deslocObs').value='';
+  S.blocks=[]; S.propostaId=null; document.getElementById('blocksList').innerHTML='';
+  document.getElementById('saveBar').style.display='none'; updateSummary();
+}
+
+// ── Análise de desempenho toggle ────────────────────────────────────────
+document.getElementById('perdaToggle').addEventListener('change',function(){
+  var on=this.checked;
+  document.getElementById('perdaSection').style.display=on?'':'none';
+  document.getElementById('perdaToggleLabel').textContent=on?'Ativado':'Desativado';
+  document.getElementById('perdaToggleRow').className='toggle-row'+(on?' active':'');
+});
+
+// ── Conexão ────────────────────────────────────────────────────────────
+function fetchData(){
+  var st=document.getElementById('connectStatus'),txt=document.getElementById('connectStatusText');
+  st.style.display='flex'; st.className='connect-status'; txt.textContent='Conectando…';
+  document.getElementById('connectBtn').disabled=true;
+  apiCall('getFunilData').then(function(resp){
+    document.getElementById('connectBtn').disabled=false;
+    if(!resp||!resp.ok){ st.className='connect-status error'; txt.textContent=(resp&&resp.erro)||'Erro ao conectar'; return; }
+    buildMaps(resp); populateLeads();
+    document.getElementById('dataProp').value=dateKey(new Date());
+    document.getElementById('mainContent').style.display='';
+    document.getElementById('connectWrap').style.display='none';
+    updateSummary(); loadHistory();
+    st.className='connect-status online';
+    txt.textContent='Conectado · '+S.funilRecords.length+' leads · '+S.servicosArray.length+' serviços';
+  }).catch(function(err){document.getElementById('connectBtn').disabled=false;document.getElementById('connectStatus').className='connect-status error';document.getElementById('connectStatusText').textContent='Erro: '+err.message;});
+}
+
+// ── Eventos ─────────────────────────────────────────────────────────────
+document.getElementById('connectBtn').addEventListener('click',function(){
+  var u=document.getElementById('apiUrl').value.trim(),k=document.getElementById('apiKey').value.trim();
+  if(!u||!k)return; setApiCreds(u,k); fetchData();
+});
+document.getElementById('selLead').addEventListener('change',onLeadChange);
+document.getElementById('addBlockBtn').addEventListener('click',function(){ var b=newBlock('avulso'); S.blocks.push(b); renderBlock(b); updateSummary(); });
+document.getElementById('addPlanoBtn').addEventListener('click',function(){ var b=newBlock('plano'); S.blocks.push(b); renderBlock(b); updateSummary(); });
+document.getElementById('addDescontoBtn').addEventListener('click',function(){ var b=newBlock('desconto'); S.blocks.push(b); renderBlock(b); updateSummary(); });
+document.getElementById('saveBtn').addEventListener('click',saveProposal);
+document.getElementById('printBtn').addEventListener('click',printProposal);
+document.getElementById('newBtn').addEventListener('click',function(){ if(confirm('Criar nova proposta? Os dados não salvos serão perdidos.'))resetForm(); });
+
+// ── Boot ─────────────────────────────────────────────────────────────────
+(function(){
+  var u=getApiUrl(),k=getApiKey();
+  document.getElementById('apiUrl').value=u; document.getElementById('apiKey').value=k;
+  if(u&&k)fetchData();
+})();
+
+})();
+</script>
+</body>
+</html>

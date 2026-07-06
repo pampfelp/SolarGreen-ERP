@@ -412,7 +412,7 @@
     <a href="#" id="nav-funil"><span class="ico">◈</span><span class="nav-label"> Funil</span></a>
   </nav>
   <div class="foot" style="display:flex;align-items:center;padding:14px 16px 0;">
-    <span class="foot-text" style="font-family:var(--mono);font-size:10px;color:rgba(255,255,255,0.3);">v<span id="appVersionFoot">2026-07-06-2</span></span>
+    <span class="foot-text" style="font-family:var(--mono);font-size:10px;color:rgba(255,255,255,0.3);">v<span id="appVersionFoot">2026-07-06-1</span></span>
   </div>
   <button class="sidebar-toggle" id="sidebarToggle" title="Recolher menu">
     <span class="ico" id="toggleIco">◀</span>
@@ -838,7 +838,7 @@
   var API_KEY_KEY = 'ponto_api_key';
   var DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA34xrlLTVUUNhKBIlguJT3ectH7Yus-VW1n41GcCclc5q_Yj0Di2O7g/exec';
   var DEFAULT_API_KEY = '1234';
-  var APP_VERSION = '2026-07-06-2';
+  var APP_VERSION = '2026-07-06-1';
   document.getElementById('p-appVersion').textContent = 'v' + APP_VERSION;
   document.getElementById('appVersionFoot').textContent = APP_VERSION;
 
@@ -1157,7 +1157,7 @@
   var DEFAULT_API_URL='https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA34xrlLTVUUNhKBIlguJT3ectH7Yus-VW1n41GcCclc5q_Yj0Di2O7g/exec';
   var DEFAULT_API_KEY='1234';
   var ID_VENDA_CUSTOS_ESCRITORIO='2b45b472';
-  var APP_VERSION='2026-07-06-2';
+  var APP_VERSION='2026-07-06-1';
   document.getElementById('v-appVersion').textContent='v'+APP_VERSION;
   document.getElementById('appVersionFoot').textContent=APP_VERSION;
 
@@ -1280,12 +1280,9 @@
     var ids=Object.keys(idsSet);
     var linhas=ids.map(function(id){
       var vv=filtered.vendas.filter(function(v){return v.idVendedor===id;}),fv=vv.reduce(function(s,v){return s+v.valor;},0),nv=vv.length;
-      // Ticket médio do vendedor: sempre o histórico global (todas as vendas dele,
-      // de sempre), não o do período filtrado. Se o vendedor nunca vendeu, cai
-      // para a média histórica geral da empresa.
-      var tvh=vendasRecords.filter(function(v){return v.idVendedor===id;});
-      var tv=tvh.length>0?tvh.reduce(function(s,v){return s+v.valor;},0)/tvh.length:tmH;
-      var tvE=tvh.length<=0&&tv>0;
+      var tvp=nv>0?fv/nv:0,tvh=vendasRecords.filter(function(v){return v.idVendedor===id;});
+      var th=tvh.length>0?tvh.reduce(function(s,v){return s+v.valor;},0)/tvh.length:tmH;
+      var tv=tvp>0?tvp:th,tvE=tvp<=0&&tv>0;
       var ativo=isVendedorAtivo(vendedoresMap[id]||{});
       var mi=ativo?ctx.metaIndividual:0,rv=ativo?Math.max(mi-fv,0):0,nv2=ativo?(tv>0?Math.ceil(rv/tv):(rv>0?null:0)):-1;
       var pv=ativo&&mi>0?Math.min((fv/mi)*100,100):0,mhv=ativo?ctx.metaAteHojeIndividual:0,ri=ativo?(fv-mhv):0;
@@ -1397,7 +1394,7 @@
   var DEFAULT_API_KEY = '1234';
   var API_URL_KEY = 'ponto_api_url';
   var API_KEY_KEY = 'ponto_api_key';
-  var APP_VERSION = '2026-07-06-2';
+  var APP_VERSION = '2026-07-06-1';
 
   function getApiUrl(){ return (localStorage.getItem(API_URL_KEY)||'').trim()||DEFAULT_API_URL; }
   function getApiKey(){ return (localStorage.getItem(API_KEY_KEY)||'').trim()||DEFAULT_API_KEY; }
