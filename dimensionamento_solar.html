@@ -120,7 +120,8 @@
   }
   .orient-btn.active{background:var(--blueprint);border-color:var(--blueprint);color:#04121c;font-weight:600;}
   svg{width:100%;height:auto;background:var(--bg);border:1px solid var(--line);border-radius:3px;}
-  .mod-rect{fill:rgba(255,176,32,0.22);stroke:var(--accent);stroke-width:1;}
+  .mod-rect{fill:rgba(120,216,0,0.22);stroke:var(--accent);stroke-width:1;}
+  .mod-rect-extra{fill:rgba(166,224,106,0.30);stroke:var(--blueprint);stroke-dasharray:2,1.5;}
   .dim-line{stroke:var(--blueprint);stroke-width:1;}
   .dim-text{fill:var(--blueprint);font-family:'IBM Plex Mono',monospace;font-size:9px;}
 
@@ -262,8 +263,7 @@ function fitCount(total, mod){
   return (overhang <= 0.10 + 1e-9) ? floorCount+1 : floorCount;
 }
 
-function calcRoofLayout(largura, altura, modH, modW, forceOrientation){
-  if(!largura || !altura || !modH || !modW) return null;
+function bestOrientation(largura, altura, modH, modW, forceOrientation){
   const rowsP = fitCount(altura, modH), perRowP = fitCount(largura, modW);
   const totalP = rowsP*perRowP;
   const rowsL = fitCount(altura, modW), perRowL = fitCount(largura, modH);
@@ -281,25 +281,53 @@ function calcRoofLayout(largura, altura, modH, modW, forceOrientation){
   }
 }
 
+// Recursively packs a rectangle: places the best-fit grid, then tries to
+// squeeze extra modules into the leftover L-shaped strips (bottom + side).
+function packRoof(largura, altura, modH, modW, forceOrientation, x, y, depth){
+  x = x||0; y = y||0; depth = depth||0;
+  if(!largura || !altura || !modH || !modW || largura<=0.02 || altura<=0.02 || depth>6){
+    return { total:0, rows:0, blocks:[] };
+  }
+  const best = bestOrientation(largura, altura, modH, modW, depth===0 ? forceOrientation : null);
+  if(best.total === 0) return { total:0, rows:0, blocks:[] };
+
+  const usedW = best.perRow*best.alongRow, usedH = best.rows*best.alongCol;
+  const block = { x, y, w:usedW, h:usedH, rows:best.rows, perRow:best.perRow,
+                   alongRow:best.alongRow, alongCol:best.alongCol,
+                   orientation:best.orientation, total:best.total, isMain: depth===0 };
+
+  const bottom = packRoof(largura, altura-usedH, modH, modW, null, x, y+usedH, depth+1);
+  const side   = packRoof(largura-usedW, usedH, modH, modW, null, x+usedW, y, depth+1);
+
+  return {
+    total: best.total + bottom.total + side.total,
+    rows: best.rows + bottom.rows + side.rows,
+    blocks: [block, ...bottom.blocks, ...side.blocks]
+  };
+}
+
 function screwsPerRail(railLength){
   if(railLength<=2.4+0.001) return 2;
   if(railLength<=4.8+0.001) return 3;
   return Math.ceil(railLength/1.6)+1;
 }
 
-function calcMaterials(layout, railLength, andares, cablePerFloor){
-  if(!layout) return null;
-  const rowLength = layout.perRow * layout.alongRow;
-  const railsPerLine = Math.ceil(rowLength/railLength);
-  const railsPerRow = railsPerLine*2;
-  const totalRails = layout.rows * railsPerRow;
-  const structScrews = totalRails * screwsPerRail(railLength);
-  const finalScrews = layout.rows * 2;
-  const interClamps = (layout.total*2) - finalScrews;
-  const cableFlat = layout.total * layout.alongRow;
+function calcMaterials(pack, railLength, andares, cablePerFloor){
+  if(!pack || !pack.blocks.length) return null;
+  let totalRails=0, structScrews=0, finalScrews=0, cableFlat=0;
+  pack.blocks.forEach(b=>{
+    const rowLength = b.perRow * b.alongRow;
+    const railsPerLine = Math.ceil(rowLength/railLength);
+    const railsPerRow = railsPerLine*2;
+    totalRails += b.rows * railsPerRow;
+    structScrews += b.rows * railsPerRow * screwsPerRail(railLength);
+    finalScrews += b.rows * 2;
+    cableFlat += b.total * b.alongRow;
+  });
+  const interClamps = (pack.total*2) - finalScrews;
   const cableDescida = (andares||0) * cablePerFloor;
   const cableTotal = cableFlat + cableDescida;
-  return { rowLength, totalRails, structScrews, finalScrews, interClamps, cableFlat, cableDescida, cableTotal };
+  return { totalRails, structScrews, finalScrews, interClamps, cableFlat, cableDescida, cableTotal };
 }
 
 function fmt(n, d){
@@ -338,20 +366,24 @@ function buildTabs(){
   });
 }
 
-function svgDiagram(largura, altura, layout){
-  if(!layout || !largura || !altura) return '';
+function svgDiagram(largura, altura, pack){
+  if(!pack || !pack.blocks.length || !largura || !altura) return '';
   const padL=34, padT=18, padR=14, padB=14, boxW=360, boxH=200;
   const scale = Math.min(boxW/largura, boxH/altura);
   const drawW = largura*scale, drawH = altura*scale;
   const vbW = drawW+padL+padR, vbH = drawH+padT+padB;
-  const cellW = layout.alongRow*scale, cellH = layout.alongCol*scale;
   let cells = '';
-  for(let r=0;r<layout.rows;r++){
-    for(let c=0;c<layout.perRow;c++){
-      const x = padL + c*cellW + 1, y = padT + r*cellH + 1;
-      cells += `<rect class="mod-rect" x="${x}" y="${y}" width="${cellW-2}" height="${cellH-2}"/>`;
+  pack.blocks.forEach(block=>{
+    const cellW = block.alongRow*scale, cellH = block.alongCol*scale;
+    const cls = block.isMain ? 'mod-rect' : 'mod-rect mod-rect-extra';
+    for(let r=0;r<block.rows;r++){
+      for(let c=0;c<block.perRow;c++){
+        const x = padL + (block.x + c*block.alongRow)*scale + 1;
+        const y = padT + (block.y + r*block.alongCol)*scale + 1;
+        cells += `<rect class="${cls}" x="${x}" y="${y}" width="${cellW-2}" height="${cellH-2}"/>`;
+      }
     }
-  }
+  });
   return `<svg viewBox="0 0 ${vbW} ${vbH}" xmlns="http://www.w3.org/2000/svg">
     <rect x="${padL}" y="${padT}" width="${drawW}" height="${drawH}" fill="none" stroke="var(--line-strong)" stroke-dasharray="3,3"/>
     ${cells}
@@ -373,8 +405,11 @@ function renderRoofPanels(){
     const panel = document.createElement('div');
     panel.className = 'roof-body' + (i===state.activeTab ? '' : ' hidden');
 
-    const layout = calcRoofLayout(roof.largura, roof.altura, modH, modW, roof.orientation);
-    const mat = calcMaterials(layout, railLength, getHouseFloors(), cablePerFloor);
+    const pack = packRoof(roof.largura, roof.altura, modH, modW, roof.orientation);
+    const hasFit = pack && pack.total > 0;
+    const mainBlock = hasFit ? pack.blocks.find(b=>b.isMain) : null;
+    const extraTotal = hasFit ? pack.total - mainBlock.total : 0;
+    const mat = hasFit ? calcMaterials(pack, railLength, getHouseFloors(), cablePerFloor) : null;
 
     panel.innerHTML = `
       <div>
@@ -393,12 +428,12 @@ function renderRoofPanels(){
           <button type="button" class="orient-btn ${roof.orientation==='retrato'?'active':''}" data-i="${i}" data-o="retrato">Retrato</button>
           <button type="button" class="orient-btn ${roof.orientation==='paisagem'?'active':''}" data-i="${i}" data-o="paisagem">Paisagem</button>
         </div>
-        ${layout ? svgDiagram(roof.largura, roof.altura, layout) : '<div class="readout" style="text-align:center;color:var(--text-dim);">Preencha módulo e telhado para ver o encaixe</div>'}
+        ${hasFit ? svgDiagram(roof.largura, roof.altura, pack) : '<div class="readout" style="text-align:center;color:var(--text-dim);">Preencha módulo e telhado para ver o encaixe</div>'}
       </div>
       <div>
-        ${layout ? `<span class="orient-tag">${layout.orientation} · ${layout.rows} fila(s) × ${layout.perRow}${roof.orientation==='auto' ? '' : ` <span style="opacity:.6">(outra orientação: ${layout.totalOther})</span>`}</span>` : ''}
+        ${hasFit ? `<span class="orient-tag">${mainBlock.orientation} · ${mainBlock.rows} fila(s) × ${mainBlock.perRow}${extraTotal>0 ? ` <span style="opacity:.75">+ ${extraTotal} na área residual</span>` : ''}</span>` : ''}
         <div class="readout">
-          <div class="readout-row"><span class="k">Módulos que cabem</span><span class="v">${layout ? layout.total : '—'}</span></div>
+          <div class="readout-row"><span class="k">Módulos que cabem</span><span class="v">${hasFit ? pack.total : '—'}</span></div>
           <div class="readout-row"><span class="k">Trilhos (total)</span><span class="v">${mat ? mat.totalRails : '—'}</span></div>
           <div class="readout-row"><span class="k">Parafusos estruturais</span><span class="v">${mat ? mat.structScrews : '—'}</span></div>
           <div class="readout-row"><span class="k">Parafusos finais</span><span class="v">${mat ? mat.finalScrews : '—'}</span></div>
@@ -438,17 +473,17 @@ function getAllLayouts(){
   const railLength = getRailLength();
   const cablePerFloor = num(document.getElementById('cablePerFloor').value) || 3.5;
   return state.roofs.map(r=>{
-    const layout = calcRoofLayout(r.largura, r.altura, modH, modW, r.orientation);
-    const mat = calcMaterials(layout, railLength, getHouseFloors(), cablePerFloor);
-    return { layout, mat };
+    const pack = packRoof(r.largura, r.altura, modH, modW, r.orientation);
+    const mat = (pack && pack.total>0) ? calcMaterials(pack, railLength, getHouseFloors(), cablePerFloor) : null;
+    return { pack, mat };
   });
 }
 
 function renderTotals(){
   const all = getAllLayouts();
   const sum = (key, obj)=> all.reduce((a,x)=> a + (x[obj] ? (x[obj][key]||0) : 0), 0);
-  const totalModules = all.reduce((a,x)=> a + (x.layout ? x.layout.total : 0), 0);
-  const totalRows = all.reduce((a,x)=> a + (x.layout ? x.layout.rows : 0), 0);
+  const totalModules = all.reduce((a,x)=> a + (x.pack ? x.pack.total : 0), 0);
+  const totalRows = all.reduce((a,x)=> a + (x.pack ? x.pack.rows : 0), 0);
   const totalRails = sum('totalRails','mat');
   const totalStruct = sum('structScrews','mat');
   const totalFinal = sum('finalScrews','mat');
@@ -469,7 +504,7 @@ function renderTotals(){
 
 function renderInverter(){
   const all = getAllLayouts();
-  const totalModulesMax = all.reduce((a,x)=> a + (x.layout ? x.layout.total : 0), 0);
+  const totalModulesMax = all.reduce((a,x)=> a + (x.pack ? x.pack.total : 0), 0);
   const mode = document.querySelector('input[name=qtyMode]:checked').value;
   const manualQty = num(document.getElementById('manualQty').value);
   const modPower = num(document.getElementById('modPower').value);
