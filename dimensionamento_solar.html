@@ -119,6 +119,21 @@
     padding:6px 12px;border-radius:20px;cursor:pointer;letter-spacing:0.02em;
   }
   .orient-btn.active{background:var(--blueprint);border-color:var(--blueprint);color:#04121c;font-weight:600;}
+
+  .switch-row{display:flex;align-items:center;gap:10px;margin-top:16px;}
+  .switch{position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0;}
+  .switch input{opacity:0;width:0;height:0;position:absolute;}
+  .switch-track{
+    position:absolute;inset:0;background:var(--bg-2);border:1px solid var(--line-strong);
+    border-radius:22px;transition:background .15s, border-color .15s;
+  }
+  .switch-thumb{
+    position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;
+    background:var(--text-dim);transition:transform .15s, background .15s;
+  }
+  .switch input:checked + .switch-track{background:rgba(120,216,0,0.25);border-color:var(--accent);}
+  .switch input:checked + .switch-track .switch-thumb{transform:translateX(18px);background:var(--accent);}
+  .switch-label{font-size:13.5px;color:var(--text);}
   svg{width:100%;height:auto;background:var(--bg);border:1px solid var(--line);border-radius:3px;}
   .mod-rect{fill:rgba(120,216,0,0.22);stroke:var(--accent);stroke-width:1;}
   .mod-rect-extra{fill:rgba(166,224,106,0.30);stroke:var(--blueprint);stroke-dasharray:2,1.5;}
@@ -250,7 +265,7 @@
 
 <script>
 const state = {
-  roofs: [ { largura:null, altura:null, orientation:'auto' } ],
+  roofs: [ { largura:null, altura:null, orientation:'auto', customModule:{enabled:false, modH:null, modW:null, power:null} } ],
   activeTab: 0
 };
 
@@ -263,47 +278,48 @@ function fitCount(total, mod){
   return (overhang <= 0.10 + 1e-9) ? floorCount+1 : floorCount;
 }
 
-function bestOrientation(largura, altura, modH, modW, forceOrientation){
-  const rowsP = fitCount(altura, modH), perRowP = fitCount(largura, modW);
-  const totalP = rowsP*perRowP;
-  const rowsL = fitCount(altura, modW), perRowL = fitCount(largura, modH);
-  const totalL = rowsL*perRowL;
-  let use = forceOrientation;
-  if(use !== 'retrato' && use !== 'paisagem'){
-    if(totalP > totalL) use = 'retrato';
-    else if(totalL > totalP) use = 'paisagem';
-    else use = (rowsP <= rowsL) ? 'retrato' : 'paisagem';
-  }
-  if(use === 'retrato'){
-    return { orientation:'retrato', rows:rowsP, perRow:perRowP, total:totalP, alongRow:modW, alongCol:modH, totalOther:totalL };
-  } else {
-    return { orientation:'paisagem', rows:rowsL, perRow:perRowL, total:totalL, alongRow:modH, alongCol:modW, totalOther:totalP };
-  }
-}
+// Packs a rectangle using ONE fixed orientation (main grid + recursively
+// packed leftover L-strips), returning the full total for that orientation.
+function packOriented(largura, altura, modH, modW, orientation, x, y, depth){
+  const rows = orientation==='retrato' ? fitCount(altura, modH) : fitCount(altura, modW);
+  const perRow = orientation==='retrato' ? fitCount(largura, modW) : fitCount(largura, modH);
+  const alongRow = orientation==='retrato' ? modW : modH;
+  const alongCol = orientation==='retrato' ? modH : modW;
+  const mainTotal = rows*perRow;
+  if(mainTotal === 0) return { total:0, rows:0, blocks:[] };
 
-// Recursively packs a rectangle: places the best-fit grid, then tries to
-// squeeze extra modules into the leftover L-shaped strips (bottom + side).
-function packRoof(largura, altura, modH, modW, forceOrientation, x, y, depth){
-  x = x||0; y = y||0; depth = depth||0;
-  if(!largura || !altura || !modH || !modW || largura<=0.02 || altura<=0.02 || depth>6){
-    return { total:0, rows:0, blocks:[] };
-  }
-  const best = bestOrientation(largura, altura, modH, modW, depth===0 ? forceOrientation : null);
-  if(best.total === 0) return { total:0, rows:0, blocks:[] };
-
-  const usedW = best.perRow*best.alongRow, usedH = best.rows*best.alongCol;
-  const block = { x, y, w:usedW, h:usedH, rows:best.rows, perRow:best.perRow,
-                   alongRow:best.alongRow, alongCol:best.alongCol,
-                   orientation:best.orientation, total:best.total, isMain: depth===0 };
+  const usedW = perRow*alongRow, usedH = rows*alongCol;
+  const block = { x, y, w:usedW, h:usedH, rows, perRow, alongRow, alongCol,
+                   orientation, total:mainTotal, isMain: depth===0 };
 
   const bottom = packRoof(largura, altura-usedH, modH, modW, null, x, y+usedH, depth+1);
   const side   = packRoof(largura-usedW, usedH, modH, modW, null, x+usedW, y, depth+1);
 
   return {
-    total: best.total + bottom.total + side.total,
-    rows: best.rows + bottom.rows + side.rows,
+    total: mainTotal + bottom.total + side.total,
+    rows: rows + bottom.rows + side.rows,
     blocks: [block, ...bottom.blocks, ...side.blocks]
   };
+}
+
+// Recursively packs a rectangle: places the best-fit grid, then tries to
+// squeeze extra modules into the leftover L-shaped strips (bottom + side).
+// When orientation is 'auto' (or unset), BOTH orientations are packed fully
+// (including their own leftover area) and whichever yields more total
+// modules wins — not just whichever main grid looks bigger on its own.
+function packRoof(largura, altura, modH, modW, forceOrientation, x, y, depth){
+  x = x||0; y = y||0; depth = depth||0;
+  if(!largura || !altura || !modH || !modW || largura<=0.02 || altura<=0.02 || depth>6){
+    return { total:0, rows:0, blocks:[] };
+  }
+  if(forceOrientation === 'retrato' || forceOrientation === 'paisagem'){
+    return packOriented(largura, altura, modH, modW, forceOrientation, x, y, depth);
+  }
+  const pRetrato = packOriented(largura, altura, modH, modW, 'retrato', x, y, depth);
+  const pPaisagem = packOriented(largura, altura, modH, modW, 'paisagem', x, y, depth);
+  if(pRetrato.total === 0 && pPaisagem.total === 0) return { total:0, rows:0, blocks:[] };
+  if(pRetrato.total !== pPaisagem.total) return pRetrato.total > pPaisagem.total ? pRetrato : pPaisagem;
+  return pRetrato.rows <= pPaisagem.rows ? pRetrato : pPaisagem;
 }
 
 function screwsPerRail(railLength){
@@ -339,6 +355,23 @@ function getModuleDims(){
   const h = num(document.getElementById('modH').value);
   const w = num(document.getElementById('modW').value);
   return { modH: h, modW: w };
+}
+
+function getRoofModuleDims(roof, globalH, globalW){
+  if(roof.customModule && roof.customModule.enabled){
+    return {
+      modH: roof.customModule.modH || globalH,
+      modW: roof.customModule.modW || globalW
+    };
+  }
+  return { modH: globalH, modW: globalW };
+}
+
+function getRoofPower(roof, globalPower){
+  if(roof.customModule && roof.customModule.enabled && roof.customModule.power){
+    return roof.customModule.power;
+  }
+  return globalPower;
 }
 
 function getHouseFloors(){
@@ -405,7 +438,8 @@ function renderRoofPanels(){
     const panel = document.createElement('div');
     panel.className = 'roof-body' + (i===state.activeTab ? '' : ' hidden');
 
-    const pack = packRoof(roof.largura, roof.altura, modH, modW, roof.orientation);
+    const eff = getRoofModuleDims(roof, modH, modW);
+    const pack = packRoof(roof.largura, roof.altura, eff.modH, eff.modW, roof.orientation);
     const hasFit = pack && pack.total > 0;
     const mainBlock = hasFit ? pack.blocks.find(b=>b.isMain) : null;
     const extraTotal = hasFit ? pack.total - mainBlock.total : 0;
@@ -428,6 +462,29 @@ function renderRoofPanels(){
           <button type="button" class="orient-btn ${roof.orientation==='retrato'?'active':''}" data-i="${i}" data-o="retrato">Retrato</button>
           <button type="button" class="orient-btn ${roof.orientation==='paisagem'?'active':''}" data-i="${i}" data-o="paisagem">Paisagem</button>
         </div>
+
+        <div class="switch-row">
+          <label class="switch">
+            <input type="checkbox" class="custom-mod-toggle" data-i="${i}" ${roof.customModule.enabled ? 'checked' : ''}>
+            <span class="switch-track"><span class="switch-thumb"></span></span>
+          </label>
+          <span class="switch-label">Usar outro tamanho de módulo</span>
+        </div>
+        ${roof.customModule.enabled ? `
+        <div class="grid" style="grid-template-columns:1fr 1fr 1fr;margin-top:10px;">
+          <div class="field">
+            <label>Altura do módulo (m)</label>
+            <input type="number" step="0.001" class="custom-mod-input" data-i="${i}" data-k="modH" value="${roof.customModule.modH ?? ''}">
+          </div>
+          <div class="field">
+            <label>Largura do módulo (m)</label>
+            <input type="number" step="0.001" class="custom-mod-input" data-i="${i}" data-k="modW" value="${roof.customModule.modW ?? ''}">
+          </div>
+          <div class="field">
+            <label>Potência (W)</label>
+            <input type="number" step="1" class="custom-mod-input" data-i="${i}" data-k="power" value="${roof.customModule.power ?? ''}">
+          </div>
+        </div>` : ''}
         ${hasFit ? svgDiagram(roof.largura, roof.altura, pack) : '<div class="readout" style="text-align:center;color:var(--text-dim);">Preencha módulo e telhado para ver o encaixe</div>'}
       </div>
       <div>
@@ -466,6 +523,26 @@ function renderRoofPanels(){
       renderInverter();
     });
   });
+
+  wrap.querySelectorAll('.custom-mod-toggle').forEach(tog=>{
+    tog.addEventListener('change', (e)=>{
+      const i = parseInt(e.target.dataset.i);
+      state.roofs[i].customModule.enabled = e.target.checked;
+      renderRoofPanels();
+      renderTotals();
+      renderInverter();
+    });
+  });
+
+  wrap.querySelectorAll('.custom-mod-input').forEach(inp=>{
+    inp.addEventListener('blur', (e)=>{
+      const i = parseInt(e.target.dataset.i), k = e.target.dataset.k;
+      state.roofs[i].customModule[k] = num(e.target.value);
+      renderRoofPanels();
+      renderTotals();
+      renderInverter();
+    });
+  });
 }
 
 function getAllLayouts(){
@@ -473,9 +550,10 @@ function getAllLayouts(){
   const railLength = getRailLength();
   const cablePerFloor = num(document.getElementById('cablePerFloor').value) || 3.5;
   return state.roofs.map(r=>{
-    const pack = packRoof(r.largura, r.altura, modH, modW, r.orientation);
+    const eff = getRoofModuleDims(r, modH, modW);
+    const pack = packRoof(r.largura, r.altura, eff.modH, eff.modW, r.orientation);
     const mat = (pack && pack.total>0) ? calcMaterials(pack, railLength, getHouseFloors(), cablePerFloor) : null;
-    return { pack, mat };
+    return { pack, mat, roof:r };
   });
 }
 
@@ -514,7 +592,17 @@ function renderInverter(){
   document.getElementById('manualQtyWrap').style.display = mode==='manual' ? 'block' : 'none';
 
   let qty = mode==='max' ? totalModulesMax : (manualQty || 0);
-  const kwp = (modPower && qty) ? (qty*modPower)/1000 : null;
+  let kwp = null;
+  if(mode==='max'){
+    const kwpSum = all.reduce((a,x)=>{
+      if(!x.pack || !x.pack.total) return a;
+      const power = getRoofPower(x.roof, modPower);
+      return a + (power ? (x.pack.total*power)/1000 : 0);
+    }, 0);
+    kwp = kwpSum>0 ? kwpSum : null;
+  } else {
+    kwp = (modPower && qty) ? (qty*modPower)/1000 : null;
+  }
   const perString = (numStrings && qty) ? qty/numStrings : null;
 
   document.getElementById('outQty').textContent = qty || '—';
@@ -542,7 +630,7 @@ function renderInverter(){
 function rebuildRoofCount(newCount){
   const current = state.roofs.length;
   if(newCount > current){
-    for(let i=current;i<newCount;i++) state.roofs.push({largura:null, altura:null, orientation:'auto'});
+    for(let i=current;i<newCount;i++) state.roofs.push({largura:null, altura:null, orientation:'auto', customModule:{enabled:false, modH:null, modW:null, power:null}});
   } else if(newCount < current){
     state.roofs = state.roofs.slice(0, newCount);
     if(state.activeTab >= newCount) state.activeTab = newCount-1;
