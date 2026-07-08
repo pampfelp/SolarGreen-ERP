@@ -397,6 +397,99 @@
     .funil-kpis{grid-template-columns:1fr 1fr;}
   }
 
+  /* ══════════════════════════════════════════════════════════════
+     MOBILE (≤760px) — sidebar vira barra horizontal fixa no topo,
+     grids colapsam pra 1–2 colunas, tabelas largas viram scroll
+     horizontal em vez de quebrar/empilhar. Mesmo espírito do
+     breakpoint único usado no proposta.html.
+     ══════════════════════════════════════════════════════════════ */
+  @media(max-width:760px){
+    body{flex-direction:column;}
+
+    /* ── Sidebar → barra horizontal ── */
+    .sidebar{
+      width:100%!important;min-height:auto;position:sticky;top:0;z-index:50;
+      flex-direction:row;align-items:center;padding:10px 12px;gap:10px;
+      overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap;
+    }
+    .sidebar.collapsed{width:100%!important;}
+    .sidebar .brandmark{
+      padding:0 12px 0 0;margin-bottom:0;border-bottom:none;
+      border-right:1px solid rgba(255,255,255,.12);flex:none;max-width:none;
+    }
+    .sidebar .brandmark .sg-sub{display:none;}
+    .sidebar nav{flex-direction:row;padding:0;gap:4px;flex:none;}
+    .sidebar a{padding:8px 12px;white-space:nowrap;}
+    .sidebar a .nav-label{max-width:none;opacity:1;}
+    .sidebar .foot{display:none;}
+    .sidebar-toggle{display:none;}
+
+    /* ── Conteúdo principal ── */
+    .app{padding:18px 16px 60px;}
+    header.top{flex-direction:column;align-items:flex-start;gap:8px;padding-bottom:14px;margin-bottom:22px;}
+    header.top > div[style*="text-align:right"]{text-align:left!important;}
+    h1{font-size:19px;}
+    .top-sub{font-size:11px;}
+
+    /* ── Uploads e conexão ── */
+    .upload-grid{grid-template-columns:1fr;}
+    .connect-card{padding:16px 16px;}
+    .connect-row{flex-direction:column;align-items:stretch;}
+    .connect-field{min-width:0;}
+    .connect-btn{width:100%;}
+
+    /* ── Filtros ── */
+    .filters{flex-direction:column;align-items:stretch;padding:14px 16px;gap:12px;}
+    .field input[type=date],.field select{width:100%;min-width:0;}
+    .quickranges{flex-wrap:wrap;}
+    .stage-filter-group{width:100%;}
+    .stage-pills{overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px;-webkit-overflow-scrolling:touch;}
+    .spacer{display:none;}
+    .reset-btn{align-self:flex-start;}
+
+    /* ── KPIs ── */
+    .kpis{grid-template-columns:1fr 1fr;gap:10px;}
+    .kpi{padding:14px 16px;}
+    .kpi .num{font-size:18px;}
+    .funil-kpis{grid-template-columns:1fr 1fr;gap:10px;}
+    .funil-kpi{padding:14px 16px;}
+    .funil-kpi .num{font-size:19px;}
+
+    /* ── Person chips ── */
+    .person-chip{flex:1 1 46%;min-width:0;}
+
+    /* ── Tabelas: scroll horizontal em vez de empilhar/quebrar ── */
+    .table-wrap,.funil-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+    #view-ponto .table-wrap table{min-width:760px;}
+    #view-vendas .table-wrap table{min-width:720px;}
+    .funil-table-wrap table{min-width:680px;}
+
+    /* ── Vendas: meta-flow, funnel, forecast ── */
+    .meta-flow{grid-template-columns:1fr;}
+    .meta-step{border-right:none;border-bottom:1px solid var(--line);}
+    .meta-step:last-child{border-bottom:none;}
+    .meta-step .arrow{display:none;}
+    .funnel{flex-direction:column;}
+    .funnel-step{border-right:none;border-bottom:1px solid var(--line);}
+    .funnel-step:last-child{border-bottom:none;}
+    .funnel-step .arrow{display:none;}
+    .forecast-grid{grid-template-columns:1fr;}
+    .section-head{flex-direction:column;align-items:flex-start;gap:4px;margin:26px 0 12px;}
+
+    /* ── Funil: gráfico ── */
+    .chart-wrap{height:150px;}
+    .chart-card{padding:16px 16px;}
+
+    /* ── Modal de edição de ponto ── */
+    .modal-card{padding:20px 18px;max-width:100%;}
+  }
+
+  @media(max-width:420px){
+    .kpis{grid-template-columns:1fr;}
+    .funil-kpis{grid-template-columns:1fr;}
+    .person-chip{flex:1 1 100%;}
+  }
+
 </style>
 </head>
 <body>
@@ -776,8 +869,8 @@
     <!-- Gráfico -->
     <div class="chart-card">
       <div class="chart-head">
-        <span class="chart-title">Entradas no funil por dia</span>
-        <span class="chart-sub" id="f-chartSub">data de criação do lead</span>
+        <span class="chart-title">Movimentações no funil por dia</span>
+        <span class="chart-sub" id="f-chartSub">data da última movimentação de etapa</span>
       </div>
       <div class="chart-wrap"><div class="chart-bars" id="f-chartBars"><div class="chart-empty">Nenhum dado no período</div></div></div>
       <div style="font-size:11px;color:var(--ink-faint);margin-top:10px;">Clique num dia pra filtrar · <strong>Shift</strong>+clique pra selecionar período</div>
@@ -786,7 +879,7 @@
     <!-- Tabela de leads -->
     <div class="section-head">
       <h2>Leads <span id="f-tableTitle">no período</span></h2>
-      <div class="hint" id="f-tableHint">ordenados por data de criação (mais recente primeiro)</div>
+      <div class="hint" id="f-tableHint">ordenados por data da última movimentação (mais recente primeiro)</div>
     </div>
     <div class="funil-table-wrap">
       <table>
@@ -807,7 +900,7 @@
     </div>
 
     <footer class="note" style="margin-top:18px;">
-      <strong>Data</strong>: data da última vez que o lead entrou nessa etapa (via log de transições); tag "log" indica quando vem do histórico. Se nunca houve transição registrada, mostra a data de criação. <strong>Dias</strong>: dias corridos desde a Data, com cor baseada nas regras da aba FunilSLA (verde/amarelo/vermelho).
+      <strong>Data</strong>: data da última vez que o lead entrou nessa etapa (via log de transições); tag "log" indica quando vem do histórico. Se nunca houve transição registrada, mostra a data de criação. <strong>Dias</strong>: dias corridos desde a Data, com cor baseada nas regras da aba FunilSLA (verde/amarelo/vermelho). <strong>O filtro de período acima também usa essa mesma data</strong> (última movimentação), não a data de criação do lead.
     </footer>
 
   </div>
@@ -838,7 +931,7 @@
   var API_KEY_KEY = 'ponto_api_key';
   var DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA34xrlLTVUUNhKBIlguJT3ectH7Yus-VW1n41GcCclc5q_Yj0Di2O7g/exec';
   var DEFAULT_API_KEY = '1234';
-  var APP_VERSION = '2026-07-06-1';
+  var APP_VERSION = '2026-07-08-1';
   document.getElementById('p-appVersion').textContent = 'v' + APP_VERSION;
   document.getElementById('appVersionFoot').textContent = APP_VERSION;
 
@@ -1157,7 +1250,7 @@
   var DEFAULT_API_URL='https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA34xrlLTVUUNhKBIlguJT3ectH7Yus-VW1n41GcCclc5q_Yj0Di2O7g/exec';
   var DEFAULT_API_KEY='1234';
   var ID_VENDA_CUSTOS_ESCRITORIO='2b45b472';
-  var APP_VERSION='2026-07-06-1';
+  var APP_VERSION='2026-07-08-1';
   document.getElementById('v-appVersion').textContent='v'+APP_VERSION;
   document.getElementById('appVersionFoot').textContent=APP_VERSION;
 
@@ -1383,18 +1476,18 @@
 (function(){
 
   var funilRecords  = [];
-  var funilLogRecords = [];   // ← novo: log de transições de etapa
-  var funilSLAMap   = {};     // ← novo: regras de SLA por etapa { etapa: { diasAmarelo, diasVermelho } }
+  var funilLogRecords = [];   // ← log de transições de etapa
+  var funilSLAMap   = {};     // ← regras de SLA por etapa { etapa: { diasAmarelo, diasVermelho } }
   var vendedoresMap = {};
   var clientesMap   = {};
   var _initialized  = false;
-  var sortState     = { col: 'data', dir: 'desc' };
+  var sortState     = { col: 'dataProcesso', dir: 'desc' };
 
   var DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA34xrlLTVUUNhKBIlguJT3ectH7Yus-VW1n41GcCclc5q_Yj0Di2O7g/exec';
   var DEFAULT_API_KEY = '1234';
   var API_URL_KEY = 'ponto_api_url';
   var API_KEY_KEY = 'ponto_api_key';
-  var APP_VERSION = '2026-07-06-1';
+  var APP_VERSION = '2026-07-08-1';
 
   function getApiUrl(){ return (localStorage.getItem(API_URL_KEY)||'').trim()||DEFAULT_API_URL; }
   function getApiKey(){ return (localStorage.getItem(API_KEY_KEY)||'').trim()||DEFAULT_API_KEY; }
@@ -1414,7 +1507,7 @@
     return isNaN(d)?null:d;
   }
 
-  // ← novo: parseia data E hora para comparar logs corretamente
+  // parseia data E hora para comparar logs corretamente
   function parseBRDateTime(str){
     if(!str)return null; str=str.toString().trim();
     var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/);
@@ -1441,7 +1534,7 @@
     }).filter(function(r){return !!r.dt;});
   }
 
-  // ← novo: processa regras SLA
+  // processa regras SLA
   function processFunilSLA(list){
     var map={};
     list.forEach(function(o){
@@ -1454,7 +1547,7 @@
     return map;
   }
 
-  // ← novo: data mais recente no log onde o lead transitou para a etapa atual.
+  // data mais recente no log onde o lead transitou para a etapa atual.
   // Fallback: data de criação do lead.
   function computeDataProcesso(lead,logRecords){
     var matching=logRecords.filter(function(l){
@@ -1466,14 +1559,14 @@
     return best.dt;
   }
 
-  // ← novo: dias corridos entre dataProcesso e hoje (meia-noite para meia-noite)
+  // dias corridos entre dataProcesso e hoje (meia-noite para meia-noite)
   function getDiasNaEtapa(dataProcesso){
     var hoje=new Date(),hM=new Date(hoje.getFullYear(),hoje.getMonth(),hoje.getDate());
     var dpM=new Date(dataProcesso.getFullYear(),dataProcesso.getMonth(),dataProcesso.getDate());
     return Math.floor((hM-dpM)/(1000*60*60*24));
   }
 
-  // ← novo: cor SLA baseada nas regras da planilha
+  // cor SLA baseada nas regras da planilha
   function getSLAColor(dias,etapa){
     var regra=funilSLAMap[etapa];
     if(!regra)return'green';
@@ -1498,7 +1591,7 @@
         case 'obs':         av=a.obs;                                bv=b.obs;                                break;
         case 'valor':       av=a.valor;                              bv=b.valor;                              break;
         case 'motivoPerda': av=a.motivoPerda;                        bv=b.motivoPerda;                        break;
-        default:            av=a.dt.getTime();                       bv=b.dt.getTime();
+        default:            av=a.dataProcesso?a.dataProcesso.getTime():0; bv=b.dataProcesso?b.dataProcesso.getTime():0;
       }
       if(typeof av==='string')return mult*av.localeCompare(bv,'pt-BR');
       return mult*(av-bv);
@@ -1514,15 +1607,16 @@
         motivoPerda:(o.MotivoPerda||o['Motivo Perda']||'').trim(),dt:dt,dateKey:dt?dateKey(dt):null,
         valor:parseFloat(String((o['Valor Estimado']!==undefined&&o['Valor Estimado']!=='')?o['Valor Estimado']:(o.Valor||'0')).replace(',','.'))||0,
         // Campos calculados após enriquecimento com log/SLA
-        dataProcesso:null,diasNaEtapa:0,slaColor:'green',temLog:false
+        dataProcesso:null,dataProcessoKey:null,diasNaEtapa:0,slaColor:'green',temLog:false
       };
     }).filter(function(r){return !!r.dt;});
   }
 
-  // ← novo: enriquece cada lead com dataProcesso, diasNaEtapa e slaColor
+  // enriquece cada lead com dataProcesso, dataProcessoKey, diasNaEtapa e slaColor
   function enriquecerComSLA(records){
     records.forEach(function(r){
       r.dataProcesso = computeDataProcesso(r,funilLogRecords);
+      r.dataProcessoKey = r.dataProcesso ? dateKey(r.dataProcesso) : r.dateKey; // ← chave usada para o filtro de período
       r.temLog = r.dataProcesso !== r.dt; // se diverge de dt, veio do log
       r.diasNaEtapa = getDiasNaEtapa(r.dataProcesso);
       r.slaColor = getSLAColor(r.diasNaEtapa,r.etapa);
@@ -1540,11 +1634,14 @@
 
   function getEtapaAtiva(){ var pill=document.querySelector('.stage-pill.active');return pill?pill.getAttribute('data-stage'):'__all__'; }
 
+  // ← CORREÇÃO: o filtro de período agora usa dataProcessoKey (data da última
+  // movimentação de etapa, vinda do FunilLog) em vez de dateKey (data de
+  // criação do lead). Isso replica o comportamento "Ultima Atualização" do AppSheet.
   function getFiltered(){
     var from=document.getElementById('f-dateFrom').value,to=document.getElementById('f-dateTo').value;
     var vend=document.getElementById('f-selVendedor').value,etapa=getEtapaAtiva();
     var allPeriod=funilRecords.filter(function(r){
-      if(from&&r.dateKey<from)return false; if(to&&r.dateKey>to)return false;
+      if(from&&r.dataProcessoKey<from)return false; if(to&&r.dataProcessoKey>to)return false;
       if(vend!=='__all__'&&r.idVendedor!==vend)return false; return true;
     });
     var byStage=etapa==='__all__'?allPeriod:allPeriod.filter(function(r){return r.etapa===etapa;});
@@ -1589,7 +1686,7 @@
       '<tr><td colspan="8" style="text-align:center;color:var(--ink-faint);padding:30px;">Nenhum lead nesta etapa/período.</td></tr>';
 
     document.getElementById('f-tableTitle').textContent=etapa==='__all__'?'no período':'— '+etapa;
-    document.getElementById('f-tableHint').textContent=count+' lead(s) encontrado(s)';
+    document.getElementById('f-tableHint').textContent=count+' lead(s) encontrado(s) · ordenado por data da última movimentação';
     var d=new Date();
     document.getElementById('f-lastUpdate').textContent='Atualizado em '+d.toLocaleDateString('pt-BR')+' às '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
     return f;
@@ -1600,11 +1697,18 @@
     var f=refreshKpisAndTable();renderChart(f.allPeriod);
   }
 
+  // ← O gráfico agora agrupa por dataProcessoKey também, pra ficar consistente
+  // com o filtro (senão apareceriam dias fora do período selecionado).
   function renderChart(records){
     var container=document.getElementById('f-chartBars');
     if(!records.length){container.innerHTML='<div class="chart-empty">Nenhum dado no período</div>';return;}
     var byDay={},minDt=null,maxDt=null;
-    records.forEach(function(r){var k=r.dateKey;byDay[k]=(byDay[k]||0)+1;if(!minDt||r.dt<minDt)minDt=r.dt;if(!maxDt||r.dt>maxDt)maxDt=r.dt;});
+    records.forEach(function(r){
+      var k=r.dataProcessoKey,dtRef=r.dataProcesso||r.dt;
+      byDay[k]=(byDay[k]||0)+1;
+      if(!minDt||dtRef<minDt)minDt=dtRef;
+      if(!maxDt||dtRef>maxDt)maxDt=dtRef;
+    });
     var days=[],cursor=new Date(minDt.getFullYear(),minDt.getMonth(),minDt.getDate()),end=new Date(maxDt.getFullYear(),maxDt.getMonth(),maxDt.getDate());
     while(cursor<=end){var k=dateKey(cursor);days.push({k:k,label:String(cursor.getDate()).padStart(2,'0')+'/'+String(cursor.getMonth()+1).padStart(2,'0'),count:byDay[k]||0});cursor.setDate(cursor.getDate()+1);}
     var maxVal=Math.max.apply(null,days.map(function(d){return d.count;}))||1;
@@ -1616,7 +1720,7 @@
     container.innerHTML=html;
     container.querySelectorAll('.chart-col').forEach(function(col){col.addEventListener('click',function(e){var k=col.getAttribute('data-day');if(!k)return;selectChartDay(k,e.shiftKey);});});
     highlightChartSelection();
-    document.getElementById('f-chartSub').textContent=days.length+' dia(s) · '+records.length+' lead(s)';
+    document.getElementById('f-chartSub').textContent=days.length+' dia(s) · '+records.length+' lead(s) · data da última movimentação';
   }
 
   var chartAnchorDay=null;
@@ -1642,9 +1746,10 @@
     if(list.indexOf(cur)!==-1)sel.value=cur;
   }
 
+  // ← usa dataProcessoKey pra definir o range padrão também
   function setDefaultRange(){
     if(!funilRecords.length)return;
-    var dates=funilRecords.map(function(r){return r.dateKey;}).sort();
+    var dates=funilRecords.map(function(r){return r.dataProcessoKey;}).sort();
     document.getElementById('f-dateFrom').value=dates[0];document.getElementById('f-dateTo').value=dates[dates.length-1];
   }
 
@@ -1660,12 +1765,12 @@
       vendedoresMap={};(resp.vendedores||[]).forEach(function(v){if(v.IdVendedor)vendedoresMap[v.IdVendedor]=v;});
       clientesMap={};(resp.clientes||[]).forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
 
-      // ← novo: carrega log e SLA antes de processar os leads
+      // carrega log e SLA antes de processar os leads
       funilLogRecords = processFunilLog(resp.funilLog||[]);
       funilSLAMap     = processFunilSLA(resp.funilSLA||[]);
 
       funilRecords=processFunil(resp.funil||[]);
-      enriquecerComSLA(funilRecords); // ← novo: calcula dataProcesso/dias/slaColor
+      enriquecerComSLA(funilRecords); // calcula dataProcesso/dataProcessoKey/dias/slaColor
 
       populateVendedorSelect();setDefaultRange();
       document.getElementById('f-emptyState').style.display='none';document.getElementById('f-mainContent').style.display='block';
@@ -1744,6 +1849,7 @@
   function apply(collapsed,animate){if(!animate){sidebar.style.transition='none';requestAnimationFrame(function(){sidebar.style.transition='';});}sidebar.classList.toggle('collapsed',collapsed);ico.textContent=collapsed?'▶':'◀';btn.title=collapsed?'Expandir menu':'Recolher menu';}
   apply(localStorage.getItem(KEY)==='1',false);
   btn.addEventListener('click',function(){var c=!sidebar.classList.contains('collapsed');apply(c,true);localStorage.setItem(KEY,c?'1':'0');});
+  // Em telas ≤760px a sidebar vira barra horizontal fixa (ver CSS) e o botão de recolher fica oculto — não é necessário nesse layout.
 })();
 </script>
 </body>
