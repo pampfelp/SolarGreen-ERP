@@ -162,6 +162,36 @@
   .status.ok{background:rgba(74,222,128,0.1);border-color:var(--ok);color:var(--ok);}
   .status.warn{background:rgba(255,92,92,0.1);border-color:var(--danger);color:var(--danger);}
 
+  .mppt-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:8px;}
+  .mppt-card{
+    background:var(--bg-2);border:1px solid var(--line);border-radius:4px;
+    padding:12px 14px;
+  }
+  .mppt-card-title{font-family:var(--font-data);font-weight:700;font-size:13px;letter-spacing:0.04em;margin-bottom:2px;}
+  .mppt-card-sub{font-size:11.5px;color:var(--text-dim);margin-bottom:10px;}
+  .string-list{display:flex;flex-direction:column;gap:6px;}
+  .string-chip{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:6px 10px;border-radius:3px;font-family:var(--font-data);font-size:11.5px;
+    color:#04121c;font-weight:600;
+  }
+
+  .section-label{
+    font-family:var(--font-data);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;
+    color:var(--text-dim);margin:22px 0 10px;border-top:1px solid var(--line-strong);padding-top:16px;
+  }
+  .roof-string-block{
+    background:var(--bg-2);border:1px solid var(--line);border-radius:4px;
+    padding:14px;margin-top:12px;
+  }
+  .roof-string-title{font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:8px;}
+  .legend-list{display:flex;flex-direction:column;gap:5px;margin-top:10px;}
+  .legend-chip{
+    display:flex;align-items:center;gap:8px;font-family:var(--font-data);
+    font-size:11px;letter-spacing:0.03em;color:var(--text);
+  }
+  .legend-swatch{width:12px;height:12px;border-radius:2px;flex-shrink:0;display:inline-block;}
+
   .hidden{display:none !important;}
 </style>
 </head>
@@ -248,24 +278,61 @@
         <label>Potência máxima do inversor (kWp)</label>
         <input type="number" id="invMax" step="0.1" placeholder="ex: 6.0">
       </div>
-      <div class="field">
-        <label>Nº de strings (opcional)</label>
-        <input type="number" id="numStrings" step="1" min="1" placeholder="ex: 2">
-      </div>
+
     </div>
     <div class="readout" style="margin-top:16px;">
       <div class="readout-row"><span class="k">Módulos considerados</span><span class="v" id="outQty">—</span></div>
       <div class="readout-row"><span class="k">Potência total (kWp)</span><span class="v" id="outKwp">—</span></div>
-      <div class="readout-row"><span class="k">Módulos por string</span><span class="v" id="outPerString">—</span></div>
     </div>
     <div id="invStatus"></div>
+  </div>
+
+  <div class="panel" data-tag="05 · Dimensionamento de strings">
+    <h2>MPPTs &amp; strings</h2>
+    <div class="sub" style="margin-bottom:14px;">Telhados com "Usar outro tamanho de módulo" ativado podem ter seu próprio Voc/Isc — configure isso na aba do telhado. Os campos abaixo valem para os demais telhados.</div>
+    <div class="grid">
+      <div class="field">
+        <label>Voc do módulo padrão (V)</label>
+        <input type="number" id="vocMod" step="0.01" placeholder="ex: 50.80">
+      </div>
+      <div class="field">
+        <label>Isc do módulo padrão (A)</label>
+        <input type="number" id="iscMod" step="0.01" placeholder="ex: 14.05">
+      </div>
+      <div class="field">
+        <label>Tensão de partida do inversor (V)</label>
+        <input type="number" id="startupV" step="1" placeholder="ex: 150">
+      </div>
+      <div class="field">
+        <label>Tensão mínima da MPPT (V)</label>
+        <input type="number" id="mpptMinV" step="1" placeholder="ex: 120">
+      </div>
+      <div class="field">
+        <label>Tensão máxima da MPPT (V)</label>
+        <input type="number" id="mpptMaxV" step="1" placeholder="ex: 500">
+      </div>
+      <div class="field">
+        <label>Corrente máx. de curto-circuito por MPPT (A)</label>
+        <input type="number" id="mpptMaxIsc" step="0.1" placeholder="ex: 21">
+      </div>
+      <div class="field">
+        <label>Número de MPPTs</label>
+        <input type="number" id="numMppts" step="1" min="1" placeholder="ex: 2">
+      </div>
+      <div class="field">
+        <label>Strings por MPPT</label>
+        <input type="number" id="stringsPerMppt" step="1" min="1" placeholder="ex: 2">
+      </div>
+    </div>
+    <div id="customModuleVocInputs"></div>
+    <div id="stringPlanOutput" style="margin-top:16px;"></div>
   </div>
 
 </div>
 
 <script>
 const state = {
-  roofs: [ { largura:null, altura:null, orientation:'auto', customModule:{enabled:false, modH:null, modW:null, power:null} } ],
+  roofs: [ { largura:null, altura:null, orientation:'auto', facing:'', customModule:{enabled:false, modH:null, modW:null, power:null, vocMod:null, iscMod:null} } ],
   activeTab: 0
 };
 
@@ -374,6 +441,17 @@ function getRoofPower(roof, globalPower){
   return globalPower;
 }
 
+function getRoofElectrical(roof, globalVoc, globalIsc){
+  if(roof.customModule && roof.customModule.enabled){
+    return {
+      voc: roof.customModule.voc || null,
+      isc: roof.customModule.isc || null,
+      isCustom: true
+    };
+  }
+  return { voc: globalVoc, isc: globalIsc, isCustom:false };
+}
+
 function getHouseFloors(){
   return num(document.getElementById('houseFloors').value) || 0;
 }
@@ -456,6 +534,16 @@ function renderRoofPanels(){
             <label>Altura do telhado (m)</label>
             <input type="number" step="0.01" class="roof-input" data-i="${i}" data-k="altura" value="${roof.altura ?? ''}">
           </div>
+          <div class="field" style="grid-column:1/-1;">
+            <label>Orientação da água do telhado (face solar)</label>
+            <select class="roof-facing" data-i="${i}">
+              <option value="" ${roof.facing===''?'selected':''}>Não definida</option>
+              <option value="norte" ${roof.facing==='norte'?'selected':''}>Norte</option>
+              <option value="leste" ${roof.facing==='leste'?'selected':''}>Leste</option>
+              <option value="sul" ${roof.facing==='sul'?'selected':''}>Sul</option>
+              <option value="oeste" ${roof.facing==='oeste'?'selected':''}>Oeste</option>
+            </select>
+          </div>
         </div>
         <div class="orient-toggle" style="margin:14px 0 4px;display:flex;gap:6px;flex-wrap:wrap;">
           <button type="button" class="orient-btn ${roof.orientation==='auto'?'active':''}" data-i="${i}" data-o="auto">Automática</button>
@@ -484,6 +572,16 @@ function renderRoofPanels(){
             <label>Potência (W)</label>
             <input type="number" step="1" class="custom-mod-input" data-i="${i}" data-k="power" value="${roof.customModule.power ?? ''}">
           </div>
+        </div>
+        <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:10px;">
+          <div class="field">
+            <label>Voc do módulo${roof.customModule.power ? ' ('+roof.customModule.power+'W)' : ''} (V)</label>
+            <input type="number" step="0.01" class="custom-mod-input" data-i="${i}" data-k="vocMod" value="${roof.customModule.vocMod ?? ''}">
+          </div>
+          <div class="field">
+            <label>Isc do módulo${roof.customModule.power ? ' ('+roof.customModule.power+'W)' : ''} (A)</label>
+            <input type="number" step="0.01" class="custom-mod-input" data-i="${i}" data-k="iscMod" value="${roof.customModule.iscMod ?? ''}">
+          </div>
         </div>` : ''}
         ${hasFit ? svgDiagram(roof.largura, roof.altura, pack) : '<div class="readout" style="text-align:center;color:var(--text-dim);">Preencha módulo e telhado para ver o encaixe</div>'}
       </div>
@@ -511,6 +609,7 @@ function renderRoofPanels(){
       renderRoofPanels();
       renderTotals();
       renderInverter();
+      renderStringPlan();
     });
   });
 
@@ -521,6 +620,16 @@ function renderRoofPanels(){
       renderRoofPanels();
       renderTotals();
       renderInverter();
+      renderStringPlan();
+    });
+  });
+
+  wrap.querySelectorAll('.roof-facing').forEach(sel=>{
+    sel.addEventListener('change', (e)=>{
+      const i = parseInt(e.target.dataset.i);
+      state.roofs[i].facing = e.target.value;
+      renderTotals();
+      renderStringPlan();
     });
   });
 
@@ -531,6 +640,7 @@ function renderRoofPanels(){
       renderRoofPanels();
       renderTotals();
       renderInverter();
+      renderStringPlan();
     });
   });
 
@@ -541,6 +651,43 @@ function renderRoofPanels(){
       renderRoofPanels();
       renderTotals();
       renderInverter();
+      renderStringPlan();
+    });
+  });
+
+  renderCustomModuleVocInputs();
+}
+
+function renderCustomModuleVocInputs(){
+  const container = document.getElementById('customModuleVocInputs');
+  if(!container) return;
+  const activeRoofs = state.roofs.map((r,i)=>({r,i})).filter(x=>x.r.customModule.enabled);
+  if(!activeRoofs.length){ container.innerHTML = ''; return; }
+
+  container.innerHTML = activeRoofs.map(({r,i})=>{
+    const powerLabel = r.customModule.power ? `${fmt(r.customModule.power,0)} W` : `Telhado ${i+1}`;
+    return `<div class="grid" style="grid-template-columns:1fr 1fr;margin-top:10px;">
+      <div class="field">
+        <label>Voc do módulo · ${powerLabel} (Telhado ${i+1})</label>
+        <input type="number" step="0.01" class="roof-voc-input" data-i="${i}" value="${r.customModule.voc ?? ''}">
+      </div>
+      <div class="field">
+        <label>Isc do módulo · ${powerLabel} (Telhado ${i+1})</label>
+        <input type="number" step="0.01" class="roof-isc-input" data-i="${i}" value="${r.customModule.isc ?? ''}">
+      </div>
+    </div>`;
+  }).join('');
+
+  container.querySelectorAll('.roof-voc-input').forEach(inp=>{
+    inp.addEventListener('blur', (e)=>{
+      state.roofs[parseInt(e.target.dataset.i)].customModule.voc = num(e.target.value);
+      renderStringPlan();
+    });
+  });
+  container.querySelectorAll('.roof-isc-input').forEach(inp=>{
+    inp.addEventListener('blur', (e)=>{
+      state.roofs[parseInt(e.target.dataset.i)].customModule.isc = num(e.target.value);
+      renderStringPlan();
     });
   });
 }
@@ -587,7 +734,6 @@ function renderInverter(){
   const manualQty = num(document.getElementById('manualQty').value);
   const modPower = num(document.getElementById('modPower').value);
   const invMax = num(document.getElementById('invMax').value);
-  const numStrings = num(document.getElementById('numStrings').value);
 
   document.getElementById('manualQtyWrap').style.display = mode==='manual' ? 'block' : 'none';
 
@@ -603,11 +749,9 @@ function renderInverter(){
   } else {
     kwp = (modPower && qty) ? (qty*modPower)/1000 : null;
   }
-  const perString = (numStrings && qty) ? qty/numStrings : null;
 
   document.getElementById('outQty').textContent = qty || '—';
   document.getElementById('outKwp').textContent = kwp!==null ? fmt(kwp,2)+' kWp' : '—';
-  document.getElementById('outPerString').textContent = perString!==null ? fmt(perString,2) : '—';
 
   const statusEl = document.getElementById('invStatus');
   statusEl.innerHTML = '';
@@ -627,10 +771,321 @@ function renderInverter(){
   }
 }
 
+// --- String / MPPT dimensioning ---
+
+const FACING_LABELS = { norte:'Norte', leste:'Leste', sul:'Sul', oeste:'Oeste', '': 'Sem orientação definida' };
+const FACING_ORDER = ['norte','leste','sul','oeste',''];
+
+// Splits `total` modules into as-equal-as-possible strings, each string's
+// module count within [modsMin, modsMax]. Prefers using every module; if it
+// can't, maximizes modules used and reports the rest as leftover.
+function bestStringSplit(total, modsMin, modsMax){
+  if(!total || total<=0) return { strings:0, sizes:[], leftover:0 };
+  const maxPossibleStrings = Math.max(1, Math.floor(total/Math.max(modsMin,1)));
+  let s = Math.max(1, Math.ceil(total/modsMax));
+  for(; s<=maxPossibleStrings; s++){
+    const base = Math.floor(total/s), rem = total % s;
+    const topSize = base + (rem>0 ? 1 : 0);
+    if(base >= modsMin && topSize <= modsMax){
+      const sizes = [];
+      for(let k=0;k<s;k++) sizes.push(k<rem ? base+1 : base);
+      return { strings:s, sizes, leftover:0 };
+    }
+  }
+  // couldn't use 100% of modules within the valid range — pack full-size
+  // strings and keep a final partial one only if it still meets the minimum.
+  const fullStrings = Math.floor(total/modsMax);
+  const remainder = total - fullStrings*modsMax;
+  let strings = fullStrings, sizes = Array(fullStrings).fill(modsMax), leftover = remainder;
+  if(remainder >= modsMin){ strings++; sizes.push(remainder); leftover = 0; }
+  return { strings, sizes, leftover };
+}
+
+function stringColor(mpptIndex, stringIndex, stringCount){
+  const hue = (mpptIndex * 61) % 360;
+  const lightness = stringCount<=1 ? 46 : 30 + Math.round((stringIndex/(stringCount-1))*32);
+  return `hsl(${hue} 62% ${lightness}%)`;
+}
+
+function computeStringPlan(){
+  const globalVoc = num(document.getElementById('vocMod').value);
+  const globalIsc = num(document.getElementById('iscMod').value);
+  const startupV = num(document.getElementById('startupV').value);
+  const mpptMinV = num(document.getElementById('mpptMinV').value);
+  const mpptMaxV = num(document.getElementById('mpptMaxV').value);
+  const mpptMaxIsc = num(document.getElementById('mpptMaxIsc').value);
+  const numMppts = num(document.getElementById('numMppts').value);
+  const stringsPerMppt = num(document.getElementById('stringsPerMppt').value);
+
+  if(!mpptMinV || !mpptMaxV || !mpptMaxIsc || !numMppts || !stringsPerMppt){
+    return { ready:false };
+  }
+
+  const all = getAllLayouts();
+  // group modules by facing + effective Voc/Isc (roofs with a custom module
+  // have their own electrical spec; everyone else uses the global one)
+  const groups = {};
+  const groupOrder = [];
+  const missingSpecRoofs = [];
+
+  all.forEach((x,i)=>{
+    if(!x.pack || !x.pack.total) return;
+    const facing = x.roof.facing || '';
+    const elec = getRoofElectrical(x.roof, globalVoc, globalIsc);
+    if(!elec.voc || !elec.isc){
+      if(elec.isCustom) missingSpecRoofs.push(i);
+      return;
+    }
+    const power = (x.roof.customModule && x.roof.customModule.enabled && x.roof.customModule.power) ? x.roof.customModule.power : null;
+    const key = facing + '|' + elec.voc + '|' + elec.isc;
+    if(!groups[key]){
+      groups[key] = { facing, voc:elec.voc, isc:elec.isc, power, total:0, roofRefs:[] };
+      groupOrder.push(key);
+    }
+    groups[key].total += x.pack.total;
+    groups[key].roofRefs.push({ i, count: x.pack.total });
+  });
+
+  if(!groupOrder.length){
+    let error = null;
+    if(missingSpecRoofs.length){
+      error = `Informe o Voc e o Isc do módulo customizado do(s) telhado(s): ${missingSpecRoofs.map(i=>i+1).join(', ')}.`;
+    } else if(!globalVoc || !globalIsc){
+      error = 'Informe o Voc e o Isc do módulo padrão.';
+    }
+    return { ready:true, error, groupResults:[], totalMpptsUsed:0, mpptsAvailable:numMppts, mpptsLeftover:numMppts, sumStringVoltage:0, startupV, layouts:all, roofColorSlices:{} };
+  }
+
+  // sort: by facing order, then by descending power (nicer grouping in the UI)
+  groupOrder.sort((a,b)=>{
+    const ga=groups[a], gb=groups[b];
+    const fi = FACING_ORDER.indexOf(ga.facing) - FACING_ORDER.indexOf(gb.facing);
+    if(fi!==0) return fi;
+    return (gb.power||0) - (ga.power||0);
+  });
+
+  let mpptsLeft = numMppts;
+  let mpptCounter = 0;
+  const groupResults = [];
+  const roofColorSlices = {};
+
+  groupOrder.forEach(key=>{
+    const g = groups[key];
+    const modsMax = Math.floor(mpptMaxV/g.voc + 1e-9);
+    const modsMin = Math.ceil(mpptMinV/g.voc - 1e-9);
+    if(modsMax < 1 || modsMax < modsMin){
+      groupResults.push({ facing:g.facing, voc:g.voc, isc:g.isc, power:g.power, totalModules:g.total,
+        usedModules:0, unusedModules:g.total, mppts:[], noMppts:false,
+        error:`Nenhuma quantidade de módulos em série encaixa na faixa de tensão da MPPT (${fmt(mpptMinV,0)}–${fmt(mpptMaxV,0)} V) com Voc de ${fmt(g.voc,2)} V.` });
+      g.roofRefs.forEach(r=> roofColorSlices[r.i] = Array(r.count).fill(null));
+      return;
+    }
+    const maxStringsByCurrent = Math.floor(mpptMaxIsc/g.isc + 1e-9);
+    const effStringsPerMppt = Math.min(stringsPerMppt, maxStringsByCurrent);
+    if(effStringsPerMppt < 1){
+      groupResults.push({ facing:g.facing, voc:g.voc, isc:g.isc, power:g.power, totalModules:g.total,
+        usedModules:0, unusedModules:g.total, mppts:[], noMppts:false,
+        error:`Isc de ${fmt(g.isc,2)} A já excede o limite da MPPT (${fmt(mpptMaxIsc,2)} A) com apenas 1 string.` });
+      g.roofRefs.forEach(r=> roofColorSlices[r.i] = Array(r.count).fill(null));
+      return;
+    }
+
+    const split = bestStringSplit(g.total, modsMin, modsMax);
+    if(split.strings === 0){
+      groupResults.push({ facing:g.facing, voc:g.voc, isc:g.isc, power:g.power, totalModules:g.total, usedModules:0, unusedModules:g.total, mppts:[], noMppts:false });
+      g.roofRefs.forEach(r=> roofColorSlices[r.i] = Array(r.count).fill(null));
+      return;
+    }
+    const mpptsNeededIdeal = Math.ceil(split.strings/effStringsPerMppt);
+    const mpptsAssigned = Math.min(mpptsNeededIdeal, mpptsLeft);
+    const stringsThatFit = mpptsAssigned*effStringsPerMppt;
+    let usedSizes = split.sizes;
+    let unusedModules = split.leftover;
+    if(split.strings > stringsThatFit){
+      const dropped = split.sizes.slice(stringsThatFit);
+      usedSizes = split.sizes.slice(0, stringsThatFit);
+      unusedModules += dropped.reduce((a,b)=>a+b,0);
+    }
+    mpptsLeft -= mpptsAssigned;
+    const mppts = [];
+    const colorSlots = [];
+    for(let k=0;k<usedSizes.length;k+=effStringsPerMppt){
+      mpptCounter++;
+      const chunk = usedSizes.slice(k, k+effStringsPerMppt);
+      const stringsArr = chunk.map((sz,idx)=>{
+        const voltage = sz*g.voc;
+        const color = stringColor(mpptCounter, idx, chunk.length);
+        const label = `String ${idx+1} · MPPT ${mpptCounter} · ${fmt(voltage,0)} V`;
+        for(let m=0;m<sz;m++) colorSlots.push({ color, label });
+        return { modules:sz, voltage, current:g.isc, color, label, index:idx+1 };
+      });
+      mppts.push({
+        id: mpptCounter,
+        strings: stringsArr,
+        totalCurrent: chunk.length*g.isc,
+        totalMaxIsc: mpptMaxIsc,
+        modules: chunk.reduce((a,b)=>a+b,0)
+      });
+    }
+    for(let u=0; u<unusedModules; u++) colorSlots.push(null);
+
+    // hand out this group's colored slots to the roofs that contributed to it, in order
+    let cursor = 0;
+    g.roofRefs.forEach(r=>{
+      roofColorSlices[r.i] = colorSlots.slice(cursor, cursor+r.count);
+      cursor += r.count;
+    });
+
+    groupResults.push({
+      facing:g.facing, voc:g.voc, isc:g.isc, power:g.power, totalModules:g.total, usedModules: g.total-unusedModules, unusedModules,
+      mppts, noMppts: mpptsAssigned < mpptsNeededIdeal
+    });
+  });
+
+  const allStringVoltages = [];
+  groupResults.forEach(g=> g.mppts.forEach(m=> m.strings.forEach(s=> allStringVoltages.push(s.voltage))));
+  const sumStringVoltage = allStringVoltages.reduce((a,b)=>a+b,0);
+  const startupOk = startupV ? sumStringVoltage >= startupV : null;
+
+  return {
+    ready:true, mpptMaxIsc, missingSpecRoofs,
+    groupResults, totalMpptsUsed: mpptCounter, mpptsAvailable:numMppts, mpptsLeftover:mpptsLeft,
+    sumStringVoltage, startupV, startupOk, layouts:all, roofColorSlices
+  };
+}
+
+function svgDiagramColored(largura, altura, pack, colorSlice){
+  if(!pack || !pack.blocks.length || !largura || !altura) return '';
+  const padL=34, padT=18, padR=14, padB=14, boxW=360, boxH=200;
+  const scale = Math.min(boxW/largura, boxH/altura);
+  const drawW = largura*scale, drawH = altura*scale;
+  const vbW = drawW+padL+padR, vbH = drawH+padT+padB;
+  let cells = ''; let slotIdx = 0;
+  pack.blocks.forEach(block=>{
+    const cellW = block.alongRow*scale, cellH = block.alongCol*scale;
+    for(let r=0;r<block.rows;r++){
+      for(let c=0;c<block.perRow;c++){
+        const x = padL + (block.x + c*block.alongRow)*scale + 1;
+        const y = padT + (block.y + r*block.alongCol)*scale + 1;
+        const slot = colorSlice ? colorSlice[slotIdx] : null;
+        const fill = slot ? slot.color : 'rgba(255,255,255,0.06)';
+        const stroke = slot ? 'rgba(0,0,0,0.4)' : 'var(--line-strong)';
+        cells += `<rect x="${x}" y="${y}" width="${cellW-2}" height="${cellH-2}" fill="${fill}" stroke="${stroke}" stroke-width="1"/>`;
+        slotIdx++;
+      }
+    }
+  });
+  return `<svg viewBox="0 0 ${vbW} ${vbH}" xmlns="http://www.w3.org/2000/svg">
+    <rect x="${padL}" y="${padT}" width="${drawW}" height="${drawH}" fill="none" stroke="var(--line-strong)" stroke-dasharray="3,3"/>
+    ${cells}
+    <text class="dim-text" x="${padL+drawW/2}" y="${padT-9}" text-anchor="middle">${largura} m</text>
+    <text class="dim-text" x="${padL-9}" y="${padT+drawH/2}" text-anchor="middle" transform="rotate(-90 ${padL-9} ${padT+drawH/2})">${altura} m</text>
+  </svg>`;
+}
+
+function roofStringLegend(colorSlice){
+  if(!colorSlice || !colorSlice.length){
+    return '<div style="font-size:12px;color:var(--text-dim);">Sem strings atribuídas ainda</div>';
+  }
+  const seen = new Map();
+  let hasUnassigned = false;
+  colorSlice.forEach(s=>{
+    if(s){ if(!seen.has(s.label)) seen.set(s.label, s.color); }
+    else hasUnassigned = true;
+  });
+  let html = '<div class="legend-list">' + [...seen.entries()].map(([label,color])=>
+    `<div class="legend-chip"><span class="legend-swatch" style="background:${color};"></span>${label.toUpperCase()}</div>`
+  ).join('') + '</div>';
+  if(hasUnassigned){
+    html += '<div class="legend-chip" style="margin-top:6px;"><span class="legend-swatch" style="background:rgba(255,255,255,0.15);"></span>SEM STRING</div>';
+  }
+  return html;
+}
+
+function renderStringPlan(){
+  const out = document.getElementById('stringPlanOutput');
+  const plan = computeStringPlan();
+
+  if(!plan.ready){
+    out.innerHTML = `<div class="readout" style="text-align:center;color:var(--text-dim);">Preencha os dados do módulo e da MPPT para calcular as strings</div>`;
+    return;
+  }
+  if(plan.error && !plan.groupResults.length){
+    out.innerHTML = `<div class="status warn">${plan.error}</div>`;
+    return;
+  }
+
+  let html = `<div class="totals-grid" style="margin-bottom:16px;">
+    <div class="stat"><div class="label">MPPTs usadas</div><div class="val">${plan.totalMpptsUsed}<small> / ${plan.mpptsAvailable}</small></div></div>
+    <div class="stat"><div class="label">Tensão somada das strings</div><div class="val">${fmt(plan.sumStringVoltage,1)}<small> V</small></div></div>
+  </div>`;
+
+  if(plan.error){
+    html += `<div class="status warn">${plan.error}</div>`;
+  }
+
+  if(plan.startupV){
+    const cls = plan.startupOk ? 'ok' : 'warn';
+    html += `<div class="status ${cls}">${plan.startupOk
+      ? `Tensão somada das strings (${fmt(plan.sumStringVoltage,1)} V) atinge a tensão de partida do inversor (${fmt(plan.startupV,0)} V).`
+      : `Tensão somada das strings (${fmt(plan.sumStringVoltage,1)} V) fica abaixo da tensão de partida do inversor (${fmt(plan.startupV,0)} V) — o inversor pode não ligar.`}</div>`;
+  }
+
+  if(plan.mpptsLeftover < 0 || plan.groupResults.some(g=>g.noMppts)){
+    html += `<div class="status warn">Não há MPPTs suficientes para acomodar todas as orientações/módulos com strings equilibradas — parte dos módulos ficaria sem string.</div>`;
+  }
+
+  if(!plan.groupResults.length){
+    html += `<div class="readout" style="text-align:center;color:var(--text-dim);">Nenhum módulo calculado ainda nos telhados.</div>`;
+  }
+
+  plan.groupResults.forEach(g=>{
+    const modLabel = g.power ? `Módulo ${fmt(g.power,0)}W` : `Voc ${fmt(g.voc,2)}V`;
+    html += `<div class="readout" style="margin-top:14px;">
+      <div class="readout-row"><span class="k">Face ${FACING_LABELS[g.facing]} · ${modLabel}</span><span class="v">${g.usedModules} / ${g.totalModules} módulos</span></div>
+      <div class="readout-row"><span class="k">Voc / Isc do módulo</span><span class="v">${fmt(g.voc,2)} V / ${fmt(g.isc,2)} A</span></div>
+      ${g.unusedModules>0 ? `<div class="readout-row"><span class="k" style="color:var(--warn);">Módulos sem string</span><span class="v" style="color:var(--warn);">${g.unusedModules}</span></div>` : ''}
+      ${g.error ? `<div class="readout-row"><span class="k" style="color:var(--danger);">${g.error}</span></div>` : ''}
+    </div>`;
+    if(g.mppts.length){
+      html += `<div class="mppt-grid">`;
+      g.mppts.forEach(m=>{
+        const hue = (m.id*61)%360;
+        html += `<div class="mppt-card" style="border-color:hsl(${hue} 45% 32%);">
+          <div class="mppt-card-title" style="color:hsl(${hue} 70% 68%);">MPPT ${m.id}</div>
+          <div class="mppt-card-sub">${m.modules} módulos · ${fmt(m.totalCurrent,2)} A${plan.mpptMaxIsc ? ' / '+fmt(plan.mpptMaxIsc,2)+' A' : ''}</div>
+          <div class="string-list">`;
+        m.strings.forEach((s,idx)=>{
+          html += `<div class="string-chip" style="background:${s.color};">
+            <span>String ${idx+1}</span><span>${s.modules} mód · ${fmt(s.voltage,1)} V</span>
+          </div>`;
+        });
+        html += `</div></div>`;
+      });
+      html += `</div>`;
+    }
+  });
+
+  if(plan.layouts && plan.layouts.some(x=>x.pack && x.pack.total)){
+    html += `<div class="section-label">Telhados com strings identificadas por cor</div>`;
+    plan.layouts.forEach((x,i)=>{
+      if(!x.pack || !x.pack.total) return;
+      const slice = plan.roofColorSlices ? plan.roofColorSlices[i] : null;
+      html += `<div class="roof-string-block">
+        <div class="roof-string-title">Telhado ${i+1}${x.roof.facing ? ' · '+FACING_LABELS[x.roof.facing] : ''}</div>
+        ${svgDiagramColored(x.roof.largura, x.roof.altura, x.pack, slice)}
+        ${roofStringLegend(slice)}
+      </div>`;
+    });
+  }
+
+  out.innerHTML = html;
+}
+
 function rebuildRoofCount(newCount){
   const current = state.roofs.length;
   if(newCount > current){
-    for(let i=current;i<newCount;i++) state.roofs.push({largura:null, altura:null, orientation:'auto', customModule:{enabled:false, modH:null, modW:null, power:null}});
+    for(let i=current;i<newCount;i++) state.roofs.push({largura:null, altura:null, orientation:'auto', facing:'', customModule:{enabled:false, modH:null, modW:null, power:null, vocMod:null, iscMod:null}});
   } else if(newCount < current){
     state.roofs = state.roofs.slice(0, newCount);
     if(state.activeTab >= newCount) state.activeTab = newCount-1;
@@ -639,17 +1094,19 @@ function rebuildRoofCount(newCount){
   renderRoofPanels();
   renderTotals();
   renderInverter();
+  renderStringPlan();
 }
 
-document.getElementById('modH').addEventListener('blur', ()=>{ renderRoofPanels(); renderTotals(); renderInverter(); });
-document.getElementById('modW').addEventListener('blur', ()=>{ renderRoofPanels(); renderTotals(); renderInverter(); });
+document.getElementById('modH').addEventListener('blur', ()=>{ renderRoofPanels(); renderTotals(); renderInverter(); renderStringPlan(); });
+document.getElementById('modW').addEventListener('blur', ()=>{ renderRoofPanels(); renderTotals(); renderInverter(); renderStringPlan(); });
 document.getElementById('cablePerFloor').addEventListener('blur', ()=>{ renderRoofPanels(); renderTotals(); });
 document.getElementById('houseFloors').addEventListener('blur', ()=>{ renderRoofPanels(); renderTotals(); });
 document.getElementById('modPower').addEventListener('blur', renderInverter);
+document.getElementById('modPower').addEventListener('blur', renderStringPlan);
 
 document.getElementById('railSelect').addEventListener('change', (e)=>{
   document.getElementById('railCustomWrap').style.display = e.target.value==='custom' ? 'block' : 'none';
-  renderRoofPanels(); renderTotals();
+  renderRoofPanels(); renderTotals(); renderStringPlan();
 });
 document.getElementById('railCustom').addEventListener('blur', ()=>{ renderRoofPanels(); renderTotals(); });
 
@@ -664,12 +1121,16 @@ document.getElementById('roofCount').addEventListener('blur', (e)=>{
 document.querySelectorAll('input[name=qtyMode]').forEach(r=> r.addEventListener('change', renderInverter));
 document.getElementById('manualQty').addEventListener('blur', renderInverter);
 document.getElementById('invMax').addEventListener('blur', renderInverter);
-document.getElementById('numStrings').addEventListener('blur', renderInverter);
+
+['vocMod','iscMod','startupV','mpptMinV','mpptMaxV','mpptMaxIsc','numMppts','stringsPerMppt'].forEach(id=>{
+  document.getElementById(id).addEventListener('blur', renderStringPlan);
+});
 
 buildTabs();
 renderRoofPanels();
 renderTotals();
 renderInverter();
+renderStringPlan();
 </script>
 </body>
 </html>
