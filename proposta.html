@@ -29,6 +29,7 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 .back-link{font-size:12px;color:rgba(255,255,255,0.6);text-decoration:none;display:flex;align-items:center;gap:6px;}
 .back-link:hover{color:var(--accent);}
 .container{display:grid;grid-template-columns:1fr 360px;gap:24px;padding:28px 40px;max-width:1600px;margin:0 auto;}
+.container-contrato{grid-template-columns:1fr 420px;}
 .main{min-width:0;}
 .aside{display:flex;flex-direction:column;gap:18px;}
 
@@ -196,7 +197,7 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 .empty{text-align:center;padding:40px 16px;color:var(--ink-faint);}
 .empty .icon{font-size:32px;opacity:.3;margin-bottom:8px;}
 .empty p{font-size:12px;}
-@media(max-width:1100px){.container{grid-template-columns:1fr;}.summary-card{position:static;}.aside{order:-1;}}
+@media(max-width:1100px){.container,.container-contrato{grid-template-columns:1fr;}.summary-card{position:static;}.aside{order:-1;}.aside.aside-contrato{order:0;}}
 
 /* ── Mobile ── */
 @media(max-width:700px){
@@ -245,7 +246,46 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 
   /* Toast */
   .toast{left:16px;right:16px;bottom:16px;}
+
+  /* Aba Contrato */
+  .ctype-grid{grid-template-columns:1fr!important;}
+  .contract-preview{padding:18px 16px;max-height:50vh;font-size:12px;}
+  .contrato-actions{flex-direction:column;}
+  .contrato-actions .btn{width:100%;text-align:center;}
+  #ctrSyncRow,#ctrSyncRowBottom{flex-direction:column;align-items:stretch!important;}
+  #ctrSyncRow .btn,#ctrSyncRowBottom .btn{width:100%;}
 }
+
+/* ── Tabs (Proposta / Contrato) ── */
+.tab-bar{display:flex;gap:6px;padding:0 40px;background:#003122;border-bottom:3px solid var(--accent);}
+.tab-btn{font-family:var(--sans);font-size:13px;font-weight:700;color:rgba(255,255,255,0.55);background:none;border:none;padding:12px 18px;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-3px;transition:all .12s;}
+.tab-btn:hover{color:#fff;}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+.tabpane{display:none;}
+.tabpane.active{display:block;}
+@media(max-width:700px){.tab-bar{padding:0 12px;}.tab-btn{padding:10px 12px;font-size:12px;}}
+
+/* ── Contrato tab ── */
+.ctype-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.ctype-card{border:1.5px solid var(--line);border-radius:var(--radius);padding:14px 16px;cursor:pointer;transition:all .15s;background:#fff;}
+.ctype-card:hover{border-color:rgba(120,216,0,.6);}
+.ctype-card.selected{border-color:var(--accent);background:var(--accent-soft);}
+.ctype-card.disabled{opacity:.5;cursor:not-allowed;background:#fafafa;}
+.ctype-card .ct-title{font-weight:700;font-size:13px;color:var(--ink);margin-bottom:4px;}
+.ctype-card .ct-sub{font-size:11px;color:var(--ink-soft);line-height:1.4;}
+.ctype-card .ct-tag{display:inline-block;margin-top:6px;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:10px;background:#f1f5f9;color:#64748b;}
+.check-row{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--ink);padding:8px 0;}
+.check-row input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent-deep);cursor:pointer;}
+.check-row .ck-sub{font-size:11px;color:var(--ink-faint);font-weight:400;margin-left:24px;}
+.contract-preview{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:32px 36px;font-family:'Times New Roman',Times,serif;font-size:12.5px;line-height:1.65;color:#111;max-height:720px;overflow-y:auto;}
+.contract-preview h2{font-size:14px;text-align:center;font-weight:700;margin-bottom:14px;text-transform:uppercase;}
+.contract-preview .cp-clause-title{font-weight:700;margin-top:14px;margin-bottom:4px;}
+.contract-preview p{margin-bottom:6px;}
+.contract-preview .cp-parties{margin-bottom:10px;}
+.contract-preview .cp-sign{margin-top:36px;}
+.contract-preview .cp-sign-line{border-top:1px solid #333;width:280px;margin-top:36px;padding-top:4px;font-size:11px;text-align:center;}
+.empty-inline{font-size:11px;color:var(--debit);font-weight:600;}
+.contrato-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}
 </style>
 </head>
 <body>
@@ -257,6 +297,13 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
   </div>
   <a class="back-link" href="index.html">&#8592; Voltar ao Dashboard</a>
 </div>
+
+<div class="tab-bar">
+  <button class="tab-btn active" id="tabBtnProposta" data-tab="proposta">📝 Proposta</button>
+  <button class="tab-btn" id="tabBtnContrato" data-tab="contrato">📄 Contrato</button>
+</div>
+
+<div id="tab-proposta" class="tabpane active">
 
 <div id="connectWrap" class="connect-wrap-pad">
   <div class="connect-card">
@@ -387,6 +434,66 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 
 </div><!-- /container -->
 
+</div><!-- /tab-proposta -->
+
+<div id="tab-contrato" class="tabpane">
+<div class="container container-contrato">
+<div class="main">
+
+  <!-- ── CLIENTE ── -->
+  <div class="card">
+    <div class="card-head">Cliente</div>
+    <div class="field"><label>Selecionar cliente (tabela Clientes)</label>
+      <select id="ctrSelCliente"><option value="">— Selecionar cliente…</option></select>
+    </div>
+    <div class="frow tri" style="margin-top:12px;">
+      <div class="field"><label>Nome / Razão Social</label><input type="text" id="ctrNome" oninput="renderContratoPreview();markClienteDirty();"></div>
+      <div class="field"><label>CPF / CNPJ</label><input type="text" id="ctrCpf" placeholder="000.000.000-00" oninput="renderContratoPreview();markClienteDirty();"></div>
+      <div class="field"><label>Cidade</label><input type="text" id="ctrCidade" placeholder="ex: Breves" oninput="renderContratoPreview();markClienteDirty();"></div>
+    </div>
+    <div class="field"><label>Endereço completo</label><input type="text" id="ctrEndereco" placeholder="Rua, número, bairro, cidade - CEP" oninput="renderContratoPreview();markClienteDirty();"></div>
+    <div id="ctrSyncRow" style="display:none;margin-top:10px;align-items:center;gap:10px;" class="save-bar">
+      <div class="sbi" id="ctrSyncMsg">Dados alterados aqui — a planilha Clientes ainda não foi atualizada.</div>
+      <button class="btn btn-primary" id="ctrSyncBtn" style="white-space:nowrap;">💾 Salvar na planilha</button>
+    </div>
+  </div>
+
+
+  <!-- ── TIPO DE CONTRATO ── -->
+  <div class="card">
+    <div class="card-head">Tipo de Contrato</div>
+    <div class="ctype-grid" id="ctypeGrid"></div>
+  </div>
+
+  <!-- ── VARIÁVEIS ── -->
+  <div class="card" id="ctrVarsCard" style="display:none;">
+    <div class="card-head">Variáveis do Contrato</div>
+    <div id="ctrVarsBody"></div>
+  </div>
+
+  <div id="ctrSyncRowBottom" style="display:none;align-items:center;gap:10px;margin-bottom:12px;" class="save-bar">
+    <div class="sbi" id="ctrSyncMsgBottom">Dados do cliente alterados — a planilha Clientes ainda não foi atualizada.</div>
+    <button class="btn btn-primary" id="ctrSyncBtnBottom" style="white-space:nowrap;">💾 Salvar na planilha</button>
+  </div>
+
+  <div class="contrato-actions">
+    <button class="btn btn-primary" id="ctrPrintBtn">&#128438; Imprimir / PDF</button>
+    <button class="btn btn-secondary" id="ctrResetBtn">+ Novo contrato</button>
+  </div>
+
+</div>
+
+<!-- ── PREVIEW ── -->
+<div class="aside aside-contrato">
+  <div class="card" style="margin-bottom:0;">
+    <div class="card-head">Pré-visualização</div>
+    <div class="contract-preview" id="contratoPreview"></div>
+  </div>
+</div>
+
+</div><!-- /container -->
+</div><!-- /tab-contrato -->
+
 <div class="toast" id="toast"><span id="toastIcon">✓</span><span id="toastMsg"></span></div>
 
 <script>
@@ -478,10 +585,20 @@ var S={
 function buildMaps(resp){
   S.vendedoresMap={};
   (resp.vendedores||[]).forEach(function(v){ if(v.IdVendedor)S.vendedoresMap[v.IdVendedor]=v; });
-  S.clientesMap={};
+  S.clientesMap={};S.clientesArray=[];
   (resp.clientes||[]).forEach(function(c){
     if(!c.IdCliente)return;
-    S.clientesMap[c.IdCliente]={ nome:(c['Nome Razao Social']||c.Nome||c.IdCliente).trim(), telefone:String(c.Telefone||'').trim(), email:String(c.Email||'').trim(), endereco:String(c.Endereco||'').trim() };
+    var obj={
+      id:c.IdCliente,
+      nome:(c['Nome Razao Social']||c.Nome||c.IdCliente).trim(),
+      telefone:String(c.Telefone||'').trim(),
+      email:String(c.Email||'').trim(),
+      endereco:String(c.Endereco||'').trim(),
+      cpf:String(c['CPF ou CNPJ']||c.CPF||'').trim(),
+      tipoPessoa:String(c['Tipo Pessoa']||'').trim(),
+      status:String(c['Status Cliente']||'').trim()
+    };
+    S.clientesMap[c.IdCliente]=obj; S.clientesArray.push(obj);
   });
   S.servicosMap={};S.servicosArray=[];
   (resp.servicos||[]).forEach(function(s){
@@ -512,6 +629,82 @@ function populateLeads(){
     opt.textContent=r.nomeCliente+' · '+r.etapa+' · '+r.nomeVendedor;
     sel.appendChild(opt);
   });
+}
+
+// ── Clientes (aba Contrato, independente do Funil) ─────────────────────
+function populateClientesContrato(){
+  var sel=document.getElementById('ctrSelCliente');
+  if(!sel)return;
+  sel.innerHTML='<option value="">— Selecionar cliente…</option>';
+  S.clientesArray.slice().sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');}).forEach(function(c){
+    var opt=document.createElement('option'); opt.value=c.id;
+    opt.textContent=c.nome+(c.status?' · '+c.status:'');
+    sel.appendChild(opt);
+  });
+}
+
+function guessCidade(endereco){
+  if(!endereco)return'';
+  // tenta "... - Cidade/PA" ou "..., Cidade - PA"
+  var m=endereco.match(/[-,]\s*([A-Za-zÀ-ú' ]{3,})\s*-\s*PA\b/);
+  if(m)return m[1].trim();
+  m=endereco.match(/[-,]\s*([A-Za-zÀ-ú' ]{3,})\/PA\b/);
+  if(m)return m[1].trim();
+  return'';
+}
+
+function onClienteContratoChange(){
+  var id=document.getElementById('ctrSelCliente').value;
+  if(!id){ CT.clienteOriginal=null; CT.clienteId=null; setSyncRowsVisible(false); return; }
+  var c=S.clientesMap[id];
+  if(!c)return;
+  CT.clienteId=id;
+  document.getElementById('ctrNome').value=c.nome||'';
+  document.getElementById('ctrCpf').value=c.cpf||'';
+  document.getElementById('ctrEndereco').value=c.endereco||'';
+  document.getElementById('ctrCidade').value=guessCidade(c.endereco)||'';
+  CT.clienteOriginal={ nome:c.nome||'', cpf:c.cpf||'', endereco:c.endereco||'' };
+  renderContratoPreview();
+  markClienteDirty();
+}
+
+function setSyncRowsVisible(show){
+  document.getElementById('ctrSyncRow').style.display=show?'flex':'none';
+  document.getElementById('ctrSyncRowBottom').style.display=show?'flex':'none';
+}
+
+window.markClienteDirty=function(){
+  if(!CT.clienteId||!CT.clienteOriginal){ setSyncRowsVisible(false); return; }
+  setSyncRowsVisible(true);
+  var nome=document.getElementById('ctrNome').value.trim();
+  var cpf=document.getElementById('ctrCpf').value.trim();
+  var endereco=document.getElementById('ctrEndereco').value.trim();
+  var dirty=nome!==CT.clienteOriginal.nome||cpf!==CT.clienteOriginal.cpf||endereco!==CT.clienteOriginal.endereco;
+  ['ctrSyncBtn','ctrSyncBtnBottom'].forEach(function(id){
+    var b=document.getElementById(id);
+    b.disabled=!dirty; b.style.opacity=dirty?'1':'.45';
+  });
+  var msg=dirty?'Dados alterados aqui — a planilha Clientes ainda não foi atualizada.':'Nenhuma alteração pendente — os dados batem com a planilha.';
+  document.getElementById('ctrSyncMsg').textContent=msg;
+  document.getElementById('ctrSyncMsgBottom').textContent=msg;
+}
+
+function syncClienteToSheet(){
+  if(!CT.clienteId){ showToast('Selecione um cliente da lista para sincronizar com a planilha',false); return; }
+  var btn=document.getElementById('ctrSyncBtn'),btnB=document.getElementById('ctrSyncBtnBottom');
+  btn.disabled=true; btn.textContent='Salvando…'; btnB.disabled=true; btnB.textContent='Salvando…';
+  var nome=document.getElementById('ctrNome').value.trim();
+  var cpf=document.getElementById('ctrCpf').value.trim();
+  var endereco=document.getElementById('ctrEndereco').value.trim();
+  apiCall('updateCliente',{ idCliente:CT.clienteId, nome:nome, cpf:cpf, endereco:endereco }).then(function(resp){
+    btn.textContent='💾 Salvar na planilha'; btnB.textContent='💾 Salvar na planilha';
+    if(!resp||!resp.ok){ btn.disabled=false; btnB.disabled=false; showToast((resp&&resp.erro)||'Erro ao salvar na planilha',false); return; }
+    if(S.clientesMap[CT.clienteId]){ S.clientesMap[CT.clienteId].nome=nome; S.clientesMap[CT.clienteId].cpf=cpf; S.clientesMap[CT.clienteId].endereco=endereco; }
+    CT.clienteOriginal={nome:nome,cpf:cpf,endereco:endereco};
+    markClienteDirty();
+    populateClientesContrato(); document.getElementById('ctrSelCliente').value=CT.clienteId;
+    showToast('Cadastro do cliente atualizado na planilha!');
+  }).catch(function(err){ btn.disabled=false; btn.textContent='💾 Salvar na planilha'; btnB.disabled=false; btnB.textContent='💾 Salvar na planilha'; showToast('Erro: '+err.message,false); });
 }
 
 function onLeadChange(){
@@ -970,6 +1163,420 @@ function resetForm(){
   document.getElementById('saveBar').style.display='none'; updateSummary();
 }
 
+// ── CONTRATO (aba independente) ─────────────────────────────────────────
+function isoToBR(iso){ if(!iso)return'—'; var p=String(iso).split('-'); return p.length===3?(p[2]+'/'+p[1]+'/'+p[0]):iso; }
+
+var LOGO_DATA_URI='data:image/png;base64,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';
+
+var CT={ selectedId:null };
+
+// Identificação única da CONTRATADA (atualizar aqui reflete em todos os documentos)
+var CONTRATADA={
+  nome:'SOLAR GREEN SUPORTE (FELIPE EDUARDO PAMPLONA DE SOUSA NASCIMENTO)',
+  cnpj:'53.386.274/0001-27',
+  enderecoFull:'R. Municipalidade, 945, Sala 1916 – Umarizal, Belém/PA, CEP 66.050-350'
+};
+
+var CONTRACT_TYPES=[
+  {
+    id:'monitoramento', title:'Monitoramento Remoto', tag:'Recorrente',
+    sub:'Acompanhamento remoto da geração, relatórios periódicos e gestão de garantia junto ao fabricante.',
+    fields:[
+      {key:'periodicidade',label:'Periodicidade de pagamento',type:'select',options:['Mensal','Anual (à vista)'],default:'Mensal'},
+      {key:'valorMensal',label:'Valor mensal (R$)',type:'number',default:''},
+      {key:'diaVencimento',label:'Dia de vencimento',type:'number',default:10},
+      {key:'formaPagamento',label:'Forma de pagamento',type:'select',options:['Pix ou Boleto','Débito automático no cartão'],default:'Pix ou Boleto'},
+      {key:'periodicidadeRelatorio',label:'Periodicidade do relatório',type:'select',options:['Mensal','Bimestral'],default:'Mensal'},
+      {key:'prazoNotificacao',label:'Prazo p/ notificar anomalias (horas úteis)',type:'number',default:48},
+      {key:'prazoVigencia',label:'Vigência (meses)',type:'number',default:12},
+      {key:'taxaDeslocamento',label:'Cobrar taxa de deslocamento p/ reconexão Wi-Fi',type:'checkbox',default:true},
+      {key:'valorTaxa',label:'Valor da taxa (R$)',type:'number',default:100},
+      {key:'incluirLimpeza',label:'Incluir limpeza dos módulos neste contrato',type:'checkbox',default:false},
+      {key:'periodicidadeLimpeza',label:'Periodicidade da limpeza',type:'select',options:['Semestral','Anual'],default:'Semestral'},
+      {key:'dataContrato',label:'Data do contrato',type:'date',default:dateKey(new Date())}
+    ],
+    compose:composeMonitoramento
+  },
+  {
+    id:'manutencao', title:'Manutenção e Limpeza (Avulso)', tag:'Pontual',
+    sub:'Serviço pontual de vistoria, manutenção preventiva e/ou limpeza do sistema, cobrado uma única vez.',
+    fields:[
+      {key:'servicoEspecifico',label:'Serviço específico contratado',type:'text',default:'vistoria de manutenção'},
+      {key:'escopoLimpeza',label:'Escopo geral: limpeza técnica dos módulos',type:'checkbox',default:true},
+      {key:'escopoReaperto',label:'Escopo geral: reaperto de conexões elétricas',type:'checkbox',default:true},
+      {key:'escopoAnaliseInversor',label:'Escopo geral: análise de geração no inversor',type:'checkbox',default:true},
+      {key:'valorTotal',label:'Valor total do serviço (R$)',type:'number',default:''},
+      {key:'dataContrato',label:'Data do contrato',type:'date',default:dateKey(new Date())}
+    ],
+    compose:composeManutencao
+  },
+  {
+    id:'recibo', title:'Recibo de Pagamento', tag:'Avulso',
+    sub:'Recibo de quitação de valores recebidos por serviços prestados (limpeza, vistoria, taxa, etc).',
+    fields:[
+      {key:'valor',label:'Valor recebido (R$)',type:'number',default:''},
+      {key:'formaPagamento',label:'Forma de pagamento',type:'select',options:['espécie','Pix','cartão de débito','cartão de crédito','transferência/TED'],default:'espécie'},
+      {key:'descricaoServico',label:'Referente a (descrição do serviço)',type:'text',default:''},
+      {key:'dataRecibo',label:'Data do recibo',type:'date',default:dateKey(new Date())}
+    ],
+    compose:composeRecibo
+  },
+  {id:'prestacao', title:'Prestação de Serviço (Geral)', tag:'Em breve', sub:'Aguardando modelo Word atualizado.', disabled:true},
+  {
+    id:'procuracao', title:'Procuração', tag:'Jurídico',
+    sub:'Procuração para representar o cliente perante concessionária de energia (ligação nova, microgeração distribuída, projeto elétrico etc).',
+    fields:[
+      {key:'tipoPessoa',label:'Outorgante é pessoa',type:'select',options:['Física','Jurídica'],default:'Física'},
+      {key:'representanteNome',label:'Nome do representante legal (se jurídica)',type:'text',default:''},
+      {key:'representanteCpf',label:'CPF do representante (se jurídica)',type:'text',default:''},
+      {key:'outorganteRg',label:'RG / Carteira de Identidade do outorgante (opcional)',type:'text',default:''},
+      {key:'concessionaria',label:'Concessionária / órgão',type:'text',default:'Equatorial Energia'},
+
+      {key:'poderGeral',label:'Requerer, assinar, apresentar, juntar e retirar documentos e multas',type:'checkbox',default:true},
+      {key:'poderDeclaracoes',label:'Fazer declarações perante a concessionária',type:'checkbox',default:true},
+      {key:'poderProjetoEletrico',label:'Assinar projeto elétrico',type:'checkbox',default:true},
+      {key:'poderContratoFornecimento',label:'Assinar contrato de fornecimento',type:'checkbox',default:false},
+      {key:'poderLigacaoNova',label:'Solicitar ligação nova',type:'checkbox',default:true},
+      {key:'poderReligacao',label:'Solicitar religação',type:'checkbox',default:false},
+      {key:'poderAumentoCarga',label:'Solicitar aumento de carga',type:'checkbox',default:true},
+      {key:'poderTrocaTitularidade',label:'Fazer troca de titularidade',type:'checkbox',default:false},
+      {key:'poderAlteracaoCadastral',label:'Solicitar alteração cadastral',type:'checkbox',default:false},
+      {key:'poderMicrogeracao',label:'Solicitar acesso p/ microgeração distribuída (projeto elétrico + ponto de conexão)',type:'checkbox',default:true},
+
+      {key:'validadeAnos',label:'Validade da procuração (anos, a contar da expedição)',type:'number',default:1},
+      {key:'dataVigencia',label:'Efeitos válidos a partir de (opcional)',type:'date',default:''},
+
+      {key:'procuradorPadrao',label:'Usar procurador padrão — Solar Green (Felipe Eduardo Pamplona de Sousa Nascimento)',type:'checkbox',default:true,rebuild:true},
+      {key:'procNome',label:'Nome do procurador',type:'text',default:'',showIf:function(v){return !v.procuradorPadrao;}},
+      {key:'procNacionalidade',label:'Nacionalidade',type:'text',default:'brasileiro(a)',showIf:function(v){return !v.procuradorPadrao;}},
+      {key:'procEstadoCivil',label:'Estado civil',type:'select',options:['solteiro(a)','casado(a)','divorciado(a)','viúvo(a)'],default:'solteiro(a)',showIf:function(v){return !v.procuradorPadrao;}},
+      {key:'procProfissao',label:'Profissão',type:'text',default:'engenheiro(a) eletricista',showIf:function(v){return !v.procuradorPadrao;}},
+      {key:'procCpf',label:'CPF do procurador',type:'text',default:'',showIf:function(v){return !v.procuradorPadrao;}},
+      {key:'procRg',label:'RG do procurador',type:'text',default:'',showIf:function(v){return !v.procuradorPadrao;}},
+      {key:'procRgOrgao',label:'Órgão expedidor do RG',type:'text',default:'SSP/PA',showIf:function(v){return !v.procuradorPadrao;}},
+      {key:'procEndereco',label:'Endereço do procurador',type:'text',default:'',showIf:function(v){return !v.procuradorPadrao;}},
+      {key:'procTelefone',label:'Telefone do procurador',type:'text',default:'',showIf:function(v){return !v.procuradorPadrao;}},
+
+      {key:'dataDocumento',label:'Data do documento',type:'date',default:dateKey(new Date())}
+    ],
+    compose:composeProcuracao
+  }
+];
+
+function renderCtypeGrid(){
+  var wrap=document.getElementById('ctypeGrid'); wrap.innerHTML='';
+  CONTRACT_TYPES.forEach(function(t){
+    var card=document.createElement('div');
+    card.className='ctype-card'+(t.disabled?' disabled':'')+(CT.selectedId===t.id?' selected':'');
+    card.innerHTML='<div class="ct-title">'+escH(t.title)+'</div><div class="ct-sub">'+escH(t.sub)+'</div><span class="ct-tag">'+escH(t.tag)+'</span>';
+    if(!t.disabled) card.addEventListener('click',function(){ selectContractType(t.id); });
+    wrap.appendChild(card);
+  });
+}
+
+function selectContractType(id){
+  CT.selectedId=id; CT.values={};
+  var t=CONTRACT_TYPES.find(function(x){return x.id===id;});
+  renderCtypeGrid();
+  var card=document.getElementById('ctrVarsCard');
+  if(!t||!t.fields){ card.style.display='none'; document.getElementById('contratoPreview').innerHTML=''; return; }
+  card.style.display='';
+  t.fields.forEach(function(f){ CT.values[f.key]=f.default; });
+  buildVarsForm(t);
+  renderContratoPreview();
+}
+
+function buildVarsForm(t){
+  var body=document.getElementById('ctrVarsBody'); body.innerHTML='';
+  t.fields.forEach(function(f){
+    if(f.showIf && !f.showIf(CT.values))return;
+    var cur=(CT.values[f.key]!==undefined)?CT.values[f.key]:f.default;
+    var row=document.createElement('div');
+    if(f.type==='checkbox'){
+      row.className='check-row';
+      row.innerHTML='<label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="cv_'+f.key+'" '+(cur?'checked':'')+'> '+escH(f.label)+'</label>';
+    } else {
+      row.className='field';
+      var inputHtml;
+      if(f.type==='select'){
+        inputHtml='<select id="cv_'+f.key+'">'+f.options.map(function(o){return '<option value="'+escH(o)+'"'+(o===cur?' selected':'')+'>'+escH(o)+'</option>';}).join('')+'</select>';
+      } else if(f.type==='date'){
+        inputHtml='<input type="date" id="cv_'+f.key+'" value="'+escH(cur)+'">';
+      } else if(f.type==='number'){
+        inputHtml='<input type="number" id="cv_'+f.key+'" step="0.01" value="'+escH(cur)+'" placeholder="0,00">';
+      } else {
+        inputHtml='<input type="text" id="cv_'+f.key+'" value="'+escH(cur)+'">';
+      }
+      row.innerHTML='<label>'+escH(f.label)+'</label>'+inputHtml;
+    }
+    body.appendChild(row);
+    var el=row.querySelector('input,select');
+    var onChange=function(){ readVarsForm(t); if(f.rebuild)buildVarsForm(t); renderContratoPreview(); };
+    el.addEventListener('input',onChange);
+    if(f.type==='checkbox'||f.type==='select')el.addEventListener('change',onChange);
+  });
+}
+
+function readVarsForm(t){
+  t.fields.forEach(function(f){
+    var el=document.getElementById('cv_'+f.key); if(!el)return;
+    CT.values[f.key]=f.type==='checkbox'?el.checked:el.value;
+  });
+}
+
+function clienteVars(){
+  return{
+    nome:document.getElementById('ctrNome').value.trim()||'—',
+    cpf:document.getElementById('ctrCpf').value.trim()||'não informado',
+    endereco:document.getElementById('ctrEndereco').value.trim()||'—',
+    cidade:document.getElementById('ctrCidade').value.trim()||'Breves'
+  };
+}
+
+function composeMonitoramento(v,c){
+  var valorMensal=parseFloat(v.valorMensal)||0;
+  var anual=v.periodicidade==='Anual (à vista)';
+  var pagoClause=anual?
+    ('O CONTRATANTE pagará à CONTRATADA o valor anual de <strong>'+fmtMoney(valorMensal*12)+'</strong> (equivalente a '+fmtMoney(valorMensal)+'/mês), pago integralmente no ato da contratação.')
+    :('O CONTRATANTE pagará à CONTRATADA o valor mensal de <strong>'+fmtMoney(valorMensal)+'</strong>.');
+  var pagamentoDia=anual?
+    'Não havendo parcelamento mensal, esta cláusula não se aplica.'
+    :('O pagamento deverá ser efetuado até o dia <strong>'+escH(v.diaVencimento||'—')+'</strong> de cada mês via '+escH(v.formaPagamento)+'.');
+  var taxaHtml=v.taxaDeslocamento?
+    ('<p><em>Parágrafo Único:</em> Caso seja necessária uma visita técnica exclusiva para reconexão do Wi-Fi por alteração do CONTRATANTE, será cobrada uma taxa de deslocamento no valor de '+fmtMoney(v.valorTaxa)+'.</p>')
+    :'';
+  var limpezaHtml=v.incluirLimpeza?
+    ('4.2. Este contrato <strong>inclui</strong> a limpeza dos módulos solares, com periodicidade '+escH(v.periodicidadeLimpeza).toLowerCase()+'. Não estão incluídos manutenção elétrica corretiva, troca de peças ou reparos físicos no telhado, que deverão ser orçados à parte.')
+    :('4.2. Este contrato <strong>não inclui</strong> serviços de limpeza dos painéis, manutenção elétrica corretiva, troca de peças ou reparos físicos no telhado, que deverão ser orçados à parte.');
+
+  return(
+  '<h2>Contrato de Prestação de Serviços de Monitoramento e Gestão de Geração Fotovoltaica</h2>'+
+  '<div class="cp-parties">'+
+    '<p><strong>CONTRATANTE:</strong> '+escH(c.nome)+', CPF/CNPJ '+escH(c.cpf)+', residente em '+escH(c.endereco)+', doravante denominado <strong>CONTRATANTE</strong>.</p>'+
+    '<p><strong>CONTRATADA:</strong> '+escH(CONTRATADA.nome)+', CNPJ '+escH(CONTRATADA.cnpj)+', com sede em '+escH(CONTRATADA.enderecoFull)+', doravante denominada <strong>CONTRATADA</strong>.</p>'+
+  '</div>'+
+  '<div class="cp-clause-title">CLÁUSULA PRIMEIRA – DO OBJETO</div>'+
+  '<p>1.1. O presente contrato tem por objeto a prestação de serviços de monitoramento remoto do sistema de energia solar fotovoltaica instalado na unidade consumidora do CONTRATANTE, localizada em '+escH(c.endereco)+'.</p>'+
+  '<div class="cp-clause-title">CLÁUSULA SEGUNDA – DAS OBRIGAÇÕES DA CONTRATADA</div>'+
+  '<p>2.1. Realizar o acompanhamento remoto da geração de energia através da plataforma do fabricante do inversor.</p>'+
+  '<p>2.2. Enviar relatório <strong>'+escH(v.periodicidadeRelatorio)+'</strong> contendo o comparativo de geração (Esperado x Realizado) e economia estimada.</p>'+
+  '<p>2.3. Notificar o CONTRATANTE em até <strong>'+escH(v.prazoNotificacao)+' horas úteis</strong> caso sejam detectadas anomalias graves (ex: geração zero, falha de inversor).</p>'+
+  '<p>2.4. Atuar proativamente na gestão da garantia junto ao fabricante caso seja detectado defeito no equipamento (abertura de tickets de suporte).</p>'+
+  '<div class="cp-clause-title">CLÁUSULA TERCEIRA – DAS OBRIGAÇÕES DO CONTRATANTE</div>'+
+  '<p>3.1. Manter o sistema conectado à rede elétrica e à rede de internet (Wi-Fi).</p>'+
+  '<p>3.2. Fornecer à CONTRATADA acesso (login e senha ou permissão de visualização) à plataforma de monitoramento.</p>'+
+  '<p>3.3. Efetuar o pagamento na data acordada.</p>'+
+  '<div class="cp-clause-title">CLÁUSULA QUARTA – DAS LIMITAÇÕES E EXCLUSÕES</div>'+
+  '<p>4.1. A CONTRATADA não se responsabiliza pela interrupção do monitoramento causada por falta de energia elétrica, corte de internet ou alteração de senha do Wi-Fi por parte do CONTRATANTE.</p>'+
+  taxaHtml+
+  '<p>'+limpezaHtml+'</p>'+
+  '<p>4.3. A CONTRATADA não garante a geração de energia, visto que esta depende de condições climáticas (irradiação solar), mas compromete-se a monitorar se o equipamento está funcionando conforme o esperado.</p>'+
+  '<div class="cp-clause-title">CLÁUSULA QUINTA – DO PREÇO E PAGAMENTO</div>'+
+  '<p>5.1. Pelos serviços prestados, '+pagoClause+'</p>'+
+  '<p>5.2. '+pagamentoDia+'</p>'+
+  '<p>5.3. O atraso superior a 5 dias poderá implicar na suspensão do monitoramento.</p>'+
+  '<div class="cp-clause-title">CLÁUSULA SEXTA – DA VIGÊNCIA E RESCISÃO</div>'+
+  '<p>6.1. O presente contrato tem prazo de <strong>'+escH(v.prazoVigencia)+' meses</strong>, podendo ser renovado automaticamente.</p>'+
+  '<p>6.2. Qualquer uma das partes poderá rescindir este contrato mediante aviso prévio de 30 (trinta) dias, sem multa rescisória.</p>'+
+  '<div class="cp-clause-title">CLÁUSULA SÉTIMA – DO FORO</div>'+
+  '<p>7.1. Fica eleito o foro da comarca de '+escH(c.cidade)+'/PA para dirimir quaisquer dúvidas oriundas deste contrato.</p>'+
+  '<p style="margin-top:24px;">'+escH(c.cidade)+'/PA, '+isoToBR(v.dataContrato)+'.</p>'+
+  '<div class="cp-sign"><div class="cp-sign-line">CONTRATADA – Solar Green Suporte</div><div class="cp-sign-line">CONTRATANTE – '+escH(c.nome)+'</div></div>'
+  );
+}
+
+function composeManutencao(v,c){
+  var escopoItens=[];
+  if(v.escopoLimpeza)escopoItens.push('limpeza técnica dos módulos solares');
+  if(v.escopoReaperto)escopoItens.push('reaperto de conexões elétricas');
+  if(v.escopoAnaliseInversor)escopoItens.push('análise de geração no inversor');
+  var escopoTxt=escopoItens.length?escopoItens.join(', '):'nenhum item adicional selecionado';
+
+  return(
+  '<h2>Contrato de Prestação de Serviços de Manutenção e Limpeza Fotovoltaica</h2>'+
+  '<div class="cp-parties">'+
+    '<p><strong>CONTRATANTE:</strong> '+escH(c.nome)+', CPF/CNPJ '+escH(c.cpf)+', residente e domiciliado(a) em '+escH(c.endereco)+', doravante denominado(a) <strong>CONTRATANTE</strong>.</p>'+
+    '<p><strong>CONTRATADA:</strong> '+escH(CONTRATADA.nome)+', CNPJ '+escH(CONTRATADA.cnpj)+', com sede em '+escH(CONTRATADA.enderecoFull)+', doravante denominada <strong>CONTRATADA</strong>.</p>'+
+  '</div>'+
+  '<div class="cp-clause-title">CLÁUSULA PRIMEIRA – DO OBJETO DO CONTRATO</div>'+
+  '<p>1.1. O presente contrato tem por objeto a prestação de serviços pontuais de suporte pós-venda, vistoria, manutenção preventiva e/ou limpeza do sistema de geração de energia solar fotovoltaica instalado na unidade consumidora do(a) CONTRATANTE, localizada em '+escH(c.endereco)+'.</p>'+
+  '<p>1.2. Para a presente contratação, o serviço específico a ser executado é <strong>'+escH(v.servicoEspecifico)+'</strong>. O escopo geral desta contratação contempla: '+escH(escopoTxt)+'.</p>'+
+  '<div class="cp-clause-title">CLÁUSULA SEGUNDA – DAS OBRIGAÇÕES DA CONTRATADA</div>'+
+  '<p>2.1. Executar os serviços com zelo, utilizando técnicas e equipamentos adequados para a manutenção e vistoria de sistemas fotovoltaicos.</p>'+
+  '<p>2.2. Fornecer os Equipamentos de Proteção Individual (EPIs) necessários para a sua equipe, garantindo a segurança durante a execução do trabalho, especialmente em telhados.</p>'+
+  '<p>2.3. Entregar um relatório fotográfico/técnico após a conclusão do serviço, atestando as condições do sistema e os resultados da vistoria.</p>'+
+  '<div class="cp-clause-title">CLÁUSULA TERCEIRA – DAS OBRIGAÇÕES DO CONTRATANTE</div>'+
+  '<p>3.1. Fornecer livre acesso ao local onde os painéis e o inversor estão instalados nas datas e horários previamente agendados com a CONTRATADA.</p>'+
+  '<p>3.2. Garantir o fornecimento de água no local, caso haja necessidade de limpeza dos módulos durante ou após a vistoria.</p>'+
+  '<p>3.3. Efetuar o pagamento do valor acordado no prazo estipulado na Cláusula Quarta.</p>'+
+  '<div class="cp-clause-title">CLÁUSULA QUARTA – DA REMUNERAÇÃO</div>'+
+  '<p>4.1. Pela prestação pontual dos serviços descritos na Cláusula Primeira, o(a) CONTRATANTE pagará à CONTRATADA o valor total de <strong>'+fmtMoney(v.valorTotal)+'</strong>.</p>'+
+  '<div class="cp-clause-title">CLÁUSULA QUINTA – DO PRAZO E VIGÊNCIA</div>'+
+  '<p>5.1. O presente contrato tem vigência por prazo determinado, iniciando-se na data de sua assinatura e encerrando-se automaticamente após a conclusão da prestação do serviço e entrega do relatório técnico.</p>'+
+  '<div class="cp-clause-title">CLÁUSULA SEXTA – DA GARANTIA</div>'+
+  '<p>6.1. A CONTRATADA oferece garantia legal sobre a mão de obra dos serviços executados. Esta garantia não cobre defeitos de fabricação dos equipamentos (painéis, inversores etc.), danos causados por fenômenos da natureza ou mau uso por parte do(a) CONTRATANTE.</p>'+
+  '<div class="cp-clause-title">CLÁUSULA SÉTIMA – DO FORO</div>'+
+  '<p>7.1. Para dirimir quaisquer controvérsias oriundas deste contrato, as partes elegem o foro da Comarca de '+escH(c.cidade)+' – PA, renunciando a qualquer outro, por mais privilegiado que seja.</p>'+
+  '<p style="margin-top:24px;">'+escH(c.cidade)+' – PA, '+isoToBR(v.dataContrato)+'.</p>'+
+  '<div class="cp-sign"><div class="cp-sign-line">CONTRATANTE – '+escH(c.nome)+'</div><div class="cp-sign-line">CONTRATADA – Solar Green Suporte</div></div>'
+  );
+}
+
+// ── Número por extenso (PT-BR, uso em recibos) ──────────────────────────
+var EXT_UNI=['zero','um','dois','três','quatro','cinco','seis','sete','oito','nove','dez','onze','doze','treze','catorze','quinze','dezesseis','dezessete','dezoito','dezenove'];
+var EXT_DEZ=['','','vinte','trinta','quarenta','cinquenta','sessenta','setenta','oitenta','noventa'];
+var EXT_CEM=['','cento','duzentos','trezentos','quatrocentos','quinhentos','seiscentos','setecentos','oitocentos','novecentos'];
+function extGrupo(x){
+  if(x===0)return'';
+  if(x===100)return'cem';
+  var h=Math.floor(x/100),r=x%100,parts=[];
+  if(h>0)parts.push(EXT_CEM[h]);
+  if(r>0){
+    if(r<20)parts.push(EXT_UNI[r]);
+    else{ var t=Math.floor(r/10),u=r%10,s=EXT_DEZ[t]; if(u>0)s+=' e '+EXT_UNI[u]; parts.push(s); }
+  }
+  return parts.join(' e ');
+}
+function numPorExtenso(n){
+  n=Math.floor(n)||0;
+  if(n===0)return'zero';
+  var milhoes=Math.floor(n/1000000),resto=n%1000000,milhares=Math.floor(resto/1000),centenas=resto%1000,parts=[];
+  if(milhoes>0)parts.push(milhoes===1?'um milhão':numPorExtenso(milhoes)+' milhões');
+  if(milhares>0)parts.push(milhares===1?'mil':extGrupo(milhares)+' mil');
+  if(centenas>0)parts.push(extGrupo(centenas));
+  return parts.join(' e ');
+}
+function valorPorExtenso(valor){
+  valor=parseFloat(valor)||0;
+  var inteiro=Math.floor(valor),centavos=Math.round((valor-inteiro)*100);
+  var str=numPorExtenso(inteiro)+' '+(inteiro===1?'real':'reais');
+  if(centavos>0)str+=' e '+numPorExtenso(centavos)+' '+(centavos===1?'centavo':'centavos');
+  return str;
+}
+
+function composeRecibo(v,c){
+  var valor=parseFloat(v.valor)||0;
+  return(
+  '<h2>Recibo de Pagamento</h2>'+
+  '<p style="text-align:center;font-weight:700;font-size:14px;margin-bottom:16px;">VALOR: '+fmtMoney(valor)+' ('+valorPorExtenso(valor)+')</p>'+
+  '<p>Recebemos de <strong>'+escH(c.nome)+'</strong>, CPF '+escH(c.cpf)+', a importância supracitada de <strong>'+fmtMoney(valor)+'</strong>, paga em <strong>'+escH(v.formaPagamento)+'</strong>, referente à prestação de serviços de <strong>'+escH(v.descricaoServico||'—')+'</strong>.</p>'+
+  '<p>Para maior clareza, firmamos o presente recibo dando a plena, rasa e geral quitação do valor recebido.</p>'+
+  '<p style="margin-top:24px;"><strong>Local e Data:</strong> '+escH(c.cidade)+' - PA, '+isoToBR(v.dataRecibo)+'.</p>'+
+  '<p style="margin-top:36px;">Assinatura do cliente:</p>'+
+  '<div class="cp-sign-line" style="width:340px;margin-top:8px;">&nbsp;</div>'+
+  '<p style="margin-top:28px;"><strong>'+escH(CONTRATADA.nome)+'</strong> — CNPJ: '+escH(CONTRATADA.cnpj)+'</p>'
+  );
+}
+
+function joinComma(arr){
+  if(arr.length===0)return'';
+  if(arr.length===1)return arr[0];
+  return arr.slice(0,-1).join(', ')+' e '+arr[arr.length-1];
+}
+
+function composeProcuracao(v,c){
+  var pj=v.tipoPessoa==='Jurídica';
+
+  var outorganteClause=
+    escH(c.nome)+', '+
+    (pj?('devidamente inscrita no CNPJ sob o nº '+escH(c.cpf)):('portador(a) do CPF '+escH(c.cpf)))+
+    (v.outorganteRg?(', Carteira de Identidade '+escH(v.outorganteRg)):'')+
+    ', residente e domiciliado(a) em '+escH(c.endereco)+
+    (pj?(', neste ato representada por '+escH(v.representanteNome||'—')+', portador(a) do CPF nº '+escH(v.representanteCpf||'—')):'')+
+    '.';
+
+  var outorgadoClause;
+  if(v.procuradorPadrao){
+    outorgadoClause=escH(CONTRATADA.nome)+' com sede legal em '+escH(CONTRATADA.enderecoFull)+', inscrito no CNPJ '+escH(CONTRATADA.cnpj)+' e FELIPE EDUARDO PAMPLONA DE SOUSA NASCIMENTO, portador(a) do CPF [CPF removido] e carteira de identidade [RG removido], residente e domiciliado(a) no mesmo endereço.';
+  } else {
+    outorgadoClause=escH(v.procNome||'—')+', '+escH(v.procNacionalidade)+', '+escH(v.procEstadoCivil)+', '+escH(v.procProfissao)+', portador(a) do CPF nº '+escH(v.procCpf||'—')+' e carteira de identidade '+escH(v.procRg||'—')+(v.procRgOrgao?(' '+escH(v.procRgOrgao)):'')+', residente e domiciliado(a) em '+escH(v.procEndereco||'—')+(v.procTelefone?(', telefone '+escH(v.procTelefone)):'')+'.';
+  }
+
+  var poderes=[];
+  if(v.poderGeral)poderes.push('requerer e assinar tudo que for necessário, apresentar, juntar e retirar documentos e multas');
+  if(v.poderDeclaracoes)poderes.push('fazer declarações');
+  if(v.poderProjetoEletrico)poderes.push('assinar projeto elétrico');
+  if(v.poderContratoFornecimento)poderes.push('assinar contrato de fornecimento');
+  if(v.poderTrocaTitularidade)poderes.push('fazer troca de titularidade');
+  if(v.poderLigacaoNova)poderes.push('solicitar ligação nova');
+  if(v.poderReligacao)poderes.push('solicitar religação');
+  if(v.poderAumentoCarga)poderes.push('solicitar aumento de carga');
+  if(v.poderAlteracaoCadastral)poderes.push('solicitar alteração cadastral');
+  if(v.poderMicrogeracao)poderes.push('solicitar acesso para microgeração distribuída, incluindo aprovação de projeto elétrico e de ponto de conexão');
+  var poderesTxt=poderes.length?joinComma(poderes):'nenhum poder selecionado';
+
+  var anos=parseInt(v.validadeAnos,10)||1;
+  var validadeTxt='A Procuração tem validade de '+anos+' ('+numPorExtenso(anos)+') '+(anos===1?'ano':'anos')+' a contar da expedição da mesma.';
+  var vigenciaTxt=v.dataVigencia?(' Os efeitos deste instrumento são válidos a partir de '+isoToBR(v.dataVigencia)+'.'):'';
+
+  return(
+  '<h2>Procuração — Pessoa '+(pj?'Jurídica':'Física')+'</h2>'+
+  '<p><strong>OUTORGANTE:</strong> '+outorganteClause+'</p>'+
+  '<p><strong>OUTORGADO:</strong> '+outorgadoClause+'</p>'+
+  '<p><strong>PODERES:</strong> Representar o Outorgante perante a '+escH(v.concessionaria)+', podendo para tanto '+poderesTxt+' e/ou qualquer serviço ligado à área comercial da Concessionária. '+validadeTxt+vigenciaTxt+'</p>'+
+  '<p style="margin-top:24px;">'+escH(c.cidade)+'/PA, '+isoToBR(v.dataDocumento)+'.</p>'+
+  '<div class="cp-sign" style="justify-content:flex-start;"><div class="cp-sign-line" style="width:380px;">'+
+    escH(c.nome)+
+    (pj?('<br>CNPJ nº '+escH(c.cpf)+(v.representanteNome?('<br>'+escH(v.representanteNome)+' — CPF nº '+escH(v.representanteCpf||'—')):'')):('<br>CPF nº '+escH(c.cpf)))+
+    '<br>OUTORGANTE'+
+  '</div></div>'
+  );
+}
+
+window.renderContratoPreview=function(){
+  var el=document.getElementById('contratoPreview'); if(!el)return;
+  var t=CONTRACT_TYPES.find(function(x){return x.id===CT.selectedId;});
+  if(!t||!t.compose){ el.innerHTML='<p class="empty-inline">Selecione um tipo de contrato acima.</p>'; return; }
+  el.innerHTML=t.compose(CT.values,clienteVars());
+}
+
+function printContrato(){
+  var t=CONTRACT_TYPES.find(function(x){return x.id===CT.selectedId;});
+  if(!t||!t.compose){ showToast('Selecione um tipo de contrato',false); return; }
+  var c=clienteVars();
+  if(c.nome==='—'){ showToast('Informe o nome do cliente',false); return; }
+  var bodyHtml=t.compose(CT.values,c);
+  var win=window.open('','_blank');
+  win.document.write('<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Contrato · '+escH(c.nome)+'</title>'+
+  '<style>'+
+  'body{font-family:"Times New Roman",Times,serif;font-size:12.5px;line-height:1.65;color:#111;max-width:760px;margin:0 auto;padding:0 8px 48px;}'+
+  '.letterhead{padding:28px 0 14px;text-align:center;}'+
+  '.letterhead img{height:56px;}'+
+  '.letterhead-bar{height:4px;background:#78D800;margin-bottom:28px;}'+
+  'h2{font-size:15px;text-align:center;font-weight:700;margin-bottom:18px;text-transform:uppercase;}'+
+  '.cp-clause-title{font-weight:700;margin-top:16px;margin-bottom:5px;}'+
+  'p{margin-bottom:7px;text-align:justify;}'+
+  '.cp-sign{margin-top:48px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:24px;}'+
+  '.cp-sign-line{border-top:1px solid #333;width:280px;padding-top:5px;font-size:11px;text-align:center;}'+
+  '@media print{body{padding:0 24px 24px;}@page{margin:1.5cm 2cm 2cm;}.letterhead{padding-top:0;}}'+
+  '</style></head><body>'+
+  '<div class="letterhead"><img src="'+LOGO_DATA_URI+'" alt="Solar Green Suporte"></div>'+
+  '<div class="letterhead-bar"></div>'+
+  bodyHtml+'</body></html>');
+  win.document.close();
+  setTimeout(function(){win.print();},500);
+}
+
+function resetContrato(){
+  document.getElementById('ctrSelCliente').value='';
+  document.getElementById('ctrNome').value=''; document.getElementById('ctrCpf').value='';
+  document.getElementById('ctrEndereco').value=''; document.getElementById('ctrCidade').value='';
+  document.getElementById('ctrSyncRow').style.display='none';
+  document.getElementById('ctrSyncRowBottom').style.display='none';
+  CT.selectedId=null; CT.values={}; CT.clienteId=null; CT.clienteOriginal=null;
+  renderCtypeGrid();
+  document.getElementById('ctrVarsCard').style.display='none';
+  document.getElementById('contratoPreview').innerHTML='';
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────
+function switchTab(name){
+  document.querySelectorAll('.tabpane').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+  document.getElementById('tab-'+name).classList.add('active');
+  document.getElementById(name==='proposta'?'tabBtnProposta':'tabBtnContrato').classList.add('active');
+}
+
 // ── Análise de desempenho toggle ────────────────────────────────────────
 document.getElementById('perdaToggle').addEventListener('change',function(){
   var on=this.checked;
@@ -986,7 +1593,7 @@ function fetchData(){
   apiCall('getFunilData').then(function(resp){
     document.getElementById('connectBtn').disabled=false;
     if(!resp||!resp.ok){ st.className='connect-status error'; txt.textContent=(resp&&resp.erro)||'Erro ao conectar'; return; }
-    buildMaps(resp); populateLeads();
+    buildMaps(resp); populateLeads(); populateClientesContrato();
     document.getElementById('dataProp').value=dateKey(new Date());
     document.getElementById('mainContent').style.display='';
     document.getElementById('connectWrap').style.display='none';
@@ -1009,10 +1616,19 @@ document.getElementById('saveBtn').addEventListener('click',saveProposal);
 document.getElementById('printBtn').addEventListener('click',printProposal);
 document.getElementById('newBtn').addEventListener('click',function(){ if(confirm('Criar nova proposta? Os dados não salvos serão perdidos.'))resetForm(); });
 
+document.getElementById('tabBtnProposta').addEventListener('click',function(){ switchTab('proposta'); });
+document.getElementById('tabBtnContrato').addEventListener('click',function(){ switchTab('contrato'); });
+document.getElementById('ctrSelCliente').addEventListener('change',onClienteContratoChange);
+document.getElementById('ctrPrintBtn').addEventListener('click',printContrato);
+document.getElementById('ctrResetBtn').addEventListener('click',function(){ if(confirm('Limpar contrato atual?'))resetContrato(); });
+document.getElementById('ctrSyncBtn').addEventListener('click',syncClienteToSheet);
+document.getElementById('ctrSyncBtnBottom').addEventListener('click',syncClienteToSheet);
+
 // ── Boot ─────────────────────────────────────────────────────────────────
 (function(){
   var u=getApiUrl(),k=getApiKey();
   document.getElementById('apiUrl').value=u; document.getElementById('apiKey').value=k;
+  renderCtypeGrid();
   if(u&&k)fetchData();
 })();
 
