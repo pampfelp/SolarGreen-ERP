@@ -1050,9 +1050,6 @@ function printProposal(){
     var descFinal=b.calcTipo==='plano'
       ?'Inclui: 1 limpeza · 1 vistoria de diagnóstico · 1 manutenção · 12 meses de app de monitoramento · 12 meses de acompanhamento Solar Green'
       :(b.descricaoExtra||svc.descricao||'');
-    var detalheCalc='';
-    if(b.calcTipo==='modulo')detalheCalc=b.quantidade+' módulo(s) × '+fmtMoney(b.valorUnit);
-    else if(b.calcTipo==='custo')detalheCalc=fmtMoney(b.custoBase)+' ÷ (1−'+b.margemPct+'%)';
     var iconSvg=getSvcIcon(b);
     return (
       '<tr>'+
@@ -1061,8 +1058,7 @@ function printProposal(){
           '<div style="flex:none;border-radius:10px;overflow:hidden;width:48px;height:48px;">'+iconSvg+'</div>'+
           '<div style="flex:1;min-width:0;">'+
             '<div style="font-size:15px;font-weight:800;color:#003122;margin-bottom:5px;">'+(i+1)+'. '+escH(nomeB)+'</div>'+
-            (descFinal?'<div style="font-size:13px;color:#5a6b5a;line-height:1.7;margin-bottom:'+(detalheCalc?'6':'0')+'px;">'+escH(descFinal)+'</div>':'')+
-            (detalheCalc?'<div style="font-size:11px;color:#9aab9a;font-family:monospace;margin-top:2px;">'+escH(detalheCalc)+'</div>':'')+
+            (descFinal?'<div style="font-size:13px;color:#5a6b5a;line-height:1.7;margin-bottom:0px;">'+escH(descFinal)+'</div>':'')+
           '</div>'+
         '</div>'+
       '</td>'+
@@ -1184,8 +1180,8 @@ var CONTRACT_TYPES=[
     id:'monitoramento', title:'Monitoramento Remoto', tag:'Recorrente',
     sub:'Acompanhamento remoto da geração, relatórios periódicos e gestão de garantia junto ao fabricante.',
     fields:[
-      {key:'periodicidade',label:'Periodicidade de pagamento',type:'select',options:['Mensal','Anual (à vista)'],default:'Mensal'},
-      {key:'valorMensal',label:'Valor mensal (R$)',type:'number',default:''},
+      {key:'periodicidade',label:'Periodicidade de pagamento',type:'select',options:['Mensal','Anual (à vista)'],default:'Mensal',rebuild:true},
+      {key:'valorMensal',label:function(v){return v.periodicidade==='Anual (à vista)'?'Valor anual à vista (R$)':'Valor mensal (R$)';},type:'number',default:''},
       {key:'diaVencimento',label:'Dia de vencimento',type:'number',default:10},
       {key:'formaPagamento',label:'Forma de pagamento',type:'select',options:['Pix ou Boleto','Débito automático no cartão'],default:'Pix ou Boleto'},
       {key:'periodicidadeRelatorio',label:'Periodicidade do relatório',type:'select',options:['Mensal','Bimestral'],default:'Mensal'},
@@ -1293,10 +1289,11 @@ function buildVarsForm(t){
   t.fields.forEach(function(f){
     if(f.showIf && !f.showIf(CT.values))return;
     var cur=(CT.values[f.key]!==undefined)?CT.values[f.key]:f.default;
+    var lbl=typeof f.label==='function'?f.label(CT.values):f.label;
     var row=document.createElement('div');
     if(f.type==='checkbox'){
       row.className='check-row';
-      row.innerHTML='<label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="cv_'+f.key+'" '+(cur?'checked':'')+'> '+escH(f.label)+'</label>';
+      row.innerHTML='<label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="cv_'+f.key+'" '+(cur?'checked':'')+'> '+escH(lbl)+'</label>';
     } else {
       row.className='field';
       var inputHtml;
@@ -1309,13 +1306,28 @@ function buildVarsForm(t){
       } else {
         inputHtml='<input type="text" id="cv_'+f.key+'" value="'+escH(cur)+'">';
       }
-      row.innerHTML='<label>'+escH(f.label)+'</label>'+inputHtml;
+      row.innerHTML='<label>'+escH(lbl)+'</label>'+inputHtml;
     }
     body.appendChild(row);
     var el=row.querySelector('input,select');
-    var onChange=function(){ readVarsForm(t); if(f.rebuild)buildVarsForm(t); renderContratoPreview(); };
-    el.addEventListener('input',onChange);
-    if(f.type==='checkbox'||f.type==='select')el.addEventListener('change',onChange);
+    if(t.id==='monitoramento'&&f.key==='periodicidade'){
+      el.addEventListener('change',function(){
+        var oldAnual=CT.values.periodicidade==='Anual (à vista)';
+        var newAnual=el.value==='Anual (à vista)';
+        var num=parseFloat(CT.values.valorMensal)||0;
+        if(oldAnual!==newAnual&&num){
+          num=newAnual?(num*12):(num/12);
+          CT.values.valorMensal=Math.round(num*100)/100;
+        }
+        CT.values.periodicidade=el.value;
+        buildVarsForm(t);
+        renderContratoPreview();
+      });
+    } else {
+      var onChange=function(){ readVarsForm(t); if(f.rebuild)buildVarsForm(t); renderContratoPreview(); };
+      el.addEventListener('input',onChange);
+      if(f.type==='checkbox'||f.type==='select')el.addEventListener('change',onChange);
+    }
   });
 }
 
@@ -1336,11 +1348,13 @@ function clienteVars(){
 }
 
 function composeMonitoramento(v,c){
-  var valorMensal=parseFloat(v.valorMensal)||0;
+  var valorInformado=parseFloat(v.valorMensal)||0;
   var anual=v.periodicidade==='Anual (à vista)';
+  var valorAnual=anual?valorInformado:valorInformado*12;
+  var valorParcela=anual?valorInformado/12:valorInformado;
   var pagoClause=anual?
-    ('O CONTRATANTE pagará à CONTRATADA o valor anual de <strong>'+fmtMoney(valorMensal*12)+'</strong> (equivalente a '+fmtMoney(valorMensal)+'/mês), pago integralmente no ato da contratação.')
-    :('O CONTRATANTE pagará à CONTRATADA o valor mensal de <strong>'+fmtMoney(valorMensal)+'</strong>.');
+    ('O CONTRATANTE pagará à CONTRATADA o valor anual de <strong>'+fmtMoney(valorAnual)+'</strong> (equivalente a '+fmtMoney(valorParcela)+'/mês), pago integralmente no ato da contratação.')
+    :('O CONTRATANTE pagará à CONTRATADA o valor mensal de <strong>'+fmtMoney(valorParcela)+'</strong> (equivalente a '+fmtMoney(valorAnual)+'/ano).');
   var pagamentoDia=anual?
     'Não havendo parcelamento mensal, esta cláusula não se aplica.'
     :('O pagamento deverá ser efetuado até o dia <strong>'+escH(v.diaVencimento||'—')+'</strong> de cada mês via '+escH(v.formaPagamento)+'.');
