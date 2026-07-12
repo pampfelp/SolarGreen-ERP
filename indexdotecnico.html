@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#003122">
+<title>Solar Green · Técnico</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:           #F2F7F2;
+    --panel:        #FFFFFF;
+    --ink:          #1E1E1E;
+    --ink-soft:     #5a6b5a;
+    --ink-faint:    #9aab9a;
+    --line:         #dde8dd;
+    --accent:       #78D800;
+    --accent-soft:  #eef9d6;
+    --accent-deep:  #5aaa00;
+    --sidebar-bg:   #003122;
+    --warn:         #d97706;
+    --warn-soft:    #fef3c7;
+    --debit:        #dc2626;
+    --debit-soft:   #fee2e2;
+    --radius:       12px;
+    --unbounded:    'Unbounded', sans-serif;
+    --sans:         'Inter','Helvetica Neue',Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;-webkit-font-smoothing:antialiased;min-height:100vh;color-scheme:light;overscroll-behavior-y:contain;}
+  button,input,select,textarea{font-family:var(--sans);}
+  .hidden{display:none!important;}
+
+  /* ── Login ── */
+  #login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--sidebar-bg);}
+  #login-screen.hidden{display:none;}
+  .login-card{width:100%;max-width:380px;background:#fff;border-radius:16px;padding:32px 26px;box-shadow:0 20px 60px rgba(0,0,0,.35);}
+  .login-brand{text-align:center;margin-bottom:22px;}
+  .login-brand .sg-solar{font-family:var(--unbounded);font-weight:900;font-size:18px;color:var(--sidebar-bg);}
+  .login-brand .sg-green{color:var(--accent-deep);}
+  .login-brand .sg-sub{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint);margin-top:5px;font-weight:600;}
+  .lstep{display:none;}
+  .lstep.active{display:block;}
+  .lstep h2{font-family:var(--unbounded);font-size:15px;margin-bottom:4px;}
+  .lstep .lstep-sub{font-size:12px;color:var(--ink-soft);margin-bottom:16px;line-height:1.5;}
+  .lstep label{font-size:11px;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px;}
+  .lstep input{width:100%;font-size:16px;border:1px solid var(--line);border-radius:9px;padding:12px 13px;margin-bottom:13px;background:#fff;color:var(--ink);}
+  .lstep input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent);}
+  .btn-primary{width:100%;background:var(--accent);color:#003122;border:none;border-radius:9px;padding:13px;font-weight:800;font-size:14px;cursor:pointer;}
+  .btn-primary:disabled{opacity:.55;}
+  .link-row{text-align:center;margin-top:13px;}
+  .link-btn{background:none;border:none;color:var(--accent-deep);font-size:12.5px;cursor:pointer;text-decoration:underline;padding:6px;}
+  .msg{font-size:12px;border-radius:8px;padding:9px 11px;margin-bottom:13px;}
+  .msg.error{display:block;background:#fdecea;color:#c0392b;}
+  .msg.success{display:block;background:var(--accent-soft);color:#2c6e00;}
+  .msg:empty{display:none;}
+
+  /* ── App shell ── */
+  #app{display:none;min-height:100vh;flex-direction:column;padding-bottom:env(safe-area-inset-bottom);}
+  #app.active{display:flex;}
+  .topbar{background:var(--sidebar-bg);color:#fff;padding:16px 16px calc(16px + env(safe-area-inset-top)) 16px;position:sticky;top:0;z-index:20;}
+  .topbar-row{display:flex;align-items:center;justify-content:space-between;}
+  .topbar .brand{font-family:var(--unbounded);font-weight:900;font-size:15px;}
+  .topbar .brand .g{color:var(--accent);}
+  .topbar .userline{font-size:11px;color:rgba(255,255,255,.55);margin-top:2px;}
+  .topbar-actions{display:flex;gap:8px;}
+  .icon-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:9px;width:38px;height:38px;font-size:16px;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+  .icon-btn:active{background:rgba(255,255,255,.18);}
+
+  .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:14px 14px 4px;}
+  .kpi-card{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:10px 6px;text-align:center;cursor:pointer;transition:all .12s;}
+  .kpi-card .kn{font-family:var(--unbounded);font-size:19px;font-weight:700;color:var(--ink);}
+  .kpi-card .kl{font-size:9px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-faint);font-weight:700;margin-top:3px;line-height:1.25;}
+  .kpi-card.active{background:var(--sidebar-bg);border-color:var(--sidebar-bg);}
+  .kpi-card.active .kn,.kpi-card.active .kl{color:#fff;}
+  .kpi-card.active.st-agendado{background:#eab308;border-color:#eab308;}
+  .kpi-card.active.st-em-andamento{background:#3a5cc4;border-color:#3a5cc4;}
+  .kpi-card.active.st-concluido{background:var(--accent-deep);border-color:var(--accent-deep);}
+  .kpi-card.active.st-cancelado{background:var(--debit);border-color:var(--debit);}
+
+  .quickchips{display:flex;gap:7px;padding:10px 14px 2px;overflow-x:auto;align-items:center;}
+  .qchip{flex:none;font-size:12px;border:1px solid var(--line);background:#fff;border-radius:20px;padding:7px 14px;cursor:pointer;color:var(--ink-soft);}
+  .qchip.active{background:var(--accent);color:#003122;border-color:var(--accent);font-weight:700;}
+  .filter-icon-btn{flex:none;position:relative;width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--ink-soft);display:flex;align-items:center;justify-content:center;cursor:pointer;margin-left:auto;}
+  .filter-icon-btn.has-filters{border-color:var(--accent);color:var(--accent-deep);background:var(--accent-soft);}
+  .filter-icon-btn .fdot{position:absolute;top:-3px;right:-3px;width:9px;height:9px;border-radius:50%;background:var(--accent-deep);border:1.5px solid #fff;display:none;}
+  .filter-icon-btn.has-filters .fdot{display:block;}
+
+  .sheet-overlay{position:fixed;inset:0;background:rgba(0,20,10,.45);z-index:80;display:flex;align-items:flex-end;}
+  .sheet-overlay.hidden{display:none;}
+  .sheet-card{width:100%;background:#fff;border-radius:18px 18px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));max-height:80vh;overflow-y:auto;}
+  .sheet-card h3{font-family:var(--unbounded);font-size:15px;margin-bottom:16px;}
+  .sheet-field{margin-bottom:16px;}
+  .sheet-field label{display:block;font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;margin-bottom:7px;}
+  .sheet-field select{width:100%;font-size:14px;border:1px solid var(--line);border-radius:9px;padding:11px 12px;background:#fff;color:var(--ink);}
+  .sheet-actions{display:flex;gap:8px;margin-top:6px;}
+  .sheet-actions button{flex:1;border:none;border-radius:10px;padding:13px;font-weight:800;font-size:13.5px;cursor:pointer;}
+  .sheet-actions .btn-aplicar{background:var(--accent);color:#003122;}
+  .sheet-actions .btn-limpar{background:#fff;color:var(--ink-soft);border:1px solid var(--line)!important;}
+
+  .os-thumb{flex:none;width:46px;height:46px;border-radius:9px;object-fit:cover;background:var(--line);}
+
+  .list-wrap{flex:1;padding:10px 14px 24px;}
+  .os-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;cursor:pointer;border-left:4px solid var(--ink-faint);}
+  .os-card.st-agendado{border-left-color:#eab308;}
+  .os-card.st-em-andamento{border-left-color:#3a5cc4;}
+  .os-card.st-concluido{border-left-color:var(--accent-deep);}
+  .os-card.st-cancelado{border-left-color:var(--debit);}
+  .os-card:active{background:#f7faf7;}
+  .os-left{flex:1;min-width:0;}
+  .os-left .oc-nome{font-weight:700;font-size:14px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .os-left .oc-serv{font-size:12px;color:var(--ink-soft);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .os-left .oc-vend{font-size:11px;color:var(--ink-faint);margin-top:2px;}
+  .os-right{flex:none;text-align:right;}
+  .os-right .oc-data{font-size:12px;font-weight:700;color:var(--ink-soft);}
+  .os-right .oc-hora{font-size:11px;color:var(--ink-faint);margin-top:2px;}
+
+  .empty-state{text-align:center;padding:60px 20px;color:var(--ink-faint);}
+  .empty-state .glyph{font-size:34px;margin-bottom:10px;}
+  .empty-state p{font-size:13px;line-height:1.5;}
+
+  /* ── Detalhe (tela cheia) ── */
+  #screen-detalhe{position:fixed;inset:0;background:var(--bg);z-index:50;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .18s ease;}
+  #screen-detalhe.active{transform:translateX(0);}
+  .det-top{background:var(--sidebar-bg);color:#fff;padding:14px 14px calc(14px + env(safe-area-inset-top));display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:5;}
+  .det-top .backbtn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:9px;width:36px;height:36px;font-size:16px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;}
+  .det-top .det-title{font-family:var(--unbounded);font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .det-body{flex:1;overflow-y:auto;padding:16px 14px 100px;}
+  .det-section{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px 16px;margin-bottom:12px;}
+  .det-section h3{font-family:var(--unbounded);font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em;}
+  .det-row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--bg);font-size:13px;}
+  .det-row:last-child{border-bottom:none;}
+  .det-row .dl{color:var(--ink-faint);flex:none;}
+  .det-row .dv{color:var(--ink);text-align:right;font-weight:600;}
+  .status-badge{display:inline-block;font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:.03em;}
+  .status-badge.st-agendado{background:#fef9c3;color:#92620a;}
+  .status-badge.st-em-andamento{background:#eef2fb;color:#3a5cc4;}
+  .status-badge.st-concluido{background:var(--accent-soft);color:var(--accent-deep);}
+  .status-badge.st-cancelado{background:#fdecea;color:#c0392b;}
+  .os-status-badge{display:inline-block;font-size:9.5px;font-weight:700;padding:3px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.03em;margin-top:6px;white-space:nowrap;}
+  .os-status-badge.st-agendado{background:#fef9c3;color:#92620a;}
+  .os-status-badge.st-em-andamento{background:#eef2fb;color:#3a5cc4;}
+  .os-status-badge.st-concluido{background:var(--accent-soft);color:var(--accent-deep);}
+  .os-status-badge.st-cancelado{background:#fdecea;color:#c0392b;}
+
+  .det-actions{position:sticky;bottom:0;background:var(--bg);padding:0 14px calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px;flex-direction:column;box-shadow:0 -6px 16px -8px rgba(0,0,0,.15);}
+  .det-actions button{width:100%;border:none;border-radius:11px;padding:14px;font-weight:800;font-size:14px;cursor:pointer;}
+  .btn-start{background:var(--accent);color:#003122;}
+  .btn-finish{background:var(--sidebar-bg);color:#fff;}
+  .btn-cancel-link{background:none;color:var(--debit);text-decoration:underline;font-weight:600;font-size:12.5px;padding:6px;}
+  .btn-save-draft{background:#fff;color:var(--ink);border:1px solid var(--line)!important;}
+
+  .actions-handle{width:100%;background:none;border:none;color:var(--ink-faint);font-size:11px;font-weight:700;padding:8px 0 2px;cursor:pointer;text-align:center;letter-spacing:.02em;display:flex;align-items:center;justify-content:center;gap:5px;}
+  .actions-handle .chev{display:inline-block;transition:transform .2s ease;font-size:9px;}
+  .actions-handle.open .chev{transform:rotate(180deg);}
+  .actions-extra{max-height:0;overflow:hidden;transition:max-height .22s ease;display:flex;flex-direction:column;gap:8px;}
+  .actions-extra.open{max-height:220px;padding-bottom:4px;}
+
+  .btn-add-pendentes{width:100%;background:linear-gradient(180deg,var(--accent-soft),#eafccc);border:1.5px dashed var(--accent);color:var(--accent-deep);border-radius:12px;padding:13px;font-weight:800;font-size:13.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;margin-top:12px;transition:all .12s;}
+  .btn-add-pendentes:active{background:var(--accent-soft);transform:scale(.99);}
+  .btn-add-pendentes .plus-badge{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#003122;font-size:13px;font-weight:900;flex:none;}
+
+  .form-field{margin-bottom:16px;}
+  .form-field label{display:block;font-size:13px;font-weight:700;color:var(--ink);margin-bottom:7px;line-height:1.35;}
+  .form-field label .req{color:var(--debit);margin-left:2px;}
+  .form-field textarea,.form-field input[type=number],.form-field select{
+    width:100%;font-size:14px;border:1px solid var(--line);border-radius:9px;padding:11px 12px;background:#fff;color:var(--ink);
+  }
+  .form-field textarea{min-height:74px;resize:vertical;}
+  .yesno-row{display:flex;gap:8px;}
+  .yesno-row button{flex:1;padding:11px;border-radius:9px;border:1px solid var(--line);background:#fff;color:var(--ink-soft);font-weight:700;cursor:pointer;font-size:13px;}
+  .yesno-row button.selected{background:var(--accent);border-color:var(--accent);color:#003122;}
+  .yesno-row button.selected.no-btn{background:var(--debit);border-color:var(--debit);color:#fff;}
+
+  .photo-field{border:1.5px dashed var(--line);border-radius:11px;padding:14px;text-align:center;background:#fbfdfb;}
+  .photo-field.filled{border-style:solid;border-color:var(--accent);padding:8px;}
+  .photo-field img{max-width:100%;max-height:220px;border-radius:8px;display:block;margin:0 auto 8px;}
+  .photo-field .ph-btn{display:inline-block;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 16px;font-size:12.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;}
+  .photo-field input[type=file]{display:none;}
+  .photo-field .ph-status{font-size:11px;color:var(--ink-faint);margin-top:6px;}
+
+  .toast{position:fixed;left:14px;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));background:var(--sidebar-bg);color:#fff;padding:13px 16px;border-radius:11px;font-size:13px;z-index:100;box-shadow:0 10px 30px rgba(0,0,0,.3);transition:opacity .2s, transform .2s;}
+  .toast.hidden{opacity:0;transform:translateY(8px);pointer-events:none;}
+  .toast.error{background:var(--debit);}
+
+  .hint-box{font-size:12px;color:var(--ink-soft);background:var(--accent-soft);border-radius:9px;padding:11px 13px;line-height:1.5;margin-bottom:12px;}
+</style>
+</head>
+<body>
+
+<script>
+(function(){
+  try{
+    var raw=localStorage.getItem('sg_auth_session');
+    var session=raw?JSON.parse(raw):null;
+    var valido=session&&session.idVendedor&&session.expiresAt&&Date.now()<session.expiresAt;
+    if(valido){ window.SG_SESSION=session; }
+  }catch(e){}
+})();
+</script>
+
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="sg-solar">SOLAR <span class="sg-green">GREEN</span></div>
+      <div class="sg-sub">Técnico de Campo</div>
+    </div>
+
+    <div class="lstep active" id="step-login">
+      <h2>Entrar</h2>
+      <div class="lstep-sub">Use o e-mail cadastrado na equipe.</div>
+      <div class="msg" id="msg-login"></div>
+      <label>E-mail</label>
+      <input type="email" id="in-email" autocomplete="username" placeholder="voce@solargreen.com.br">
+      <label>Senha</label>
+      <input type="password" id="in-senha" autocomplete="current-password" placeholder="••••••••">
+      <div class="lstep-sub" style="margin:-6px 0 13px;">Primeiro acesso? Use a senha padrão informada pela empresa.</div>
+      <button class="btn-primary" id="btn-login">Entrar</button>
+      <div class="link-row"><button class="link-btn" id="go-esqueci">Esqueci minha senha</button></div>
+    </div>
+
+    <div class="lstep" id="step-esqueci">
+      <h2>Esqueci minha senha</h2>
+      <div class="lstep-sub">Vamos enviar um código de 6 dígitos para o seu e-mail cadastrado.</div>
+      <div class="msg" id="msg-esqueci"></div>
+      <label>E-mail</label>
+      <input type="email" id="in-esqueci-email" autocomplete="username" placeholder="voce@solargreen.com.br">
+      <button class="btn-primary" id="btn-esqueci">Enviar código</button>
+      <div class="link-row"><button class="link-btn" id="back-login-1">Voltar para o login</button></div>
+    </div>
+
+    <div class="lstep" id="step-redefinir">
+      <h2>Criar nova senha</h2>
+      <div class="lstep-sub">Confira seu e-mail e digite o código recebido.</div>
+      <div class="msg" id="msg-redefinir"></div>
+      <label>Código recebido por e-mail</label>
+      <input type="text" id="in-token" inputmode="numeric" maxlength="6" placeholder="000000">
+      <label>Nova senha</label>
+      <input type="password" id="in-senha1" autocomplete="new-password" placeholder="mínimo 6 caracteres">
+      <label>Confirmar nova senha</label>
+      <input type="password" id="in-senha2" autocomplete="new-password" placeholder="repita a senha">
+      <button class="btn-primary" id="btn-redefinir">Salvar nova senha</button>
+      <div class="link-row"><button class="link-btn" id="back-login-2">Voltar para o login</button></div>
+    </div>
+
+    <div class="lstep" id="step-primeiro">
+      <h2>Crie sua senha</h2>
+      <div class="lstep-sub">Este é seu primeiro acesso. Antes de continuar, crie uma senha só sua.</div>
+      <div class="msg" id="msg-primeiro"></div>
+      <label>Nova senha</label>
+      <input type="password" id="in-primeiro1" autocomplete="new-password" placeholder="mínimo 6 caracteres">
+      <label>Confirmar nova senha</label>
+      <input type="password" id="in-primeiro2" autocomplete="new-password" placeholder="repita a senha">
+      <button class="btn-primary" id="btn-primeiro">Salvar e entrar</button>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-row">
+      <div>
+        <div class="brand">SOLAR <span class="g">GREEN</span></div>
+        <div class="userline" id="userline">—</div>
+      </div>
+      <div class="topbar-actions">
+        <button class="icon-btn" id="btn-refresh" title="Atualizar">⟳</button>
+        <button class="icon-btn" id="btn-logout" title="Sair">⎋</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi-card" id="kpi-agendado" data-status="Agendado">
+      <div class="kn" id="kn-agendado">0</div>
+      <div class="kl">Pendente</div>
+    </div>
+    <div class="kpi-card" id="kpi-em-andamento" data-status="Em Andamento">
+      <div class="kn" id="kn-em-andamento">0</div>
+      <div class="kl">Aguardando</div>
+    </div>
+    <div class="kpi-card" id="kpi-concluido" data-status="Concluído">
+      <div class="kn" id="kn-concluido">0</div>
+      <div class="kl">Concluído</div>
+    </div>
+    <div class="kpi-card" id="kpi-cancelado" data-status="Cancelado">
+      <div class="kn" id="kn-cancelado">0</div>
+      <div class="kl">Cancelado</div>
+    </div>
+  </div>
+
+  <div class="quickchips">
+    <button class="qchip active" data-range="all">Tudo</button>
+    <button class="qchip" data-range="today">Hoje</button>
+    <button class="qchip" data-range="week">Essa semana</button>
+    <button class="filter-icon-btn" id="btn-filtros" title="Filtrar">
+      <span class="fdot"></span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round">
+        <line x1="4" y1="6" x2="20" y2="6"></line>
+        <line x1="7" y1="12" x2="17" y2="12"></line>
+        <line x1="10" y1="18" x2="14" y2="18"></line>
+      </svg>
+    </button>
+  </div>
+
+  <div class="list-wrap" id="list-wrap">
+    <div class="empty-state" id="list-empty">
+      <div class="glyph">🛠</div>
+      <p>Carregando suas ordens de serviço…</p>
+    </div>
+    <div id="list-items"></div>
+  </div>
+</div>
+
+<div class="sheet-overlay hidden" id="filtros-overlay">
+  <div class="sheet-card">
+    <h3>Filtrar ordens de serviço</h3>
+    <div class="sheet-field">
+      <label>Serviço</label>
+      <select id="filtro-servico"><option value="">Todos os serviços</option></select>
+    </div>
+    <div class="sheet-field">
+      <label>Vendedor</label>
+      <select id="filtro-vendedor"><option value="">Todos os vendedores</option></select>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-limpar" id="btn-limpar-filtros">Limpar</button>
+      <button class="btn-aplicar" id="btn-aplicar-filtros">Aplicar filtros</button>
+    </div>
+  </div>
+</div>
+
+<div id="screen-detalhe">
+  <div class="det-top">
+    <button class="backbtn" id="btn-back">←</button>
+    <div class="det-title" id="det-title">Ordem de serviço</div>
+  </div>
+  <div class="det-body" id="det-body"></div>
+</div>
+
+<div class="toast hidden" id="toast"></div>
+
+<script>
+// ════ AUTENTICAÇÃO ════
+var SGAuth=(function(){
+  var SESSION_KEY='sg_auth_session';
+  var SESSION_DURATION_MS=7*24*60*60*1000;
+  var DEFAULT_API_URL='https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA34xrlLTVUUNhKBIlguJT3ectH7Yus-VW1n41GcCclc5q_Yj0Di2O7g/exec';
+  var DEFAULT_API_KEY='1234';
+
+  function apiCall(action,payload){
+    var body=Object.assign({action:action,chave:DEFAULT_API_KEY},payload||{});
+    return fetch(DEFAULT_API_URL,{method:'POST',body:JSON.stringify(body)}).then(function(r){return r.json();});
+  }
+  function getSession(){
+    try{
+      var raw=localStorage.getItem(SESSION_KEY);
+      var s=raw?JSON.parse(raw):null;
+      if(s&&s.idVendedor&&s.expiresAt&&Date.now()<s.expiresAt) return s;
+    }catch(e){}
+    return null;
+  }
+  function setSession(usuario){
+    var s={idVendedor:usuario.idVendedor,nome:usuario.nome,email:usuario.email,tipo:usuario.tipo||'',expiresAt:Date.now()+SESSION_DURATION_MS};
+    localStorage.setItem(SESSION_KEY,JSON.stringify(s));
+    return s;
+  }
+  function clearSession(){ localStorage.removeItem(SESSION_KEY); }
+
+  return {apiCall:apiCall,getSession:getSession,setSession:setSession,clearSession:clearSession};
+})();
+
+(function(){
+  function showMsg(elId,texto,tipo){
+    var el=document.getElementById(elId);
+    el.className='msg'+(tipo?' '+tipo:'');
+    el.textContent=texto||'';
+  }
+  function goStep(id){
+    document.querySelectorAll('#login-screen .lstep').forEach(function(s){s.classList.remove('active');});
+    document.getElementById(id).classList.add('active');
+    ['msg-login','msg-esqueci','msg-redefinir','msg-primeiro'].forEach(function(m){showMsg(m,'');});
+  }
+
+  var pendingPrimeiro=null;
+
+  var loginBtn=document.getElementById('btn-login');
+  loginBtn.addEventListener('click',function(){
+    var email=document.getElementById('in-email').value.trim();
+    var senha=document.getElementById('in-senha').value;
+    if(!email||!senha){ showMsg('msg-login','Preencha e-mail e senha.','error'); return; }
+    loginBtn.disabled=true; loginBtn.textContent='Entrando…';
+    SGAuth.apiCall('login',{email:email,senha:senha}).then(function(resp){
+      loginBtn.disabled=false; loginBtn.textContent='Entrar';
+      if(!resp||!resp.ok){
+        showMsg('msg-login',(resp&&resp.mensagem)||(resp&&resp.erro)||'Não foi possível entrar.','error');
+        return;
+      }
+      if(resp.precisaTrocarSenha){
+        pendingPrimeiro={usuario:resp.usuario,senhaAtual:senha};
+        document.getElementById('in-primeiro1').value='';
+        document.getElementById('in-primeiro2').value='';
+        goStep('step-primeiro');
+        return;
+      }
+      SGAuth.setSession(resp.usuario);
+      location.reload();
+    }).catch(function(err){
+      loginBtn.disabled=false; loginBtn.textContent='Entrar';
+      showMsg('msg-login','Erro de conexão: '+err.message,'error');
+    });
+  });
+  document.getElementById('in-senha').addEventListener('keydown',function(e){ if(e.key==='Enter') loginBtn.click(); });
+
+  var primeiroBtn=document.getElementById('btn-primeiro');
+  primeiroBtn.addEventListener('click',function(){
+    if(!pendingPrimeiro){ goStep('step-login'); return; }
+    var s1=document.getElementById('in-primeiro1').value,s2=document.getElementById('in-primeiro2').value;
+    if(!s1||!s2){ showMsg('msg-primeiro','Preencha os dois campos.','error'); return; }
+    if(s1!==s2){ showMsg('msg-primeiro','As senhas não coincidem.','error'); return; }
+    if(s1.length<6){ showMsg('msg-primeiro','A senha deve ter pelo menos 6 caracteres.','error'); return; }
+    primeiroBtn.disabled=true; primeiroBtn.textContent='Salvando…';
+    SGAuth.apiCall('trocarSenha',{idVendedor:pendingPrimeiro.usuario.idVendedor,senhaAtual:pendingPrimeiro.senhaAtual,novaSenha:s1}).then(function(resp){
+      primeiroBtn.disabled=false; primeiroBtn.textContent='Salvar e entrar';
+      if(!resp||!resp.ok){ showMsg('msg-primeiro',(resp&&resp.erro)||'Não foi possível salvar a senha.','error'); return; }
+      SGAuth.setSession(pendingPrimeiro.usuario);
+      pendingPrimeiro=null;
+      location.reload();
+    }).catch(function(err){
+      primeiroBtn.disabled=false; primeiroBtn.textContent='Salvar e entrar';
+      showMsg('msg-primeiro','Erro de conexão: '+err.message,'error');
+    });
+  });
+
+  document.getElementById('go-esqueci').addEventListener('click',function(){
+    document.getElementById('in-esqueci-email').value=document.getElementById('in-email').value.trim();
+    goStep('step-esqueci');
+  });
+  document.getElementById('back-login-1').addEventListener('click',function(){ goStep('step-login'); });
+  document.getElementById('back-login-2').addEventListener('click',function(){ goStep('step-login'); });
+
+  var esqueciBtn=document.getElementById('btn-esqueci');
+  esqueciBtn.addEventListener('click',function(){
+    var email=document.getElementById('in-esqueci-email').value.trim();
+    if(!email){ showMsg('msg-esqueci','Informe seu e-mail.','error'); return; }
+    esqueciBtn.disabled=true; esqueciBtn.textContent='Enviando…';
+    SGAuth.apiCall('esqueciSenha',{email:email}).then(function(resp){
+      esqueciBtn.disabled=false; esqueciBtn.textContent='Enviar código';
+      if(!resp||!resp.ok){ showMsg('msg-esqueci',(resp&&resp.erro)||'Não foi possível enviar o código.','error'); return; }
+      document.getElementById('in-token').value='';
+      document.getElementById('in-senha1').value='';
+      document.getElementById('in-senha2').value='';
+      document.getElementById('step-redefinir').dataset.email=email;
+      goStep('step-redefinir');
+      showMsg('msg-redefinir','Código enviado! Confira seu e-mail (e o spam).','success');
+    }).catch(function(err){
+      esqueciBtn.disabled=false; esqueciBtn.textContent='Enviar código';
+      showMsg('msg-esqueci','Erro de conexão: '+err.message,'error');
+    });
+  });
+
+  var redefinirBtn=document.getElementById('btn-redefinir');
+  redefinirBtn.addEventListener('click',function(){
+    var email=document.getElementById('step-redefinir').dataset.email||document.getElementById('in-esqueci-email').value.trim();
+    var token=document.getElementById('in-token').value.trim();
+    var s1=document.getElementById('in-senha1').value,s2=document.getElementById('in-senha2').value;
+    if(!token||!s1||!s2){ showMsg('msg-redefinir','Preencha o código e a nova senha.','error'); return; }
+    if(s1!==s2){ showMsg('msg-redefinir','As senhas não coincidem.','error'); return; }
+    if(s1.length<6){ showMsg('msg-redefinir','A senha deve ter pelo menos 6 caracteres.','error'); return; }
+    redefinirBtn.disabled=true; redefinirBtn.textContent='Salvando…';
+    SGAuth.apiCall('redefinirSenha',{email:email,token:token,novaSenha:s1}).then(function(resp){
+      redefinirBtn.disabled=false; redefinirBtn.textContent='Salvar nova senha';
+      if(!resp||!resp.ok){ showMsg('msg-redefinir',(resp&&resp.erro)||'Não foi possível redefinir a senha.','error'); return; }
+      document.getElementById('in-email').value=email;
+      document.getElementById('in-senha').value='';
+      goStep('step-login');
+      showMsg('msg-login','Senha criada! Faça login com a nova senha.','success');
+    }).catch(function(err){
+      redefinirBtn.disabled=false; redefinirBtn.textContent='Salvar nova senha';
+      showMsg('msg-redefinir','Erro de conexão: '+err.message,'error');
+    });
+  });
+
+  document.getElementById('btn-logout').addEventListener('click',function(){
+    SGAuth.clearSession();
+    location.reload();
+  });
+
+  // Decide qual tela mostrar ao carregar
+  var session=SGAuth.getSession();
+  if(session){
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('app').classList.add('active');
+    document.getElementById('userline').textContent=session.nome+(session.tipo?' · '+session.tipo:'');
+  }
+})();
+</script>
+
+<script>
+// ════ APP DO TÉCNICO ════
+(function(){
+  var session=SGAuth.getSession();
+  if(!session)return; // tela de login já cuida disso
+
+  var agendamentos=[],clientesMap={},vendedoresMap={},servicosMap={},templatesPorServico={},templatesPorId={},templatesTodos=[],respostasMap={};
+  var statusFiltro=null; // null = todos
+  var rangeFiltro='all';
+  var servicoFiltro='',vendedorFiltro=''; // '' = todos
+  var agendamentoAtual=null;
+
+  function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+  function statusSlug(s){return (s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'-');}
+  function statusLabelDisplay(status){
+    var s=(status||'').trim();
+    if(s==='Agendado')return 'Pendente';
+    if(s==='Em Andamento')return 'Aguardando';
+    return s||'Pendente';
+  }
+  function parseBRDate(str){
+    if(!str)return null; str=String(str).trim();
+    var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if(m)return new Date(parseInt(m[3],10),parseInt(m[2],10)-1,parseInt(m[1],10));
+    var d=new Date(str); return isNaN(d.getTime())?null:d;
+  }
+  function dateKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function fmtDataCurta(d){return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');}
+
+  function showToast(texto,isError){
+    var t=document.getElementById('toast');
+    t.textContent=texto;
+    t.className='toast'+(isError?' error':'');
+    clearTimeout(t._timer);
+    t._timer=setTimeout(function(){ t.classList.add('hidden'); },2600);
+  }
+
+  function nomeCliente(id){var c=clientesMap[id];return c?(c['Nome Razao Social']||c.Nome||id):id||'—';}
+  function nomeVendedor(id){var v=vendedoresMap[id];return v?(v.Nome||id):id||'—';}
+  function nomeServico(id){var s=servicosMap[id];return s?(s['Nome Servico']||id):id||'—';}
+  function nomeVendedorDoCliente(idCliente){
+    var c=clientesMap[idCliente];
+    var idVend=c&&c['Vendedor Responsavel'];
+    return idVend?nomeVendedor(idVend):'—';
+  }
+
+  // ── Lista ──
+
+  function contagens(){
+    var c={'Agendado':0,'Em Andamento':0,'Concluído':0,'Cancelado':0};
+    agendamentos.forEach(function(a){
+      var st=(a['Status Agendamento']||'Agendado').trim();
+      if(c[st]!==undefined)c[st]++;
+    });
+    return c;
+  }
+
+  function passaRange(a){
+    if(rangeFiltro==='all')return true;
+    var dt=parseBRDate(a['Data Inicio']); if(!dt)return false;
+    var hoje=new Date(); hoje.setHours(0,0,0,0);
+    var dk=dateKey(dt),dkHoje=dateKey(hoje);
+    if(rangeFiltro==='today')return dk===dkHoje;
+    if(rangeFiltro==='week'){
+      var fimSemana=new Date(hoje); fimSemana.setDate(fimSemana.getDate()+7);
+      return dt.getTime()>=hoje.getTime()&&dt.getTime()<=fimSemana.getTime();
+    }
+    return true;
+  }
+
+  function getFiltrados(){
+    return agendamentos.filter(function(a){
+      if(statusFiltro&&(a['Status Agendamento']||'Agendado').trim()!==statusFiltro)return false;
+      if(!passaRange(a))return false;
+      if(servicoFiltro&&String(a.IdServico)!==servicoFiltro)return false;
+      if(vendedorFiltro){
+        var cliente=clientesMap[a.IdCliente];
+        var idVend=cliente&&cliente['Vendedor Responsavel'];
+        if(String(idVend)!==vendedorFiltro)return false;
+      }
+      return true;
+    }).sort(function(a,b){
+      var da=parseBRDate(a['Data Inicio']),db=parseBRDate(b['Data Inicio']);
+      return (db?db.getTime():0)-(da?da.getTime():0);
+    });
+  }
+
+  function renderKPIs(){
+    var c=contagens();
+    document.getElementById('kn-agendado').textContent=c['Agendado'];
+    document.getElementById('kn-em-andamento').textContent=c['Em Andamento'];
+    document.getElementById('kn-concluido').textContent=c['Concluído'];
+    document.getElementById('kn-cancelado').textContent=c['Cancelado'];
+  }
+
+  function fotoFachadaUrl(a){
+    // Busca em TODOS os serviços, não só no atual — assim a foto continua
+    // aparecendo mesmo se o agendamento mudar de serviço depois.
+    var tpls=templatesTodos.filter(function(t){
+      return (t.TipoInput||'').trim()==='Foto' && /fachada/i.test(t.TextoPergunta||'');
+    });
+    for(var i=0;i<tpls.length;i++){
+      var r=respostasMap[a.IdAgendamento+'|'+tpls[i].IdTemplate];
+      if(r&&r.RespostaFoto&&/^https?:\/\//.test(r.RespostaFoto))return r.RespostaFoto;
+    }
+    return null;
+  }
+
+  function renderLista(){
+    var lista=getFiltrados();
+    var wrap=document.getElementById('list-items'),empty=document.getElementById('list-empty');
+    if(!lista.length){
+      wrap.innerHTML='';
+      empty.classList.remove('hidden');
+      empty.querySelector('p').textContent='Nenhuma ordem de serviço nesse filtro.';
+      return;
+    }
+    empty.classList.add('hidden');
+    wrap.innerHTML=lista.map(function(a){
+      var dt=parseBRDate(a['Data Inicio']);
+      var status=(a['Status Agendamento']||'Agendado').trim();
+      var cliente=clientesMap[a.IdCliente]||{};
+      var contato=cliente.Telefone||'—';
+      var fachadaUrl=fotoFachadaUrl(a);
+      return '<div class="os-card st-'+statusSlug(status)+'" data-id="'+escapeHtml(a.IdAgendamento)+'">'+
+        (fachadaUrl?'<img class="os-thumb" src="'+escapeHtml(fachadaUrl)+'" alt="fachada">':'')+
+        '<div class="os-left">'+
+          '<div class="oc-nome">'+escapeHtml(nomeCliente(a.IdCliente))+'</div>'+
+          '<div class="oc-serv">'+escapeHtml(nomeServico(a.IdServico))+'</div>'+
+          '<div class="oc-vend">Vendedor: '+escapeHtml(nomeVendedorDoCliente(a.IdCliente))+'</div>'+
+          '<div class="oc-vend">Contato Cliente: '+escapeHtml(contato)+'</div>'+
+        '</div>'+
+        '<div class="os-right">'+
+          '<div class="oc-data">'+(dt?fmtDataCurta(dt):'—')+'</div>'+
+          '<div class="oc-hora">'+escapeHtml((a['Hora inicio']||'—')+'–'+(a['Hora Fim']||'—'))+'</div>'+
+          '<div class="os-status-badge st-'+statusSlug(status)+'">'+escapeHtml(statusLabelDisplay(status))+'</div>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+    wrap.querySelectorAll('.os-card').forEach(function(card){
+      card.addEventListener('click',function(){ abrirDetalhe(card.getAttribute('data-id')); });
+    });
+  }
+
+  document.querySelectorAll('.kpi-card').forEach(function(card){
+    card.addEventListener('click',function(){
+      var status=card.getAttribute('data-status');
+      if(statusFiltro===status){
+        statusFiltro=null;
+        document.querySelectorAll('.kpi-card').forEach(function(c){c.classList.remove('active');});
+      }else{
+        statusFiltro=status;
+        document.querySelectorAll('.kpi-card').forEach(function(c){c.classList.remove('active');});
+        card.classList.add('active','st-'+statusSlug(status));
+      }
+      renderLista();
+    });
+  });
+
+  document.querySelectorAll('.qchip').forEach(function(chip){
+    chip.addEventListener('click',function(){
+      document.querySelectorAll('.qchip').forEach(function(c){c.classList.remove('active');});
+      chip.classList.add('active');
+      rangeFiltro=chip.getAttribute('data-range');
+      renderLista();
+    });
+  });
+
+  document.getElementById('btn-refresh').addEventListener('click',function(){ carregar(); });
+
+  // ── Filtro (serviço / vendedor) ──
+
+  function popularFiltros(){
+    var servicosPresentes={},vendedoresPresentes={};
+    agendamentos.forEach(function(a){
+      if(a.IdServico&&servicosMap[a.IdServico])servicosPresentes[a.IdServico]=servicosMap[a.IdServico];
+      var cliente=clientesMap[a.IdCliente];
+      var idVend=cliente&&cliente['Vendedor Responsavel'];
+      if(idVend&&vendedoresMap[idVend])vendedoresPresentes[idVend]=vendedoresMap[idVend];
+    });
+
+    var selServ=document.getElementById('filtro-servico'),curServ=servicoFiltro;
+    selServ.innerHTML='<option value="">Todos os serviços</option>'+
+      Object.keys(servicosPresentes).map(function(id){return servicosPresentes[id];})
+        .sort(function(x,y){return (x['Nome Servico']||'').localeCompare(y['Nome Servico']||'','pt-BR');})
+        .map(function(s){return '<option value="'+escapeHtml(s.IdServico)+'">'+escapeHtml(s['Nome Servico']||s.IdServico)+'</option>';}).join('');
+    selServ.value=curServ;
+
+    var selVend=document.getElementById('filtro-vendedor'),curVend=vendedorFiltro;
+    selVend.innerHTML='<option value="">Todos os vendedores</option>'+
+      Object.keys(vendedoresPresentes).map(function(id){return vendedoresPresentes[id];})
+        .sort(function(x,y){return (x.Nome||'').localeCompare(y.Nome||'','pt-BR');})
+        .map(function(v){return '<option value="'+escapeHtml(v.IdVendedor)+'">'+escapeHtml(v.Nome)+'</option>';}).join('');
+    selVend.value=curVend;
+  }
+
+  function atualizarIconeFiltro(){
+    var btn=document.getElementById('btn-filtros');
+    btn.classList.toggle('has-filters',!!(servicoFiltro||vendedorFiltro));
+  }
+
+  document.getElementById('btn-filtros').addEventListener('click',function(){
+    popularFiltros();
+    document.getElementById('filtros-overlay').classList.remove('hidden');
+  });
+  document.getElementById('filtros-overlay').addEventListener('click',function(e){
+    if(e.target.id==='filtros-overlay')document.getElementById('filtros-overlay').classList.add('hidden');
+  });
+  document.getElementById('btn-aplicar-filtros').addEventListener('click',function(){
+    servicoFiltro=document.getElementById('filtro-servico').value;
+    vendedorFiltro=document.getElementById('filtro-vendedor').value;
+    atualizarIconeFiltro();
+    document.getElementById('filtros-overlay').classList.add('hidden');
+    renderLista();
+  });
+  document.getElementById('btn-limpar-filtros').addEventListener('click',function(){
+    servicoFiltro=''; vendedorFiltro='';
+    document.getElementById('filtro-servico').value='';
+    document.getElementById('filtro-vendedor').value='';
+    atualizarIconeFiltro();
+    document.getElementById('filtros-overlay').classList.add('hidden');
+    renderLista();
+  });
+
+  // ── Detalhe + formulário ──
+
+  function respostaTemValor(r){
+    return !!(r&&(String(r.RespostaTexto||'').trim()||String(r.RespostaFoto||'').trim()||String(r.RespostaQuantidade||'').trim()));
+  }
+  function valorParaTipo(r,tipo){
+    if(!r)return '';
+    if(tipo==='Foto')return r.RespostaFoto||'';
+    if(tipo==='Number')return r.RespostaQuantidade||'';
+    return r.RespostaTexto||'';
+  }
+  function respostaAtual(idAgendamento,idTemplate,tipo){
+    return valorParaTipo(respostasMap[idAgendamento+'|'+idTemplate],tipo);
+  }
+
+  function campoHtml(tpl,idAgendamento){
+    var tipo=(tpl.TipoInput||'Texto').trim();
+    var obrig=String(tpl.Obrigatorio||'').trim().toUpperCase()==='VERDADEIRO';
+    var reqMark=obrig?'<span class="req">*</span>':'';
+    var valorAtual=respostaAtual(idAgendamento,tpl.IdTemplate,tipo);
+    var fid='campo_'+tpl.IdTemplate;
+    var servTag=(tpl.IdServico&&agendamentoAtual&&String(tpl.IdServico)!==String(agendamentoAtual.IdServico))
+      ?('<div class="ph-status" style="margin-top:-2px;margin-bottom:6px;">Respondido no serviço: '+escapeHtml(nomeServico(tpl.IdServico))+'</div>')
+      :'';
+
+    if(tipo==='Foto'){
+      var temFoto=valorAtual&&/^https?:\/\//.test(valorAtual);
+      return '<div class="form-field" data-tipo="Foto" data-tpl="'+escapeHtml(tpl.IdTemplate)+'" data-obrig="'+(obrig?'1':'0')+'">'+
+        '<label>'+escapeHtml(tpl.TextoPergunta)+reqMark+'</label>'+servTag+
+        '<div class="photo-field'+(temFoto?' filled':'')+'" id="ph-'+fid+'">'+
+          (temFoto?'<img src="'+escapeHtml(valorAtual)+'" alt="foto">':'')+
+          '<label class="ph-btn" for="'+fid+'">'+(temFoto?'Trocar foto':'📷 Tirar / escolher foto')+'</label>'+
+          '<input type="file" accept="image/*" capture="environment" id="'+fid+'">'+
+          '<div class="ph-status" id="phs-'+fid+'"></div>'+
+        '</div>'+
+      '</div>';
+    }
+    if(tipo==='YesNo'){
+      var isSim=String(valorAtual).trim().toLowerCase()==='sim';
+      var isNao=String(valorAtual).trim().toLowerCase()==='não'||String(valorAtual).trim().toLowerCase()==='nao';
+      return '<div class="form-field" data-tipo="YesNo" data-tpl="'+escapeHtml(tpl.IdTemplate)+'" data-obrig="'+(obrig?'1':'0')+'">'+
+        '<label>'+escapeHtml(tpl.TextoPergunta)+reqMark+'</label>'+servTag+
+        '<div class="yesno-row">'+
+          '<button type="button" class="yn-btn'+(isSim?' selected':'')+'" data-val="Sim">Sim</button>'+
+          '<button type="button" class="yn-btn no-btn'+(isNao?' selected':'')+'" data-val="Não">Não</button>'+
+        '</div>'+
+        '<input type="hidden" id="'+fid+'" value="'+escapeHtml(isSim?'Sim':(isNao?'Não':''))+'">'+
+      '</div>';
+    }
+    if(tipo==='Enum'){
+      var opcoes=(tpl.OpcoesEnum||'').split(',').map(function(o){return o.trim();}).filter(Boolean);
+      return '<div class="form-field" data-tipo="Enum" data-tpl="'+escapeHtml(tpl.IdTemplate)+'" data-obrig="'+(obrig?'1':'0')+'">'+
+        '<label>'+escapeHtml(tpl.TextoPergunta)+reqMark+'</label>'+servTag+
+        '<select id="'+fid+'"><option value="">— Selecionar…</option>'+
+          opcoes.map(function(o){return '<option value="'+escapeHtml(o)+'"'+(o===valorAtual?' selected':'')+'>'+escapeHtml(o)+'</option>';}).join('')+
+        '</select>'+
+      '</div>';
+    }
+    if(tipo==='Number'){
+      return '<div class="form-field" data-tipo="Number" data-tpl="'+escapeHtml(tpl.IdTemplate)+'" data-obrig="'+(obrig?'1':'0')+'">'+
+        '<label>'+escapeHtml(tpl.TextoPergunta)+reqMark+'</label>'+servTag+
+        '<input type="number" id="'+fid+'" value="'+escapeHtml(valorAtual)+'">'+
+      '</div>';
+    }
+    // Texto (padrão)
+    return '<div class="form-field" data-tipo="Texto" data-tpl="'+escapeHtml(tpl.IdTemplate)+'" data-obrig="'+(obrig?'1':'0')+'">'+
+      '<label>'+escapeHtml(tpl.TextoPergunta)+reqMark+'</label>'+servTag+
+      '<textarea id="'+fid+'">'+escapeHtml(valorAtual)+'</textarea>'+
+    '</div>';
+  }
+
+  function wireCampoEvents(idAgendamento,escopo){
+    var raiz=escopo||document;
+    raiz.querySelectorAll('.yn-btn').forEach(function(btn){
+      if(btn.getAttribute('data-wired'))return;
+      btn.setAttribute('data-wired','1');
+      btn.addEventListener('click',function(){
+        var row=btn.closest('.form-field');
+        row.querySelectorAll('.yn-btn').forEach(function(b){b.classList.remove('selected');});
+        btn.classList.add('selected');
+        row.querySelector('input[type=hidden]').value=btn.getAttribute('data-val');
+      });
+    });
+    raiz.querySelectorAll('.photo-field input[type=file]').forEach(function(input){
+      if(input.getAttribute('data-wired'))return;
+      input.setAttribute('data-wired','1');
+      input.addEventListener('change',function(){
+        var file=input.files&&input.files[0];
+        if(!file)return;
+        var row=input.closest('.form-field');
+        var idTemplate=row.getAttribute('data-tpl');
+        var statusEl=document.getElementById('phs-'+input.id);
+        statusEl.textContent='Enviando foto…';
+        var reader=new FileReader();
+        reader.onload=function(){
+          var base64=reader.result.split(',')[1];
+          SGAuth.apiCall('uploadFotoResposta',{
+            solicitanteId:session.idVendedor, idAgendamento:idAgendamento, idTemplate:idTemplate,
+            base64:base64, mimeType:file.type||'image/jpeg', nomeArquivo:file.name||'foto.jpg'
+          }).then(function(resp){
+            if(!resp||!resp.ok){ statusEl.textContent=(resp&&resp.erro)||'Falha ao enviar.'; return; }
+            var atual=respostasMap[idAgendamento+'|'+idTemplate]||{};
+            atual.RespostaFoto=resp.url;
+            respostasMap[idAgendamento+'|'+idTemplate]=atual;
+            var box=document.getElementById('ph-'+input.id);
+            box.classList.add('filled');
+            var img=box.querySelector('img');
+            if(!img){ img=document.createElement('img'); box.insertBefore(img,box.firstChild); }
+            img.src=resp.url;
+            box.querySelector('.ph-btn').textContent='Trocar foto';
+            statusEl.textContent='Foto enviada ✓';
+            if(resp.novoStatus)aplicarNovoStatusLocal(resp.novoStatus);
+          }).catch(function(err){ statusEl.textContent='Erro de conexão: '+err.message; });
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+  }
+
+  function coletarRespostas(){
+    var respostas=[],faltando=[];
+    document.querySelectorAll('#form-section .form-field').forEach(function(row){
+      var idTemplate=row.getAttribute('data-tpl');
+      var tipo=row.getAttribute('data-tipo');
+      var obrig=row.getAttribute('data-obrig')==='1';
+      var tpl=templatesPorId[idTemplate];
+      var rotulo=tpl?tpl.TextoPergunta:idTemplate;
+      if(tipo==='Foto'){
+        if(obrig&&!respostaAtual(agendamentoAtual.IdAgendamento,idTemplate,'Foto'))faltando.push(rotulo);
+        return; // fotos já são salvas sozinhas no upload
+      }
+      var fid='campo_'+idTemplate;
+      var el=document.getElementById(fid);
+      var valor=el?el.value.trim():'';
+      if(obrig&&!valor)faltando.push(rotulo);
+      respostas.push({idTemplate:idTemplate,resposta:valor});
+    });
+    return {respostas:respostas,faltando:faltando};
+  }
+
+
+  function ordemTemplate(t){ var o=parseInt(t&&t.Ordem,10); return isNaN(o)?999:o; }
+
+  function respostaRowHtml(tpl,a){
+    var tipo=(tpl.TipoInput||'Texto').trim();
+    var valor=respostaAtual(a.IdAgendamento,tpl.IdTemplate,tipo);
+    var servTag=(tpl.IdServico&&String(tpl.IdServico)!==String(a.IdServico))
+      ?(' <span style="color:var(--ink-faint);font-weight:600;">· '+escapeHtml(nomeServico(tpl.IdServico))+'</span>')
+      :'';
+    var preview;
+    if(tipo==='Foto'){
+      if(valor&&/^https?:\/\//.test(valor)){
+        preview='<img src="'+escapeHtml(valor)+'" style="max-width:130px;max-height:130px;border-radius:8px;margin-top:6px;display:block;object-fit:cover;">';
+      }else if(valor){
+        preview='<div style="font-size:12px;color:var(--debit);margin-top:4px;">⚠ link da foto não encontrado no Drive ("'+escapeHtml(valor)+'") — toque em editar pra reenviar.</div>';
+      }else{
+        preview='<div style="font-size:12.5px;color:var(--ink-faint);margin-top:2px;">Sem foto ainda.</div>';
+      }
+    }else{
+      preview='<div style="font-size:13px;color:var(--ink-soft);margin-top:2px;white-space:pre-wrap;">'+escapeHtml(valor||'—')+'</div>';
+    }
+    return '<div class="resp-row" style="padding:11px 0;border-bottom:1px solid var(--bg);">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">'+
+        '<div style="font-weight:700;font-size:13px;">'+escapeHtml(tpl.TextoPergunta)+servTag+'</div>'+
+        '<button type="button" class="resp-edit-btn" data-tpl="'+escapeHtml(tpl.IdTemplate)+'" style="background:none;border:none;color:var(--accent-deep);font-size:11.5px;font-weight:700;text-decoration:underline;cursor:pointer;flex:none;padding:2px;">editar</button>'+
+      '</div>'+
+      preview+
+      '<div class="resp-edit-slot hidden" data-slot="'+escapeHtml(tpl.IdTemplate)+'" style="margin-top:8px;"></div>'+
+    '</div>';
+  }
+
+  function renderFormulario(a){
+    // "Respostas" já dadas (de qualquer serviço, mescladas) em modo leitura + editar,
+    // e um botão "+ Add" que revela só as perguntas do serviço atual que ainda faltam —
+    // igual ao painel "Respostas" do AppSheet.
+    var idsRespondidos={};
+    var templatesRespondidos=[];
+    templatesTodos.forEach(function(t){
+      var r=respostasMap[a.IdAgendamento+'|'+t.IdTemplate];
+      if(respostaTemValor(r)){ idsRespondidos[t.IdTemplate]=true; templatesRespondidos.push(t); }
+    });
+    templatesRespondidos.sort(function(x,y){return ordemTemplate(x)-ordemTemplate(y);});
+
+    var pendentes=(templatesPorServico[a.IdServico]||[]).filter(function(t){return !idsRespondidos[t.IdTemplate];})
+      .sort(function(x,y){return ordemTemplate(x)-ordemTemplate(y);});
+
+    var htmlRespondidas=templatesRespondidos.length
+      ? templatesRespondidos.map(function(t){return respostaRowHtml(t,a);}).join('')
+      : '<p style="font-size:12.5px;color:var(--ink-faint);padding:6px 0 2px;">Nenhuma resposta preenchida ainda. Toque em "+ Add" pra começar.</p>';
+
+    var htmlPendentes=pendentes.length
+      ? '<div id="pendentes-wrap" class="hidden" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line);">'+
+          pendentes.map(function(t){return campoHtml(t,a.IdAgendamento);}).join('')+
+        '</div>'
+      : '';
+
+    var botaoAdd=pendentes.length
+      ? '<button type="button" class="btn-add-pendentes" id="btn-add-pendentes"><span class="plus-badge">+</span> Adicionar respostas <span style="color:var(--accent-deep);opacity:.75;">('+pendentes.length+' pendente'+(pendentes.length>1?'s':'')+')</span></button>'
+      : '<p style="font-size:12px;color:var(--ink-faint);margin-top:10px;">✓ Todas as perguntas do serviço atual já foram respondidas.</p>';
+
+    return '<div class="det-section" id="form-section">'+
+      '<h3>Respostas <span style="color:var(--ink-faint);font-weight:600;">'+templatesRespondidos.length+'</span></h3>'+
+      '<div id="respondidas-wrap">'+htmlRespondidas+'</div>'+
+      htmlPendentes+
+      botaoAdd+
+    '</div>';
+  }
+
+  function wireRespostasCard(idAgendamento){
+    var addBtn=document.getElementById('btn-add-pendentes');
+    if(addBtn)addBtn.addEventListener('click',function(){
+      var wrap=document.getElementById('pendentes-wrap');
+      wrap.classList.toggle('hidden');
+      wireCampoEvents(idAgendamento,wrap);
+    });
+    document.querySelectorAll('.resp-edit-btn').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        var idTemplate=btn.getAttribute('data-tpl');
+        var slot=document.querySelector('.resp-edit-slot[data-slot="'+idTemplate+'"]');
+        if(!slot)return;
+        if(!slot.dataset.montado){
+          var tpl=templatesPorId[idTemplate];
+          if(!tpl)return;
+          slot.innerHTML=campoHtml(tpl,idAgendamento);
+          slot.dataset.montado='1';
+          wireCampoEvents(idAgendamento,slot);
+        }
+        slot.classList.toggle('hidden');
+        btn.textContent=slot.classList.contains('hidden')?'editar':'fechar';
+      });
+    });
+  }
+
+  function abrirDetalhe(idAgendamento){
+    var a=agendamentos.filter(function(x){return String(x.IdAgendamento)===String(idAgendamento);})[0];
+    if(!a)return;
+    agendamentoAtual=a;
+    var status=(a['Status Agendamento']||'Agendado').trim();
+    var cliente=clientesMap[a.IdCliente]||{};
+    var servico=servicosMap[a.IdServico]||{};
+    var dt=parseBRDate(a['Data Inicio']);
+    var dataFmt=dt?String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0')+'/'+dt.getFullYear():'—';
+
+    document.getElementById('det-title').textContent=nomeCliente(a.IdCliente);
+
+    var html='';
+    html+='<div class="det-section">'+
+      '<span class="status-badge st-'+statusSlug(status)+'">'+escapeHtml(statusLabelDisplay(status))+'</span>'+
+      '<div class="det-row" style="margin-top:12px;"><span class="dl">Cliente</span><span class="dv">'+escapeHtml(nomeCliente(a.IdCliente))+'</span></div>'+
+      (cliente.Endereco?'<div class="det-row"><span class="dl">Endereço</span><span class="dv">'+escapeHtml(cliente.Endereco)+'</span></div>':'')+
+      (cliente.Telefone?'<div class="det-row"><span class="dl">Telefone</span><span class="dv">'+escapeHtml(cliente.Telefone)+'</span></div>':'')+
+      '<div class="det-row"><span class="dl">Serviço</span><span class="dv">'+escapeHtml(nomeServico(a.IdServico))+'</span></div>'+
+      (servico.TipoServico?'<div class="det-row"><span class="dl">Tipo</span><span class="dv">'+escapeHtml(servico.TipoServico)+'</span></div>':'')+
+      '<div class="det-row"><span class="dl">Data</span><span class="dv">'+dataFmt+'</span></div>'+
+      '<div class="det-row"><span class="dl">Horário</span><span class="dv">'+escapeHtml((a['Hora inicio']||'—')+' – '+(a['Hora Fim']||'—'))+'</span></div>'+
+      '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--bg);">'+
+        '<label style="display:block;font-size:11px;font-weight:700;color:var(--ink-soft);margin-bottom:6px;">Editar status manualmente</label>'+
+        '<div style="display:flex;gap:8px;">'+
+          '<select id="status-manual" style="flex:1;font-size:13px;border:1px solid var(--line);border-radius:9px;padding:9px 10px;background:#fff;color:var(--ink);">'+
+            '<option value="Agendado">Pendente</option>'+
+            '<option value="Em Andamento">Aguardando</option>'+
+            '<option value="Concluído">Concluído</option>'+
+            '<option value="Cancelado">Cancelado</option>'+
+          '</select>'+
+          '<button type="button" id="btn-salvar-status" style="flex:none;background:var(--sidebar-bg);color:#fff;border:none;border-radius:9px;padding:0 16px;font-weight:700;font-size:12.5px;cursor:pointer;">Salvar</button>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+
+    if(a['Quantidade de Modulos']||a['Modelo Modulos']||a['Quantidade Inversores']||a['Modelo Inversores']){
+      html+='<div class="det-section"><h3>Detalhes técnicos</h3>'+
+        (a['Quantidade de Modulos']?'<div class="det-row"><span class="dl">Qtd. módulos</span><span class="dv">'+escapeHtml(a['Quantidade de Modulos'])+'</span></div>':'')+
+        (a['Modelo Modulos']?'<div class="det-row"><span class="dl">Modelo módulos</span><span class="dv">'+escapeHtml(a['Modelo Modulos'])+'</span></div>':'')+
+        (a['Quantidade Inversores']?'<div class="det-row"><span class="dl">Qtd. inversores</span><span class="dv">'+escapeHtml(a['Quantidade Inversores'])+'</span></div>':'')+
+        (a['Modelo Inversores']?'<div class="det-row"><span class="dl">Modelo inversores</span><span class="dv">'+escapeHtml(a['Modelo Inversores'])+'</span></div>':'')+
+      '</div>';
+    }
+
+    if(a['Observacao Comercial']){
+      html+='<div class="det-section"><h3>Observação do vendedor</h3><p style="font-size:13px;color:var(--ink);line-height:1.5;">'+escapeHtml(a['Observacao Comercial'])+'</p></div>';
+    }
+
+    var statusNorm=statusSlug(status);
+    html+=renderFormulario(a);
+
+    document.getElementById('det-body').innerHTML=html;
+    document.getElementById('status-manual').value=(a['Status Agendamento']||'Agendado').trim();
+    document.getElementById('btn-salvar-status').addEventListener('click',function(){
+      var novoStatus=document.getElementById('status-manual').value;
+      var btn=document.getElementById('btn-salvar-status');
+      btn.disabled=true; btn.textContent='Salvando…';
+      SGAuth.apiCall('atualizarStatusAgendamento',{solicitanteId:session.idVendedor,idAgendamento:a.IdAgendamento,status:novoStatus}).then(function(resp){
+        btn.disabled=false; btn.textContent='Salvar';
+        if(!resp||!resp.ok){ showToast((resp&&resp.erro)||'Não foi possível salvar o status.',true); return; }
+        showToast('Status atualizado.');
+        carregar(function(){ abrirDetalhe(a.IdAgendamento); });
+      }).catch(function(err){ btn.disabled=false; btn.textContent='Salvar'; showToast('Erro de conexão: '+err.message,true); });
+    });
+    wireCampoEvents(a.IdAgendamento);
+    wireRespostasCard(a.IdAgendamento);
+
+    montarAcoes(a,statusNorm);
+
+    document.getElementById('screen-detalhe').classList.add('active');
+  }
+
+  function montarAcoes(a,statusNorm){
+    var actions=document.querySelector('.det-actions');
+    if(actions)actions.remove();
+    var div=document.createElement('div');
+    div.className='det-actions';
+
+    if(statusNorm==='concluido'||statusNorm==='cancelado'){
+      div.innerHTML='<button class="btn-save-draft" id="btn-rascunho" style="margin-top:10px;">Salvar alterações</button>';
+    }else{
+      div.innerHTML='<button class="btn-finish" id="btn-concluir" style="margin-top:10px;">Concluir atendimento</button>'+
+        '<button type="button" class="actions-handle" id="btn-actions-toggle">Mais opções <span class="chev">▾</span></button>'+
+        '<div class="actions-extra" id="actions-extra">'+
+          '<button class="btn-save-draft" id="btn-rascunho">Salvar rascunho</button>'+
+          (statusNorm==='agendado'?'<button class="btn-cancel-link" id="btn-iniciar" style="color:var(--accent-deep);">Marcar como Em Andamento</button>':'')+
+          '<button class="btn-cancel-link" id="btn-cancelar">Cancelar agendamento</button>'+
+        '</div>';
+    }
+
+    document.getElementById('det-body').parentNode.appendChild(div);
+
+    var toggleBtn=document.getElementById('btn-actions-toggle');
+    if(toggleBtn)toggleBtn.addEventListener('click',function(){
+      var extra=document.getElementById('actions-extra');
+      var open=extra.classList.toggle('open');
+      toggleBtn.classList.toggle('open',open);
+      toggleBtn.innerHTML=open?'Menos opções <span class="chev">▾</span>':'Mais opções <span class="chev">▾</span>';
+    });
+
+    var btnIniciar=document.getElementById('btn-iniciar');
+    if(btnIniciar)btnIniciar.addEventListener('click',function(){
+      btnIniciar.disabled=true; btnIniciar.textContent='Atualizando…';
+      SGAuth.apiCall('atualizarStatusAgendamento',{solicitanteId:session.idVendedor,idAgendamento:a.IdAgendamento,status:'Em Andamento'}).then(function(resp){
+        if(!resp||!resp.ok){ showToast((resp&&resp.erro)||'Não foi possível atualizar.',true); btnIniciar.disabled=false; btnIniciar.textContent='Marcar como Em Andamento'; return; }
+        showToast('Status atualizado para Em Andamento.');
+        carregar(function(){ abrirDetalhe(a.IdAgendamento); });
+      }).catch(function(err){ showToast('Erro de conexão: '+err.message,true); btnIniciar.disabled=false; btnIniciar.textContent='Marcar como Em Andamento'; });
+    });
+
+    var btnCancelar=document.getElementById('btn-cancelar');
+    if(btnCancelar)btnCancelar.addEventListener('click',function(){
+      if(!confirm('Cancelar esse agendamento?'))return;
+      SGAuth.apiCall('atualizarStatusAgendamento',{solicitanteId:session.idVendedor,idAgendamento:a.IdAgendamento,status:'Cancelado'}).then(function(resp){
+        if(!resp||!resp.ok){ showToast((resp&&resp.erro)||'Não foi possível cancelar.',true); return; }
+        showToast('Agendamento cancelado.');
+        fecharDetalhe();
+        carregar();
+      }).catch(function(err){ showToast('Erro de conexão: '+err.message,true); });
+    });
+
+    var btnRascunho=document.getElementById('btn-rascunho');
+    if(btnRascunho)btnRascunho.addEventListener('click',function(){
+      var coleta=coletarRespostas();
+      btnRascunho.disabled=true; btnRascunho.textContent='Salvando…';
+      SGAuth.apiCall('salvarRespostasAgendamento',{solicitanteId:session.idVendedor,idAgendamento:a.IdAgendamento,respostas:coleta.respostas}).then(function(resp){
+        btnRascunho.disabled=false; btnRascunho.textContent=(statusNorm==='concluido'||statusNorm==='cancelado')?'Salvar alterações':'Salvar rascunho';
+        if(!resp||!resp.ok){ showToast((resp&&resp.erro)||'Não foi possível salvar.',true); return; }
+        if(resp.novoStatus)aplicarNovoStatusLocal(resp.novoStatus);
+        else showToast('Respostas salvas.');
+        carregar();
+      }).catch(function(err){ btnRascunho.disabled=false; showToast('Erro de conexão: '+err.message,true); });
+    });
+
+    var btnConcluir=document.getElementById('btn-concluir');
+    if(btnConcluir)btnConcluir.addEventListener('click',function(){
+      var coleta=coletarRespostas();
+      if(coleta.faltando.length){
+        showToast('Faltam campos obrigatórios: '+coleta.faltando.slice(0,2).join(', ')+(coleta.faltando.length>2?'…':''),true);
+        return;
+      }
+      btnConcluir.disabled=true; btnConcluir.textContent='Concluindo…';
+      SGAuth.apiCall('salvarRespostasAgendamento',{solicitanteId:session.idVendedor,idAgendamento:a.IdAgendamento,respostas:coleta.respostas}).then(function(resp){
+        if(!resp||!resp.ok){ showToast((resp&&resp.erro)||'Não foi possível salvar as respostas.',true); btnConcluir.disabled=false; btnConcluir.textContent='Concluir atendimento'; return; }
+        return SGAuth.apiCall('atualizarStatusAgendamento',{solicitanteId:session.idVendedor,idAgendamento:a.IdAgendamento,status:'Concluído'});
+      }).then(function(resp){
+        if(!resp)return;
+        if(!resp.ok){ showToast(resp.erro||'Não foi possível concluir.',true); btnConcluir.disabled=false; btnConcluir.textContent='Concluir atendimento'; return; }
+        showToast('Atendimento concluído! ✓');
+        fecharDetalhe();
+        carregar();
+      }).catch(function(err){ showToast('Erro de conexão: '+err.message,true); btnConcluir.disabled=false; btnConcluir.textContent='Concluir atendimento'; });
+    });
+  }
+
+  function aplicarNovoStatusLocal(novoStatus){
+    if(!novoStatus||!agendamentoAtual)return;
+    agendamentoAtual['Status Agendamento']=novoStatus;
+    var a=agendamentos.filter(function(x){return String(x.IdAgendamento)===String(agendamentoAtual.IdAgendamento);})[0];
+    if(a)a['Status Agendamento']=novoStatus;
+    var statusNorm=statusSlug(novoStatus);
+    var badge=document.querySelector('#det-body .status-badge');
+    if(badge){ badge.className='status-badge st-'+statusNorm; badge.textContent=statusLabelDisplay(novoStatus); }
+    var selManual=document.getElementById('status-manual');
+    if(selManual)selManual.value=novoStatus;
+    montarAcoes(agendamentoAtual,statusNorm);
+    renderKPIs();
+    renderLista();
+    showToast('Status atualizado automaticamente para "'+statusLabelDisplay(novoStatus)+'".');
+  }
+
+  function fecharDetalhe(){
+    document.getElementById('screen-detalhe').classList.remove('active');
+    agendamentoAtual=null;
+  }
+  document.getElementById('btn-back').addEventListener('click',fecharDetalhe);
+
+  // ── Carregamento ──
+
+  function carregar(callback){
+    SGAuth.apiCall('getAgendamentosTecnico',{solicitanteId:session.idVendedor}).then(function(resp){
+      if(!resp||!resp.ok){
+        document.getElementById('list-empty').classList.remove('hidden');
+        document.getElementById('list-empty').querySelector('p').textContent=(resp&&resp.erro)||'Não foi possível carregar suas ordens de serviço.';
+        return;
+      }
+      agendamentos=resp.agendamentos||[];
+      clientesMap={}; (resp.clientes||[]).forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
+      vendedoresMap={}; (resp.vendedores||[]).forEach(function(v){if(v.IdVendedor)vendedoresMap[v.IdVendedor]=v;});
+      servicosMap={}; (resp.servicos||[]).forEach(function(s){if(s.IdServico)servicosMap[s.IdServico]=s;});
+      templatesPorServico={};
+      templatesPorId={};
+      templatesTodos=resp.templates||[];
+      templatesTodos.forEach(function(t){
+        if(t.IdTemplate)templatesPorId[t.IdTemplate]=t;
+        if(!t.IdServico)return;
+        if(!templatesPorServico[t.IdServico])templatesPorServico[t.IdServico]=[];
+        templatesPorServico[t.IdServico].push(t);
+      });
+      respostasMap={};
+      (resp.respostas||[]).forEach(function(r){ respostasMap[r.IdAgendamento+'|'+r.IdTemplate]=r; });
+
+      renderKPIs();
+      renderLista();
+      if(callback)callback();
+    }).catch(function(err){
+      document.getElementById('list-empty').classList.remove('hidden');
+      document.getElementById('list-empty').querySelector('p').textContent='Erro de conexão: '+err.message;
+    });
+  }
+
+  carregar();
+})();
+</script>
+
+</body>
+</html>
