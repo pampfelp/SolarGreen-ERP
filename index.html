@@ -44,6 +44,39 @@
   html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;-webkit-font-smoothing:antialiased;min-height:100vh;color-scheme:light;}
   body{display:flex;}
 
+  /* ── Login / Autenticação ── */
+  html.sg-locked .sidebar,html.sg-locked .view{display:none!important;}
+  #sg-login-screen{display:none;}
+  html.sg-locked #sg-login-screen{display:flex;}
+  #sg-login-screen{position:fixed;inset:0;z-index:2000;background:var(--sidebar-bg);align-items:center;justify-content:center;padding:20px;}
+  #sg-login-screen .sg-login-card{width:100%;max-width:380px;background:#fff;border-radius:16px;padding:34px 30px;box-shadow:0 20px 60px rgba(0,0,0,.35);}
+  #sg-login-screen .sg-login-brand{text-align:center;margin-bottom:24px;}
+  #sg-login-screen .sg-login-brand .sg-solar{font-family:var(--unbounded);font-weight:900;font-size:19px;color:var(--sidebar-bg);letter-spacing:.02em;}
+  #sg-login-screen .sg-login-brand .sg-green{color:var(--accent-deep);}
+  #sg-login-screen .sg-login-brand .sg-sub{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint);margin-top:5px;font-weight:600;}
+  #sg-login-screen .sg-step{display:none;}
+  #sg-login-screen .sg-step.active{display:block;}
+  #sg-login-screen .sg-step h2{font-family:var(--unbounded);font-size:15px;color:var(--ink);margin-bottom:4px;}
+  #sg-login-screen .sg-step .sg-step-sub{font-size:12px;color:var(--ink-soft);margin-bottom:18px;line-height:1.5;}
+  #sg-login-screen label{font-size:11px;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px;}
+  #sg-login-screen input{width:100%;font-family:var(--sans);font-size:14px;border:1px solid var(--line);border-radius:8px;padding:11px 12px;margin-bottom:14px;background:#fff;color:var(--ink);}
+  #sg-login-screen input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent);}
+  #sg-login-screen button.sg-btn-primary{width:100%;background:var(--accent);color:#003122;border:none;border-radius:8px;padding:12px;font-weight:800;font-size:13px;cursor:pointer;font-family:var(--sans);}
+  #sg-login-screen button.sg-btn-primary:hover{filter:brightness(1.05);}
+  #sg-login-screen button.sg-btn-primary:disabled{opacity:.55;cursor:default;}
+  #sg-login-screen .sg-link-row{text-align:center;margin-top:14px;}
+  #sg-login-screen .sg-link-btn{background:none;border:none;color:var(--accent-deep);font-size:12px;cursor:pointer;text-decoration:underline;padding:0;font-family:var(--sans);}
+  #sg-login-screen .sg-login-msg{font-size:12px;border-radius:7px;padding:9px 11px;margin-bottom:14px;}
+  #sg-login-screen .sg-login-msg.error{display:block;background:#fdecea;color:#c0392b;}
+  #sg-login-screen .sg-login-msg.success{display:block;background:var(--accent-soft);color:#2c6e00;}
+  #sg-login-screen .sg-login-msg:empty{display:none;}
+  .sidebar .user-chip{padding:12px 18px;border-top:1px solid rgba(255,255,255,.1);margin-top:6px;}
+  .sidebar .user-chip .u-name{color:#fff;font-size:12px;font-weight:700;}
+  .sidebar .user-chip .u-role{color:rgba(255,255,255,.4);font-size:9.5px;text-transform:uppercase;letter-spacing:.1em;margin-top:2px;}
+  .sidebar .user-chip .u-logout{background:none;border:none;color:var(--accent);font-size:11px;cursor:pointer;padding:0;margin-top:7px;text-decoration:underline;font-family:var(--sans);}
+  .sidebar.collapsed .user-chip{display:none;}
+  @media(max-width:760px){.sidebar .user-chip{display:none;}}
+
   /* ── Sidebar ── */
   .sidebar{
     width:var(--sidebar-w);flex:none;background:var(--sidebar-bg);min-height:100vh;
@@ -209,6 +242,57 @@
   }
   .modal-field input[type=time]:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent);}
   .modal-note{font-size:11px;color:var(--ink-faint);margin:14px 0 0;line-height:1.6;}
+  .resp-item{border-bottom:1px solid var(--bg);padding:12px 0;}
+  .resp-item:last-child{border-bottom:none;}
+  .resp-item .resp-q{font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:2px;}
+  .resp-item .resp-servtag{font-size:10px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;}
+  .resp-item .resp-a{font-size:13px;color:var(--ink-soft);white-space:pre-wrap;line-height:1.5;}
+  .resp-item .resp-a img{max-width:220px;max-height:220px;border-radius:8px;border:1px solid var(--line);display:block;margin-top:4px;cursor:pointer;}
+  .resp-empty{font-size:12.5px;color:var(--ink-faint);text-align:center;padding:30px 10px;}
+  .uform-field{margin-bottom:14px;}
+  .uform-field label{font-size:11px;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px;}
+  .uform-field input,.uform-field select{width:100%;font-family:var(--sans);font-size:13px;border:1px solid var(--line);border-radius:7px;padding:9px 12px;background:#fff;color:var(--ink);}
+  .uform-field input:focus,.uform-field select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent);}
+  .uform-msg{font-size:12px;border-radius:7px;padding:9px 11px;margin-bottom:14px;}
+  .uform-msg.error{display:block;background:#fdecea;color:#c0392b;}
+  .uform-msg.success{display:block;background:var(--accent-soft);color:#2c6e00;}
+  .uform-msg:empty{display:none;}
+  .u-row-actions button{background:none;border:none;color:var(--accent-deep);font-size:12px;cursor:pointer;text-decoration:underline;font-family:var(--sans);padding:0;}
+  .u-status-tag{font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.04em;}
+  .u-status-tag.ativo{background:var(--accent-soft);color:var(--accent-deep);}
+  .u-status-tag.inativo{background:#f2f2f2;color:var(--ink-faint);}
+  .ag-status-tag{font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}
+  .ag-status-tag.agendado{background:#eef2fb;color:#3a5cc4;}
+  .ag-status-tag.em-andamento{background:#fff4de;color:#a5680a;}
+  .ag-status-tag.concluido{background:var(--accent-soft);color:var(--accent-deep);}
+  .ag-status-tag.cancelado{background:#fdecea;color:#c0392b;}
+
+  /* ── Painel de detalhe do agendamento (lateral no PC, tela cheia no mobile) ── */
+  .ad-backdrop{position:fixed;inset:0;background:rgba(0,20,10,.35);z-index:140;display:none;}
+  .ad-backdrop.active{display:block;}
+  #agendamentoDetalhe{position:fixed;top:0;right:0;height:100vh;width:460px;max-width:100vw;background:var(--panel);z-index:150;box-shadow:-10px 0 34px rgba(0,0,0,.18);transform:translateX(100%);transition:transform .2s ease;display:flex;flex-direction:column;}
+  #agendamentoDetalhe.active{transform:translateX(0);}
+  #agendamentoDetalhe .ad-top{background:var(--sidebar-bg);color:#fff;padding:16px 18px;display:flex;align-items:center;gap:12px;flex:none;}
+  #agendamentoDetalhe .ad-top .ad-backbtn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);color:#fff;border-radius:9px;width:34px;height:34px;font-size:15px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;}
+  #agendamentoDetalhe .ad-top .ad-title{font-family:var(--unbounded);font-size:14.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #agendamentoDetalhe .ad-body{flex:1;overflow-y:auto;padding:18px;}
+  #agendamentoDetalhe .ad-section{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:15px 16px;margin-bottom:14px;}
+  #agendamentoDetalhe .ad-section h4{font-family:var(--unbounded);font-size:11.5px;font-weight:700;color:var(--ink);margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em;}
+  #agendamentoDetalhe .ad-row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px;}
+  #agendamentoDetalhe .ad-row:last-child{border-bottom:none;}
+  #agendamentoDetalhe .ad-row .dl{color:var(--ink-faint);flex:none;}
+  #agendamentoDetalhe .ad-row .dv{color:var(--ink);text-align:right;font-weight:600;}
+  #agendamentoDetalhe .ad-actions{padding:14px 18px;border-top:1px solid var(--line);display:flex;gap:8px;flex:none;}
+  #agendamentoDetalhe .ad-actions button{flex:1;}
+  @media(max-width:760px){
+    #agendamentoDetalhe{width:100%;}
+  }
+  .ag-row-click{cursor:pointer;}
+  .ag-row-click:hover td{background:var(--bg);}
+  .paginacao{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding:4px 2px;}
+  .paginacao button{flex:none;background:#fff;border:1px solid var(--line);border-radius:9px;padding:9px 14px;font-size:12.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;}
+  .paginacao button:disabled{opacity:.4;cursor:default;}
+  .paginacao .pg-info{font-size:12px;color:var(--ink-faint);font-weight:600;}
   .modal-actions{display:flex;justify-content:space-between;align-items:center;margin-top:22px;gap:10px;}
   .modal-actions .btn{font-size:13px;border-radius:7px;padding:9px 16px;cursor:pointer;border:1px solid var(--line);background:#f2f7f2;color:var(--ink);}
   .modal-actions .btn-primary{background:var(--accent);color:#003122;border-color:var(--accent);font-weight:700;}
@@ -494,8 +578,83 @@
 </head>
 <body>
 
+<script>
+// Trava a tela ANTES do resto renderizar, pra não piscar o conteúdo pra quem não logou.
+(function(){
+  try{
+    var raw=localStorage.getItem('sg_auth_session');
+    var session=raw?JSON.parse(raw):null;
+    var valido=session&&session.idVendedor&&session.expiresAt&&Date.now()<session.expiresAt;
+    if(valido){ window.SG_SESSION=session; }
+    else{ document.documentElement.classList.add('sg-locked'); }
+  }catch(e){ document.documentElement.classList.add('sg-locked'); }
+})();
+</script>
+
+<div id="sg-login-screen">
+  <div class="sg-login-card">
+    <div class="sg-login-brand">
+      <div class="sg-solar">SOLAR <span class="sg-green">GREEN</span></div>
+      <div class="sg-sub">Suporte · Painéis</div>
+    </div>
+
+    <!-- Passo 1: login -->
+    <div class="sg-step active" id="sg-step-login">
+      <h2>Entrar</h2>
+      <div class="sg-step-sub">Use o e-mail cadastrado na equipe.</div>
+      <div class="sg-login-msg" id="sg-login-msg"></div>
+      <label>E-mail</label>
+      <input type="email" id="sg-login-email" autocomplete="username" placeholder="voce@solargreen.com.br">
+      <label>Senha</label>
+      <input type="password" id="sg-login-senha" autocomplete="current-password" placeholder="••••••••">
+      <div class="sg-step-sub" style="margin:-6px 0 14px;">Primeiro acesso? Use a senha padrão informada pela empresa — você vai criar a sua na sequência.</div>
+      <button class="sg-btn-primary" id="sg-login-btn">Entrar</button>
+      <div class="sg-link-row"><button class="sg-link-btn" id="sg-go-esqueci">Esqueci minha senha</button></div>
+    </div>
+
+    <!-- Passo 2: pedir código -->
+    <div class="sg-step" id="sg-step-esqueci">
+      <h2>Esqueci minha senha</h2>
+      <div class="sg-step-sub">Vamos enviar um código de 6 dígitos para o seu e-mail cadastrado.</div>
+      <div class="sg-login-msg" id="sg-esqueci-msg"></div>
+      <label>E-mail</label>
+      <input type="email" id="sg-esqueci-email" autocomplete="username" placeholder="voce@solargreen.com.br">
+      <button class="sg-btn-primary" id="sg-esqueci-btn">Enviar código</button>
+      <div class="sg-link-row"><button class="sg-link-btn" id="sg-back-login-1">Voltar para o login</button></div>
+    </div>
+
+    <!-- Passo 3: código + nova senha -->
+    <div class="sg-step" id="sg-step-redefinir">
+      <h2>Criar nova senha</h2>
+      <div class="sg-step-sub">Confira seu e-mail e digite o código recebido.</div>
+      <div class="sg-login-msg" id="sg-redefinir-msg"></div>
+      <label>Código recebido por e-mail</label>
+      <input type="text" id="sg-redefinir-token" inputmode="numeric" maxlength="6" placeholder="000000">
+      <label>Nova senha</label>
+      <input type="password" id="sg-redefinir-senha1" autocomplete="new-password" placeholder="mínimo 6 caracteres">
+      <label>Confirmar nova senha</label>
+      <input type="password" id="sg-redefinir-senha2" autocomplete="new-password" placeholder="repita a senha">
+      <button class="sg-btn-primary" id="sg-redefinir-btn">Salvar nova senha</button>
+      <div class="sg-link-row"><button class="sg-link-btn" id="sg-back-login-2">Voltar para o login</button></div>
+    </div>
+
+    <!-- Passo 4: primeiro acesso com senha padrão -> obrigatório criar senha própria -->
+    <div class="sg-step" id="sg-step-primeiro-acesso">
+      <h2>Crie sua senha</h2>
+      <div class="sg-step-sub">Este é seu primeiro acesso. Antes de continuar, crie uma senha só sua.</div>
+      <div class="sg-login-msg" id="sg-primeiro-msg"></div>
+      <label>Nova senha</label>
+      <input type="password" id="sg-primeiro-senha1" autocomplete="new-password" placeholder="mínimo 6 caracteres">
+      <label>Confirmar nova senha</label>
+      <input type="password" id="sg-primeiro-senha2" autocomplete="new-password" placeholder="repita a senha">
+      <button class="sg-btn-primary" id="sg-primeiro-btn">Salvar e entrar</button>
+    </div>
+  </div>
+</div>
+
 <aside class="sidebar">
   <div class="brandmark">
+
     <div class="sg-solar">SOLAR <span class="sg-green">GREEN</span></div>
     <div class="sg-sub">Suporte · Painéis</div>
   </div>
@@ -503,9 +662,16 @@
     <a href="#" id="nav-ponto"><span class="ico">⏱</span><span class="nav-label"> Ponto Eletrônico</span></a>
     <a href="#" id="nav-vendas"><span class="ico">◆</span><span class="nav-label"> Vendas</span></a>
     <a href="#" id="nav-funil"><span class="ico">◈</span><span class="nav-label"> Funil</span></a>
+    <a href="#" id="nav-agendamentos"><span class="ico">🛠</span><span class="nav-label"> Agendamentos</span></a>
+    <a href="#" id="nav-usuarios" style="display:none;"><span class="ico">⚙</span><span class="nav-label"> Usuários</span></a>
   </nav>
+  <div class="user-chip" id="sg-user-chip">
+    <div class="u-name" id="sg-user-name">—</div>
+    <div class="u-role" id="sg-user-role">—</div>
+    <button class="u-logout" id="sg-logout-btn">Sair</button>
+  </div>
   <div class="foot" style="display:flex;align-items:center;padding:14px 16px 0;">
-    <span class="foot-text" style="font-family:var(--mono);font-size:10px;color:rgba(255,255,255,0.3);">v<span id="appVersionFoot">2026-07-06-1</span></span>
+    <span class="foot-text" style="font-family:var(--mono);font-size:10px;color:rgba(255,255,255,0.3);">v<span id="appVersionFoot">2026-07-16-1</span></span>
   </div>
   <button class="sidebar-toggle" id="sidebarToggle" title="Recolher menu">
     <span class="ico" id="toggleIco">◀</span>
@@ -913,7 +1079,391 @@
 </div>
 </div>
 
+<!-- ═══ VIEW: AGENDAMENTOS ═══ -->
+<div id="view-agendamentos" class="view">
+<div class="app">
+
+  <header class="top">
+    <div>
+      <h1>Agendamentos de <span>Serviço</span></h1>
+      <div class="top-sub">Ordens de serviço para os técnicos de campo · <span id="ag-appVersion"></span></div>
+    </div>
+    <div style="text-align:right;">
+      <div class="clock" id="ag-lastUpdate"></div>
+    </div>
+  </header>
+
+  <div class="filters" style="align-items:flex-start;">
+    <div class="field"><label>Período de</label><input type="date" id="ag-dateFrom"></div>
+    <div class="field"><label>até</label><input type="date" id="ag-dateTo"></div>
+    <div class="field"><label>Atalhos</label><div class="quickranges">
+      <button class="qr-btn" data-agrange="7">7 dias</button>
+      <button class="qr-btn" data-agrange="30">30 dias</button>
+      <button class="qr-btn" data-agrange="month">Este mês</button>
+      <button class="qr-btn active" data-agrange="all">Tudo</button>
+    </div></div>
+    <div class="field"><label>Técnico</label><select id="ag-selTecnico"><option value="__all__">Todos os técnicos</option></select></div>
+    <div class="stage-filter-group">
+      <label>Status</label>
+      <div class="stage-pills">
+        <button class="stage-pill active" data-agstatus="__all__">Todos</button>
+        <button class="stage-pill" data-agstatus="Agendado">Agendado</button>
+        <button class="stage-pill" data-agstatus="Em Andamento">Em Andamento</button>
+        <button class="stage-pill" data-agstatus="Concluído">Concluído</button>
+        <button class="stage-pill" data-agstatus="Cancelado">Cancelado</button>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <button class="reset-btn" id="ag-resetFiltros">Limpar filtros</button>
+  </div>
+
+  <div style="margin:16px 0;">
+    <button class="connect-btn" id="ag-novoBtn" style="width:auto;padding:11px 22px;">+ Novo agendamento</button>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Cliente</th>
+          <th>Serviço</th>
+          <th>Técnico</th>
+          <th>Data / Horário</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="ag-tbody"></tbody>
+    </table>
+  </div>
+
+  <div id="ag-paginacao" class="paginacao"></div>
+
+  <div class="empty" id="ag-emptyState">
+    <div class="glyph">🛠</div>
+    <p>Conectando à planilha para carregar os agendamentos…</p>
+  </div>
+
+</div>
+</div>
+
+<div class="modal-overlay hidden" id="agendamentoModal">
+  <div class="modal-card" style="max-width:520px;">
+    <h3 id="agendamentoModalTitle">Novo agendamento</h3>
+    <div class="modal-sub">Ordem de serviço para o técnico de campo.</div>
+    <div class="uform-msg" id="ag-modalMsg"></div>
+
+    <div class="uform-field"><label>Cliente</label><select id="ag-idCliente"><option value="">— Selecionar cliente…</option></select></div>
+    <div class="uform-field"><label>Serviço</label><select id="ag-idServico"><option value="">— Selecionar serviço…</option></select>
+      <div class="uform-msg" id="ag-servicoWarn" style="margin-top:8px;"></div>
+    </div>
+    <div class="uform-field"><label>Técnico responsável</label><select id="ag-tecnico"><option value="">— Selecionar técnico…</option></select></div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+      <div class="uform-field"><label>Data</label><input type="date" id="ag-dataInicio"></div>
+      <div class="uform-field"><label>Hora início</label><input type="time" id="ag-horaInicio"></div>
+      <div class="uform-field"><label>Hora fim</label><input type="time" id="ag-horaFim"></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="uform-field"><label>Qtd. módulos</label><input type="number" id="ag-qtdModulos" min="0"></div>
+      <div class="uform-field"><label>Modelo dos módulos</label><input type="text" id="ag-modeloModulos"></div>
+      <div class="uform-field"><label>Qtd. inversores</label><input type="number" id="ag-qtdInversores" min="0"></div>
+      <div class="uform-field"><label>Modelo dos inversores</label><input type="text" id="ag-modeloInversores"></div>
+    </div>
+
+    <div class="uform-field"><label>Observação comercial</label><textarea id="ag-observacao" rows="3" style="width:100%;font-family:var(--sans);font-size:13px;border:1px solid var(--line);border-radius:7px;padding:9px 12px;background:#fff;color:var(--ink);resize:vertical;"></textarea></div>
+
+    <div class="uform-field" id="ag-statusField" style="display:none;">
+      <label>Status</label>
+      <select id="ag-status">
+        <option value="Agendado">Agendado</option>
+        <option value="Em Andamento">Em Andamento</option>
+        <option value="Concluído">Concluído</option>
+        <option value="Cancelado">Cancelado</option>
+      </select>
+    </div>
+
+    <div class="modal-actions">
+      <button class="reset-btn" id="ag-cancelBtn">Cancelar</button>
+      <button class="connect-btn" id="ag-salvarBtn">Salvar agendamento</button>
+    </div>
+  </div>
+</div>
+
+<div class="ad-backdrop" id="adBackdrop"></div>
+<div id="agendamentoDetalhe">
+  <div class="ad-top">
+    <button class="ad-backbtn" id="ad-fecharBtn">←</button>
+    <div class="ad-title" id="ad-title">Agendamento</div>
+  </div>
+  <div class="ad-body" id="ad-body"></div>
+  <div class="ad-actions">
+    <button class="reset-btn" id="ad-editarBtn">Editar agendamento</button>
+    <button class="connect-btn" id="ad-pdfBtn">🖨 Gerar PDF</button>
+  </div>
+</div>
+
+<!-- ═══ VIEW: USUÁRIOS (somente administradores) ═══ -->
+
+<div id="view-usuarios" class="view">
+<div class="app">
+
+  <header class="top">
+    <div>
+      <h1>Usuários do <span>Sistema</span></h1>
+      <div class="top-sub">Nome, e-mail, telefone, função e status da equipe · <span id="u-appVersion"></span></div>
+    </div>
+  </header>
+
+  <div class="section-head">
+    <h2>Equipe <span>cadastrada</span></h2>
+    <div class="hint">a função (coluna Tipo) define o nível de acesso — "Admin/CEO/Gestor/Gerente" veem tudo</div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Nome</th>
+          <th>E-mail</th>
+          <th>Telefone</th>
+          <th>Função</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="u-tbody"></tbody>
+    </table>
+  </div>
+
+  <div style="margin-top:16px;">
+    <button class="reset-btn" id="u-novoBtn">+ Novo usuário</button>
+  </div>
+
+  <div class="empty" id="u-emptyState">
+    <div class="glyph">⚙</div>
+    <p>Carregando usuários…</p>
+  </div>
+
+</div>
+</div>
+
+<div class="modal-overlay hidden" id="usuarioModal">
+  <div class="modal-card">
+    <h3 id="usuarioModalTitle">Editar usuário</h3>
+    <div class="modal-sub">Dados cadastrais e função de acesso.</div>
+    <div class="uform-msg" id="u-modalMsg"></div>
+    <div class="uform-field"><label>Nome</label><input type="text" id="u-nome" placeholder="Nome completo"></div>
+    <div class="uform-field"><label>E-mail</label><input type="email" id="u-email" placeholder="pessoa@solargreen.com.br"></div>
+    <div class="uform-field"><label>Telefone</label><input type="text" id="u-telefone" placeholder="(91) 90000-0000"></div>
+    <div class="uform-field">
+      <label>Função (Tipo)</label>
+      <input type="text" id="u-tipo" list="u-tipo-sugestoes" placeholder="Vendedor, Técnico, Admin, CEO…">
+      <datalist id="u-tipo-sugestoes">
+        <option value="Vendedor"><option value="Técnico"><option value="Admin"><option value="CEO"><option value="Gestor">
+      </datalist>
+    </div>
+    <div class="uform-field">
+      <label>Status</label>
+      <select id="u-status"><option value="Ativo">Ativo</option><option value="Inativo">Inativo</option></select>
+    </div>
+    <p class="modal-note">A senha não é editada aqui — cada pessoa cria a própria pelo login (senha padrão ou "Esqueci minha senha").</p>
+    <div class="modal-actions">
+      <button class="reset-btn" id="u-cancelBtn">Cancelar</button>
+      <button class="connect-btn" id="u-salvarBtn">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <script>
+// ════ AUTENTICAÇÃO (SGAuth) ════
+(function(){
+  var SESSION_KEY='sg_auth_session';
+  var SESSION_DURATION_MS=7*24*60*60*1000; // 7 dias
+  var DEFAULT_API_URL='https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA34xrlLTVUUNhKBIlguJT3ectH7Yus-VW1n41GcCclc5q_Yj0Di2O7g/exec';
+  var DEFAULT_API_KEY='1234';
+
+  function apiUrl(){ return (localStorage.getItem('ponto_api_url')||'').trim()||DEFAULT_API_URL; }
+  function apiKey(){ return (localStorage.getItem('ponto_api_key')||'').trim()||DEFAULT_API_KEY; }
+
+  function authCall(action,payload){
+    var body=Object.assign({action:action,chave:apiKey()},payload||{});
+    return fetch(apiUrl(),{method:'POST',body:JSON.stringify(body)}).then(function(r){return r.json();});
+  }
+
+  function getSession(){
+    try{
+      var raw=localStorage.getItem(SESSION_KEY);
+      var s=raw?JSON.parse(raw):null;
+      if(s&&s.idVendedor&&s.expiresAt&&Date.now()<s.expiresAt) return s;
+    }catch(e){}
+    return null;
+  }
+  function setSession(usuario){
+    var s={idVendedor:usuario.idVendedor,nome:usuario.nome,email:usuario.email,tipo:usuario.tipo||'',expiresAt:Date.now()+SESSION_DURATION_MS};
+    localStorage.setItem(SESSION_KEY,JSON.stringify(s));
+    return s;
+  }
+  function clearSession(){ localStorage.removeItem(SESSION_KEY); }
+  // Funções com acesso total ao sistema. Mantenha isso em sincronia com
+  // ADMIN_ROLES no Code.gs.
+  var SG_ADMIN_ROLES=['admin','administrador','ceo','gestor','gerente'];
+  function isAdmin(){
+    var s=window.SG_SESSION;
+    if(!s) return false;
+    var t=(s.tipo||'').trim().toLowerCase();
+    return SG_ADMIN_ROLES.indexOf(t)!==-1;
+  }
+
+  // Filtra uma lista de objetos vindos da API pelo IdVendedor/Funcionario do usuário logado,
+  // a menos que ele seja Admin. Usado pelas telas de Ponto/Vendas/Funil.
+  function filterByOwner(list,field){
+    var s=window.SG_SESSION;
+    if(!s||isAdmin()) return list||[];
+    var meId=String(s.idVendedor);
+    return (list||[]).filter(function(o){ return String(o[field])===meId; });
+  }
+
+  window.SGAuth={ getSession:getSession, isAdmin:isAdmin, filterByOwner:filterByOwner, apiCall:authCall };
+
+  function showMsg(elId,texto,tipo){
+    var el=document.getElementById(elId);
+    el.className='sg-login-msg'+(tipo?' '+tipo:'');
+    el.textContent=texto||'';
+  }
+  function goStep(id){
+    document.querySelectorAll('#sg-login-screen .sg-step').forEach(function(s){s.classList.remove('active');});
+    document.getElementById(id).classList.add('active');
+    ['sg-login-msg','sg-esqueci-msg','sg-redefinir-msg','sg-primeiro-msg'].forEach(function(m){showMsg(m,'');});
+  }
+
+  function paintUserChip(){
+    var s=getSession();
+    if(!s) return;
+    document.getElementById('sg-user-name').textContent=s.nome||s.email;
+    document.getElementById('sg-user-role').textContent=isAdmin()?'Administrador':(s.tipo||'Usuário');
+  }
+
+  function initLoginScreen(){
+    var pendingPrimeiroAcesso=null; // {usuario, senhaAtual} enquanto aguarda criação da senha própria
+
+    var loginBtn=document.getElementById('sg-login-btn');
+    loginBtn.addEventListener('click',function(){
+      var email=document.getElementById('sg-login-email').value.trim();
+      var senha=document.getElementById('sg-login-senha').value;
+      if(!email||!senha){ showMsg('sg-login-msg','Preencha e-mail e senha.','error'); return; }
+      loginBtn.disabled=true; loginBtn.textContent='Entrando…';
+      authCall('login',{email:email,senha:senha}).then(function(resp){
+        loginBtn.disabled=false; loginBtn.textContent='Entrar';
+        if(!resp||!resp.ok){
+          showMsg('sg-login-msg',(resp&&resp.mensagem)||(resp&&resp.erro)||'Não foi possível entrar.','error');
+          return;
+        }
+        if(resp.precisaTrocarSenha){
+          pendingPrimeiroAcesso={usuario:resp.usuario,senhaAtual:senha};
+          document.getElementById('sg-primeiro-senha1').value='';
+          document.getElementById('sg-primeiro-senha2').value='';
+          goStep('sg-step-primeiro-acesso');
+          return;
+        }
+        setSession(resp.usuario);
+        location.reload();
+      }).catch(function(err){
+        loginBtn.disabled=false; loginBtn.textContent='Entrar';
+        showMsg('sg-login-msg','Erro de conexão: '+err.message,'error');
+      });
+    });
+    document.getElementById('sg-login-senha').addEventListener('keydown',function(e){ if(e.key==='Enter') loginBtn.click(); });
+
+    var primeiroBtn=document.getElementById('sg-primeiro-btn');
+    primeiroBtn.addEventListener('click',function(){
+      if(!pendingPrimeiroAcesso){ goStep('sg-step-login'); return; }
+      var s1=document.getElementById('sg-primeiro-senha1').value;
+      var s2=document.getElementById('sg-primeiro-senha2').value;
+      if(!s1||!s2){ showMsg('sg-primeiro-msg','Preencha os dois campos.','error'); return; }
+      if(s1!==s2){ showMsg('sg-primeiro-msg','As senhas não coincidem.','error'); return; }
+      if(s1.length<6){ showMsg('sg-primeiro-msg','A senha deve ter pelo menos 6 caracteres.','error'); return; }
+      primeiroBtn.disabled=true; primeiroBtn.textContent='Salvando…';
+      authCall('trocarSenha',{idVendedor:pendingPrimeiroAcesso.usuario.idVendedor,senhaAtual:pendingPrimeiroAcesso.senhaAtual,novaSenha:s1}).then(function(resp){
+        primeiroBtn.disabled=false; primeiroBtn.textContent='Salvar e entrar';
+        if(!resp||!resp.ok){ showMsg('sg-primeiro-msg',(resp&&resp.erro)||'Não foi possível salvar a senha.','error'); return; }
+        setSession(pendingPrimeiroAcesso.usuario);
+        pendingPrimeiroAcesso=null;
+        location.reload();
+      }).catch(function(err){
+        primeiroBtn.disabled=false; primeiroBtn.textContent='Salvar e entrar';
+        showMsg('sg-primeiro-msg','Erro de conexão: '+err.message,'error');
+      });
+    });
+
+    document.getElementById('sg-go-esqueci').addEventListener('click',function(){
+      document.getElementById('sg-esqueci-email').value=document.getElementById('sg-login-email').value.trim();
+      goStep('sg-step-esqueci');
+    });
+    document.getElementById('sg-back-login-1').addEventListener('click',function(){ goStep('sg-step-login'); });
+    document.getElementById('sg-back-login-2').addEventListener('click',function(){ goStep('sg-step-login'); });
+
+    var esqueciBtn=document.getElementById('sg-esqueci-btn');
+    esqueciBtn.addEventListener('click',function(){
+      var email=document.getElementById('sg-esqueci-email').value.trim();
+      if(!email){ showMsg('sg-esqueci-msg','Informe seu e-mail.','error'); return; }
+      esqueciBtn.disabled=true; esqueciBtn.textContent='Enviando…';
+      authCall('esqueciSenha',{email:email}).then(function(resp){
+        esqueciBtn.disabled=false; esqueciBtn.textContent='Enviar código';
+        if(!resp||!resp.ok){ showMsg('sg-esqueci-msg',(resp&&resp.erro)||'Não foi possível enviar o código.','error'); return; }
+        document.getElementById('sg-redefinir-token').value='';
+        document.getElementById('sg-redefinir-senha1').value='';
+        document.getElementById('sg-redefinir-senha2').value='';
+        goStep('sg-step-redefinir');
+        showMsg('sg-redefinir-msg','Código enviado! Confira seu e-mail (e a caixa de spam).','success');
+        document.getElementById('sg-step-redefinir').dataset.email=email;
+      }).catch(function(err){
+        esqueciBtn.disabled=false; esqueciBtn.textContent='Enviar código';
+        showMsg('sg-esqueci-msg','Erro de conexão: '+err.message,'error');
+      });
+    });
+
+    var redefinirBtn=document.getElementById('sg-redefinir-btn');
+    redefinirBtn.addEventListener('click',function(){
+      var email=document.getElementById('sg-step-redefinir').dataset.email||document.getElementById('sg-esqueci-email').value.trim();
+      var token=document.getElementById('sg-redefinir-token').value.trim();
+      var s1=document.getElementById('sg-redefinir-senha1').value;
+      var s2=document.getElementById('sg-redefinir-senha2').value;
+      if(!token||!s1||!s2){ showMsg('sg-redefinir-msg','Preencha o código e a nova senha.','error'); return; }
+      if(s1!==s2){ showMsg('sg-redefinir-msg','As senhas não coincidem.','error'); return; }
+      if(s1.length<6){ showMsg('sg-redefinir-msg','A senha deve ter pelo menos 6 caracteres.','error'); return; }
+      redefinirBtn.disabled=true; redefinirBtn.textContent='Salvando…';
+      authCall('redefinirSenha',{email:email,token:token,novaSenha:s1}).then(function(resp){
+        redefinirBtn.disabled=false; redefinirBtn.textContent='Salvar nova senha';
+        if(!resp||!resp.ok){ showMsg('sg-redefinir-msg',(resp&&resp.erro)||'Não foi possível redefinir a senha.','error'); return; }
+        document.getElementById('sg-login-email').value=email;
+        document.getElementById('sg-login-senha').value='';
+        goStep('sg-step-login');
+        showMsg('sg-login-msg','Senha criada! Faça login com a nova senha.','success');
+      }).catch(function(err){
+        redefinirBtn.disabled=false; redefinirBtn.textContent='Salvar nova senha';
+        showMsg('sg-redefinir-msg','Erro de conexão: '+err.message,'error');
+      });
+    });
+  }
+
+  function initLoggedUI(){
+    paintUserChip();
+    document.getElementById('sg-logout-btn').addEventListener('click',function(){
+      clearSession();
+      location.reload();
+    });
+    var navUsuarios=document.getElementById('nav-usuarios');
+    if(navUsuarios&&isAdmin()) navUsuarios.style.display='';
+  }
+
+  document.addEventListener('DOMContentLoaded',function(){
+    initLoginScreen();
+    if(getSession()){ initLoggedUI(); }
+  });
+})();
+
 // ════ PONTO ELETRÔNICO ════
 (function(){
 (function(){
@@ -931,7 +1481,7 @@
   var API_KEY_KEY = 'ponto_api_key';
   var DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA34xrlLTVUUNhKBIlguJT3ectH7Yus-VW1n41GcCclc5q_Yj0Di2O7g/exec';
   var DEFAULT_API_KEY = '1234';
-  var APP_VERSION = '2026-07-08-1';
+  var APP_VERSION = '2026-07-16-1';
   document.getElementById('p-appVersion').textContent = 'v' + APP_VERSION;
   document.getElementById('appVersionFoot').textContent = APP_VERSION;
 
@@ -1168,7 +1718,9 @@
     apiCall('getData').then(function(resp){
       if(btn)btn.disabled=false;
       if(!resp||!resp.ok){if(showStatus){document.getElementById('p-connectStatus').className='connect-status error';document.getElementById('p-connectStatusText').textContent=(resp&&resp.erro)||'Não foi possível conectar.';}return;}
-      buildReportFrom(processVendedoresFromObjects(resp.vendedores||[]),processPontoFromObjects(resp.ponto||[]),resp.overrides||{});
+      var pVendedores=window.SGAuth?window.SGAuth.filterByOwner(resp.vendedores||[],'IdVendedor'):(resp.vendedores||[]);
+      var pPonto=window.SGAuth?window.SGAuth.filterByOwner(resp.ponto||[],'Funcionario'):(resp.ponto||[]);
+      buildReportFrom(processVendedoresFromObjects(pVendedores),processPontoFromObjects(pPonto),resp.overrides||{});
       setSyncPill('ok','Sincronizado');showConnectBar();
       if(showStatus){document.getElementById('p-connectStatus').className='connect-status online';document.getElementById('p-connectStatusText').textContent='Conectado.';}
     }).catch(function(err){if(btn)btn.disabled=false;if(showStatus){document.getElementById('p-connectStatus').className='connect-status error';document.getElementById('p-connectStatusText').textContent='Erro: '+err.message;}});
@@ -1197,7 +1749,7 @@
     grid.style.display=isHidden?'grid':'none';useApi=!isHidden;
     document.getElementById('toggleManualBtn').textContent=isHidden?'Prefiro conectar pela planilha do Google':'Prefiro subir os arquivos manualmente';
   });
-  (function autoConnect(){var u=getApiUrl(),k=getApiKey();if(u&&k){document.getElementById('p-apiUrl').value=u;document.getElementById('p-apiKey').value=k;fetchFromApi(true);}})();
+  (function autoConnect(){if(!window.SG_SESSION)return;var u=getApiUrl(),k=getApiKey();if(u&&k){document.getElementById('p-apiUrl').value=u;document.getElementById('p-apiKey').value=k;fetchFromApi(true);}})();
   document.getElementById('p-dateFrom').addEventListener('change',render);
   document.getElementById('p-dateTo').addEventListener('change',render);
   document.getElementById('selColaborador').addEventListener('change',render);
@@ -1250,7 +1802,7 @@
   var DEFAULT_API_URL='https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA34xrlLTVUUNhKBIlguJT3ectH7Yus-VW1n41GcCclc5q_Yj0Di2O7g/exec';
   var DEFAULT_API_KEY='1234';
   var ID_VENDA_CUSTOS_ESCRITORIO='2b45b472';
-  var APP_VERSION='2026-07-08-1';
+  var APP_VERSION='2026-07-16-1';
   document.getElementById('v-appVersion').textContent='v'+APP_VERSION;
   document.getElementById('appVersionFoot').textContent=APP_VERSION;
 
@@ -1438,8 +1990,11 @@
     apiCall('getVendasData').then(function(resp){
       if(btn)btn.disabled=false;
       if(!resp||!resp.ok){if(showStatus){document.getElementById('v-connectStatus').className='connect-status error';document.getElementById('v-connectStatusText').textContent=(resp&&resp.erro)||'Não foi possível conectar.';}return;}
-      processVendedores(resp.vendedores||[]);if(resp.diagnostico)console.log('[Vendas] Diagnóstico:',resp.diagnostico);
-      vendasRecords=processVendas(resp.vendas||[]);metasRecords=processMetas(resp.metas||[]);relatoriosRecords=processRelatorios(resp.relatorios||[]);custosVendaRecords=processCustosVenda(resp.custosVenda||[]);servicosMap=processServicos(resp.servicos||[]);
+      var vVendedores=window.SGAuth?window.SGAuth.filterByOwner(resp.vendedores||[],'IdVendedor'):(resp.vendedores||[]);
+      var vVendas=window.SGAuth?window.SGAuth.filterByOwner(resp.vendas||[],'IdVendedor'):(resp.vendas||[]);
+      var vRelatorios=window.SGAuth?window.SGAuth.filterByOwner(resp.relatorios||[],'IdVendedor'):(resp.relatorios||[]);
+      processVendedores(vVendedores);if(resp.diagnostico)console.log('[Vendas] Diagnóstico:',resp.diagnostico);
+      vendasRecords=processVendas(vVendas);metasRecords=processMetas(resp.metas||[]);relatoriosRecords=processRelatorios(vRelatorios);custosVendaRecords=processCustosVenda(resp.custosVenda||[]);servicosMap=processServicos(resp.servicos||[]);
       populateSelects();setDefaultDateRange();
       document.getElementById('v-emptyState').style.display='none';document.getElementById('v-mainContent').style.display='block';render();
       setSyncPill('ok','Sincronizado');showConnectBar();
@@ -1453,7 +2008,7 @@
     if(!url||!key){document.getElementById('v-connectStatus').style.display='flex';document.getElementById('v-connectStatus').className='connect-status error';document.getElementById('v-connectStatusText').textContent='Preencha o link e a chave.';return;}
     setApiCreds(url,key);fetchFromApi(true);
   });
-  (function autoConnect(){var u=getApiUrl(),k=getApiKey();if(u&&k){document.getElementById('v-apiUrl').value=u;document.getElementById('v-apiKey').value=k;fetchFromApi(true);}})();
+  (function autoConnect(){if(!window.SG_SESSION)return;var u=getApiUrl(),k=getApiKey();if(u&&k){document.getElementById('v-apiUrl').value=u;document.getElementById('v-apiKey').value=k;fetchFromApi(true);}})();
   document.getElementById('v-dateFrom').addEventListener('change',render);document.getElementById('v-dateTo').addEventListener('change',render);document.getElementById('selVendedor').addEventListener('change',render);document.getElementById('selServico').addEventListener('change',render);
   document.getElementById('v-resetFiltros').addEventListener('click',function(){document.getElementById('selVendedor').value='__all__';document.getElementById('selServico').value='__all__';setDefaultDateRange();document.querySelectorAll('.qr-btn[data-range]').forEach(function(b){b.classList.remove('active');});render();});
   document.querySelectorAll('.qr-btn[data-range]').forEach(function(btn){
@@ -1487,7 +2042,7 @@
   var DEFAULT_API_KEY = '1234';
   var API_URL_KEY = 'ponto_api_url';
   var API_KEY_KEY = 'ponto_api_key';
-  var APP_VERSION = '2026-07-08-1';
+  var APP_VERSION = '2026-07-16-1';
 
   function getApiUrl(){ return (localStorage.getItem(API_URL_KEY)||'').trim()||DEFAULT_API_URL; }
   function getApiKey(){ return (localStorage.getItem(API_KEY_KEY)||'').trim()||DEFAULT_API_KEY; }
@@ -1762,14 +2317,16 @@
       document.getElementById('f-connectBtn').disabled=false;
       if(!resp||!resp.ok){if(showStatus){document.getElementById('f-connectStatus').className='connect-status error';document.getElementById('f-connectStatusText').textContent=(resp&&resp.erro)||'Não foi possível conectar.';}return;}
 
-      vendedoresMap={};(resp.vendedores||[]).forEach(function(v){if(v.IdVendedor)vendedoresMap[v.IdVendedor]=v;});
+      var fVendedores=window.SGAuth?window.SGAuth.filterByOwner(resp.vendedores||[],'IdVendedor'):(resp.vendedores||[]);
+      var fFunil=window.SGAuth?window.SGAuth.filterByOwner(resp.funil||[],'IdVendedor'):(resp.funil||[]);
+      vendedoresMap={};fVendedores.forEach(function(v){if(v.IdVendedor)vendedoresMap[v.IdVendedor]=v;});
       clientesMap={};(resp.clientes||[]).forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
 
       // carrega log e SLA antes de processar os leads
       funilLogRecords = processFunilLog(resp.funilLog||[]);
       funilSLAMap     = processFunilSLA(resp.funilSLA||[]);
 
-      funilRecords=processFunil(resp.funil||[]);
+      funilRecords=processFunil(fFunil);
       enriquecerComSLA(funilRecords); // calcula dataProcesso/dataProcessoKey/dias/slaColor
 
       populateVendedorSelect();setDefaultRange();
@@ -1781,7 +2338,9 @@
   }
 
   function init(){
-    if(_initialized)return; _initialized=true;
+    if(_initialized)return;
+    if(!window.SG_SESSION)return;
+    _initialized=true;
     document.getElementById('f-appVersion').textContent='v'+APP_VERSION;
     document.getElementById('f-apiUrl').value=getApiUrl();document.getElementById('f-apiKey').value=getApiKey();
     document.getElementById('f-dateFrom').addEventListener('change',render);
@@ -1827,18 +2386,689 @@
 })();
 
 
+// ════ AGENDAMENTOS ════
+(function(){
+  var _initialized=false;
+  var agendamentos=[],clientesMap={},vendedoresMap={},servicosMap={},templatesPorServico={},templatesPorId={},respostasPorAgendamento={};
+  var editandoId=null;
+  var servicoOriginalEdicao=null;
+  var paginaAtual=1;
+  var ITENS_POR_PAGINA=10;
+  var respostasCarregadasPara={};
+  var agendamentoAtual=null;
+
+  function apiCall(action,payload){ return window.SGAuth.apiCall(action,payload); }
+  function meuId(){ return window.SG_SESSION&&window.SG_SESSION.idVendedor; }
+  function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+  function parseBRDateTime(str){
+    if(!str)return null; str=String(str).trim();
+    var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if(m)return new Date(parseInt(m[3],10),parseInt(m[2],10)-1,parseInt(m[1],10));
+    var d=new Date(str); return isNaN(d.getTime())?null:d;
+  }
+  function dateKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function statusSlug(s){return (s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'-');}
+
+  function showMsg(texto,tipo){
+    var el=document.getElementById('ag-modalMsg');
+    el.className='uform-msg'+(tipo?' '+tipo:'');
+    el.textContent=texto||'';
+  }
+
+  function nomeCliente(id){var c=clientesMap[id];return c?(c['Nome Razao Social']||c.Nome||id):id||'—';}
+  function nomeVendedor(id){var v=vendedoresMap[id];return v?(v.Nome||id):id||'—';}
+  function nomeServico(id){var s=servicosMap[id];return s?(s['Nome Servico']||id):id||'—';}
+
+  var LOGO_DATA_URI='data:image/png;base64,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';
+
+  function ordemTemplate(t){ var o=parseInt(t&&t.Ordem,10); return isNaN(o)?999:o; }
+
+  function respostaTemValor(r){
+    return !!(r&&(String(r.RespostaTexto||'').trim()||String(r.RespostaFoto||'').trim()||String(r.RespostaQuantidade||'').trim()));
+  }
+  function valorDaResposta(r){
+    return r.RespostaFoto||r.RespostaQuantidade||r.RespostaTexto||'';
+  }
+
+  function garantirRespostas(idAgendamento){
+    if(respostasCarregadasPara[idAgendamento])return Promise.resolve();
+    return apiCall('getRespostasAgendamentosVendedor',{idsAgendamentos:[idAgendamento]}).then(function(resp){
+      if(resp&&resp.ok){
+        (resp.respostas||[]).forEach(function(r){
+          if(!r.IdAgendamento)return;
+          if(!respostasPorAgendamento[r.IdAgendamento])respostasPorAgendamento[r.IdAgendamento]=[];
+          respostasPorAgendamento[r.IdAgendamento].push(r);
+        });
+        respostasCarregadasPara[idAgendamento]=true;
+      }
+    }).catch(function(){ /* silencioso — quem chamou trata a ausência de dados */ });
+  }
+
+  function renderRespostasHtml(a){
+    var lista=(respostasPorAgendamento[a.IdAgendamento]||[]).filter(respostaTemValor);
+    if(!lista.length){
+      return '<div style="font-size:12.5px;color:var(--ink-faint);padding:6px 0;">Esse agendamento ainda não tem nenhuma resposta preenchida pelo técnico.</div>';
+    }
+    lista.sort(function(x,y){
+      return ordemTemplate(templatesPorId[x.IdTemplate])-ordemTemplate(templatesPorId[y.IdTemplate]);
+    });
+    return lista.map(function(r){
+      var tpl=templatesPorId[r.IdTemplate];
+      var pergunta=tpl?tpl.TextoPergunta:('Pergunta '+r.IdTemplate);
+      var servTag=(tpl&&tpl.IdServico&&String(tpl.IdServico)!==String(a.IdServico))?('Respondido no serviço: '+nomeServico(tpl.IdServico)):'';
+      var valor=valorDaResposta(r);
+      var isFoto=!!r.RespostaFoto&&/^https?:\/\//.test(r.RespostaFoto);
+      var valorHtml=isFoto?('<img src="'+escapeHtml(r.RespostaFoto)+'" alt="foto" style="max-width:100%;max-height:200px;border-radius:8px;margin-top:6px;display:block;cursor:pointer;">'):('<div style="font-size:13px;color:var(--ink-soft);margin-top:2px;white-space:pre-wrap;">'+escapeHtml(valor)+'</div>');
+      return '<div class="resp-item">'+
+        '<div class="resp-q">'+escapeHtml(pergunta)+'</div>'+
+        (servTag?'<div class="resp-servtag">'+escapeHtml(servTag)+'</div>':'')+
+        valorHtml+
+      '</div>';
+    }).join('');
+  }
+
+  /**
+   * Atualização "otimista": muda a linha da tabela e o painel na hora, sem
+   * esperar o servidor — se der erro, desfaz e avisa.
+   */
+  function salvarStatusOtimista(a,novoStatus,btn){
+    var statusAnterior=a['Status Agendamento'];
+    a['Status Agendamento']=novoStatus;
+    render();
+    if(agendamentoAtual&&agendamentoAtual.IdAgendamento===a.IdAgendamento)atualizarPainelStatus(a);
+    if(btn)btn.disabled=true;
+    apiCall('atualizarStatusAgendamento',{solicitanteId:meuId(),idAgendamento:a.IdAgendamento,status:novoStatus}).then(function(resp){
+      if(btn)btn.disabled=false;
+      if(!resp||!resp.ok){
+        a['Status Agendamento']=statusAnterior; render();
+        if(agendamentoAtual&&agendamentoAtual.IdAgendamento===a.IdAgendamento)atualizarPainelStatus(a);
+        showAgToast((resp&&resp.erro)||'Não foi possível salvar — status desfeito.',true);
+        return;
+      }
+      showAgToast('Status atualizado.');
+    }).catch(function(err){
+      if(btn)btn.disabled=false;
+      a['Status Agendamento']=statusAnterior; render();
+      if(agendamentoAtual&&agendamentoAtual.IdAgendamento===a.IdAgendamento)atualizarPainelStatus(a);
+      showAgToast('Erro de conexão — status desfeito: '+err.message,true);
+    });
+  }
+
+  function atualizarPainelStatus(a){
+    var status=(a['Status Agendamento']||'Agendado').trim();
+    var badge=document.querySelector('#agendamentoDetalhe .ag-status-tag');
+    if(badge){ badge.className='ag-status-tag '+statusSlug(status); badge.textContent=status; }
+    var sel=document.getElementById('ad-statusSelect');
+    if(sel)sel.value=status;
+  }
+
+  function showAgToast(texto,erro){
+    var el=document.getElementById('ag-toast');
+    if(!el){
+      el=document.createElement('div');
+      el.id='ag-toast';
+      el.style.cssText='position:fixed;left:14px;right:14px;bottom:14px;max-width:420px;margin:0 auto;background:var(--sidebar-bg);color:#fff;padding:13px 16px;border-radius:11px;font-size:13px;z-index:200;box-shadow:0 10px 30px rgba(0,0,0,.3);transition:opacity .2s;';
+      document.body.appendChild(el);
+    }
+    el.style.background=erro?'var(--debit)':'var(--sidebar-bg)';
+    el.textContent=texto;
+    el.style.opacity='1';
+    clearTimeout(el._t);
+    el._t=setTimeout(function(){ el.style.opacity='0'; },2800);
+  }
+
+  function abrirPainelDetalhe(idAgendamento){
+    var a=agendamentos.filter(function(x){return String(x.IdAgendamento)===String(idAgendamento);})[0];
+    if(!a)return;
+    agendamentoAtual=a;
+    var cliente=clientesMap[a.IdCliente]||{};
+    var idVend=cliente['Vendedor Responsavel'];
+    var vend=idVend?vendedoresMap[idVend]:null;
+    var dt=parseBRDateTime(a['Data Inicio']);
+    var dataFmt=dt?String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0')+'/'+dt.getFullYear():'—';
+    var status=(a['Status Agendamento']||'Agendado').trim();
+
+    document.getElementById('ad-title').textContent=nomeCliente(a.IdCliente);
+
+    var html='';
+    html+='<div class="ad-section">'+
+      '<span class="ag-status-tag '+statusSlug(status)+'">'+escapeHtml(status)+'</span>'+
+      '<div class="ad-row" style="margin-top:10px;"><span class="dl">Cliente</span><span class="dv">'+escapeHtml(nomeCliente(a.IdCliente))+'</span></div>'+
+      (cliente.Endereco?'<div class="ad-row"><span class="dl">Endereço</span><span class="dv">'+escapeHtml(cliente.Endereco)+'</span></div>':'')+
+      (cliente.Telefone?'<div class="ad-row"><span class="dl">Telefone</span><span class="dv">'+escapeHtml(cliente.Telefone)+'</span></div>':'')+
+      (vend?'<div class="ad-row"><span class="dl">Vendedor</span><span class="dv">'+escapeHtml(vend.Nome||'—')+'</span></div>':'')+
+      (vend&&vend.Telefone?'<div class="ad-row"><span class="dl">Telefone do Vendedor</span><span class="dv">'+escapeHtml(vend.Telefone)+'</span></div>':'')+
+      '<div class="ad-row"><span class="dl">Serviço</span><span class="dv">'+escapeHtml(nomeServico(a.IdServico))+'</span></div>'+
+      '<div class="ad-row"><span class="dl">Técnico</span><span class="dv">'+escapeHtml(nomeVendedor(a.TecnicoResponsavel))+'</span></div>'+
+      '<div class="ad-row"><span class="dl">Data</span><span class="dv">'+dataFmt+'</span></div>'+
+      '<div class="ad-row"><span class="dl">Horário</span><span class="dv">'+escapeHtml((a['Hora inicio']||'—')+' – '+(a['Hora Fim']||'—'))+'</span></div>'+
+      '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line);">'+
+        '<label style="display:block;font-size:11px;font-weight:700;color:var(--ink-soft);margin-bottom:6px;">Editar status manualmente</label>'+
+        '<div style="display:flex;gap:8px;">'+
+          '<select id="ad-statusSelect" style="flex:1;font-size:13px;border:1px solid var(--line);border-radius:9px;padding:9px 10px;background:#fff;color:var(--ink);">'+
+            '<option value="Agendado">Agendado</option>'+
+            '<option value="Em Andamento">Em Andamento</option>'+
+            '<option value="Concluído">Concluído</option>'+
+            '<option value="Cancelado">Cancelado</option>'+
+          '</select>'+
+          '<button type="button" id="ad-statusSalvarBtn" style="flex:none;background:var(--sidebar-bg);color:#fff;border:none;border-radius:9px;padding:0 16px;font-weight:700;font-size:12.5px;cursor:pointer;">Salvar</button>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+
+    if(a['Quantidade de Modulos']||a['Modelo Modulos']||a['Quantidade Inversores']||a['Modelo Inversores']){
+      html+='<div class="ad-section"><h4>Detalhes técnicos</h4>'+
+        (a['Quantidade de Modulos']?'<div class="ad-row"><span class="dl">Qtd. módulos</span><span class="dv">'+escapeHtml(a['Quantidade de Modulos'])+'</span></div>':'')+
+        (a['Modelo Modulos']?'<div class="ad-row"><span class="dl">Modelo módulos</span><span class="dv">'+escapeHtml(a['Modelo Modulos'])+'</span></div>':'')+
+        (a['Quantidade Inversores']?'<div class="ad-row"><span class="dl">Qtd. inversores</span><span class="dv">'+escapeHtml(a['Quantidade Inversores'])+'</span></div>':'')+
+        (a['Modelo Inversores']?'<div class="ad-row"><span class="dl">Modelo inversores</span><span class="dv">'+escapeHtml(a['Modelo Inversores'])+'</span></div>':'')+
+      '</div>';
+    }
+
+    if(a['Observacao Comercial']){
+      html+='<div class="ad-section"><h4>Observação comercial</h4><p style="font-size:13px;color:var(--ink);line-height:1.5;">'+escapeHtml(a['Observacao Comercial'])+'</p></div>';
+    }
+
+    html+='<div class="ad-section"><h4>Respostas do técnico</h4><div id="ad-respostas">'+
+      (respostasCarregadasPara[idAgendamento]?renderRespostasHtml(a):'<div style="font-size:12.5px;color:var(--ink-faint);padding:6px 0;">Carregando respostas…</div>')+
+    '</div></div>';
+
+    document.getElementById('ad-body').innerHTML=html;
+    document.getElementById('ad-statusSelect').value=status;
+    document.getElementById('ad-statusSalvarBtn').addEventListener('click',function(){
+      salvarStatusOtimista(a,document.getElementById('ad-statusSelect').value,document.getElementById('ad-statusSalvarBtn'));
+    });
+    document.getElementById('ad-body').addEventListener('click',function(e){
+      if(e.target.tagName==='IMG')window.open(e.target.src,'_blank');
+    });
+
+    document.getElementById('agendamentoDetalhe').classList.add('active');
+    document.getElementById('adBackdrop').classList.add('active');
+
+    if(!respostasCarregadasPara[idAgendamento]){
+      garantirRespostas(idAgendamento).then(function(){
+        if(!agendamentoAtual||agendamentoAtual.IdAgendamento!==idAgendamento)return;
+        var secao=document.getElementById('ad-respostas');
+        if(secao)secao.innerHTML=renderRespostasHtml(a);
+      });
+    }
+  }
+
+  function fecharPainelDetalhe(){
+    document.getElementById('agendamentoDetalhe').classList.remove('active');
+    document.getElementById('adBackdrop').classList.remove('active');
+    agendamentoAtual=null;
+  }
+
+  function gerarPdfRespostas(){
+    if(!agendamentoAtual)return;
+    var idAgendamento=agendamentoAtual.IdAgendamento;
+    var a=agendamentoAtual;
+    var cliente=clientesMap[a.IdCliente]||{};
+    var lista=(respostasPorAgendamento[idAgendamento]||[]).filter(respostaTemValor);
+    lista.sort(function(x,y){
+      return ordemTemplate(templatesPorId[x.IdTemplate])-ordemTemplate(templatesPorId[y.IdTemplate]);
+    });
+    var dt=parseBRDateTime(a['Data Inicio']);
+    var dataFmt=dt?String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0')+'/'+dt.getFullYear():'—';
+
+    var linhas=lista.map(function(r){
+      var tpl=templatesPorId[r.IdTemplate];
+      var pergunta=tpl?tpl.TextoPergunta:('Pergunta '+r.IdTemplate);
+      var isFoto=!!r.RespostaFoto&&/^https?:\/\//.test(r.RespostaFoto);
+      var valorHtml=isFoto
+        ?('<img src="'+r.RespostaFoto+'" style="max-width:280px;max-height:280px;border-radius:8px;border:1px solid #dde8dd;display:block;margin-top:6px;">')
+        :('<div>'+escapeHtml(valorDaResposta(r))+'</div>');
+      return '<div style="padding:10px 0;border-bottom:1px solid #eee;"><div style="font-weight:700;font-size:13px;margin-bottom:4px;">'+escapeHtml(pergunta)+'</div>'+valorHtml+'</div>';
+    }).join('');
+
+    var htmlDoc='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">'+
+      '<title>Relatorio de Atendimento - '+escapeHtml(nomeCliente(a.IdCliente))+'</title>'+
+      '<style>'+
+      "body{font-family:'Helvetica Neue',Arial,sans-serif;color:#1E1E1E;padding:24px;}"+
+      '.letterhead{text-align:center;padding:10px 0 14px;}'+
+      '.letterhead img{height:52px;}'+
+      '.letterhead-bar{height:4px;background:#78D800;margin-bottom:24px;}'+
+      'h1{font-size:18px;margin-bottom:4px;}'+
+      '.sub{font-size:12px;color:#5a6b5a;margin-bottom:18px;}'+
+      '.infobox{background:#F2F7F2;border-radius:8px;padding:14px 16px;margin-bottom:22px;font-size:13px;}'+
+      '.infobox div{margin-bottom:4px;}'+
+      '@media print{@page{margin:1.5cm;}}'+
+      '</style></head><body>'+
+      '<div class="letterhead"><img src="'+LOGO_DATA_URI+'" alt="Solar Green Suporte"></div>'+
+      '<div class="letterhead-bar"></div>'+
+      '<h1>Relatório de Atendimento</h1>'+
+      '<div class="sub">Gerado em '+new Date().toLocaleDateString('pt-BR')+'</div>'+
+      '<div class="infobox">'+
+        '<div><strong>Cliente:</strong> '+escapeHtml(nomeCliente(a.IdCliente))+'</div>'+
+        (cliente.Endereco?('<div><strong>Endereço:</strong> '+escapeHtml(cliente.Endereco)+'</div>'):'')+
+        '<div><strong>Serviço:</strong> '+escapeHtml(nomeServico(a.IdServico))+'</div>'+
+        '<div><strong>Técnico:</strong> '+escapeHtml(nomeVendedor(a.TecnicoResponsavel))+'</div>'+
+        '<div><strong>Data:</strong> '+dataFmt+' · '+escapeHtml((a['Hora inicio']||'—')+' – '+(a['Hora Fim']||'—'))+'</div>'+
+        '<div><strong>Status:</strong> '+escapeHtml(a['Status Agendamento']||'Agendado')+'</div>'+
+      '</div>'+
+      (linhas||'<p>Nenhuma resposta preenchida.</p>')+
+      '</body></html>';
+
+    var win=window.open('','_blank');
+    win.document.write(htmlDoc);
+    win.document.close();
+    setTimeout(function(){win.print();},500);
+  }
+
+  function getFiltered(){
+    var from=document.getElementById('ag-dateFrom').value,to=document.getElementById('ag-dateTo').value;
+    var tecnico=document.getElementById('ag-selTecnico').value;
+    var statusBtn=document.querySelector('#view-agendamentos .stage-pill.active');
+    var status=statusBtn?statusBtn.getAttribute('data-agstatus'):'__all__';
+    return agendamentos.filter(function(a){
+      var dt=parseBRDateTime(a['Data Inicio']); var dk=dt?dateKey(dt):null;
+      if(from&&dk&&dk<from)return false; if(to&&dk&&dk>to)return false;
+      if(tecnico!=='__all__'&&String(a.TecnicoResponsavel)!==tecnico)return false;
+      if(status!=='__all__'&&(a['Status Agendamento']||'').trim()!==status)return false;
+      return true;
+    }).sort(function(a,b){
+      var da=parseBRDateTime(a['Data Inicio']),db=parseBRDateTime(b['Data Inicio']);
+      return (db?db.getTime():0)-(da?da.getTime():0);
+    });
+  }
+
+  function temRespostas(idAgendamento){
+    var lista=respostasPorAgendamento[idAgendamento]||[];
+    return lista.some(respostaTemValor);
+  }
+
+  function renderPaginacaoAg(totalPaginas){
+    var el=document.getElementById('ag-paginacao');
+    if(!el)return;
+    if(totalPaginas<=1){ el.innerHTML=''; return; }
+    el.innerHTML=
+      '<button type="button" id="ag-pgAnterior" '+(paginaAtual<=1?'disabled':'')+'>‹ Anterior</button>'+
+      '<span class="pg-info">Página '+paginaAtual+' de '+totalPaginas+'</span>'+
+      '<button type="button" id="ag-pgProxima" '+(paginaAtual>=totalPaginas?'disabled':'')+'>Próxima ›</button>';
+    var btnAnt=document.getElementById('ag-pgAnterior');
+    if(btnAnt)btnAnt.addEventListener('click',function(){ if(paginaAtual>1){ paginaAtual--; render(); } });
+    var btnProx=document.getElementById('ag-pgProxima');
+    if(btnProx)btnProx.addEventListener('click',function(){ if(paginaAtual<totalPaginas){ paginaAtual++; render(); } });
+  }
+
+  function render(){
+    var tbody=document.getElementById('ag-tbody');
+    var filtrados=getFiltered();
+    if(!filtrados.length){
+      tbody.innerHTML='';
+      renderPaginacaoAg(0);
+      document.getElementById('ag-emptyState').style.display='block';
+      document.getElementById('ag-emptyState').querySelector('p').textContent='Nenhum agendamento no filtro selecionado.';
+      return;
+    }
+    document.getElementById('ag-emptyState').style.display='none';
+
+    var totalPaginas=Math.max(1,Math.ceil(filtrados.length/ITENS_POR_PAGINA));
+    if(paginaAtual>totalPaginas)paginaAtual=totalPaginas;
+    if(paginaAtual<1)paginaAtual=1;
+    var inicio=(paginaAtual-1)*ITENS_POR_PAGINA;
+    var pagina=filtrados.slice(inicio,inicio+ITENS_POR_PAGINA);
+
+    tbody.innerHTML=pagina.map(function(a){
+      var dt=parseBRDateTime(a['Data Inicio']);
+      var dataFmt=dt?String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0')+'/'+dt.getFullYear():'—';
+      var horario=(a['Hora inicio']||'—')+' – '+(a['Hora Fim']||'—');
+      var status=(a['Status Agendamento']||'Agendado').trim();
+      return '<tr class="ag-row-click" data-id="'+escapeHtml(a.IdAgendamento)+'">'+
+        '<td>'+escapeHtml(nomeCliente(a.IdCliente))+'</td>'+
+        '<td>'+escapeHtml(nomeServico(a.IdServico))+'</td>'+
+        '<td>'+escapeHtml(nomeVendedor(a.TecnicoResponsavel))+'</td>'+
+        '<td>'+dataFmt+'<br><span style="color:var(--ink-faint);font-size:11px;">'+escapeHtml(horario)+'</span></td>'+
+        '<td><span class="ag-status-tag '+statusSlug(status)+'">'+escapeHtml(status)+'</span></td>'+
+        '<td class="u-row-actions"><button data-id="'+escapeHtml(a.IdAgendamento)+'" class="ag-editar-btn">editar</button></td>'+
+      '</tr>';
+    }).join('');
+    tbody.querySelectorAll('.ag-row-click').forEach(function(tr){
+      tr.addEventListener('click',function(){ abrirPainelDetalhe(tr.getAttribute('data-id')); });
+    });
+    tbody.querySelectorAll('.ag-editar-btn').forEach(function(btn){
+      btn.addEventListener('click',function(e){ e.stopPropagation(); openModal(btn.getAttribute('data-id')); });
+    });
+    renderPaginacaoAg(totalPaginas);
+  }
+
+  function populateSelects(){
+    var selCliente=document.getElementById('ag-idCliente');
+    selCliente.innerHTML='<option value="">— Selecionar cliente…</option>'+
+      Object.keys(clientesMap).map(function(id){return clientesMap[id];})
+        .sort(function(a,b){return (a['Nome Razao Social']||'').localeCompare(b['Nome Razao Social']||'','pt-BR');})
+        .map(function(c){return '<option value="'+escapeHtml(c.IdCliente)+'">'+escapeHtml(c['Nome Razao Social']||c.Nome||c.IdCliente)+'</option>';}).join('');
+
+    var selServico=document.getElementById('ag-idServico');
+    selServico.innerHTML='<option value="">— Selecionar serviço…</option>'+
+      Object.keys(servicosMap).map(function(id){return servicosMap[id];})
+        .sort(function(a,b){return (a['Nome Servico']||'').localeCompare(b['Nome Servico']||'','pt-BR');})
+        .map(function(s){return '<option value="'+escapeHtml(s.IdServico)+'">'+escapeHtml(s['Nome Servico']||s.IdServico)+'</option>';}).join('');
+
+    var vendedoresLista=Object.keys(vendedoresMap).map(function(id){return vendedoresMap[id];})
+      .filter(function(v){return (v.Status||'').trim().toLowerCase()!=='inativo';})
+      .sort(function(a,b){return (a.Nome||'').localeCompare(b.Nome||'','pt-BR');});
+
+    var selTecnicoModal=document.getElementById('ag-tecnico');
+    selTecnicoModal.innerHTML='<option value="">— Selecionar técnico…</option>'+
+      vendedoresLista.map(function(v){return '<option value="'+escapeHtml(v.IdVendedor)+'">'+escapeHtml(v.Nome)+(v.Tipo?' · '+escapeHtml(v.Tipo):'')+'</option>';}).join('');
+
+    var selTecnicoFiltro=document.getElementById('ag-selTecnico'),curT=selTecnicoFiltro.value||'__all__';
+    selTecnicoFiltro.innerHTML='<option value="__all__">Todos os técnicos</option>'+
+      vendedoresLista.map(function(v){return '<option value="'+escapeHtml(v.IdVendedor)+'">'+escapeHtml(v.Nome)+'</option>';}).join('');
+    selTecnicoFiltro.value=curT;
+  }
+
+  function openModal(idAgendamento){
+    editandoId=idAgendamento||null;
+    showMsg('');
+    var a=idAgendamento?agendamentos.filter(function(x){return String(x.IdAgendamento)===String(idAgendamento);})[0]:null;
+    servicoOriginalEdicao=a?a.IdServico:null;
+    document.getElementById('agendamentoModalTitle').textContent=a?'Editar agendamento':'Novo agendamento';
+    document.getElementById('ag-idCliente').value=a?(a.IdCliente||''):'';
+    document.getElementById('ag-idServico').value=a?(a.IdServico||''):'';
+    document.getElementById('ag-tecnico').value=a?(a.TecnicoResponsavel||''):'';
+    var dt=a?parseBRDateTime(a['Data Inicio']):null;
+    document.getElementById('ag-dataInicio').value=dt?dateKey(dt):'';
+    document.getElementById('ag-horaInicio').value=a?(a['Hora inicio']||''):'';
+    document.getElementById('ag-horaFim').value=a?(a['Hora Fim']||''):'';
+    document.getElementById('ag-qtdModulos').value=a?(a['Quantidade de Modulos']||''):'';
+    document.getElementById('ag-modeloModulos').value=a?(a['Modelo Modulos']||''):'';
+    document.getElementById('ag-qtdInversores').value=a?(a['Quantidade Inversores']||''):'';
+    document.getElementById('ag-modeloInversores').value=a?(a['Modelo Inversores']||''):'';
+    document.getElementById('ag-observacao').value=a?(a['Observacao Comercial']||''):'';
+    document.getElementById('ag-statusField').style.display=a?'block':'none';
+    document.getElementById('ag-status').value=a?(a['Status Agendamento']||'Agendado'):'Agendado';
+    document.getElementById('ag-servicoWarn').textContent='';
+    document.getElementById('agendamentoModal').classList.remove('hidden');
+    if(idAgendamento)garantirRespostas(idAgendamento);
+  }
+  function closeModal(){ document.getElementById('agendamentoModal').classList.add('hidden'); editandoId=null; servicoOriginalEdicao=null; }
+
+  function contarRespostasDoServico(idAgendamento,idServico){
+    var templates=templatesPorServico[idServico]||[];
+    if(!templates.length)return 0;
+    var idsTemplate={}; templates.forEach(function(t){idsTemplate[t.IdTemplate]=true;});
+    var respostas=respostasPorAgendamento[idAgendamento]||[];
+    return respostas.filter(function(r){return idsTemplate[r.IdTemplate]&&respostaTemValor(r);}).length;
+  }
+
+  document.getElementById('ag-idServico').addEventListener('change',function(){
+    var warnEl=document.getElementById('ag-servicoWarn');
+    warnEl.className='uform-msg'; warnEl.textContent='';
+    if(!editandoId||!servicoOriginalEdicao)return;
+    var novoServico=document.getElementById('ag-idServico').value;
+    if(novoServico===servicoOriginalEdicao)return;
+    var qtd=contarRespostasDoServico(editandoId,servicoOriginalEdicao);
+    if(qtd>0){
+      warnEl.className='uform-msg success';
+      warnEl.textContent='ℹ Esse agendamento já tem '+qtd+' resposta(s) preenchida(s) pro serviço anterior. Elas continuam salvas e o técnico vai continuar vendo essas respostas na tela dele, junto com as novas perguntas do serviço "'+escapeHtml(nomeServico(novoServico))+'".';
+    }
+  });
+
+
+
+  function salvar(){
+    var idCliente=document.getElementById('ag-idCliente').value;
+    var idServico=document.getElementById('ag-idServico').value;
+    var tecnico=document.getElementById('ag-tecnico').value;
+    var dataInicio=document.getElementById('ag-dataInicio').value;
+    if(!idCliente||!idServico||!tecnico||!dataInicio){ showMsg('Cliente, serviço, técnico e data são obrigatórios.','error'); return; }
+
+    var btn=document.getElementById('ag-salvarBtn');
+    btn.disabled=true; btn.textContent='Salvando…';
+    apiCall('salvarAgendamento',{
+      solicitanteId: meuId(),
+      idAgendamento: editandoId,
+      idCliente: idCliente, idServico: idServico, tecnicoResponsavel: tecnico,
+      dataInicio: dataInicio,
+      horaInicio: document.getElementById('ag-horaInicio').value,
+      horaFim: document.getElementById('ag-horaFim').value,
+      quantidadeModulos: document.getElementById('ag-qtdModulos').value,
+      modeloModulos: document.getElementById('ag-modeloModulos').value,
+      quantidadeInversores: document.getElementById('ag-qtdInversores').value,
+      modeloInversores: document.getElementById('ag-modeloInversores').value,
+      observacaoComercial: document.getElementById('ag-observacao').value,
+      statusAgendamento: editandoId?document.getElementById('ag-status').value:'Agendado'
+    }).then(function(resp){
+      btn.disabled=false; btn.textContent='Salvar agendamento';
+      if(!resp||!resp.ok){ showMsg((resp&&resp.erro)||'Não foi possível salvar.','error'); return; }
+      closeModal();
+      carregar();
+    }).catch(function(err){
+      btn.disabled=false; btn.textContent='Salvar agendamento';
+      showMsg('Erro de conexão: '+err.message,'error');
+    });
+  }
+
+  function setDefaultRange(){
+    document.getElementById('ag-dateFrom').value='';
+    document.getElementById('ag-dateTo').value='';
+  }
+
+  function carregar(){
+    apiCall('getAgendamentosData',{}).then(function(resp){
+      if(!resp||!resp.ok){
+        document.getElementById('ag-emptyState').style.display='block';
+        document.getElementById('ag-emptyState').querySelector('p').textContent=(resp&&resp.erro)||'Não foi possível carregar os agendamentos.';
+        return;
+      }
+      agendamentos=resp.agendamentos||[];
+      clientesMap={}; (resp.clientes||[]).forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
+      vendedoresMap={}; (resp.vendedores||[]).forEach(function(v){if(v.IdVendedor)vendedoresMap[v.IdVendedor]=v;});
+      servicosMap={}; (resp.servicos||[]).forEach(function(s){if(s.IdServico)servicosMap[s.IdServico]=s;});
+      templatesPorServico={};
+      templatesPorId={};
+      (resp.templates||[]).forEach(function(t){
+        if(t.IdTemplate)templatesPorId[t.IdTemplate]=t;
+        if(!t.IdServico)return;
+        if(!templatesPorServico[t.IdServico])templatesPorServico[t.IdServico]=[];
+        templatesPorServico[t.IdServico].push(t);
+      });
+      respostasPorAgendamento={};
+      respostasCarregadasPara={};
+      (resp.respostas||[]).forEach(function(r){
+        if(!r.IdAgendamento)return;
+        if(!respostasPorAgendamento[r.IdAgendamento])respostasPorAgendamento[r.IdAgendamento]=[];
+        respostasPorAgendamento[r.IdAgendamento].push(r);
+      });
+      paginaAtual=1;
+      populateSelects();
+      document.getElementById('ag-lastUpdate').textContent='Atualizado em '+new Date().toLocaleDateString('pt-BR')+' às '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+      render();
+    }).catch(function(err){
+      document.getElementById('ag-emptyState').style.display='block';
+      document.getElementById('ag-emptyState').querySelector('p').textContent='Erro de conexão: '+err.message;
+    });
+  }
+
+  function init(){
+    if(_initialized)return;
+    if(!window.SG_SESSION)return;
+    _initialized=true;
+    document.getElementById('ag-appVersion').textContent='v'+(document.getElementById('appVersionFoot')?document.getElementById('appVersionFoot').textContent:'');
+    setDefaultRange();
+
+    document.getElementById('ag-novoBtn').addEventListener('click',function(){ openModal(null); });
+    document.getElementById('ag-cancelBtn').addEventListener('click',closeModal);
+    document.getElementById('ag-salvarBtn').addEventListener('click',salvar);
+    document.getElementById('agendamentoModal').addEventListener('click',function(e){ if(e.target.id==='agendamentoModal')closeModal(); });
+
+    document.getElementById('ad-fecharBtn').addEventListener('click',fecharPainelDetalhe);
+    document.getElementById('adBackdrop').addEventListener('click',fecharPainelDetalhe);
+    document.getElementById('ad-pdfBtn').addEventListener('click',gerarPdfRespostas);
+    document.getElementById('ad-editarBtn').addEventListener('click',function(){
+      if(agendamentoAtual)openModal(agendamentoAtual.IdAgendamento);
+    });
+
+    document.getElementById('ag-dateFrom').addEventListener('change',function(){ paginaAtual=1; render(); });
+    document.getElementById('ag-dateTo').addEventListener('change',function(){ paginaAtual=1; render(); });
+    document.getElementById('ag-selTecnico').addEventListener('change',function(){ paginaAtual=1; render(); });
+    document.querySelectorAll('#view-agendamentos .stage-pill').forEach(function(pill){
+      pill.addEventListener('click',function(){
+        document.querySelectorAll('#view-agendamentos .stage-pill').forEach(function(p){p.classList.remove('active');});
+        pill.classList.add('active'); paginaAtual=1; render();
+      });
+    });
+    document.getElementById('ag-resetFiltros').addEventListener('click',function(){
+      document.getElementById('ag-selTecnico').value='__all__';
+      setDefaultRange();
+      document.querySelectorAll('#view-agendamentos .stage-pill').forEach(function(p){p.classList.remove('active');});
+      document.querySelector('#view-agendamentos .stage-pill[data-agstatus="__all__"]').classList.add('active');
+      document.querySelectorAll('#view-agendamentos .qr-btn[data-agrange]').forEach(function(b){b.classList.remove('active');});
+      document.querySelector('#view-agendamentos .qr-btn[data-agrange="all"]').classList.add('active');
+      paginaAtual=1; render();
+    });
+    document.querySelectorAll('#view-agendamentos .qr-btn[data-agrange]').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        document.querySelectorAll('#view-agendamentos .qr-btn[data-agrange]').forEach(function(b){b.classList.remove('active');});
+        btn.classList.add('active');
+        var range=btn.getAttribute('data-agrange'),now=new Date();
+        function dk(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+        if(range==='all'){ setDefaultRange(); }
+        else if(range==='month'){ document.getElementById('ag-dateFrom').value=dk(new Date(now.getFullYear(),now.getMonth(),1)); document.getElementById('ag-dateTo').value=dk(new Date(now.getFullYear(),now.getMonth()+1,0)); }
+        else { var n=parseInt(range,10),from=new Date(now); from.setDate(from.getDate()-(n-1)); document.getElementById('ag-dateFrom').value=dk(from); document.getElementById('ag-dateTo').value=dk(now); }
+        paginaAtual=1; render();
+      });
+    });
+
+    carregar();
+  }
+
+  window.agendamentosApp={init:init};
+})();
+
+
+// ════ USUÁRIOS (somente administradores) ════
+(function(){
+  var _initialized=false;
+  var usuarios=[];
+  var editandoId=null; // null = criando novo
+
+  function apiCall(action,payload){ return window.SGAuth.apiCall(action,payload); }
+  function meuId(){ return window.SG_SESSION&&window.SG_SESSION.idVendedor; }
+
+  function showMsg(texto,tipo){
+    var el=document.getElementById('u-modalMsg');
+    el.className='uform-msg'+(tipo?' '+tipo:'');
+    el.textContent=texto||'';
+  }
+
+  function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+
+  function render(){
+    var tbody=document.getElementById('u-tbody');
+    if(!usuarios.length){
+      tbody.innerHTML='';
+      document.getElementById('u-emptyState').style.display='block';
+      document.getElementById('u-emptyState').querySelector('p').textContent='Nenhum usuário cadastrado ainda.';
+      return;
+    }
+    document.getElementById('u-emptyState').style.display='none';
+    var ordenados=usuarios.slice().sort(function(a,b){return (a.Nome||'').localeCompare(b.Nome||'','pt-BR');});
+    tbody.innerHTML=ordenados.map(function(u){
+      var statusCls=(u.Status||'').trim().toLowerCase()==='inativo'?'inativo':'ativo';
+      return '<tr>'+
+        '<td>'+escapeHtml(u.Nome)+'</td>'+
+        '<td>'+escapeHtml(u.Email)+'</td>'+
+        '<td>'+escapeHtml(u.Telefone||'—')+'</td>'+
+        '<td>'+escapeHtml(u.Tipo||'—')+'</td>'+
+        '<td><span class="u-status-tag '+statusCls+'">'+escapeHtml(u.Status||'—')+'</span></td>'+
+        '<td class="u-row-actions"><button data-id="'+escapeHtml(u.IdVendedor)+'" class="u-editar-btn">editar</button></td>'+
+      '</tr>';
+    }).join('');
+    tbody.querySelectorAll('.u-editar-btn').forEach(function(btn){
+      btn.addEventListener('click',function(){ openModal(btn.getAttribute('data-id')); });
+    });
+  }
+
+  function carregar(){
+    apiCall('listVendedoresAdmin',{solicitanteId:meuId()}).then(function(resp){
+      if(!resp||!resp.ok){
+        document.getElementById('u-emptyState').style.display='block';
+        document.getElementById('u-emptyState').querySelector('p').textContent=(resp&&resp.erro)||'Não foi possível carregar os usuários.';
+        return;
+      }
+      usuarios=resp.vendedores||[];
+      render();
+    }).catch(function(err){
+      document.getElementById('u-emptyState').style.display='block';
+      document.getElementById('u-emptyState').querySelector('p').textContent='Erro de conexão: '+err.message;
+    });
+  }
+
+  function openModal(idVendedor){
+    editandoId=idVendedor||null;
+    showMsg('');
+    var u=idVendedor?usuarios.filter(function(x){return String(x.IdVendedor)===String(idVendedor);})[0]:null;
+    document.getElementById('usuarioModalTitle').textContent=u?'Editar usuário':'Novo usuário';
+    document.getElementById('u-nome').value=u?(u.Nome||''):'';
+    document.getElementById('u-email').value=u?(u.Email||''):'';
+    document.getElementById('u-telefone').value=u?(u.Telefone||''):'';
+    document.getElementById('u-tipo').value=u?(u.Tipo||''):'';
+    document.getElementById('u-status').value=(u&&u.Status)||'Ativo';
+    document.getElementById('usuarioModal').classList.remove('hidden');
+  }
+  function closeModal(){ document.getElementById('usuarioModal').classList.add('hidden'); editandoId=null; }
+
+  function salvar(){
+    var nome=document.getElementById('u-nome').value.trim();
+    var email=document.getElementById('u-email').value.trim();
+    var telefone=document.getElementById('u-telefone').value.trim();
+    var tipo=document.getElementById('u-tipo').value.trim();
+    var status=document.getElementById('u-status').value;
+    if(!nome||!email){ showMsg('Nome e e-mail são obrigatórios.','error'); return; }
+
+    var btn=document.getElementById('u-salvarBtn');
+    btn.disabled=true; btn.textContent='Salvando…';
+    apiCall('salvarVendedor',{
+      solicitanteId:meuId(), idVendedor:editandoId,
+      nome:nome, email:email, telefone:telefone, tipo:tipo, status:status
+    }).then(function(resp){
+      btn.disabled=false; btn.textContent='Salvar';
+      if(!resp||!resp.ok){ showMsg((resp&&resp.erro)||'Não foi possível salvar.','error'); return; }
+      closeModal();
+      carregar();
+    }).catch(function(err){
+      btn.disabled=false; btn.textContent='Salvar';
+      showMsg('Erro de conexão: '+err.message,'error');
+    });
+  }
+
+  function init(){
+    if(_initialized)return;
+    if(!window.SGAuth||!window.SGAuth.isAdmin())return; // trava extra no front (o backend também recusa)
+    _initialized=true;
+    document.getElementById('u-appVersion').textContent='v'+(document.getElementById('appVersionFoot')?document.getElementById('appVersionFoot').textContent:'');
+    document.getElementById('u-novoBtn').addEventListener('click',function(){ openModal(null); });
+    document.getElementById('u-cancelBtn').addEventListener('click',closeModal);
+    document.getElementById('u-salvarBtn').addEventListener('click',salvar);
+    document.getElementById('usuarioModal').addEventListener('click',function(e){ if(e.target.id==='usuarioModal')closeModal(); });
+    carregar();
+  }
+
+  window.usuariosApp={init:init};
+})();
+
+
 // ════ CONTROLLER ════
 (function(){
-  var views={ponto:document.getElementById('view-ponto'),vendas:document.getElementById('view-vendas'),funil:document.getElementById('view-funil')};
-  var navLinks={ponto:document.getElementById('nav-ponto'),vendas:document.getElementById('nav-vendas'),funil:document.getElementById('nav-funil')};
+  var views={ponto:document.getElementById('view-ponto'),vendas:document.getElementById('view-vendas'),funil:document.getElementById('view-funil'),agendamentos:document.getElementById('view-agendamentos'),usuarios:document.getElementById('view-usuarios')};
+  var navLinks={ponto:document.getElementById('nav-ponto'),vendas:document.getElementById('nav-vendas'),funil:document.getElementById('nav-funil'),agendamentos:document.getElementById('nav-agendamentos'),usuarios:document.getElementById('nav-usuarios')};
   function switchTo(name){
+    if(name==='usuarios'&&(!window.SGAuth||!window.SGAuth.isAdmin()))name='ponto';
     Object.keys(views).forEach(function(k){if(!views[k]||!navLinks[k])return;views[k].classList.toggle('active',k===name);navLinks[k].classList.toggle('active',k===name);});
     localStorage.setItem('sg_active_view',name);
     if(name==='funil'&&window.funilApp)window.funilApp.init();
+    if(name==='agendamentos'&&window.agendamentosApp)window.agendamentosApp.init();
+    if(name==='usuarios'&&window.usuariosApp)window.usuariosApp.init();
   }
   navLinks.ponto.addEventListener('click',function(e){e.preventDefault();switchTo('ponto');});
   navLinks.vendas.addEventListener('click',function(e){e.preventDefault();switchTo('vendas');});
   navLinks.funil.addEventListener('click',function(e){e.preventDefault();switchTo('funil');});
+  if(navLinks.agendamentos)navLinks.agendamentos.addEventListener('click',function(e){e.preventDefault();switchTo('agendamentos');});
+  if(navLinks.usuarios)navLinks.usuarios.addEventListener('click',function(e){e.preventDefault();switchTo('usuarios');});
   var saved=localStorage.getItem('sg_active_view')||'ponto';
   if(!views[saved])saved='ponto';
   switchTo(saved);
