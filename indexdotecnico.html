@@ -158,6 +158,10 @@
   .det-actions button{width:100%;border:none;border-radius:11px;padding:14px;font-weight:800;font-size:14px;cursor:pointer;}
   .btn-start{background:var(--accent);color:#003122;}
   .btn-finish{background:var(--sidebar-bg);color:#fff;}
+  .btn-finish:disabled{background:var(--line-strong,#ccc);color:var(--ink-faint);cursor:not-allowed;opacity:.7;}
+  .obrig-progress{font-size:12px;text-align:center;padding:4px 0;color:var(--ink-faint);font-weight:600;}
+  .obrig-progress.completo{color:var(--accent-deep);}
+  .obrig-progress:empty{display:none;}
   .btn-cancel-link{background:none;color:var(--debit);text-decoration:underline;font-weight:600;font-size:12.5px;padding:6px;}
   .btn-save-draft{background:#fff;color:var(--ink);border:1px solid var(--line)!important;}
 
@@ -173,7 +177,7 @@
 
   .form-field{margin-bottom:16px;}
   .form-field label{display:block;font-size:13px;font-weight:700;color:var(--ink);margin-bottom:7px;line-height:1.35;}
-  .form-field label .req{color:var(--debit);margin-left:2px;}
+  .form-field label .req{color:var(--debit);margin-left:2px;font-weight:900;}
   .form-field textarea,.form-field input[type=number],.form-field select{
     width:100%;font-size:14px;border:1px solid var(--line);border-radius:9px;padding:11px 12px;background:#fff;color:var(--ink);
   }
@@ -187,6 +191,7 @@
   .photo-field.filled{border-style:solid;border-color:var(--accent);padding:8px;}
   .photo-field img{max-width:100%;max-height:220px;border-radius:8px;display:block;margin:0 auto 8px;}
   .photo-field .ph-btn{display:inline-block;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 16px;font-size:12.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;}
+  .photo-field .ph-btn-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
   .photo-field input[type=file]{display:none;}
   .photo-field .ph-status{font-size:11px;color:var(--ink-faint);margin-top:6px;}
   .field-status{font-size:11px;color:var(--ink-faint);margin-top:5px;min-height:14px;}
@@ -861,6 +866,19 @@ var SGAuth=(function(){
   var paginaGeracaoAtual=0;
 
   function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+
+  /**
+   * A coluna "Obrigatorio" da aba Templates é uma caixa de seleção (checkbox)
+   * do Google Sheets — o Apps Script lê isso como um BOOLEANO true/false, não
+   * como o texto "VERDADEIRO"/"FALSO" que aparece na planilha. Essa função
+   * reconhece os dois formatos, pra nunca depender de qual dos dois vier.
+   */
+  function isObrigatorio(valor){
+    if(valor===true)return true;
+    if(valor===false||valor===undefined||valor===null||valor==='')return false;
+    var s=String(valor).trim().toUpperCase();
+    return s==='VERDADEIRO'||s==='TRUE'||s==='SIM'||s==='1';
+  }
   function statusSlug(s){return (s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'-');}
   function statusLabelDisplay(status){
     var s=(status||'').trim();
@@ -1175,7 +1193,7 @@ var SGAuth=(function(){
 
   function campoHtml(tpl,idAgendamento){
     var tipo=(tpl.TipoInput||'Texto').trim();
-    var obrig=String(tpl.Obrigatorio||'').trim().toUpperCase()==='VERDADEIRO';
+    var obrig=isObrigatorio(tpl.Obrigatorio);
     var reqMark=obrig?'<span class="req">*</span>':'';
     var valorAtual=respostaAtual(idAgendamento,tpl.IdTemplate,tipo);
     var fid='campo_'+tpl.IdTemplate;
@@ -1189,8 +1207,13 @@ var SGAuth=(function(){
         '<label>'+escapeHtml(tpl.TextoPergunta)+reqMark+'</label>'+servTag+
         '<div class="photo-field'+(temFoto?' filled':'')+'" id="ph-'+fid+'">'+
           (temFoto?'<img src="'+escapeHtml(valorAtual)+'" alt="foto">':'')+
-          '<label class="ph-btn" for="'+fid+'">'+(temFoto?'Trocar foto':'📷 Tirar / escolher foto')+'</label>'+
-          '<input type="file" accept="image/*" id="'+fid+'">'+
+          '<div class="ph-btn-row">'+
+            '<label class="ph-btn" for="'+fid+'_cam">📷 Tirar foto</label>'+
+            '<label class="ph-btn" for="'+fid+'_gal">🖼 Galeria</label>'+
+          '</div>'+
+          (temFoto?'<div class="ph-status" style="margin-top:4px;">Trocar: escolha uma opção acima</div>':'')+
+          '<input type="file" accept="image/*" capture="environment" id="'+fid+'_cam" data-target="'+fid+'">'+
+          '<input type="file" accept="image/*" id="'+fid+'_gal" data-target="'+fid+'">'+
           '<div class="ph-status" id="phs-'+fid+'"></div>'+
         '</div>'+
       '</div>';
@@ -1259,6 +1282,7 @@ var SGAuth=(function(){
         statusEl.textContent='Salvo ✓';
         setTimeout(function(){ if(statusEl&&statusEl.textContent==='Salvo ✓')statusEl.textContent=''; },2000);
       }
+      atualizarProgressoObrigatorios();
       if(resp.novoStatus)aplicarNovoStatusLocal(resp.novoStatus);
     }).catch(function(err){
       if(statusEl){
@@ -1308,6 +1332,7 @@ var SGAuth=(function(){
       };
       campo.addEventListener('input',function(){
         if(statusEl){ statusEl.className='field-status'; statusEl.textContent='digitando…'; }
+        atualizarProgressoObrigatorios();
         clearTimeout(debounceTimers[idTemplate]);
         debounceTimers[idTemplate]=setTimeout(salvarAgora,900);
       });
@@ -1323,7 +1348,8 @@ var SGAuth=(function(){
         if(!file)return;
         var row=input.closest('.form-field');
         var idTemplate=row.getAttribute('data-tpl');
-        var statusEl=document.getElementById('phs-'+input.id);
+        var target=input.getAttribute('data-target');
+        var statusEl=document.getElementById('phs-'+target);
         statusEl.textContent='Preparando foto…';
         comprimirImagem(file,1600,0.8).then(function(blob){
           statusEl.textContent='Enviando foto… ('+Math.round(blob.size/1024)+' KB)';
@@ -1338,13 +1364,13 @@ var SGAuth=(function(){
               var atual=respostasMap[idAgendamento+'|'+idTemplate]||{};
               atual.RespostaFoto=resp.url;
               respostasMap[idAgendamento+'|'+idTemplate]=atual;
-              var box=document.getElementById('ph-'+input.id);
+              var box=document.getElementById('ph-'+target);
               box.classList.add('filled');
               var img=box.querySelector('img');
               if(!img){ img=document.createElement('img'); box.insertBefore(img,box.firstChild); }
               img.src=resp.url;
-              box.querySelector('.ph-btn').textContent='Trocar foto';
               statusEl.textContent='Foto enviada ✓';
+              atualizarProgressoObrigatorios();
               if(resp.novoStatus)aplicarNovoStatusLocal(resp.novoStatus);
             }).catch(function(err){ statusEl.textContent='Erro de conexão: '+err.message; });
           };
@@ -1409,6 +1435,8 @@ var SGAuth=(function(){
 
   function respostaRowHtml(tpl,a){
     var tipo=(tpl.TipoInput||'Texto').trim();
+    var obrig=isObrigatorio(tpl.Obrigatorio);
+    var reqMark=obrig?'<span class="req">*</span>':'';
     var valor=respostaAtual(a.IdAgendamento,tpl.IdTemplate,tipo);
     var servTag=(tpl.IdServico&&String(tpl.IdServico)!==String(a.IdServico))
       ?(' <span style="color:var(--ink-faint);font-weight:600;">· '+escapeHtml(nomeServico(tpl.IdServico))+'</span>')
@@ -1427,7 +1455,7 @@ var SGAuth=(function(){
     }
     return '<div class="resp-row" style="padding:11px 0;border-bottom:1px solid var(--bg);">'+
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">'+
-        '<div style="font-weight:700;font-size:13px;">'+escapeHtml(tpl.TextoPergunta)+servTag+'</div>'+
+        '<div style="font-weight:700;font-size:13px;">'+escapeHtml(tpl.TextoPergunta)+reqMark+servTag+'</div>'+
         '<button type="button" class="resp-edit-btn" data-tpl="'+escapeHtml(tpl.IdTemplate)+'" style="background:none;border:none;color:var(--accent-deep);font-size:11.5px;font-weight:700;text-decoration:underline;cursor:pointer;flex:none;padding:2px;">editar</button>'+
       '</div>'+
       preview+
@@ -1478,6 +1506,7 @@ var SGAuth=(function(){
       var wrap=document.getElementById('pendentes-wrap');
       wrap.classList.toggle('hidden');
       wireCampoEvents(idAgendamento,wrap);
+      atualizarProgressoObrigatorios();
     });
     document.querySelectorAll('.resp-edit-btn').forEach(function(btn){
       btn.addEventListener('click',function(){
@@ -1493,6 +1522,7 @@ var SGAuth=(function(){
         }
         slot.classList.toggle('hidden');
         btn.textContent=slot.classList.contains('hidden')?'editar':'fechar';
+        atualizarProgressoObrigatorios();
       });
     });
   }
@@ -1515,6 +1545,13 @@ var SGAuth=(function(){
       '<div class="det-row" style="margin-top:12px;"><span class="dl">Cliente</span><span class="dv">'+escapeHtml(nomeCliente(a.IdCliente))+'</span></div>'+
       (cliente.Endereco?'<div class="det-row"><span class="dl">Endereço</span><span class="dv">'+escapeHtml(cliente.Endereco)+'</span></div>':'')+
       (cliente.Telefone?'<div class="det-row"><span class="dl">Telefone</span><span class="dv">'+escapeHtml(cliente.Telefone)+'</span></div>':'')+
+      (function(){
+        var idVend=cliente['Vendedor Responsavel'];
+        var vend=idVend?vendedoresMap[idVend]:null;
+        if(!vend)return '';
+        return '<div class="det-row"><span class="dl">Vendedor</span><span class="dv">'+escapeHtml(vend.Nome||'—')+'</span></div>'+
+          (vend.Telefone?'<div class="det-row"><span class="dl">Telefone do Vendedor</span><span class="dv">'+escapeHtml(vend.Telefone)+'</span></div>':'');
+      })()+
       '<div class="det-row"><span class="dl">Serviço</span><span class="dv">'+escapeHtml(nomeServico(a.IdServico))+'</span></div>'+
       (servico.TipoServico?'<div class="det-row"><span class="dl">Tipo</span><span class="dv">'+escapeHtml(servico.TipoServico)+'</span></div>':'')+
       '<div class="det-row"><span class="dl">Data</span><span class="dv">'+dataFmt+'</span></div>'+
@@ -1559,6 +1596,13 @@ var SGAuth=(function(){
     document.getElementById('status-manual').value=(a['Status Agendamento']||'Agendado').trim();
     document.getElementById('btn-salvar-status').addEventListener('click',function(){
       var novoStatus=document.getElementById('status-manual').value;
+      if(statusSlug(novoStatus)==='concluido'){
+        var st=computeObrigStatus(a);
+        if(st.total>0&&st.preenchidos<st.total){
+          showToast('Faltam '+(st.total-st.preenchidos)+' campo(s) obrigatório(s) — preencha antes de marcar como Concluído.',true);
+          return;
+        }
+      }
       salvarStatusOtimista(a,novoStatus,document.getElementById('btn-salvar-status'));
     });
     wireCampoEvents(a.IdAgendamento);
@@ -1577,8 +1621,45 @@ var SGAuth=(function(){
         if(secao)secao.outerHTML=renderFormulario(a);
         wireCampoEvents(a.IdAgendamento);
         wireRespostasCard(a.IdAgendamento);
+        atualizarProgressoObrigatorios(); // as respostas só chegaram agora — recalcula o contador e o botão
       });
     }
+  }
+
+  function computeObrigStatus(a){
+    var templates=(templatesPorServico[a.IdServico]||[]).filter(function(t){
+      return isObrigatorio(t.Obrigatorio);
+    });
+    var total=templates.length, preenchidos=0, faltando=[];
+    templates.forEach(function(t){
+      var tipo=(t.TipoInput||'Texto').trim();
+      var valor;
+      if(tipo==='Foto'){
+        valor=respostaAtual(a.IdAgendamento,t.IdTemplate,'Foto');
+      }else{
+        var el=document.getElementById('campo_'+t.IdTemplate);
+        valor=el?el.value.trim():respostaAtual(a.IdAgendamento,t.IdTemplate,tipo);
+      }
+      if(valor&&String(valor).trim()!==''){ preenchidos++; } else { faltando.push(t.TextoPergunta); }
+    });
+    return {total:total,preenchidos:preenchidos,faltando:faltando};
+  }
+
+  function atualizarProgressoObrigatorios(){
+    if(!agendamentoAtual)return;
+    var st=computeObrigStatus(agendamentoAtual);
+    var el=document.getElementById('obrig-progress');
+    if(el){
+      if(st.total===0){
+        el.textContent='';
+      }else{
+        var completo=st.preenchidos>=st.total;
+        el.textContent=(completo?'✓ ':'')+st.preenchidos+'/'+st.total+' campos obrigatórios preenchidos';
+        el.className='obrig-progress'+(completo?' completo':'');
+      }
+    }
+    var btnConcluir=document.getElementById('btn-concluir');
+    if(btnConcluir)btnConcluir.disabled=(st.total>0&&st.preenchidos<st.total);
   }
 
   function montarAcoes(a,statusNorm){
@@ -1590,7 +1671,8 @@ var SGAuth=(function(){
     if(statusNorm==='concluido'||statusNorm==='cancelado'){
       div.innerHTML='<button class="btn-save-draft" id="btn-rascunho" style="margin-top:10px;">Salvar alterações</button>';
     }else{
-      div.innerHTML='<button class="btn-finish" id="btn-concluir" style="margin-top:10px;">Concluir atendimento</button>'+
+      div.innerHTML='<div id="obrig-progress" class="obrig-progress"></div>'+
+        '<button class="btn-finish" id="btn-concluir" style="margin-top:6px;">Concluir atendimento</button>'+
         '<button type="button" class="actions-handle" id="btn-actions-toggle">Mais opções <span class="chev">▾</span></button>'+
         '<div class="actions-extra" id="actions-extra">'+
           '<button class="btn-save-draft" id="btn-rascunho">Salvar rascunho</button>'+
@@ -1600,6 +1682,7 @@ var SGAuth=(function(){
     }
 
     document.getElementById('det-body').parentNode.appendChild(div);
+    atualizarProgressoObrigatorios();
 
     var toggleBtn=document.getElementById('btn-actions-toggle');
     if(toggleBtn)toggleBtn.addEventListener('click',function(){
@@ -1640,13 +1723,17 @@ var SGAuth=(function(){
         showToast('Faltam campos obrigatórios: '+coleta.faltando.slice(0,2).join(', ')+(coleta.faltando.length>2?'…':''),true);
         return;
       }
-      btnConcluir.disabled=true; btnConcluir.textContent='Concluindo…';
+      // Otimista: já marca como concluído na tela e fecha — o salvamento
+      // final das respostas (a maioria já foi salva sozinha campo a campo)
+      // acontece em segundo plano, sem o técnico precisar esperar.
+      showToast('Atendimento concluído! ✓');
+      salvarStatusOtimista(a,'Concluído',null);
+      fecharDetalhe();
       SGAuth.apiCall('salvarRespostasAgendamento',{solicitanteId:session.idVendedor,idAgendamento:a.IdAgendamento,respostas:coleta.respostas}).then(function(resp){
-        if(!resp||!resp.ok){ showToast((resp&&resp.erro)||'Não foi possível salvar as respostas.',true); btnConcluir.disabled=false; btnConcluir.textContent='Concluir atendimento'; return; }
-        showToast('Atendimento concluído! ✓');
-        salvarStatusOtimista(a,'Concluído',null);
-        fecharDetalhe();
-      }).catch(function(err){ showToast('Erro de conexão: '+err.message,true); btnConcluir.disabled=false; btnConcluir.textContent='Concluir atendimento'; });
+        if(!resp||!resp.ok)showToast('Aviso: nem todas as respostas foram salvas ('+((resp&&resp.erro)||'erro')+'). Reabra essa OS pra conferir.',true);
+      }).catch(function(err){
+        showToast('Aviso: erro de conexão salvando respostas — reabra essa OS pra conferir.',true);
+      });
     });
   }
 
