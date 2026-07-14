@@ -915,6 +915,7 @@
       <div class="kpi accentbar"><div class="tag">Vendas para bater a meta</div><div class="num" id="kpiVendasNecessarias">0</div><div class="sub" id="kpiVendasNecessariasSub">restantes</div><div class="bar"></div></div>
       <div class="kpi debitbar"><div class="tag">Custos de operação</div><div class="num" id="kpiCustosVenda">R$ 0,00</div><div class="sub" id="kpiCustosVendaSub">Status Pago</div><div class="sub-secondary">Escritório: <span class="val" id="kpiCustosEscritorio">R$ 0,00</span></div><div class="bar"></div></div>
       <div class="kpi accentbar"><div class="tag">Lucro operacional</div><div class="num" id="kpiLucroOperacional">R$ 0,00</div><div class="sub" id="kpiLucroOperacionalSub">faturado − custos de operação</div><div class="bar"></div></div>
+      <div class="kpi accentbar"><div class="tag">Saldo do período</div><div class="num" id="kpiSaldoPeriodo">R$ 0,00</div><div class="sub" id="kpiSaldoPeriodoSub">faturado + aporte − custo operacional − custo escritório</div><div class="bar"></div></div>
     </div>
     <div class="section-head"><h2>Ticket médio por <span>vendedor</span></h2><div class="hint" id="metaHintVendedor">ritmo até hoje compara com a meta acumulada</div></div>
     <div class="table-wrap">
@@ -2114,6 +2115,8 @@
     var lucroOperacional=fat-cv;
     document.getElementById('kpiLucroOperacional').textContent=fmtMoney(lucroOperacional);
     document.getElementById('kpiLucroOperacionalSub').textContent=fmtMoney(fat)+' faturado − '+fmtMoney(cv)+' de custos';
+    var saldoPeriodo=fat+aporte-cv-ce;
+    document.getElementById('kpiSaldoPeriodo').textContent=fmtMoney(saldoPeriodo);
     // Base: vendedores ativos (para a meta ficar sempre visível), mais qualquer
     // vendedor (ativo ou não) que tenha vendas no período filtrado — assim
     // inativar alguém não faz o faturamento dele "sumir" da tabela comparativa.
