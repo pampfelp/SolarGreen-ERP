@@ -220,7 +220,7 @@
   /* ── Edit modal ── */
   .modal-overlay{position:fixed;inset:0;background:rgba(30,30,30,0.5);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;}
   .modal-overlay.hidden{display:none;}
-  .modal-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);max-width:420px;width:100%;padding:26px 28px;box-shadow:0 20px 60px rgba(0,0,0,0.5);}
+  .modal-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);max-width:420px;width:100%;padding:26px 28px;box-shadow:0 20px 60px rgba(0,0,0,0.5);max-height:90vh;overflow-y:auto;}
   .modal-card h3{font-family:var(--unbounded);font-size:16px;font-weight:700;margin-bottom:2px;color:var(--ink);}
   .modal-sub{font-size:12px;color:var(--ink-soft);margin-bottom:20px;}
   .modal-toggle-row{display:flex;align-items:center;justify-content:space-between;background:#f2f7f2;border-radius:8px;padding:12px 14px;margin-bottom:18px;border:1px solid var(--line);}
@@ -257,6 +257,10 @@
   .uform-msg.error{display:block;background:#fdecea;color:#c0392b;}
   .uform-msg.success{display:block;background:var(--accent-soft);color:#2c6e00;}
   .uform-msg:empty{display:none;}
+  .hora-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}
+  .hora-btn{font-family:var(--sans);font-size:12px;font-weight:700;border:1px solid var(--line);background:#fff;color:var(--ink-soft);border-radius:8px;padding:9px 2px;cursor:pointer;text-align:center;}
+  .hora-btn.selected{background:var(--accent);border-color:var(--accent);color:#003122;}
+  .hora-btn:disabled{opacity:.35;cursor:not-allowed;background:#f4f4f4;text-decoration:line-through;}
   .u-row-actions button{background:none;border:none;color:var(--accent-deep);font-size:12px;cursor:pointer;text-decoration:underline;font-family:var(--sans);padding:0;}
   .u-status-tag{font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.04em;}
   .u-status-tag.ativo{background:var(--accent-soft);color:var(--accent-deep);}
@@ -270,30 +274,51 @@
   /* ── Painel de detalhe do agendamento (lateral no PC, tela cheia no mobile) ── */
   .ad-backdrop{position:fixed;inset:0;background:rgba(0,20,10,.35);z-index:140;display:none;}
   .ad-backdrop.active{display:block;}
-  #agendamentoDetalhe{position:fixed;top:0;right:0;height:100vh;width:460px;max-width:100vw;background:var(--panel);z-index:150;box-shadow:-10px 0 34px rgba(0,0,0,.18);transform:translateX(100%);transition:transform .2s ease;display:flex;flex-direction:column;}
-  #agendamentoDetalhe.active{transform:translateX(0);}
-  #agendamentoDetalhe .ad-top{background:var(--sidebar-bg);color:#fff;padding:16px 18px;display:flex;align-items:center;gap:12px;flex:none;}
-  #agendamentoDetalhe .ad-top .ad-backbtn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);color:#fff;border-radius:9px;width:34px;height:34px;font-size:15px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;}
-  #agendamentoDetalhe .ad-top .ad-title{font-family:var(--unbounded);font-size:14.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  #agendamentoDetalhe .ad-body{flex:1;overflow-y:auto;padding:18px;}
-  #agendamentoDetalhe .ad-section{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:15px 16px;margin-bottom:14px;}
-  #agendamentoDetalhe .ad-section h4{font-family:var(--unbounded);font-size:11.5px;font-weight:700;color:var(--ink);margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em;}
-  #agendamentoDetalhe .ad-row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px;}
-  #agendamentoDetalhe .ad-row:last-child{border-bottom:none;}
-  #agendamentoDetalhe .ad-row .dl{color:var(--ink-faint);flex:none;}
-  #agendamentoDetalhe .ad-row .dv{color:var(--ink);text-align:right;font-weight:600;}
-  #agendamentoDetalhe .ad-actions{padding:14px 18px;border-top:1px solid var(--line);display:flex;gap:8px;flex:none;}
-  #agendamentoDetalhe .ad-actions button{flex:1;}
+  .side-panel{position:fixed;top:0;right:0;height:100vh;width:460px;max-width:100vw;background:var(--panel);z-index:150;box-shadow:-10px 0 34px rgba(0,0,0,.18);transform:translateX(100%);transition:transform .2s ease;display:flex;flex-direction:column;}
+  .side-panel.active{transform:translateX(0);}
+  .side-panel .ad-top{background:var(--sidebar-bg);color:#fff;padding:16px 18px;display:flex;align-items:center;gap:12px;flex:none;}
+  .side-panel .ad-top .ad-backbtn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);color:#fff;border-radius:9px;width:34px;height:34px;font-size:15px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;}
+  .side-panel .ad-top .ad-title{font-family:var(--unbounded);font-size:14.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;}
+  .side-panel .ad-top .ad-trashbtn{background:rgba(220,38,38,.18);border:1px solid rgba(220,38,38,.4);color:#ff8a8a;border-radius:9px;width:34px;height:34px;font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;}
+  .side-panel .ad-top .ad-trashbtn:hover{background:rgba(220,38,38,.32);}
+  .side-panel .ad-body{flex:1;overflow-y:auto;padding:18px;}
+  .side-panel .ad-section{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:15px 16px;margin-bottom:14px;}
+  .side-panel .ad-section h4{font-family:var(--unbounded);font-size:11.5px;font-weight:700;color:var(--ink);margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em;}
+  .side-panel .ad-row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px;}
+  .side-panel .ad-row:last-child{border-bottom:none;}
+  .side-panel .ad-row .dl{color:var(--ink-faint);flex:none;}
+  .side-panel .ad-row .dv{color:var(--ink);text-align:right;font-weight:600;}
+  .side-panel .ad-actions{padding:14px 18px;border-top:1px solid var(--line);display:flex;gap:8px;flex:none;flex-wrap:wrap;}
+  .side-panel .ad-actions button{flex:1;min-width:120px;}
+  .side-panel .uform-field{margin-bottom:12px;}
   @media(max-width:760px){
-    #agendamentoDetalhe{width:100%;}
+    .side-panel{width:100%;}
   }
   .ag-row-click{cursor:pointer;}
   .ag-row-click:hover td{background:var(--bg);}
+
+  .view-toggle{display:flex;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:3px;flex:none;}
+  .view-toggle-btn{border:none;background:transparent;color:var(--ink-soft);font-size:12px;font-weight:700;padding:7px 12px;border-radius:7px;cursor:pointer;}
+  .view-toggle-btn.active{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08);}
+
+  .kanban-wrap{display:flex;gap:14px;overflow-x:auto;padding-bottom:10px;}
+  .kanban-col{flex:none;width:270px;background:var(--bg);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;max-height:72vh;}
+  .kanban-col-head{padding:12px 14px;border-bottom:1px solid var(--line);flex:none;}
+  .kanban-col-head .kc-nome{font-family:var(--unbounded);font-size:12px;font-weight:700;color:var(--ink);}
+  .kanban-col-head .kc-sub{font-size:11px;color:var(--ink-faint);margin-top:2px;}
+  .kanban-col-body{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px;}
+  .kanban-card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:11px 12px;cursor:pointer;transition:box-shadow .12s,border-color .12s;}
+  .kanban-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.08);border-color:var(--accent);}
+  .kanban-card .kcard-nome{font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:4px;}
+  .kanban-card .kcard-vend{font-size:11px;color:var(--ink-faint);margin-bottom:6px;}
+  .kanban-card .kcard-foot{display:flex;justify-content:space-between;align-items:center;gap:6px;}
+  .kanban-card .kcard-valor{font-size:12px;font-weight:700;color:var(--accent-deep);}
+  .kanban-col-empty{padding:20px 10px;text-align:center;color:var(--ink-faint);font-size:11.5px;}
   .paginacao{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding:4px 2px;}
   .paginacao button{flex:none;background:#fff;border:1px solid var(--line);border-radius:9px;padding:9px 14px;font-size:12.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;}
   .paginacao button:disabled{opacity:.4;cursor:default;}
   .paginacao .pg-info{font-size:12px;color:var(--ink-faint);font-weight:600;}
-  .modal-actions{display:flex;justify-content:space-between;align-items:center;margin-top:22px;gap:10px;}
+  .modal-actions{display:flex;justify-content:space-between;align-items:center;margin-top:22px;gap:10px;position:sticky;bottom:-26px;background:var(--panel);padding:14px 0 26px;margin-bottom:-26px;border-top:1px solid var(--line);}
   .modal-actions .btn{font-size:13px;border-radius:7px;padding:9px 16px;cursor:pointer;border:1px solid var(--line);background:#f2f7f2;color:var(--ink);}
   .modal-actions .btn-primary{background:var(--accent);color:#003122;border-color:var(--accent);font-weight:700;}
   .modal-actions .btn-clear{color:var(--debit);border:none;background:none;text-decoration:underline;padding:9px 4px;}
@@ -663,6 +688,7 @@
     <a href="#" id="nav-vendas"><span class="ico">◆</span><span class="nav-label"> Vendas</span></a>
     <a href="#" id="nav-funil"><span class="ico">◈</span><span class="nav-label"> Funil</span></a>
     <a href="#" id="nav-agendamentos"><span class="ico">🛠</span><span class="nav-label"> Agendamentos</span></a>
+    <a href="#" id="nav-planos"><span class="ico">📋</span><span class="nav-label"> Planos</span></a>
     <a href="#" id="nav-usuarios" style="display:none;"><span class="ico">⚙</span><span class="nav-label"> Usuários</span></a>
   </nav>
   <div class="user-chip" id="sg-user-chip">
@@ -883,11 +909,12 @@
     </div>
     <div class="section-head"><h2>Indicadores do <span>período</span></h2></div>
     <div class="kpis" id="kpiGrid">
-      <div class="kpi accentbar"><div class="tag">Faturado</div><div class="num" id="kpiFaturado">R$ 0,00</div><div class="sub" id="kpiFaturadoSub">no período filtrado</div><div class="bar"></div></div>
+      <div class="kpi accentbar"><div class="tag">Faturado</div><div class="num" id="kpiFaturado">R$ 0,00</div><div class="sub" id="kpiFaturadoSub">no período filtrado</div><div class="sub-secondary">Aporte de sócios: <span class="val" id="kpiAporteSocios">R$ 0,00</span></div><div class="bar"></div></div>
       <div class="kpi"><div class="tag">Ticket médio</div><div class="num" id="kpiTicket">R$ 0,00</div><div class="sub" id="kpiTicketSub">geral, no período</div><div class="bar"></div></div>
       <div class="kpi"><div class="tag">Vendas feitas</div><div class="num" id="kpiVendasFeitas">0</div><div class="sub" id="kpiVendasFeitasSub">no período filtrado</div><div class="bar"></div></div>
       <div class="kpi accentbar"><div class="tag">Vendas para bater a meta</div><div class="num" id="kpiVendasNecessarias">0</div><div class="sub" id="kpiVendasNecessariasSub">restantes</div><div class="bar"></div></div>
       <div class="kpi debitbar"><div class="tag">Custos de operação</div><div class="num" id="kpiCustosVenda">R$ 0,00</div><div class="sub" id="kpiCustosVendaSub">Status Pago</div><div class="sub-secondary">Escritório: <span class="val" id="kpiCustosEscritorio">R$ 0,00</span></div><div class="bar"></div></div>
+      <div class="kpi accentbar"><div class="tag">Lucro operacional</div><div class="num" id="kpiLucroOperacional">R$ 0,00</div><div class="sub" id="kpiLucroOperacionalSub">faturado − custos de operação</div><div class="bar"></div></div>
     </div>
     <div class="section-head"><h2>Ticket médio por <span>vendedor</span></h2><div class="hint" id="metaHintVendedor">ritmo até hoje compara com a meta acumulada</div></div>
     <div class="table-wrap">
@@ -908,6 +935,20 @@
         <tbody id="tbodyVendedores"></tbody>
       </table>
     </div>
+    <div class="section-head">
+      <h2>Vendas <span>individuais</span></h2>
+      <div class="hint" id="v-vendasHint">no período filtrado</div>
+      <div class="spacer"></div>
+      <button class="connect-btn" id="v-novaVendaBtn">+ Nova venda</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Data</th><th>Cliente</th><th>Serviço</th><th>Vendedor</th><th class="num">Valor</th></tr></thead>
+        <tbody id="v-vendasTbody"></tbody>
+      </table>
+    </div>
+    <div id="v-vendasPaginacao" class="paginacao"></div>
+
     <div class="section-head"><h2>Taxas de <span>conversão</span> médias</h2><div class="hint">a partir da aba Relatórios</div></div>
     <div class="funnel">
       <div class="funnel-step"><div class="tag">Novos contatos</div><div class="num" id="funilContatos">0</div><div class="arrow">→</div></div>
@@ -1046,8 +1087,14 @@
     <div class="section-head">
       <h2>Leads <span id="f-tableTitle">no período</span></h2>
       <div class="hint" id="f-tableHint">ordenados por data da última movimentação (mais recente primeiro)</div>
+      <div class="spacer"></div>
+      <div class="view-toggle">
+        <button type="button" class="view-toggle-btn active" id="f-viewLista">☰ Lista</button>
+        <button type="button" class="view-toggle-btn" id="f-viewKanban">▦ Kanban</button>
+      </div>
+      <button class="connect-btn" id="f-novoLeadBtn" style="margin-left:10px;">+ Novo lead</button>
     </div>
-    <div class="funil-table-wrap">
+    <div class="funil-table-wrap" id="f-listaWrap">
       <table>
         <thead>
           <tr>
@@ -1064,6 +1111,8 @@
         <tbody id="f-tbody"></tbody>
       </table>
     </div>
+    <div class="kanban-wrap" id="f-kanbanWrap" style="display:none;"></div>
+
 
     <footer class="note" style="margin-top:18px;">
       <strong>Data</strong>: data da última vez que o lead entrou nessa etapa (via log de transições); tag "log" indica quando vem do histórico. Se nunca houve transição registrada, mostra a data de criação. <strong>Dias</strong>: dias corridos desde a Data, com cor baseada nas regras da aba FunilSLA (verde/amarelo/vermelho). <strong>O filtro de período acima também usa essa mesma data</strong> (última movimentação), não a data de criação do lead.
@@ -1153,17 +1202,26 @@
     <div class="modal-sub">Ordem de serviço para o técnico de campo.</div>
     <div class="uform-msg" id="ag-modalMsg"></div>
 
-    <div class="uform-field"><label>Cliente</label><select id="ag-idCliente"><option value="">— Selecionar cliente…</option></select></div>
+    <div class="uform-field"><label>Cliente</label><select id="ag-idCliente"><option value="">— Selecionar cliente…</option></select>
+      <div class="uform-msg" id="ag-clienteWarn" style="margin-top:8px;"></div>
+    </div>
     <div class="uform-field"><label>Serviço</label><select id="ag-idServico"><option value="">— Selecionar serviço…</option></select>
       <div class="uform-msg" id="ag-servicoWarn" style="margin-top:8px;"></div>
     </div>
     <div class="uform-field"><label>Técnico responsável</label><select id="ag-tecnico"><option value="">— Selecionar técnico…</option></select></div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
-      <div class="uform-field"><label>Data</label><input type="date" id="ag-dataInicio"></div>
-      <div class="uform-field"><label>Hora início</label><input type="time" id="ag-horaInicio"></div>
-      <div class="uform-field"><label>Hora fim</label><input type="time" id="ag-horaFim"></div>
+    <div class="uform-field"><label>Data</label><input type="date" id="ag-dataInicio"></div>
+    <div class="uform-field">
+      <label>Hora início</label>
+      <div class="hora-grid" id="ag-horaInicioGrid"></div>
+      <input type="hidden" id="ag-horaInicio">
     </div>
+    <div class="uform-field">
+      <label>Hora fim</label>
+      <div class="hora-grid" id="ag-horaFimGrid"></div>
+      <input type="hidden" id="ag-horaFim">
+    </div>
+    <div class="uform-msg" id="ag-horarioMsg" style="margin-top:-6px;"></div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       <div class="uform-field"><label>Qtd. módulos</label><input type="number" id="ag-qtdModulos" min="0"></div>
@@ -1192,10 +1250,11 @@
 </div>
 
 <div class="ad-backdrop" id="adBackdrop"></div>
-<div id="agendamentoDetalhe">
+<div id="agendamentoDetalhe" class="side-panel">
   <div class="ad-top">
     <button class="ad-backbtn" id="ad-fecharBtn">←</button>
     <div class="ad-title" id="ad-title">Agendamento</div>
+    <button class="ad-trashbtn" id="ad-excluirBtn" title="Excluir agendamento">🗑</button>
   </div>
   <div class="ad-body" id="ad-body"></div>
   <div class="ad-actions">
@@ -1204,7 +1263,112 @@
   </div>
 </div>
 
+<div id="funilDetalhe" class="side-panel">
+  <div class="ad-top">
+    <button class="ad-backbtn" id="fd-fecharBtn">←</button>
+    <div class="ad-title" id="fd-title">Lead</div>
+    <button class="ad-trashbtn" id="fd-excluirBtn" title="Excluir lead">🗑</button>
+  </div>
+  <div class="ad-body" id="fd-body"></div>
+  <div class="ad-actions">
+    <button class="connect-btn" id="fd-salvarBtn">Salvar</button>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="vendaModal">
+  <div class="modal-card">
+    <h3 id="vendaModalTitle">Nova venda</h3>
+    <div class="uform-field"><label>Cliente</label><select id="vm-cliente"><option value="">— Selecionar cliente…</option></select></div>
+    <div class="uform-field"><label>Serviço</label><select id="vm-servico"><option value="">— Selecionar serviço…</option></select></div>
+    <div class="uform-field"><label>Vendedor</label><select id="vm-vendedor"><option value="">— Selecionar vendedor…</option></select></div>
+    <div class="uform-field"><label>Data da venda</label><input type="date" id="vm-data"></div>
+    <div class="uform-field"><label>Valor</label><input type="number" id="vm-valor" step="0.01" min="0"></div>
+    <div class="uform-msg" id="vm-msg"></div>
+    <div class="modal-actions">
+      <button class="reset-btn" id="vm-cancelarBtn">Cancelar</button>
+      <button class="connect-btn" id="vm-salvarBtn">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div id="vendaDetalhe" class="side-panel">
+  <div class="ad-top">
+    <button class="ad-backbtn" id="vd-fecharBtn">←</button>
+    <div class="ad-title" id="vd-title">Venda</div>
+    <button class="ad-trashbtn" id="vd-excluirBtn" title="Excluir venda">🗑</button>
+  </div>
+  <div class="ad-body" id="vd-body"></div>
+  <div class="ad-actions">
+    <button class="reset-btn" id="vd-editarBtn">Editar venda</button>
+  </div>
+</div>
+
+<!-- ═══ VIEW: PLANOS (clientes assinantes) ═══ -->
+<div id="view-planos" class="view">
+<div class="app">
+  <header class="top">
+    <div><h1>Clientes <span>Assinantes</span></h1><div class="top-sub">Planos e assinaturas recorrentes · <span id="pl-appVersion"></span></div></div>
+    <div style="text-align:right;"><div class="clock" id="pl-lastUpdate"></div></div>
+  </header>
+
+  <div class="kpis" style="margin-bottom:20px;">
+    <div class="kpi accentbar"><div class="tag">Assinantes ativos</div><div class="num" id="pl-kpiAtivos">0</div><div class="sub" id="pl-kpiAtivosSub">planos com Status = Ativo</div><div class="bar"></div></div>
+    <div class="kpi debitbar"><div class="tag">Assinantes inativos</div><div class="num" id="pl-kpiInativos">0</div><div class="sub" id="pl-kpiInativosSub">planos com Status ≠ Ativo</div><div class="bar"></div></div>
+    <div class="kpi"><div class="tag">Receita recorrente (ativos)</div><div class="num" id="pl-kpiReceita">R$ 0,00</div><div class="sub">soma dos valores dos planos ativos</div><div class="bar"></div></div>
+  </div>
+
+  <div class="section-head">
+    <h2>Planos <span id="pl-tableTitle">cadastrados</span></h2>
+    <div class="hint" id="pl-tableHint"></div>
+    <div class="spacer"></div>
+    <button class="connect-btn" id="pl-novoBtn">+ Novo plano</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Cliente</th><th>Tipo</th><th class="num">Valor</th><th>Vencimento</th><th>Serviços inclusos</th><th>Status</th><th></th></tr></thead>
+      <tbody id="pl-tbody"></tbody>
+    </table>
+  </div>
+  <div id="pl-paginacao" class="paginacao"></div>
+
+  <div class="empty" id="pl-emptyState" style="display:none;">
+    <div class="glyph">📋</div>
+    <p>Conectando à planilha para carregar os planos…</p>
+  </div>
+</div>
+</div>
+
+<div class="modal-overlay hidden" id="planoModal">
+  <div class="modal-card">
+    <h3 id="planoModalTitle">Novo plano</h3>
+    <div class="uform-field"><label>Cliente</label><select id="pm-cliente"><option value="">— Selecionar cliente…</option></select></div>
+    <div class="uform-field"><label>Tipo de assinatura</label><select id="pm-tipo"><option value="Mensal">Mensal</option><option value="Anual">Anual</option></select></div>
+    <div class="uform-field"><label>Valor</label><input type="number" id="pm-valor" step="0.01" min="0"></div>
+    <div class="uform-field"><label>Data de assinatura</label><input type="date" id="pm-dataAssinatura"></div>
+    <div class="uform-field"><label>Vencimento</label><input type="date" id="pm-vencimento"></div>
+    <div class="uform-field"><label>Status</label><select id="pm-status"><option value="Ativo">Ativo</option><option value="Inativo">Inativo</option></select></div>
+    <div class="uform-field">
+      <label>Serviços inclusos no plano</label>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
+        <label style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px;cursor:pointer;"><input type="checkbox" id="pm-monitoramento" style="width:16px;height:16px;"> Monitoramento</label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px;cursor:pointer;"><input type="checkbox" id="pm-vistoria" style="width:16px;height:16px;"> Vistoria Diagnóstica</label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px;cursor:pointer;"><input type="checkbox" id="pm-limpeza" style="width:16px;height:16px;"> Limpeza</label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px;cursor:pointer;"><input type="checkbox" id="pm-manutencao" style="width:16px;height:16px;"> Manutenção Preventiva</label>
+      </div>
+    </div>
+    <div class="uform-msg" id="pm-msg"></div>
+    <div class="modal-actions">
+      <button class="reset-btn" id="pm-excluirBtn" style="color:var(--debit);">🗑 Excluir plano</button>
+      <div style="display:flex;gap:8px;">
+        <button class="reset-btn" id="pm-cancelarBtn">Cancelar</button>
+        <button class="connect-btn" id="pm-salvarBtn">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ VIEW: USUÁRIOS (somente administradores) ═══ -->
+
 
 <div id="view-usuarios" class="view">
 <div class="app">
@@ -1326,6 +1490,22 @@
   }
 
   window.SGAuth={ getSession:getSession, isAdmin:isAdmin, filterByOwner:filterByOwner, apiCall:authCall };
+
+  // Cache local por aba: guarda a última resposta boa de cada tela no
+  // localStorage, pra trocar de aba mostrar os dados na hora (sem "Conectando…")
+  // enquanto busca uma versão atualizada em segundo plano, sem travar nada.
+  window.SGCache={
+    get:function(chave){
+      try{
+        var raw=localStorage.getItem('sg_cache_'+chave);
+        return raw?JSON.parse(raw):null;
+      }catch(e){ return null; }
+    },
+    set:function(chave,dados){
+      try{ localStorage.setItem('sg_cache_'+chave,JSON.stringify({ts:Date.now(),dados:dados})); }
+      catch(e){ /* localStorage cheio/indisponível — não é crítico, só não guarda cache dessa vez */ }
+    }
+  };
 
   function showMsg(elId,texto,tipo){
     var el=document.getElementById(elId);
@@ -1713,17 +1893,26 @@
 
   function fetchFromApi(showStatus){
     if(!hasApiCreds())return;
-    if(showStatus){document.getElementById('p-connectStatus').style.display='flex';document.getElementById('p-connectStatus').className='connect-status';document.getElementById('p-connectStatusText').textContent='Conectando…';}
+    var cache=window.SGCache&&window.SGCache.get('ponto');
+    var temCache=!!(cache&&cache.dados);
+    if(temCache){
+      var pVendedoresC=window.SGAuth?window.SGAuth.filterByOwner(cache.dados.vendedores||[],'IdVendedor'):(cache.dados.vendedores||[]);
+      var pPontoC=window.SGAuth?window.SGAuth.filterByOwner(cache.dados.ponto||[],'Funcionario'):(cache.dados.ponto||[]);
+      buildReportFrom(processVendedoresFromObjects(pVendedoresC),processPontoFromObjects(pPontoC),cache.dados.overrides||{});
+      setSyncPill('ok','Sincronizado');showConnectBar();
+    }
+    if(showStatus&&!temCache){document.getElementById('p-connectStatus').style.display='flex';document.getElementById('p-connectStatus').className='connect-status';document.getElementById('p-connectStatusText').textContent='Conectando…';}
     var btn=document.getElementById('p-connectBtn');if(btn)btn.disabled=true;
     apiCall('getData').then(function(resp){
       if(btn)btn.disabled=false;
-      if(!resp||!resp.ok){if(showStatus){document.getElementById('p-connectStatus').className='connect-status error';document.getElementById('p-connectStatusText').textContent=(resp&&resp.erro)||'Não foi possível conectar.';}return;}
+      if(!resp||!resp.ok){if(showStatus&&!temCache){document.getElementById('p-connectStatus').className='connect-status error';document.getElementById('p-connectStatusText').textContent=(resp&&resp.erro)||'Não foi possível conectar.';}return;}
+      if(window.SGCache)window.SGCache.set('ponto',resp);
       var pVendedores=window.SGAuth?window.SGAuth.filterByOwner(resp.vendedores||[],'IdVendedor'):(resp.vendedores||[]);
       var pPonto=window.SGAuth?window.SGAuth.filterByOwner(resp.ponto||[],'Funcionario'):(resp.ponto||[]);
       buildReportFrom(processVendedoresFromObjects(pVendedores),processPontoFromObjects(pPonto),resp.overrides||{});
       setSyncPill('ok','Sincronizado');showConnectBar();
       if(showStatus){document.getElementById('p-connectStatus').className='connect-status online';document.getElementById('p-connectStatusText').textContent='Conectado.';}
-    }).catch(function(err){if(btn)btn.disabled=false;if(showStatus){document.getElementById('p-connectStatus').className='connect-status error';document.getElementById('p-connectStatusText').textContent='Erro: '+err.message;}});
+    }).catch(function(err){if(btn)btn.disabled=false;if(showStatus&&!temCache){document.getElementById('p-connectStatus').className='connect-status error';document.getElementById('p-connectStatusText').textContent='Erro: '+err.message;}});
   }
 
   function wireUpload(inputId,cardId,detailId,clearId,onLoaded){
@@ -1798,10 +1987,16 @@
 (function(){
 
   var vendedoresMap={},sortState={col:'faturado',dir:'desc'},vendedoresAtivosVenda=[],vendasRecords=[],metasRecords=[],relatoriosRecords=[],custosVendaRecords=[],servicosMap={};
+  var clientesMap={};
+  var vendedoresTodosMapVendas={};
+  var vendaAtual=null;
+  var vPaginaAtual=1, V_ITENS_POR_PAGINA=10;
   var API_URL_KEY='ponto_api_url',API_KEY_KEY='ponto_api_key';
   var DEFAULT_API_URL='https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA34xrlLTVUUNhKBIlguJT3ectH7Yus-VW1n41GcCclc5q_Yj0Di2O7g/exec';
   var DEFAULT_API_KEY='1234';
   var ID_VENDA_CUSTOS_ESCRITORIO='2b45b472';
+  var ID_CLIENTE_APORTE_SOCIOS='da6dbd89'; // Cliente Teste 1 — aporte de sócios, não conta como faturamento/meta
+  var vendasRecordsFaturamento=[];
   var APP_VERSION='2026-07-16-1';
   document.getElementById('v-appVersion').textContent='v'+APP_VERSION;
   document.getElementById('appVersionFoot').textContent=APP_VERSION;
@@ -1828,7 +2023,7 @@
   function processVendas(list){var out=[];list.forEach(function(o){if(!o.IdVenda)return;var dt=parseBRDate(o.DataVenda);if(!dt)return;out.push({idVenda:o.IdVenda,idCliente:o.IdCliente,idServico:o.IdServico,idVendedor:o.IdVendedor,dt:dt,dateKey:dateKey(dt),valor:parseBRNumber(o.Valor)});});return out;}
   function processMetas(list){var out=[];list.forEach(function(o){if(!o.IdMeta)return;out.push({mes:parseInt(o.Mes,10),ano:parseInt(o.Ano,10),valor:parseBRNumber(o.Valor)});});return out;}
   function processRelatorios(list){var out=[];list.forEach(function(o){if(!o.IdRelatorio)return;var dt=parseBRDate(o.Data);if(!dt)return;out.push({idVendedor:o.IdVendedor,dt:dt,dateKey:dateKey(dt),contatos:parseBRNumber(o['Novos Contatos']),conversas:parseBRNumber(o['Conversas']),propostas:parseBRNumber(o['Propostas Apresentadas']),vendas:parseBRNumber(o['Vendas'])});});return out;}
-  function processCustosVenda(list){var out=[];list.forEach(function(o){if(!o.IdCusto)return;var dt=parseBRDate(o.Data);out.push({idVenda:o.IdVenda,status:(o.Status||'').trim(),dt:dt,dateKey:dt?dateKey(dt):null,valor:parseBRNumber(o.Valor)});});return out;}
+  function processCustosVenda(list){var out=[];list.forEach(function(o){if(!o.IdCusto)return;var dt=parseBRDate(o.Data);out.push({id:o.IdCusto,idVenda:o.IdVenda,descricao:(o.Descricao||'').trim(),status:(o.Status||'').trim(),dt:dt,dateKey:dt?dateKey(dt):null,valor:parseBRNumber(o.Valor)});});return out;}
   function processServicos(list){var map={};list.forEach(function(o){if(!o.IdServico)return;map[o.IdServico]=o['Nome Servico']||o.IdServico;});return map;}
 
   function sortVendedorRows(rows){
@@ -1879,11 +2074,13 @@
   function getFiltered(){
     var from=document.getElementById('v-dateFrom').value,to=document.getElementById('v-dateTo').value;
     var vendedor=document.getElementById('selVendedor').value,servico=document.getElementById('selServico').value;
-    var vendas=vendasRecords.filter(function(v){if(from&&v.dateKey<from)return false;if(to&&v.dateKey>to)return false;if(vendedor!=='__all__'&&v.idVendedor!==vendedor)return false;if(servico!=='__all__'&&v.idServico!==servico)return false;return true;});
+    function passaFiltro(v){if(from&&v.dateKey<from)return false;if(to&&v.dateKey>to)return false;if(vendedor!=='__all__'&&v.idVendedor!==vendedor)return false;if(servico!=='__all__'&&v.idServico!==servico)return false;return true;}
+    var vendasTodas=vendasRecords.filter(passaFiltro); // pra tabela de vendas individuais (mostra tudo, inclusive aporte de sócios)
+    var vendas=vendasRecordsFaturamento.filter(passaFiltro); // pra faturamento/meta/ticket médio (sem aporte de sócios)
     var relatorios=relatoriosRecords.filter(function(r){if(from&&r.dateKey<from)return false;if(to&&r.dateKey>to)return false;if(vendedor!=='__all__'&&r.idVendedor!==vendedor)return false;return true;});
-    var vendaIds={};vendas.forEach(function(v){vendaIds[v.idVenda]=true;});
+    var vendaIds={};vendasTodas.forEach(function(v){vendaIds[v.idVenda]=true;});
     var cp=custosVendaRecords.filter(function(c){if((c.status||'').trim().toLowerCase()!=='pago')return false;if(c.dateKey){if(from&&c.dateKey<from)return false;if(to&&c.dateKey>to)return false;return true;}return !!vendaIds[c.idVenda];});
-    return{vendas:vendas,relatorios:relatorios,custos:cp.filter(function(c){return c.idVenda!==ID_VENDA_CUSTOS_ESCRITORIO;}),custosEscritorio:cp.filter(function(c){return c.idVenda===ID_VENDA_CUSTOS_ESCRITORIO;})};
+    return{vendas:vendas,vendasTodas:vendasTodas,relatorios:relatorios,custos:cp.filter(function(c){return c.idVenda!==ID_VENDA_CUSTOS_ESCRITORIO;}),custosEscritorio:cp.filter(function(c){return c.idVenda===ID_VENDA_CUSTOS_ESCRITORIO;})};
   }
 
   function render(){
@@ -1901,7 +2098,7 @@
     document.getElementById('progressPct').textContent=pct.toFixed(1).replace('.',',')+' %';
     document.getElementById('progressFaturado').textContent=fmtMoney(fat)+' faturado';
     document.getElementById('progressFaltante').textContent=fmtMoney(Math.max(ma-fat,0))+' faltam';
-    var nV=filtered.vendas.length,tm=nV>0?fat/nV:0,tmH=vendasRecords.length>0?vendasRecords.reduce(function(s,v){return s+v.valor;},0)/vendasRecords.length:0;
+    var nV=filtered.vendas.length,tm=nV>0?fat/nV:0,tmH=vendasRecordsFaturamento.length>0?vendasRecordsFaturamento.reduce(function(s,v){return s+v.valor;},0)/vendasRecordsFaturamento.length:0;
     var ticket=tm>0?tm:tmH,ticketProj=tm<=0&&tmH>0;
     var mr=Math.max(ma-fat,0),vn=ticket>0?Math.ceil(mr/ticket):(mr>0?null:0);
     var vnt=ticket>0?Math.ceil(ma/ticket):(ma>0?null:0);
@@ -1912,6 +2109,11 @@
     document.getElementById('kpiVendasNecessarias').textContent=vn===null?'—':vn;document.getElementById('kpiVendasNecessariasSub').textContent=vn===null?'sem ticket médio':(vn===0?'meta atingida':'restantes');
     document.getElementById('kpiCustosVenda').textContent=fmtMoney(cv);document.getElementById('kpiCustosVendaSub').textContent=filtered.custos.length+' lançamento(s) pago(s)';
     document.getElementById('kpiCustosEscritorio').textContent=fmtMoney(ce);
+    var aporte=filtered.vendasTodas.filter(function(v){return v.idCliente===ID_CLIENTE_APORTE_SOCIOS;}).reduce(function(s,v){return s+v.valor;},0);
+    document.getElementById('kpiAporteSocios').textContent=fmtMoney(aporte);
+    var lucroOperacional=fat-cv;
+    document.getElementById('kpiLucroOperacional').textContent=fmtMoney(lucroOperacional);
+    document.getElementById('kpiLucroOperacionalSub').textContent=fmtMoney(fat)+' faturado − '+fmtMoney(cv)+' de custos';
     // Base: vendedores ativos (para a meta ficar sempre visível), mais qualquer
     // vendedor (ativo ou não) que tenha vendas no período filtrado — assim
     // inativar alguém não faz o faturamento dele "sumir" da tabela comparativa.
@@ -1925,7 +2127,7 @@
     var ids=Object.keys(idsSet);
     var linhas=ids.map(function(id){
       var vv=filtered.vendas.filter(function(v){return v.idVendedor===id;}),fv=vv.reduce(function(s,v){return s+v.valor;},0),nv=vv.length;
-      var tvp=nv>0?fv/nv:0,tvh=vendasRecords.filter(function(v){return v.idVendedor===id;});
+      var tvp=nv>0?fv/nv:0,tvh=vendasRecordsFaturamento.filter(function(v){return v.idVendedor===id;});
       var th=tvh.length>0?tvh.reduce(function(s,v){return s+v.valor;},0)/tvh.length:tmH;
       var tv=tvp>0?tvp:th,tvE=tvp<=0&&tv>0;
       var ativo=isVendedorAtivo(vendedoresMap[id]||{});
@@ -1978,28 +2180,258 @@
     document.getElementById('fcTotalDiaSub').textContent=ds;document.getElementById('fcRestanteDiaSub').textContent=ds;
     document.getElementById('fcPorDiaHint').textContent=(dr>0?'dividindo pelos '+dr+' dia(s) útil(eis) restantes':'sem dias úteis restantes')+(taxP?' · taxas projetadas':'');
     setUpdateClock();
+    renderVendasTable(filtered.vendasTodas);
+  }
+
+  function nomeClienteVenda(id){var c=clientesMap[id];return c?(c['Nome Razao Social']||c.Nome||id):id;}
+  function fmtDateBRVendas(d){ return d?(String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()):'—'; }
+
+  function renderVendasPaginacao(totalPaginas){
+    var el=document.getElementById('v-vendasPaginacao');
+    if(!el)return;
+    if(totalPaginas<=1){ el.innerHTML=''; return; }
+    el.innerHTML=
+      '<button type="button" id="v-pgAnterior" '+(vPaginaAtual<=1?'disabled':'')+'>‹ Anterior</button>'+
+      '<span class="pg-info">Página '+vPaginaAtual+' de '+totalPaginas+'</span>'+
+      '<button type="button" id="v-pgProxima" '+(vPaginaAtual>=totalPaginas?'disabled':'')+'>Próxima ›</button>';
+    var btnAnt=document.getElementById('v-pgAnterior');
+    if(btnAnt)btnAnt.addEventListener('click',function(){ if(vPaginaAtual>1){ vPaginaAtual--; render(); } });
+    var btnProx=document.getElementById('v-pgProxima');
+    if(btnProx)btnProx.addEventListener('click',function(){ if(vPaginaAtual<totalPaginas){ vPaginaAtual++; render(); } });
+  }
+
+  function renderVendasTable(vendas){
+    var tbody=document.getElementById('v-vendasTbody');
+    if(!tbody)return;
+    var ordenadas=vendas.slice().sort(function(a,b){return b.dt.getTime()-a.dt.getTime();});
+    document.getElementById('v-vendasHint').textContent=ordenadas.length+' venda(s) no período filtrado';
+    if(!ordenadas.length){
+      tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--ink-faint);padding:30px;">Nenhuma venda no período/filtro.</td></tr>';
+      renderVendasPaginacao(0);
+      return;
+    }
+    var totalPaginas=Math.max(1,Math.ceil(ordenadas.length/V_ITENS_POR_PAGINA));
+    if(vPaginaAtual>totalPaginas)vPaginaAtual=totalPaginas;
+    if(vPaginaAtual<1)vPaginaAtual=1;
+    var inicio=(vPaginaAtual-1)*V_ITENS_POR_PAGINA;
+    var pagina=ordenadas.slice(inicio,inicio+V_ITENS_POR_PAGINA);
+    tbody.innerHTML=pagina.map(function(v){
+      var isAporte=v.idCliente===ID_CLIENTE_APORTE_SOCIOS;
+      return '<tr class="ag-row-click" data-id="'+escapeHtml(v.idVenda)+'">'+
+        '<td>'+fmtDateBRVendas(v.dt)+'</td>'+
+        '<td>'+escapeHtml(nomeClienteVenda(v.idCliente))+(isAporte?' <span style="font-size:10px;font-weight:700;color:var(--warn);border:1px solid var(--warn);border-radius:6px;padding:1px 6px;margin-left:4px;">APORTE SÓCIOS</span>':'')+'</td>'+
+        '<td>'+escapeHtml(servicosMap[v.idServico]||v.idServico||'—')+'</td>'+
+        '<td>'+escapeHtml(nomeFor(v.idVendedor))+'</td>'+
+        '<td class="num">'+fmtMoney(v.valor)+'</td>'+
+      '</tr>';
+    }).join('');
+    tbody.querySelectorAll('.ag-row-click').forEach(function(tr){
+      tr.addEventListener('click',function(){ abrirPainelVenda(tr.getAttribute('data-id')); });
+    });
+    renderVendasPaginacao(totalPaginas);
+  }
+
+  function showVendaMsg(texto,erro){
+    var el=document.getElementById('vm-msg');
+    el.className='uform-msg'+(erro?' error':'');
+    el.textContent=texto||'';
+  }
+
+  function popularSelectsVenda(){
+    var selCliente=document.getElementById('vm-cliente');
+    selCliente.innerHTML='<option value="">— Selecionar cliente…</option>'+
+      Object.keys(clientesMap).map(function(id){return clientesMap[id];})
+        .sort(function(a,b){return (a['Nome Razao Social']||a.Nome||'').localeCompare(b['Nome Razao Social']||b.Nome||'','pt-BR');})
+        .map(function(c){return '<option value="'+escapeHtml(c.IdCliente)+'">'+escapeHtml(c['Nome Razao Social']||c.Nome||c.IdCliente)+'</option>';}).join('');
+    var selServico=document.getElementById('vm-servico');
+    selServico.innerHTML='<option value="">— Selecionar serviço…</option>'+
+      Object.keys(servicosMap).sort(function(a,b){return servicosMap[a].localeCompare(servicosMap[b],'pt-BR');})
+        .map(function(id){return '<option value="'+escapeHtml(id)+'">'+escapeHtml(servicosMap[id])+'</option>';}).join('');
+    var selVendedor=document.getElementById('vm-vendedor');
+    selVendedor.innerHTML='<option value="">— Selecionar vendedor…</option>'+
+      Object.keys(vendedoresTodosMapVendas).map(function(id){return vendedoresTodosMapVendas[id];})
+        .filter(function(v){return (v.Status||'').trim().toLowerCase()!=='inativo';})
+        .sort(function(a,b){return (a.Nome||'').localeCompare(b.Nome||'','pt-BR');})
+        .map(function(v){return '<option value="'+escapeHtml(v.IdVendedor)+'">'+escapeHtml(v.Nome)+'</option>';}).join('');
+  }
+
+  function abrirModalVenda(idVenda){
+    popularSelectsVenda();
+    var v=idVenda?vendasRecords.filter(function(x){return String(x.idVenda)===String(idVenda);})[0]:null;
+    vendaAtual=v;
+    document.getElementById('vendaModalTitle').textContent=v?'Editar venda':'Nova venda';
+    document.getElementById('vm-cliente').value=v?(v.idCliente||''):'';
+    document.getElementById('vm-servico').value=v?(v.idServico||''):'';
+    document.getElementById('vm-vendedor').value=v?(v.idVendedor||''):(window.SG_SESSION?window.SG_SESSION.idVendedor:'');
+    document.getElementById('vm-data').value=v?v.dateKey:'';
+    document.getElementById('vm-valor').value=v?v.valor:'';
+    showVendaMsg('');
+    document.getElementById('vendaModal').classList.remove('hidden');
+  }
+  function fecharModalVenda(){ document.getElementById('vendaModal').classList.add('hidden'); }
+
+  function salvarVenda(){
+    var idCliente=document.getElementById('vm-cliente').value;
+    var idServico=document.getElementById('vm-servico').value;
+    var idVendedor=document.getElementById('vm-vendedor').value;
+    var dataVenda=document.getElementById('vm-data').value;
+    var valor=document.getElementById('vm-valor').value;
+    if(!idCliente||!idServico||!idVendedor||!dataVenda||!valor){ showVendaMsg('Preencha todos os campos.',true); return; }
+    var btn=document.getElementById('vm-salvarBtn');
+    btn.disabled=true; btn.textContent='Salvando…';
+    apiCall('salvarVenda',{
+      idVenda: vendaAtual?vendaAtual.idVenda:null,
+      idCliente:idCliente, idServico:idServico, idVendedor:idVendedor, dataVenda:dataVenda, valor:valor
+    }).then(function(resp){
+      btn.disabled=false; btn.textContent='Salvar';
+      if(!resp||!resp.ok){ showVendaMsg((resp&&resp.erro)||'Não foi possível salvar.',true); return; }
+      fecharModalVenda();
+      fetchFromApi(false);
+    }).catch(function(err){ btn.disabled=false; btn.textContent='Salvar'; showVendaMsg('Erro de conexão: '+err.message,true); });
+  }
+
+  function renderCustosVendaHtml(idVenda){
+    var lista=custosVendaRecords.filter(function(c){return String(c.idVenda)===String(idVenda);});
+    lista.sort(function(a,b){return (b.dt?b.dt.getTime():0)-(a.dt?a.dt.getTime():0);});
+    var total=lista.reduce(function(s,c){return s+c.valor;},0);
+    var itensHtml=lista.length?lista.map(function(c){
+      return '<div class="resp-item" data-custo-id="'+escapeHtml(c.id)+'">'+
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">'+
+          '<div style="flex:1;">'+
+            '<div class="resp-q">'+escapeHtml(c.descricao||'(sem descrição)')+'</div>'+
+            '<div style="font-size:11.5px;color:var(--ink-faint);margin-top:2px;">'+(c.dt?fmtDateBRVendas(c.dt):'—')+' · <span style="font-weight:700;color:'+(c.status.toLowerCase()==='pago'?'var(--accent-deep)':'var(--warn)')+';">'+escapeHtml(c.status||'Pendente')+'</span></div>'+
+          '</div>'+
+          '<div style="text-align:right;flex:none;">'+
+            '<div style="font-weight:700;font-size:13px;">'+fmtMoney(c.valor)+'</div>'+
+            '<button type="button" class="custo-del-btn" data-custo-id="'+escapeHtml(c.id)+'" style="color:var(--debit);background:none;border:none;font-size:11px;cursor:pointer;padding:2px 0;">excluir</button>'+
+          '</div>'+
+        '</div>'+
+      '</div>';
+    }).join(''):'<div style="font-size:12.5px;color:var(--ink-faint);padding:6px 0;">Nenhum custo lançado pra essa venda ainda.</div>';
+    return '<div class="ad-row" style="border:none;padding-bottom:10px;"><span class="dl">Total de custos</span><span class="dv">'+fmtMoney(total)+'</span></div>'+itensHtml;
+  }
+
+  function abrirPainelVenda(idVenda){
+    var v=vendasRecords.filter(function(x){return String(x.idVenda)===String(idVenda);})[0];
+    if(!v)return;
+    vendaAtual=v;
+    document.getElementById('vd-title').textContent=nomeClienteVenda(v.idCliente);
+    var html='<div class="ad-section">'+
+      '<div class="ad-row"><span class="dl">Cliente</span><span class="dv">'+escapeHtml(nomeClienteVenda(v.idCliente))+'</span></div>'+
+      '<div class="ad-row"><span class="dl">Serviço</span><span class="dv">'+escapeHtml(servicosMap[v.idServico]||v.idServico||'—')+'</span></div>'+
+      '<div class="ad-row"><span class="dl">Vendedor</span><span class="dv">'+escapeHtml(nomeFor(v.idVendedor))+'</span></div>'+
+      '<div class="ad-row"><span class="dl">Data</span><span class="dv">'+fmtDateBRVendas(v.dt)+'</span></div>'+
+      '<div class="ad-row"><span class="dl">Valor</span><span class="dv">'+fmtMoney(v.valor)+'</span></div>'+
+    '</div>'+
+    '<div class="ad-section">'+
+      '<h4>Custos da venda</h4>'+
+      '<div id="vd-custosLista">'+renderCustosVendaHtml(v.idVenda)+'</div>'+
+      '<button type="button" class="connect-btn" id="vd-addCustoToggle" style="width:100%;margin-top:10px;">+ Adicionar custo</button>'+
+      '<div id="vd-custoForm" class="hidden" style="margin-top:12px;">'+
+        '<div class="uform-field"><label>Descrição</label><input type="text" id="vc-descricao" placeholder="Ex: Combustível, material, comissão…"></div>'+
+        '<div class="uform-field"><label>Valor</label><input type="number" id="vc-valor" step="0.01" min="0"></div>'+
+        '<div class="uform-field"><label>Status</label><select id="vc-status"><option value="Pago">Pago</option><option value="Pendente">Pendente</option></select></div>'+
+        '<div class="uform-field"><label>Data</label><input type="date" id="vc-data"></div>'+
+        '<button type="button" class="connect-btn" id="vc-salvarBtn" style="width:100%;">Salvar custo</button>'+
+      '</div>'+
+    '</div>';
+    document.getElementById('vd-body').innerHTML=html;
+    document.getElementById('vc-data').value=dateKey(new Date());
+
+    document.getElementById('vd-addCustoToggle').addEventListener('click',function(){
+      document.getElementById('vd-custoForm').classList.toggle('hidden');
+    });
+    document.getElementById('vc-salvarBtn').addEventListener('click',function(){ adicionarCustoVenda(v.idVenda); });
+    document.getElementById('vd-body').querySelectorAll('.custo-del-btn').forEach(function(btn){
+      btn.addEventListener('click',function(e){ e.stopPropagation(); excluirCustoVenda(btn.getAttribute('data-custo-id'),v.idVenda); });
+    });
+
+    document.getElementById('vendaDetalhe').classList.add('active');
+    document.getElementById('adBackdrop').classList.add('active');
+  }
+
+  function fecharPainelVenda(){
+    document.getElementById('vendaDetalhe').classList.remove('active');
+    document.getElementById('adBackdrop').classList.remove('active');
+    vendaAtual=null;
+  }
+
+  function adicionarCustoVenda(idVenda){
+    var descricao=document.getElementById('vc-descricao').value.trim();
+    var valor=document.getElementById('vc-valor').value;
+    if(!valor){ return; }
+    var btn=document.getElementById('vc-salvarBtn');
+    btn.disabled=true; btn.textContent='Salvando…';
+    apiCall('salvarCustoVenda',{
+      idVenda:idVenda, descricao:descricao,
+      valor:valor, status:document.getElementById('vc-status').value,
+      data:document.getElementById('vc-data').value
+    }).then(function(resp){
+      btn.disabled=false; btn.textContent='Salvar custo';
+      if(!resp||!resp.ok)return;
+      fetchFromApi(false);
+      // otimista: adiciona localmente pra já aparecer sem esperar o refetch
+      custosVendaRecords.push({id:resp.idCusto,idVenda:idVenda,descricao:descricao,status:document.getElementById('vc-status').value,dt:parseBRDate(document.getElementById('vc-data').value.split('-').reverse().join('/')),dateKey:document.getElementById('vc-data').value,valor:parseFloat(valor)||0});
+      document.getElementById('vd-custosLista').innerHTML=renderCustosVendaHtml(idVenda);
+      document.getElementById('vc-descricao').value='';document.getElementById('vc-valor').value='';
+      document.getElementById('vd-custoForm').classList.add('hidden');
+    });
+  }
+
+  function excluirCustoVenda(idCusto,idVenda){
+    if(!confirm('Excluir esse custo?'))return;
+    apiCall('excluirCustoVenda',{idCusto:idCusto}).then(function(resp){
+      if(!resp||!resp.ok)return;
+      custosVendaRecords=custosVendaRecords.filter(function(c){return String(c.id)!==String(idCusto);});
+      document.getElementById('vd-custosLista').innerHTML=renderCustosVendaHtml(idVenda);
+    });
+  }
+
+  function excluirVenda(){
+    if(!vendaAtual)return;
+    if(!confirm('Tem certeza que deseja excluir essa venda? Essa ação não pode ser desfeita.'))return;
+    apiCall('excluirVenda',{idVenda:vendaAtual.idVenda}).then(function(resp){
+      if(!resp||!resp.ok)return;
+      fecharPainelVenda();
+      fetchFromApi(false);
+    });
   }
 
   function showConnectBar(){document.getElementById('v-connectCard').style.display='none';document.getElementById('v-connectBar').style.display='flex';}
   function showConnectForm(){document.getElementById('v-connectBar').style.display='none';document.getElementById('v-connectCard').style.display='block';}
 
+  function aplicarDadosVendas(resp){
+    var vVendedores=window.SGAuth?window.SGAuth.filterByOwner(resp.vendedores||[],'IdVendedor'):(resp.vendedores||[]);
+    var vVendas=window.SGAuth?window.SGAuth.filterByOwner(resp.vendas||[],'IdVendedor'):(resp.vendas||[]);
+    var vRelatorios=window.SGAuth?window.SGAuth.filterByOwner(resp.relatorios||[],'IdVendedor'):(resp.relatorios||[]);
+    processVendedores(vVendedores);
+    vendedoresTodosMapVendas={};(resp.vendedores||[]).forEach(function(v){if(v.IdVendedor)vendedoresTodosMapVendas[v.IdVendedor]=v;});
+    clientesMap={};(resp.clientes||[]).forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
+    vendasRecords=processVendas(vVendas);metasRecords=processMetas(resp.metas||[]);relatoriosRecords=processRelatorios(vRelatorios);custosVendaRecords=processCustosVenda(resp.custosVenda||[]);servicosMap=processServicos(resp.servicos||[]);
+    // As vendas do "Cliente Teste 1" (da6dbd89) são aporte de sócios, não faturamento
+    // de verdade — continuam aparecendo na lista/histórico, mas não entram em
+    // nenhuma conta de faturamento, ticket médio ou meta.
+    vendasRecordsFaturamento=vendasRecords.filter(function(v){return v.idCliente!==ID_CLIENTE_APORTE_SOCIOS;});
+    populateSelects();setDefaultDateRange();
+    document.getElementById('v-emptyState').style.display='none';document.getElementById('v-mainContent').style.display='block';render();
+    setSyncPill('ok','Sincronizado');showConnectBar();
+  }
+
   function fetchFromApi(showStatus){
     if(!hasApiCreds())return;
-    if(showStatus){document.getElementById('v-connectStatus').style.display='flex';document.getElementById('v-connectStatus').className='connect-status';document.getElementById('v-connectStatusText').textContent='Conectando…';}
+    var cache=window.SGCache&&window.SGCache.get('vendas');
+    var temCache=!!(cache&&cache.dados);
+    if(temCache)aplicarDadosVendas(cache.dados);
+    if(showStatus&&!temCache){document.getElementById('v-connectStatus').style.display='flex';document.getElementById('v-connectStatus').className='connect-status';document.getElementById('v-connectStatusText').textContent='Conectando…';}
     var btn=document.getElementById('v-connectBtn');if(btn)btn.disabled=true;
     apiCall('getVendasData').then(function(resp){
       if(btn)btn.disabled=false;
-      if(!resp||!resp.ok){if(showStatus){document.getElementById('v-connectStatus').className='connect-status error';document.getElementById('v-connectStatusText').textContent=(resp&&resp.erro)||'Não foi possível conectar.';}return;}
-      var vVendedores=window.SGAuth?window.SGAuth.filterByOwner(resp.vendedores||[],'IdVendedor'):(resp.vendedores||[]);
-      var vVendas=window.SGAuth?window.SGAuth.filterByOwner(resp.vendas||[],'IdVendedor'):(resp.vendas||[]);
-      var vRelatorios=window.SGAuth?window.SGAuth.filterByOwner(resp.relatorios||[],'IdVendedor'):(resp.relatorios||[]);
-      processVendedores(vVendedores);if(resp.diagnostico)console.log('[Vendas] Diagnóstico:',resp.diagnostico);
-      vendasRecords=processVendas(vVendas);metasRecords=processMetas(resp.metas||[]);relatoriosRecords=processRelatorios(vRelatorios);custosVendaRecords=processCustosVenda(resp.custosVenda||[]);servicosMap=processServicos(resp.servicos||[]);
-      populateSelects();setDefaultDateRange();
-      document.getElementById('v-emptyState').style.display='none';document.getElementById('v-mainContent').style.display='block';render();
-      setSyncPill('ok','Sincronizado');showConnectBar();
+      if(!resp||!resp.ok){if(showStatus&&!temCache){document.getElementById('v-connectStatus').className='connect-status error';document.getElementById('v-connectStatusText').textContent=(resp&&resp.erro)||'Não foi possível conectar.';}return;}
+      if(resp.diagnostico)console.log('[Vendas] Diagnóstico:',resp.diagnostico);
+      if(window.SGCache)window.SGCache.set('vendas',resp);
+      aplicarDadosVendas(resp);
       if(showStatus){document.getElementById('v-connectStatus').className='connect-status online';document.getElementById('v-connectStatusText').textContent='Conectado.';}
-    }).catch(function(err){if(btn)btn.disabled=false;if(showStatus){document.getElementById('v-connectStatus').className='connect-status error';document.getElementById('v-connectStatusText').textContent='Erro: '+err.message;}});
+    }).catch(function(err){if(btn)btn.disabled=false;if(showStatus&&!temCache){document.getElementById('v-connectStatus').className='connect-status error';document.getElementById('v-connectStatusText').textContent='Erro: '+err.message;}});
   }
 
   document.getElementById('v-showConnectFormBtn').addEventListener('click',showConnectForm);
@@ -2020,6 +2452,16 @@
       render();
     });
   });
+
+  document.getElementById('v-novaVendaBtn').addEventListener('click',function(){ abrirModalVenda(null); });
+  document.getElementById('vm-cancelarBtn').addEventListener('click',fecharModalVenda);
+  document.getElementById('vm-salvarBtn').addEventListener('click',salvarVenda);
+  document.getElementById('vendaModal').addEventListener('click',function(e){ if(e.target.id==='vendaModal')fecharModalVenda(); });
+  document.getElementById('vd-fecharBtn').addEventListener('click',fecharPainelVenda);
+  document.getElementById('vd-excluirBtn').addEventListener('click',excluirVenda);
+  document.getElementById('vd-editarBtn').addEventListener('click',function(){ if(vendaAtual)abrirModalVenda(vendaAtual.idVenda); });
+  var adBackdropVendas=document.getElementById('adBackdrop');
+  if(adBackdropVendas)adBackdropVendas.addEventListener('click',fecharPainelVenda);
   function updateSortHeaders(){document.querySelectorAll('#view-vendas th.sortable').forEach(function(th){var col=th.getAttribute('data-sort');th.classList.toggle('sort-active',col===sortState.col);var a=th.querySelector('.arrow-sort');if(col===sortState.col){a.textContent=sortState.dir==='asc'?'▴':'▾';}else{a.textContent='▾';}});}
   document.querySelectorAll('#view-vendas th.sortable').forEach(function(th){th.addEventListener('click',function(){var col=th.getAttribute('data-sort');if(sortState.col===col){sortState.dir=sortState.dir==='asc'?'desc':'asc';}else{sortState.col=col;sortState.dir=col==='vendedor'?'asc':'desc';}updateSortHeaders();render();});});
   updateSortHeaders();
@@ -2034,9 +2476,15 @@
   var funilLogRecords = [];   // ← log de transições de etapa
   var funilSLAMap   = {};     // ← regras de SLA por etapa { etapa: { diasAmarelo, diasVermelho } }
   var vendedoresMap = {};
+  var vendedoresTodosMap = {}; // sem filtro por dono — pro dropdown de atribuição
   var clientesMap   = {};
+  var servicosMapFunil = {};
   var _initialized  = false;
   var sortState     = { col: 'dataProcesso', dir: 'desc' };
+  var visaoAtual    = localStorage.getItem('sg_funil_visao')||'lista';
+  var leadAtual     = null; // lead aberto no painel lateral (null = criando um novo)
+
+  var ETAPAS = ['Novo Lead','Tentativa de Contato','Retomar Contato','Gerar Proposta','Negociação','Serviço Agendado','Ganho','Perdido'];
 
   var DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA34xrlLTVUUNhKBIlguJT3ectH7Yus-VW1n41GcCclc5q_Yj0Di2O7g/exec';
   var DEFAULT_API_KEY = '1234';
@@ -2075,7 +2523,7 @@
   function dateKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
   function fmtDateBR(d){ return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear(); }
   function escapeHtml(s){ var d=document.createElement('div');d.textContent=s||'';return d.innerHTML; }
-  function nomeFor(id){ var v=vendedoresMap[id];return(v&&(v.Nome||v.nome))||id.slice(0,8); }
+  function nomeFor(id){ var v=vendedoresMap[id]||vendedoresTodosMap[id];return(v&&(v.Nome||v.nome))||id.slice(0,8); }
   function nomeClienteFor(id){ if(!id)return'—';var c=clientesMap[id];return(c&&(c['Nome Razao Social']||c.Nome))||id.slice(0,8); }
 
   // ─────────────────────────────────────────────────────────────
@@ -2226,7 +2674,7 @@
       var dpTag=r.temLog?'<span class="dp-log-tag">log</span>':'';
       var slaHtml='<span class="sla-cell sla-'+r.slaColor+'"><span class="sla-dot"></span>'+r.diasNaEtapa+'d</span>';
       rows+=
-        '<tr>'+
+        '<tr class="ag-row-click" data-id="'+escapeHtml(r.id)+'">'+
         '<td class="dp-date">'+dpStr+dpTag+'</td>'+
         '<td>'+slaHtml+'</td>'+
         '<td>'+escapeHtml(nomeClienteFor(r.idCliente))+'</td>'+
@@ -2239,12 +2687,179 @@
     });
     document.getElementById('f-tbody').innerHTML=rows||
       '<tr><td colspan="8" style="text-align:center;color:var(--ink-faint);padding:30px;">Nenhum lead nesta etapa/período.</td></tr>';
+    document.getElementById('f-tbody').querySelectorAll('.ag-row-click').forEach(function(tr){
+      tr.addEventListener('click',function(){ abrirPainelLead(tr.getAttribute('data-id')); });
+    });
+
+    renderKanban(f.allPeriod);
 
     document.getElementById('f-tableTitle').textContent=etapa==='__all__'?'no período':'— '+etapa;
     document.getElementById('f-tableHint').textContent=count+' lead(s) encontrado(s) · ordenado por data da última movimentação';
     var d=new Date();
     document.getElementById('f-lastUpdate').textContent='Atualizado em '+d.toLocaleDateString('pt-BR')+' às '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
     return f;
+  }
+
+  /**
+   * O Kanban sempre mostra TODAS as etapas como colunas (senão perderia a
+   * graça de ver o funil inteiro) — mas respeita o período/vendedor
+   * filtrados. Se tiver uma etapa específica marcada nos filtros, só destaca
+   * aquela coluna (as outras ficam esmaecidas) em vez de escondê-las.
+   */
+  function renderKanban(rowsDoPeriodo){
+    var wrap=document.getElementById('f-kanbanWrap');
+    var etapaAtiva=getEtapaAtiva();
+    var porEtapa={};
+    ETAPAS.forEach(function(e){porEtapa[e]=[];});
+    rowsDoPeriodo.forEach(function(r){
+      if(!porEtapa[r.etapa])porEtapa[r.etapa]=[];
+      porEtapa[r.etapa].push(r);
+    });
+    wrap.innerHTML=ETAPAS.map(function(etapa){
+      var lista=(porEtapa[etapa]||[]).slice();
+      lista.sort(function(a,b){return (b.dataProcesso?b.dataProcesso.getTime():0)-(a.dataProcesso?a.dataProcesso.getTime():0);});
+      var valorTotal=lista.reduce(function(s,r){return s+r.valor;},0);
+      var esmaecido=(etapaAtiva!=='__all__'&&etapaAtiva!==etapa)?'opacity:.4;':'';
+      var cardsHtml=lista.length?lista.map(function(r){
+        var slaHtml='<span class="sla-cell sla-'+r.slaColor+'"><span class="sla-dot"></span>'+r.diasNaEtapa+'d</span>';
+        return '<div class="kanban-card" data-id="'+escapeHtml(r.id)+'">'+
+          '<div class="kcard-nome">'+escapeHtml(nomeClienteFor(r.idCliente))+'</div>'+
+          '<div class="kcard-vend">'+escapeHtml(nomeFor(r.idVendedor))+'</div>'+
+          '<div class="kcard-foot"><span class="kcard-valor">'+fmtMoney(r.valor)+'</span>'+slaHtml+'</div>'+
+        '</div>';
+      }).join(''):'<div class="kanban-col-empty">Nenhum lead aqui.</div>';
+      return '<div class="kanban-col" style="'+esmaecido+'">'+
+        '<div class="kanban-col-head"><div class="kc-nome">'+escapeHtml(etapa)+'</div><div class="kc-sub">'+lista.length+' lead(s) · '+fmtMoney(valorTotal)+'</div></div>'+
+        '<div class="kanban-col-body">'+cardsHtml+'</div>'+
+      '</div>';
+    }).join('');
+    wrap.querySelectorAll('.kanban-card').forEach(function(card){
+      card.addEventListener('click',function(){ abrirPainelLead(card.getAttribute('data-id')); });
+    });
+  }
+
+  /**
+   * Abre o painel lateral pra editar um lead existente (idOportunidade) ou
+   * criar um novo (idOportunidade null/undefined).
+   */
+  function abrirPainelLead(idOportunidade){
+    var r=idOportunidade?funilRecords.filter(function(x){return String(x.id)===String(idOportunidade);})[0]:null;
+    leadAtual=r;
+
+    document.getElementById('fd-title').textContent=r?nomeClienteFor(r.idCliente):'Novo lead';
+    document.getElementById('fd-excluirBtn').style.display=r?'flex':'none';
+
+    var clientesOpts='<option value="">— Selecionar cliente…</option>'+
+      Object.keys(clientesMap).map(function(id){return clientesMap[id];})
+        .sort(function(a,b){return (a['Nome Razao Social']||a.Nome||'').localeCompare(b['Nome Razao Social']||b.Nome||'','pt-BR');})
+        .map(function(c){return '<option value="'+escapeHtml(c.IdCliente)+'">'+escapeHtml(c['Nome Razao Social']||c.Nome||c.IdCliente)+'</option>';}).join('');
+    var vendedoresOpts='<option value="">— Selecionar vendedor…</option>'+
+      Object.keys(vendedoresTodosMap).map(function(id){return vendedoresTodosMap[id];})
+        .filter(function(v){return (v.Status||'').trim().toLowerCase()!=='inativo';})
+        .sort(function(a,b){return (a.Nome||'').localeCompare(b.Nome||'','pt-BR');})
+        .map(function(v){return '<option value="'+escapeHtml(v.IdVendedor)+'">'+escapeHtml(v.Nome)+'</option>';}).join('');
+    var servicosOpts='<option value="">— Nenhum serviço associado…</option>'+
+      Object.keys(servicosMapFunil).map(function(id){return servicosMapFunil[id];})
+        .sort(function(a,b){return (a['Nome Servico']||'').localeCompare(b['Nome Servico']||'','pt-BR');})
+        .map(function(s){return '<option value="'+escapeHtml(s.IdServico)+'">'+escapeHtml(s['Nome Servico']||s.IdServico)+'</option>';}).join('');
+    var etapasOpts=ETAPAS.map(function(e){return '<option value="'+escapeHtml(e)+'">'+escapeHtml(e)+'</option>';}).join('');
+
+    var html='<div class="ad-section">'+
+      '<div class="uform-field"><label>Cliente</label><select id="fd-cliente">'+clientesOpts+'</select></div>'+
+      '<div class="uform-field"><label>Vendedor responsável</label><select id="fd-vendedor">'+vendedoresOpts+'</select></div>'+
+      '<div class="uform-field"><label>Serviço (opcional)</label><select id="fd-servico">'+servicosOpts+'</select></div>'+
+      '<div class="uform-field"><label>Etapa</label><select id="fd-etapa">'+etapasOpts+'</select></div>'+
+      '<div class="uform-field" id="fd-motivoPerdaWrap" style="display:none;"><label>Motivo da perda</label><input type="text" id="fd-motivoPerda" placeholder="Ex: Contratou outra empresa"></div>'+
+      '<div class="uform-field"><label>Valor estimado</label><input type="number" id="fd-valor" step="0.01" min="0"></div>'+
+      '<div class="uform-field"><label>Observações</label><textarea id="fd-obs" rows="4" style="width:100%;font-family:var(--sans);font-size:13px;border:1px solid var(--line);border-radius:7px;padding:9px 12px;background:#fff;color:var(--ink);resize:vertical;"></textarea></div>'+
+    '</div>';
+
+    if(r){
+      html+='<div class="ad-section"><h4>Histórico</h4>'+
+        '<div class="ad-row"><span class="dl">Criado em</span><span class="dv">'+(r.dt?fmtDateBR(r.dt):'—')+'</span></div>'+
+        '<div class="ad-row"><span class="dl">Nessa etapa desde</span><span class="dv">'+(r.dataProcesso?fmtDateBR(r.dataProcesso):'—')+'</span></div>'+
+        '<div class="ad-row"><span class="dl">Dias na etapa</span><span class="dv">'+r.diasNaEtapa+' dia(s)</span></div>'+
+      '</div>';
+    }
+
+    document.getElementById('fd-body').innerHTML=html;
+    document.getElementById('fd-cliente').value=r?(r.idCliente||''):'';
+    document.getElementById('fd-vendedor').value=r?(r.idVendedor||''):(window.SG_SESSION?window.SG_SESSION.idVendedor:'');
+    document.getElementById('fd-servico').value=r?(r.idServico||''):'';
+    document.getElementById('fd-etapa').value=r?r.etapa:'Novo Lead';
+    document.getElementById('fd-valor').value=r?(r.valor||''):'';
+    document.getElementById('fd-obs').value=r?(r.obs||''):'';
+    document.getElementById('fd-motivoPerda').value=r?(r.motivoPerda||''):'';
+    atualizarVisibilidadeMotivoPerda();
+    document.getElementById('fd-etapa').addEventListener('change',atualizarVisibilidadeMotivoPerda);
+
+    document.getElementById('funilDetalhe').classList.add('active');
+    document.getElementById('adBackdrop').classList.add('active');
+  }
+
+  function atualizarVisibilidadeMotivoPerda(){
+    var etapa=document.getElementById('fd-etapa').value;
+    document.getElementById('fd-motivoPerdaWrap').style.display=(etapa==='Perdido')?'block':'none';
+  }
+
+  function fecharPainelLead(){
+    document.getElementById('funilDetalhe').classList.remove('active');
+    document.getElementById('adBackdrop').classList.remove('active');
+    leadAtual=null;
+  }
+
+  function salvarLead(){
+    var idCliente=document.getElementById('fd-cliente').value;
+    var idVendedor=document.getElementById('fd-vendedor').value;
+    var etapa=document.getElementById('fd-etapa').value;
+    if(!idCliente||!idVendedor||!etapa){ mostrarToastFunil('Cliente, vendedor e etapa são obrigatórios.',true); return; }
+
+    var btn=document.getElementById('fd-salvarBtn');
+    btn.disabled=true; btn.textContent='Salvando…';
+    apiCall('salvarFunil',{
+      idOportunidade: leadAtual?leadAtual.id:null,
+      idCliente: idCliente, idVendedor: idVendedor,
+      idServico: document.getElementById('fd-servico').value,
+      etapa: etapa,
+      observacoes: document.getElementById('fd-obs').value,
+      valorEstimado: document.getElementById('fd-valor').value,
+      motivoPerda: document.getElementById('fd-motivoPerda').value
+    }).then(function(resp){
+      btn.disabled=false; btn.textContent='Salvar';
+      if(!resp||!resp.ok){ mostrarToastFunil((resp&&resp.erro)||'Não foi possível salvar.',true); return; }
+      mostrarToastFunil('Lead salvo.');
+      fecharPainelLead();
+      fetchData(false); // recarrega pra já vir com dataProcesso/SLA recalculados a partir do log novo
+    }).catch(function(err){ btn.disabled=false; btn.textContent='Salvar'; mostrarToastFunil('Erro de conexão: '+err.message,true); });
+  }
+
+  function excluirLead(){
+    if(!leadAtual)return;
+    if(!confirm('Excluir esse lead do funil? Essa ação não pode ser desfeita.'))return;
+    var btn=document.getElementById('fd-excluirBtn');
+    btn.disabled=true; btn.textContent='Excluindo…';
+    apiCall('excluirFunil',{idOportunidade:leadAtual.id}).then(function(resp){
+      btn.disabled=false; btn.textContent='Excluir lead';
+      if(!resp||!resp.ok){ mostrarToastFunil((resp&&resp.erro)||'Não foi possível excluir.',true); return; }
+      mostrarToastFunil('Lead excluído.');
+      fecharPainelLead();
+      fetchData(false);
+    }).catch(function(err){ btn.disabled=false; btn.textContent='Excluir lead'; mostrarToastFunil('Erro de conexão: '+err.message,true); });
+  }
+
+  function mostrarToastFunil(texto,erro){
+    var el=document.getElementById('ag-toast')||(function(){
+      var e=document.createElement('div');
+      e.id='ag-toast';
+      e.style.cssText='position:fixed;left:14px;right:14px;bottom:14px;max-width:420px;margin:0 auto;background:var(--sidebar-bg);color:#fff;padding:13px 16px;border-radius:11px;font-size:13px;z-index:200;box-shadow:0 10px 30px rgba(0,0,0,.3);transition:opacity .2s;';
+      document.body.appendChild(e);
+      return e;
+    })();
+    el.style.background=erro?'var(--debit)':'var(--sidebar-bg)';
+    el.textContent=texto;
+    el.style.opacity='1';
+    clearTimeout(el._t);
+    el._t=setTimeout(function(){ el.style.opacity='0'; },2800);
   }
 
   function render(){
@@ -2310,31 +2925,42 @@
 
   function showConnectBar(){ document.getElementById('f-connectCard').style.display='none';document.getElementById('f-connectBar').style.display='flex'; }
 
+  function aplicarDadosFunil(resp){
+    var fVendedores=window.SGAuth?window.SGAuth.filterByOwner(resp.vendedores||[],'IdVendedor'):(resp.vendedores||[]);
+    var fFunil=window.SGAuth?window.SGAuth.filterByOwner(resp.funil||[],'IdVendedor'):(resp.funil||[]);
+    vendedoresMap={};fVendedores.forEach(function(v){if(v.IdVendedor)vendedoresMap[v.IdVendedor]=v;});
+    // Sem filtro por dono — usado só pro dropdown "atribuir a" no painel de edição,
+    // já que qualquer vendedor pode passar um lead pra outro colega.
+    vendedoresTodosMap={};(resp.vendedores||[]).forEach(function(v){if(v.IdVendedor)vendedoresTodosMap[v.IdVendedor]=v;});
+    clientesMap={};(resp.clientes||[]).forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
+    servicosMapFunil={};(resp.servicos||[]).forEach(function(s){if(s.IdServico)servicosMapFunil[s.IdServico]=s;});
+
+    // carrega log e SLA antes de processar os leads
+    funilLogRecords = processFunilLog(resp.funilLog||[]);
+    funilSLAMap     = processFunilSLA(resp.funilSLA||[]);
+
+    funilRecords=processFunil(fFunil);
+    enriquecerComSLA(funilRecords); // calcula dataProcesso/dataProcessoKey/dias/slaColor
+
+    populateVendedorSelect();setDefaultRange();
+    document.getElementById('f-emptyState').style.display='none';document.getElementById('f-mainContent').style.display='block';
+    document.getElementById('f-appVersion').textContent='v'+APP_VERSION;
+    render();showConnectBar();
+  }
+
   function fetchData(showStatus){
-    if(showStatus){document.getElementById('f-connectStatus').style.display='flex';document.getElementById('f-connectStatus').className='connect-status';document.getElementById('f-connectStatusText').textContent='Conectando…';}
+    var cache=window.SGCache&&window.SGCache.get('funil');
+    var temCache=!!(cache&&cache.dados);
+    if(temCache)aplicarDadosFunil(cache.dados);
+    if(showStatus&&!temCache){document.getElementById('f-connectStatus').style.display='flex';document.getElementById('f-connectStatus').className='connect-status';document.getElementById('f-connectStatusText').textContent='Conectando…';}
     document.getElementById('f-connectBtn').disabled=true;
     apiCall('getFunilData').then(function(resp){
       document.getElementById('f-connectBtn').disabled=false;
-      if(!resp||!resp.ok){if(showStatus){document.getElementById('f-connectStatus').className='connect-status error';document.getElementById('f-connectStatusText').textContent=(resp&&resp.erro)||'Não foi possível conectar.';}return;}
-
-      var fVendedores=window.SGAuth?window.SGAuth.filterByOwner(resp.vendedores||[],'IdVendedor'):(resp.vendedores||[]);
-      var fFunil=window.SGAuth?window.SGAuth.filterByOwner(resp.funil||[],'IdVendedor'):(resp.funil||[]);
-      vendedoresMap={};fVendedores.forEach(function(v){if(v.IdVendedor)vendedoresMap[v.IdVendedor]=v;});
-      clientesMap={};(resp.clientes||[]).forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
-
-      // carrega log e SLA antes de processar os leads
-      funilLogRecords = processFunilLog(resp.funilLog||[]);
-      funilSLAMap     = processFunilSLA(resp.funilSLA||[]);
-
-      funilRecords=processFunil(fFunil);
-      enriquecerComSLA(funilRecords); // calcula dataProcesso/dataProcessoKey/dias/slaColor
-
-      populateVendedorSelect();setDefaultRange();
-      document.getElementById('f-emptyState').style.display='none';document.getElementById('f-mainContent').style.display='block';
-      document.getElementById('f-appVersion').textContent='v'+APP_VERSION;
-      render();showConnectBar();
+      if(!resp||!resp.ok){if(showStatus&&!temCache){document.getElementById('f-connectStatus').className='connect-status error';document.getElementById('f-connectStatusText').textContent=(resp&&resp.erro)||'Não foi possível conectar.';}return;}
+      if(window.SGCache)window.SGCache.set('funil',resp);
+      aplicarDadosFunil(resp);
       if(showStatus){document.getElementById('f-connectStatus').className='connect-status online';document.getElementById('f-connectStatusText').textContent='Conectado.';}
-    }).catch(function(err){document.getElementById('f-connectBtn').disabled=false;if(showStatus){document.getElementById('f-connectStatus').className='connect-status error';document.getElementById('f-connectStatusText').textContent='Erro: '+err.message;}});
+    }).catch(function(err){document.getElementById('f-connectBtn').disabled=false;if(showStatus&&!temCache){document.getElementById('f-connectStatus').className='connect-status error';document.getElementById('f-connectStatusText').textContent='Erro: '+err.message;}});
   }
 
   function init(){
@@ -2378,6 +3004,24 @@
       var url=document.getElementById('f-apiUrl').value.trim(),key=document.getElementById('f-apiKey').value.trim();
       if(!url||!key)return;localStorage.setItem('ponto_api_url',url);localStorage.setItem('ponto_api_key',key);fetchData(true);
     });
+
+    function aplicarVisao(){
+      var listaAtiva=visaoAtual==='lista';
+      document.getElementById('f-listaWrap').style.display=listaAtiva?'block':'none';
+      document.getElementById('f-kanbanWrap').style.display=listaAtiva?'none':'flex';
+      document.getElementById('f-viewLista').classList.toggle('active',listaAtiva);
+      document.getElementById('f-viewKanban').classList.toggle('active',!listaAtiva);
+    }
+    aplicarVisao();
+    document.getElementById('f-viewLista').addEventListener('click',function(){ visaoAtual='lista'; localStorage.setItem('sg_funil_visao','lista'); aplicarVisao(); });
+    document.getElementById('f-viewKanban').addEventListener('click',function(){ visaoAtual='kanban'; localStorage.setItem('sg_funil_visao','kanban'); aplicarVisao(); });
+
+    document.getElementById('f-novoLeadBtn').addEventListener('click',function(){ abrirPainelLead(null); });
+    document.getElementById('fd-fecharBtn').addEventListener('click',fecharPainelLead);
+    document.getElementById('fd-salvarBtn').addEventListener('click',salvarLead);
+    document.getElementById('fd-excluirBtn').addEventListener('click',excluirLead);
+    document.getElementById('adBackdrop').addEventListener('click',fecharPainelLead);
+
     fetchData(true);
   }
 
@@ -2600,6 +3244,26 @@
     agendamentoAtual=null;
   }
 
+  function excluirAgendamento(){
+    if(!agendamentoAtual)return;
+    var nome=nomeCliente(agendamentoAtual.IdCliente);
+    if(!confirm('Tem certeza que deseja excluir o agendamento de "'+nome+'"? Essa ação não pode ser desfeita.'))return;
+    var idAgendamento=agendamentoAtual.IdAgendamento;
+    var btn=document.getElementById('ad-excluirBtn');
+    btn.disabled=true; btn.textContent='Excluindo…';
+    apiCall('excluirAgendamento',{solicitanteId:meuId(),idAgendamento:idAgendamento}).then(function(resp){
+      btn.disabled=false; btn.textContent='🗑 Excluir agendamento';
+      if(!resp||!resp.ok){ showAgToast((resp&&resp.erro)||'Não foi possível excluir.',true); return; }
+      agendamentos=agendamentos.filter(function(a){return String(a.IdAgendamento)!==String(idAgendamento);});
+      fecharPainelDetalhe();
+      render();
+      showAgToast('Agendamento excluído.');
+    }).catch(function(err){
+      btn.disabled=false; btn.textContent='🗑 Excluir agendamento';
+      showAgToast('Erro de conexão: '+err.message,true);
+    });
+  }
+
   function gerarPdfRespostas(){
     if(!agendamentoAtual)return;
     var idAgendamento=agendamentoAtual.IdAgendamento;
@@ -2733,6 +3397,11 @@
     renderPaginacaoAg(totalPaginas);
   }
 
+  function normalizaTexto(s){
+    return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  }
+  function ehTecnico(v){ return normalizaTexto(v.Tipo)==='tecnico'; }
+
   function populateSelects(){
     var selCliente=document.getElementById('ag-idCliente');
     selCliente.innerHTML='<option value="">— Selecionar cliente…</option>'+
@@ -2740,9 +3409,11 @@
         .sort(function(a,b){return (a['Nome Razao Social']||'').localeCompare(b['Nome Razao Social']||'','pt-BR');})
         .map(function(c){return '<option value="'+escapeHtml(c.IdCliente)+'">'+escapeHtml(c['Nome Razao Social']||c.Nome||c.IdCliente)+'</option>';}).join('');
 
+    // Só serviços de Campo aparecem pra agendar — os administrativos (Adm) não fazem sentido aqui.
     var selServico=document.getElementById('ag-idServico');
     selServico.innerHTML='<option value="">— Selecionar serviço…</option>'+
       Object.keys(servicosMap).map(function(id){return servicosMap[id];})
+        .filter(function(s){return normalizaTexto(s.TipoServico)==='campo';})
         .sort(function(a,b){return (a['Nome Servico']||'').localeCompare(b['Nome Servico']||'','pt-BR');})
         .map(function(s){return '<option value="'+escapeHtml(s.IdServico)+'">'+escapeHtml(s['Nome Servico']||s.IdServico)+'</option>';}).join('');
 
@@ -2750,9 +3421,13 @@
       .filter(function(v){return (v.Status||'').trim().toLowerCase()!=='inativo';})
       .sort(function(a,b){return (a.Nome||'').localeCompare(b.Nome||'','pt-BR');});
 
+    // Só quem tem Tipo = "Tecnico" (sem diferenciar maiúscula/acento) pode ser
+    // escolhido como responsável por uma ordem de serviço em campo.
+    var tecnicosLista=vendedoresLista.filter(ehTecnico);
+
     var selTecnicoModal=document.getElementById('ag-tecnico');
     selTecnicoModal.innerHTML='<option value="">— Selecionar técnico…</option>'+
-      vendedoresLista.map(function(v){return '<option value="'+escapeHtml(v.IdVendedor)+'">'+escapeHtml(v.Nome)+(v.Tipo?' · '+escapeHtml(v.Tipo):'')+'</option>';}).join('');
+      tecnicosLista.map(function(v){return '<option value="'+escapeHtml(v.IdVendedor)+'">'+escapeHtml(v.Nome)+'</option>';}).join('');
 
     var selTecnicoFiltro=document.getElementById('ag-selTecnico'),curT=selTecnicoFiltro.value||'__all__';
     selTecnicoFiltro.innerHTML='<option value="__all__">Todos os técnicos</option>'+
@@ -2771,8 +3446,9 @@
     document.getElementById('ag-tecnico').value=a?(a.TecnicoResponsavel||''):'';
     var dt=a?parseBRDateTime(a['Data Inicio']):null;
     document.getElementById('ag-dataInicio').value=dt?dateKey(dt):'';
-    document.getElementById('ag-horaInicio').value=a?(a['Hora inicio']||''):'';
-    document.getElementById('ag-horaFim').value=a?(a['Hora Fim']||''):'';
+    renderHoraGrid('ag-horaInicioGrid',HORAS_INICIO,a?(a['Hora inicio']||''):'','ag-horaInicio',function(){ atualizarDisponibilidadeHoraFim(); validarHorario(); });
+    renderHoraGrid('ag-horaFimGrid',HORAS_FIM,a?(a['Hora Fim']||''):'','ag-horaFim',validarHorario);
+    atualizarDisponibilidadeHoraFim();
     document.getElementById('ag-qtdModulos').value=a?(a['Quantidade de Modulos']||''):'';
     document.getElementById('ag-modeloModulos').value=a?(a['Modelo Modulos']||''):'';
     document.getElementById('ag-qtdInversores').value=a?(a['Quantidade Inversores']||''):'';
@@ -2781,10 +3457,113 @@
     document.getElementById('ag-statusField').style.display=a?'block':'none';
     document.getElementById('ag-status').value=a?(a['Status Agendamento']||'Agendado'):'Agendado';
     document.getElementById('ag-servicoWarn').textContent='';
+    document.getElementById('ag-clienteWarn').textContent='';
+    document.getElementById('ag-horarioMsg').textContent='';
+    validarCliente();
     document.getElementById('agendamentoModal').classList.remove('hidden');
     if(idAgendamento)garantirRespostas(idAgendamento);
   }
   function closeModal(){ document.getElementById('agendamentoModal').classList.add('hidden'); editandoId=null; servicoOriginalEdicao=null; }
+
+  var HORAS_INICIO=['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00'];
+  var HORAS_FIM=['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00'];
+
+  function horaParaMinutos(hhmm){ var p=String(hhmm||'').split(':'); return (parseInt(p[0],10)||0)*60+(parseInt(p[1],10)||0); }
+
+  function renderHoraGrid(containerId,horas,valorAtual,inputId,onChange){
+    var el=document.getElementById(containerId);
+    el.innerHTML=horas.map(function(h){
+      return '<button type="button" class="hora-btn'+(h===valorAtual?' selected':'')+'" data-hora="'+h+'">'+h+'</button>';
+    }).join('');
+    document.getElementById(inputId).value=valorAtual||'';
+    el.querySelectorAll('.hora-btn').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        if(btn.disabled)return;
+        el.querySelectorAll('.hora-btn').forEach(function(b){b.classList.remove('selected');});
+        btn.classList.add('selected');
+        document.getElementById(inputId).value=btn.getAttribute('data-hora');
+        if(onChange)onChange();
+      });
+    });
+  }
+
+  function atualizarDisponibilidadeHoraFim(){
+    var horaInicio=document.getElementById('ag-horaInicio').value;
+    var grid=document.getElementById('ag-horaFimGrid');
+    grid.querySelectorAll('.hora-btn').forEach(function(btn){
+      var h=btn.getAttribute('data-hora');
+      var invalido=!!(horaInicio&&horaParaMinutos(h)<=horaParaMinutos(horaInicio));
+      btn.disabled=invalido;
+      if(invalido&&btn.classList.contains('selected')){
+        btn.classList.remove('selected');
+        document.getElementById('ag-horaFim').value='';
+      }
+    });
+  }
+
+  function formatarDataBR(iso){
+    var m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m?(m[3]+'/'+m[2]+'/'+m[1]):(iso||'');
+  }
+
+  /**
+   * Regras vindas do AppSheet: hora fim > hora início, e nenhum outro
+   * agendamento do MESMO técnico, no MESMO dia, com horário sobreposto.
+   * Cancelados não contam como conflito — o horário fica livre de novo.
+   */
+  function validarHorario(){
+    var msgEl=document.getElementById('ag-horarioMsg');
+    msgEl.className='uform-msg'; msgEl.textContent='';
+    var horaInicio=document.getElementById('ag-horaInicio').value;
+    var horaFim=document.getElementById('ag-horaFim').value;
+    var dataInicio=document.getElementById('ag-dataInicio').value;
+    var tecnico=document.getElementById('ag-tecnico').value;
+    if(!horaInicio||!horaFim)return true;
+    if(horaParaMinutos(horaFim)<=horaParaMinutos(horaInicio)){
+      msgEl.className='uform-msg error';
+      msgEl.textContent='O horário fim deve ser maior que o início.';
+      return false;
+    }
+    if(!dataInicio||!tecnico)return true;
+    var conflito=agendamentos.filter(function(a){
+      if(editandoId&&String(a.IdAgendamento)===String(editandoId))return false;
+      if(String(a.TecnicoResponsavel)!==String(tecnico))return false;
+      if(normalizaTexto(a['Status Agendamento'])==='cancelado')return false;
+      var dtA=parseBRDateTime(a['Data Inicio']);
+      if(!dtA||dateKey(dtA)!==dataInicio)return false;
+      var aIni=a['Hora inicio'],aFim=a['Hora Fim'];
+      if(!aIni||!aFim)return false;
+      return horaParaMinutos(aIni)<horaParaMinutos(horaFim)&&horaParaMinutos(aFim)>horaParaMinutos(horaInicio);
+    })[0];
+    if(conflito){
+      msgEl.className='uform-msg error';
+      msgEl.textContent='Conflito! O técnico '+nomeVendedor(tecnico)+' já possui agendamento neste horário no dia '+formatarDataBR(dataInicio)+'.';
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Regra vinda do AppSheet: só deixa escolher (ou manter) um cliente que já
+   * tem endereço cadastrado.
+   */
+  function validarCliente(){
+    var msgEl=document.getElementById('ag-clienteWarn');
+    msgEl.className='uform-msg'; msgEl.textContent='';
+    var idCliente=document.getElementById('ag-idCliente').value;
+    if(!idCliente)return true;
+    var cliente=clientesMap[idCliente];
+    if(cliente&&!String(cliente.Endereco||'').trim()){
+      msgEl.className='uform-msg error';
+      msgEl.textContent='⚠️ Este cliente não possui endereço cadastrado. Atualize o cadastro do cliente antes de realizar o agendamento.';
+      return false;
+    }
+    return true;
+  }
+
+  document.getElementById('ag-idCliente').addEventListener('change',validarCliente);
+  document.getElementById('ag-dataInicio').addEventListener('change',validarHorario);
+  document.getElementById('ag-tecnico').addEventListener('change',validarHorario);
 
   function contarRespostasDoServico(idAgendamento,idServico){
     var templates=templatesPorServico[idServico]||[];
@@ -2815,6 +3594,9 @@
     var tecnico=document.getElementById('ag-tecnico').value;
     var dataInicio=document.getElementById('ag-dataInicio').value;
     if(!idCliente||!idServico||!tecnico||!dataInicio){ showMsg('Cliente, serviço, técnico e data são obrigatórios.','error'); return; }
+    if(!document.getElementById('ag-horaInicio').value||!document.getElementById('ag-horaFim').value){ showMsg('Escolha o horário de início e fim.','error'); return; }
+    if(!validarCliente()){ showMsg('Corrija o cadastro do cliente antes de continuar.','error'); return; }
+    if(!validarHorario()){ showMsg('Corrija o horário antes de continuar.','error'); return; }
 
     var btn=document.getElementById('ag-salvarBtn');
     btn.disabled=true; btn.textContent='Salvando…';
@@ -2847,39 +3629,59 @@
     document.getElementById('ag-dateTo').value='';
   }
 
+  function aplicarDadosAgendamentos(resp){
+    agendamentos=resp.agendamentos||[];
+    clientesMap={}; (resp.clientes||[]).forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
+    vendedoresMap={}; (resp.vendedores||[]).forEach(function(v){if(v.IdVendedor)vendedoresMap[v.IdVendedor]=v;});
+    servicosMap={}; (resp.servicos||[]).forEach(function(s){if(s.IdServico)servicosMap[s.IdServico]=s;});
+    templatesPorServico={};
+    templatesPorId={};
+    (resp.templates||[]).forEach(function(t){
+      if(t.IdTemplate)templatesPorId[t.IdTemplate]=t;
+      if(!t.IdServico)return;
+      if(!templatesPorServico[t.IdServico])templatesPorServico[t.IdServico]=[];
+      templatesPorServico[t.IdServico].push(t);
+    });
+    respostasPorAgendamento={};
+    respostasCarregadasPara={};
+    (resp.respostas||[]).forEach(function(r){
+      if(!r.IdAgendamento)return;
+      if(!respostasPorAgendamento[r.IdAgendamento])respostasPorAgendamento[r.IdAgendamento]=[];
+      respostasPorAgendamento[r.IdAgendamento].push(r);
+    });
+    populateSelects();
+    document.getElementById('ag-lastUpdate').textContent='Atualizado em '+new Date().toLocaleDateString('pt-BR')+' às '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    render();
+  }
+
+  /**
+   * Cache-first: se já tem dados salvos localmente, mostra na hora (sem
+   * "Conectando…") e busca uma versão atualizada em segundo plano — só troca
+   * a tela quando os dados novos chegarem, sem piscar loading a cada troca
+   * de aba. Na primeira vez (sem cache ainda), mostra o carregando normal.
+   */
   function carregar(){
+    var cache=window.SGCache&&window.SGCache.get('agendamentos');
+    var temCache=!!(cache&&cache.dados);
+    if(temCache){
+      aplicarDadosAgendamentos(cache.dados);
+    }
     apiCall('getAgendamentosData',{}).then(function(resp){
       if(!resp||!resp.ok){
-        document.getElementById('ag-emptyState').style.display='block';
-        document.getElementById('ag-emptyState').querySelector('p').textContent=(resp&&resp.erro)||'Não foi possível carregar os agendamentos.';
+        if(!temCache){
+          document.getElementById('ag-emptyState').style.display='block';
+          document.getElementById('ag-emptyState').querySelector('p').textContent=(resp&&resp.erro)||'Não foi possível carregar os agendamentos.';
+        }
         return;
       }
-      agendamentos=resp.agendamentos||[];
-      clientesMap={}; (resp.clientes||[]).forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
-      vendedoresMap={}; (resp.vendedores||[]).forEach(function(v){if(v.IdVendedor)vendedoresMap[v.IdVendedor]=v;});
-      servicosMap={}; (resp.servicos||[]).forEach(function(s){if(s.IdServico)servicosMap[s.IdServico]=s;});
-      templatesPorServico={};
-      templatesPorId={};
-      (resp.templates||[]).forEach(function(t){
-        if(t.IdTemplate)templatesPorId[t.IdTemplate]=t;
-        if(!t.IdServico)return;
-        if(!templatesPorServico[t.IdServico])templatesPorServico[t.IdServico]=[];
-        templatesPorServico[t.IdServico].push(t);
-      });
-      respostasPorAgendamento={};
-      respostasCarregadasPara={};
-      (resp.respostas||[]).forEach(function(r){
-        if(!r.IdAgendamento)return;
-        if(!respostasPorAgendamento[r.IdAgendamento])respostasPorAgendamento[r.IdAgendamento]=[];
-        respostasPorAgendamento[r.IdAgendamento].push(r);
-      });
-      paginaAtual=1;
-      populateSelects();
-      document.getElementById('ag-lastUpdate').textContent='Atualizado em '+new Date().toLocaleDateString('pt-BR')+' às '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-      render();
+      if(window.SGCache)window.SGCache.set('agendamentos',resp);
+      if(!temCache)paginaAtual=1;
+      aplicarDadosAgendamentos(resp);
     }).catch(function(err){
-      document.getElementById('ag-emptyState').style.display='block';
-      document.getElementById('ag-emptyState').querySelector('p').textContent='Erro de conexão: '+err.message;
+      if(!temCache){
+        document.getElementById('ag-emptyState').style.display='block';
+        document.getElementById('ag-emptyState').querySelector('p').textContent='Erro de conexão: '+err.message;
+      }
     });
   }
 
@@ -2901,6 +3703,7 @@
     document.getElementById('ad-editarBtn').addEventListener('click',function(){
       if(agendamentoAtual)openModal(agendamentoAtual.IdAgendamento);
     });
+    document.getElementById('ad-excluirBtn').addEventListener('click',excluirAgendamento);
 
     document.getElementById('ag-dateFrom').addEventListener('change',function(){ paginaAtual=1; render(); });
     document.getElementById('ag-dateTo').addEventListener('change',function(){ paginaAtual=1; render(); });
@@ -2937,6 +3740,190 @@
   }
 
   window.agendamentosApp={init:init};
+})();
+
+
+// ════ PLANOS (clientes assinantes) ════
+(function(){
+  var _initialized=false;
+  var planos=[], clientesMap={};
+  var editandoId=null;
+  var paginaAtual=1, ITENS_POR_PAGINA=10;
+  var APP_VERSION='2026-07-16-1';
+
+  function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
+  function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+  function isMarcado(v){ if(v===true)return true; if(v===false||v===undefined||v===null||v==='')return false; var s=String(v).trim().toUpperCase(); return s==='VERDADEIRO'||s==='TRUE'||s==='SIM'||s==='1'; }
+  function nomeCliente(id){ var c=clientesMap[id]; return c?(c['Nome Razao Social']||c.Nome||id):id; }
+  function fmtMoney(n){ if(typeof n==='string')n=parseFloat(n.replace(/\./g,'').replace(',','.'))||0; else n=parseFloat(n)||0; return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function parseBRDate(str){ if(!str)return null; str=String(str).trim(); var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m)return new Date(+m[3],+m[2]-1,+m[1]); var d=new Date(str.substring(0,10)); return isNaN(d)?null:d; }
+  function fmtDateBR(d){ return d?(String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()):'—'; }
+  function dateKeyFromDate(d){ return d?(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')):''; }
+
+  function renderPaginacao(totalPaginas){
+    var el=document.getElementById('pl-paginacao');
+    if(!el)return;
+    if(totalPaginas<=1){el.innerHTML='';return;}
+    el.innerHTML='<button type="button" id="pl-pgAnterior" '+(paginaAtual<=1?'disabled':'')+'>‹ Anterior</button><span class="pg-info">Página '+paginaAtual+' de '+totalPaginas+'</span><button type="button" id="pl-pgProxima" '+(paginaAtual>=totalPaginas?'disabled':'')+'>Próxima ›</button>';
+    var a=document.getElementById('pl-pgAnterior'); if(a)a.addEventListener('click',function(){if(paginaAtual>1){paginaAtual--;render();}});
+    var p=document.getElementById('pl-pgProxima'); if(p)p.addEventListener('click',function(){if(paginaAtual<totalPaginas){paginaAtual++;render();}});
+  }
+
+  function render(){
+    var ativos=planos.filter(function(p){return (p.Status||'').trim().toLowerCase()==='ativo';});
+    var inativos=planos.filter(function(p){return (p.Status||'').trim().toLowerCase()!=='ativo';});
+    var receita=ativos.reduce(function(s,p){var v=p.Valor;if(typeof v==='string')v=parseFloat(v.replace(/\./g,'').replace(',','.'))||0;else v=parseFloat(v)||0;return s+v;},0);
+    document.getElementById('pl-kpiAtivos').textContent=ativos.length;
+    document.getElementById('pl-kpiInativos').textContent=inativos.length;
+    document.getElementById('pl-kpiReceita').textContent=fmtMoney(receita);
+
+    var ordenados=planos.slice().sort(function(a,b){ return nomeCliente(a.IdCliente).localeCompare(nomeCliente(b.IdCliente),'pt-BR'); });
+
+    var totalPaginas=Math.max(1,Math.ceil(ordenados.length/ITENS_POR_PAGINA));
+    if(paginaAtual>totalPaginas)paginaAtual=totalPaginas;
+    if(paginaAtual<1)paginaAtual=1;
+    var inicio=(paginaAtual-1)*ITENS_POR_PAGINA;
+    var pagina=ordenados.slice(inicio,inicio+ITENS_POR_PAGINA);
+
+    document.getElementById('pl-tableHint').textContent=ordenados.length+' plano(s) cadastrado(s)';
+
+    var tbody=document.getElementById('pl-tbody');
+    if(!pagina.length){
+      tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--ink-faint);padding:30px;">Nenhum plano cadastrado ainda.</td></tr>';
+      renderPaginacao(0);
+      return;
+    }
+    tbody.innerHTML=pagina.map(function(p){
+      var servicos=[];
+      if(isMarcado(p.Monitoramento))servicos.push('Monitoramento');
+      if(isMarcado(p.VistoriaDiagnostica))servicos.push('Vistoria');
+      if(isMarcado(p.Limpeza))servicos.push('Limpeza');
+      if(isMarcado(p.ManutencaoPreventiva))servicos.push('Manutenção');
+      var ativo=(p.Status||'').trim().toLowerCase()==='ativo';
+      var venc=parseBRDate(p.DiaVencimento);
+      return '<tr class="ag-row-click" data-id="'+escapeHtml(p.IdPlano)+'">'+
+        '<td>'+escapeHtml(nomeCliente(p.IdCliente))+'</td>'+
+        '<td>'+escapeHtml(p.TipoAssinatura||'—')+'</td>'+
+        '<td class="num">'+fmtMoney(p.Valor)+'</td>'+
+        '<td>'+(venc?fmtDateBR(venc):'—')+'</td>'+
+        '<td style="font-size:11.5px;color:var(--ink-soft);">'+(servicos.length?escapeHtml(servicos.join(', ')):'—')+'</td>'+
+        '<td><span class="ag-status-tag '+(ativo?'concluido':'cancelado')+'">'+escapeHtml(p.Status||'—')+'</span></td>'+
+        '<td class="u-row-actions"><button class="pl-editar-btn" data-id="'+escapeHtml(p.IdPlano)+'">editar</button></td>'+
+      '</tr>';
+    }).join('');
+    tbody.querySelectorAll('.ag-row-click').forEach(function(tr){
+      tr.addEventListener('click',function(){ abrirModalPlano(tr.getAttribute('data-id')); });
+    });
+    tbody.querySelectorAll('.pl-editar-btn').forEach(function(btn){
+      btn.addEventListener('click',function(e){ e.stopPropagation(); abrirModalPlano(btn.getAttribute('data-id')); });
+    });
+    renderPaginacao(totalPaginas);
+    document.getElementById('pl-lastUpdate').textContent='Atualizado em '+new Date().toLocaleDateString('pt-BR')+' às '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  }
+
+  function popularSelectCliente(){
+    var sel=document.getElementById('pm-cliente');
+    sel.innerHTML='<option value="">— Selecionar cliente…</option>'+
+      Object.keys(clientesMap).map(function(id){return clientesMap[id];})
+        .sort(function(a,b){return (a['Nome Razao Social']||a.Nome||'').localeCompare(b['Nome Razao Social']||b.Nome||'','pt-BR');})
+        .map(function(c){return '<option value="'+escapeHtml(c.IdCliente)+'">'+escapeHtml(c['Nome Razao Social']||c.Nome||c.IdCliente)+'</option>';}).join('');
+  }
+
+  function abrirModalPlano(idPlano){
+    popularSelectCliente();
+    var p=idPlano?planos.filter(function(x){return String(x.IdPlano)===String(idPlano);})[0]:null;
+    editandoId=idPlano||null;
+    document.getElementById('planoModalTitle').textContent=p?'Editar plano':'Novo plano';
+    document.getElementById('pm-cliente').value=p?(p.IdCliente||''):'';
+    document.getElementById('pm-tipo').value=p?(p.TipoAssinatura||'Mensal'):'Mensal';
+    document.getElementById('pm-valor').value=p?p.Valor:'';
+    var da=p?parseBRDate(p.DataAssinatura):null;
+    document.getElementById('pm-dataAssinatura').value=da?dateKeyFromDate(da):'';
+    var venc=p?parseBRDate(p.DiaVencimento):null;
+    document.getElementById('pm-vencimento').value=venc?dateKeyFromDate(venc):'';
+    document.getElementById('pm-status').value=p?(p.Status||'Ativo'):'Ativo';
+    document.getElementById('pm-monitoramento').checked=p?isMarcado(p.Monitoramento):false;
+    document.getElementById('pm-vistoria').checked=p?isMarcado(p.VistoriaDiagnostica):false;
+    document.getElementById('pm-limpeza').checked=p?isMarcado(p.Limpeza):false;
+    document.getElementById('pm-manutencao').checked=p?isMarcado(p.ManutencaoPreventiva):false;
+    document.getElementById('pm-excluirBtn').style.display=p?'block':'none';
+    document.getElementById('pm-msg').textContent='';
+    document.getElementById('planoModal').classList.remove('hidden');
+  }
+  function fecharModalPlano(){ document.getElementById('planoModal').classList.add('hidden'); editandoId=null; }
+
+  function salvarPlano(){
+    var idCliente=document.getElementById('pm-cliente').value;
+    var tipo=document.getElementById('pm-tipo').value;
+    if(!idCliente||!tipo){ var m=document.getElementById('pm-msg'); m.className='uform-msg error'; m.textContent='Cliente e tipo de assinatura são obrigatórios.'; return; }
+    var btn=document.getElementById('pm-salvarBtn');
+    btn.disabled=true; btn.textContent='Salvando…';
+    apiCall('salvarPlano',{
+      idPlano: editandoId,
+      idCliente: idCliente, tipoAssinatura: tipo,
+      valor: document.getElementById('pm-valor').value,
+      dataAssinatura: document.getElementById('pm-dataAssinatura').value,
+      diaVencimento: document.getElementById('pm-vencimento').value,
+      status: document.getElementById('pm-status').value,
+      monitoramento: document.getElementById('pm-monitoramento').checked,
+      vistoriaDiagnostica: document.getElementById('pm-vistoria').checked,
+      limpeza: document.getElementById('pm-limpeza').checked,
+      manutencaoPreventiva: document.getElementById('pm-manutencao').checked
+    }).then(function(resp){
+      btn.disabled=false; btn.textContent='Salvar';
+      if(!resp||!resp.ok){ var m=document.getElementById('pm-msg'); m.className='uform-msg error'; m.textContent=(resp&&resp.erro)||'Não foi possível salvar.'; return; }
+      fecharModalPlano();
+      carregar();
+    }).catch(function(err){ btn.disabled=false; btn.textContent='Salvar'; var m=document.getElementById('pm-msg'); m.className='uform-msg error'; m.textContent='Erro de conexão: '+err.message; });
+  }
+
+  function excluirPlano(){
+    if(!editandoId)return;
+    if(!confirm('Tem certeza que deseja excluir esse plano? Essa ação não pode ser desfeita.'))return;
+    apiCall('excluirPlano',{idPlano:editandoId}).then(function(resp){
+      if(!resp||!resp.ok)return;
+      fecharModalPlano();
+      carregar();
+    });
+  }
+
+  function aplicarDados(resp){
+    planos=resp.planos||[];
+    clientesMap={};(resp.clientes||[]).forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
+    document.getElementById('pl-emptyState').style.display='none';
+    document.getElementById('pl-appVersion').textContent='v'+APP_VERSION;
+    render();
+  }
+
+  function carregar(){
+    var cache=window.SGCache&&window.SGCache.get('planos');
+    var temCache=!!(cache&&cache.dados);
+    if(temCache)aplicarDados(cache.dados);
+    apiCall('getPlanosData',{}).then(function(resp){
+      if(!resp||!resp.ok){
+        if(!temCache){document.getElementById('pl-emptyState').style.display='block';document.getElementById('pl-emptyState').querySelector('p').textContent=(resp&&resp.erro)||'Não foi possível carregar os planos.';}
+        return;
+      }
+      if(window.SGCache)window.SGCache.set('planos',resp);
+      aplicarDados(resp);
+    }).catch(function(err){
+      if(!temCache){document.getElementById('pl-emptyState').style.display='block';document.getElementById('pl-emptyState').querySelector('p').textContent='Erro de conexão: '+err.message;}
+    });
+  }
+
+  function init(){
+    if(_initialized)return;
+    if(!window.SG_SESSION)return;
+    _initialized=true;
+    document.getElementById('pl-novoBtn').addEventListener('click',function(){ abrirModalPlano(null); });
+    document.getElementById('pm-cancelarBtn').addEventListener('click',fecharModalPlano);
+    document.getElementById('pm-salvarBtn').addEventListener('click',salvarPlano);
+    document.getElementById('pm-excluirBtn').addEventListener('click',excluirPlano);
+    document.getElementById('planoModal').addEventListener('click',function(e){ if(e.target.id==='planoModal')fecharModalPlano(); });
+    carregar();
+  }
+
+  window.planosApp={init:init};
 })();
 
 
@@ -3054,20 +4041,22 @@
 
 // ════ CONTROLLER ════
 (function(){
-  var views={ponto:document.getElementById('view-ponto'),vendas:document.getElementById('view-vendas'),funil:document.getElementById('view-funil'),agendamentos:document.getElementById('view-agendamentos'),usuarios:document.getElementById('view-usuarios')};
-  var navLinks={ponto:document.getElementById('nav-ponto'),vendas:document.getElementById('nav-vendas'),funil:document.getElementById('nav-funil'),agendamentos:document.getElementById('nav-agendamentos'),usuarios:document.getElementById('nav-usuarios')};
+  var views={ponto:document.getElementById('view-ponto'),vendas:document.getElementById('view-vendas'),funil:document.getElementById('view-funil'),agendamentos:document.getElementById('view-agendamentos'),planos:document.getElementById('view-planos'),usuarios:document.getElementById('view-usuarios')};
+  var navLinks={ponto:document.getElementById('nav-ponto'),vendas:document.getElementById('nav-vendas'),funil:document.getElementById('nav-funil'),agendamentos:document.getElementById('nav-agendamentos'),planos:document.getElementById('nav-planos'),usuarios:document.getElementById('nav-usuarios')};
   function switchTo(name){
     if(name==='usuarios'&&(!window.SGAuth||!window.SGAuth.isAdmin()))name='ponto';
     Object.keys(views).forEach(function(k){if(!views[k]||!navLinks[k])return;views[k].classList.toggle('active',k===name);navLinks[k].classList.toggle('active',k===name);});
     localStorage.setItem('sg_active_view',name);
     if(name==='funil'&&window.funilApp)window.funilApp.init();
     if(name==='agendamentos'&&window.agendamentosApp)window.agendamentosApp.init();
+    if(name==='planos'&&window.planosApp)window.planosApp.init();
     if(name==='usuarios'&&window.usuariosApp)window.usuariosApp.init();
   }
   navLinks.ponto.addEventListener('click',function(e){e.preventDefault();switchTo('ponto');});
   navLinks.vendas.addEventListener('click',function(e){e.preventDefault();switchTo('vendas');});
   navLinks.funil.addEventListener('click',function(e){e.preventDefault();switchTo('funil');});
   if(navLinks.agendamentos)navLinks.agendamentos.addEventListener('click',function(e){e.preventDefault();switchTo('agendamentos');});
+  if(navLinks.planos)navLinks.planos.addEventListener('click',function(e){e.preventDefault();switchTo('planos');});
   if(navLinks.usuarios)navLinks.usuarios.addEventListener('click',function(e){e.preventDefault();switchTo('usuarios');});
   var saved=localStorage.getItem('sg_active_view')||'ponto';
   if(!views[saved])saved='ponto';
