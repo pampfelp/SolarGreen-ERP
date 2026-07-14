@@ -257,6 +257,16 @@
   .uform-msg.error{display:block;background:#fdecea;color:#c0392b;}
   .uform-msg.success{display:block;background:var(--accent-soft);color:#2c6e00;}
   .uform-msg:empty{display:none;}
+  .meta-edit-btn{background:none;border:none;color:var(--ink-faint);font-size:12px;cursor:pointer;padding:0 0 0 2px;vertical-align:middle;}
+  .meta-edit-btn:hover{color:var(--accent-deep);}
+  .combo-wrap{position:relative;}
+  .combo-wrap input[type=text]{width:100%;}
+  .combo-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;max-height:260px;overflow-y:auto;background:#fff;border:1px solid var(--line);border-radius:9px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:30;}
+  .combo-dropdown.hidden{display:none;}
+  .combo-item{padding:10px 12px;font-size:13px;color:var(--ink);cursor:pointer;border-bottom:1px solid var(--bg);}
+  .combo-item:last-child{border-bottom:none;}
+  .combo-item:hover{background:var(--bg);}
+  .combo-empty{padding:12px;font-size:12.5px;color:var(--ink-faint);text-align:center;}
   .hora-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}
   .hora-btn{font-family:var(--sans);font-size:12px;font-weight:700;border:1px solid var(--line);background:#fff;color:var(--ink-soft);border-radius:8px;padding:9px 2px;cursor:pointer;text-align:center;}
   .hora-btn.selected{background:var(--accent);border-color:var(--accent);color:#003122;}
@@ -1276,6 +1286,41 @@
   </div>
 </div>
 
+<div id="clienteRapidoDetalhe" class="side-panel" style="z-index:160;">
+  <div class="ad-top">
+    <button class="ad-backbtn" id="cr-fecharBtn">←</button>
+    <div class="ad-title">Cadastrar cliente</div>
+  </div>
+  <div class="ad-body">
+    <div class="ad-section">
+      <div class="uform-field"><label>Nome</label><input type="text" id="cr-nome" placeholder="Nome completo"></div>
+      <div class="uform-field"><label>Telefone</label><input type="text" id="cr-telefone" placeholder="(91) 90000-0000"></div>
+      <div class="uform-field"><label>Endereço</label><input type="text" id="cr-endereco" placeholder="Pode preencher depois, se preferir"></div>
+      <div style="font-size:11.5px;color:var(--ink-faint);margin-top:-4px;">O endereço não é obrigatório agora, mas vai ser pedido na hora de criar um agendamento de serviço pra esse cliente.</div>
+    </div>
+    <div class="uform-msg" id="cr-msg"></div>
+  </div>
+  <div class="ad-actions">
+    <button class="connect-btn" id="cr-salvarBtn" style="width:100%;">Cadastrar e continuar</button>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="metaIndividualModal">
+  <div class="modal-card" style="max-width:380px;">
+    <h3 id="mim-title">Meta individual</h3>
+    <div class="lstep-sub" id="mim-sub" style="font-size:12.5px;color:var(--ink-faint);margin-bottom:14px;">Sobrepõe, só pra esse vendedor e esse mês, a meta padrão (empresa ÷ ativos).</div>
+    <div class="uform-field"><label>Meta individual do mês</label><input type="number" id="mim-valor" step="0.01" min="0"></div>
+    <div class="uform-msg" id="mim-msg"></div>
+    <div class="modal-actions">
+      <button class="reset-btn" id="mim-removerBtn" style="color:var(--debit);display:none;">Remover (usar padrão)</button>
+      <div style="display:flex;gap:8px;">
+        <button class="reset-btn" id="mim-cancelarBtn">Cancelar</button>
+        <button class="connect-btn" id="mim-salvarBtn">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay hidden" id="vendaModal">
   <div class="modal-card">
     <h3 id="vendaModalTitle">Nova venda</h3>
@@ -1990,6 +2035,7 @@
   var vendedoresMap={},sortState={col:'faturado',dir:'desc'},vendedoresAtivosVenda=[],vendasRecords=[],metasRecords=[],relatoriosRecords=[],custosVendaRecords=[],servicosMap={};
   var clientesMap={};
   var vendedoresTodosMapVendas={};
+  var metasIndividuaisMap={}; // 'idVendedor|ano|mes' -> valor da sobreposição
   var vendaAtual=null;
   var vPaginaAtual=1, V_ITENS_POR_PAGINA=10;
   var API_URL_KEY='ponto_api_url',API_KEY_KEY='ponto_api_key';
@@ -2056,6 +2102,10 @@
   function setDefaultDateRange(){var now=new Date(),first=new Date(now.getFullYear(),now.getMonth(),1),last=new Date(now.getFullYear(),now.getMonth()+1,0);document.getElementById('v-dateFrom').value=dateKey(first);document.getElementById('v-dateTo').value=dateKey(last);}
   function getMetaDoMes(ano,mes){var m=metasRecords.filter(function(x){return x.ano===ano&&x.mes===mes;})[0];return m?m.valor:0;}
   function parseISODate(s){var p=s.split('-');return new Date(parseInt(p[0],10),parseInt(p[1],10)-1,parseInt(p[2],10));}
+
+  function metaOverrideDoVendedor(idVendedor,ano,mes){
+    return metasIndividuaisMap[idVendedor+'|'+ano+'|'+mes]||null;
+  }
 
   function computeMetaContext(){
     var toStr=document.getElementById('v-dateTo').value,refDate=toStr?parseISODate(toStr):new Date();
@@ -2134,18 +2184,31 @@
       var th=tvh.length>0?tvh.reduce(function(s,v){return s+v.valor;},0)/tvh.length:tmH;
       var tv=tvp>0?tvp:th,tvE=tvp<=0&&tv>0;
       var ativo=isVendedorAtivo(vendedoresMap[id]||{});
-      var mi=ativo?ctx.metaIndividual:0,rv=ativo?Math.max(mi-fv,0):0,nv2=ativo?(tv>0?Math.ceil(rv/tv):(rv>0?null:0)):-1;
-      var pv=ativo&&mi>0?Math.min((fv/mi)*100,100):0,mhv=ativo?ctx.metaAteHojeIndividual:0,ri=ativo?(fv-mhv):0;
-      return{id:id,nome:nomeFor(id),ativo:ativo,meta:mi,faturado:fv,metaAteHoje:mhv,ritmo:ri,vendas:nv,ticket:tv,ticketProjetado:tvE,necessarias:nv2===null?-1:nv2,progresso:pv};
+      var override=metaOverrideDoVendedor(id,ctx.ano,ctx.mes);
+      var mi=ativo?(override?override.valor:ctx.metaIndividual):0,rv=ativo?Math.max(mi-fv,0):0,nv2=ativo?(tv>0?Math.ceil(rv/tv):(rv>0?null:0)):-1;
+      // "meta até hoje" desse vendedor: mesma proporção dos dias úteis decorridos,
+      // só que aplicada em cima da meta DELE (padrão ou sobreposta).
+      var mhv=ativo&&ctx.diasUteisMes>0?(mi/ctx.diasUteisMes)*ctx.diasUteisDecorridos:0,ri=ativo?(fv-mhv):0;
+      var pv=ativo&&mi>0?Math.min((fv/mi)*100,100):0;
+      return{id:id,nome:nomeFor(id),ativo:ativo,meta:mi,temOverride:!!override,faturado:fv,metaAteHoje:mhv,ritmo:ri,vendas:nv,ticket:tv,ticketProjetado:tvE,necessarias:nv2===null?-1:nv2,progresso:pv};
     });
     sortVendedorRows(linhas);
     var rh='';
     linhas.forEach(function(row){
       var rc=row.ritmo>0.4?'pos':(row.ritmo<-0.4?'neg':'zero');
       var inactiveTag=row.ativo?'':' <span class="inactive-tag">inativo</span>';
-      rh+='<tr><td class="person-name">'+escapeHtml(row.nome)+inactiveTag+'</td><td class="num">'+(row.ativo?fmtMoney(row.meta):'—')+'</td><td class="num">'+fmtMoney(row.faturado)+'</td><td class="num">'+(row.ativo?fmtMoney(row.metaAteHoje):'—')+'</td><td class="num bal '+(row.ativo?rc:'zero')+'">'+(row.ativo?((row.ritmo>=0?'+':'-')+fmtMoney(Math.abs(row.ritmo))):'—')+'</td><td class="num">'+row.vendas+'</td><td class="num">'+fmtMoney(row.ticket)+(row.ticketProjetado?' <span title="Projetado" style="color:var(--ink-faint);">*</span>':'')+'</td><td class="num">'+(row.necessarias===-1?'—':row.necessarias)+'</td><td>'+(row.ativo?('<span class="mini-track"><span class="mini-fill" style="width:'+row.progresso.toFixed(0)+'%;"></span></span><span style="font-size:11.5px;color:var(--ink-soft);">'+row.progresso.toFixed(0)+'%</span>'):'<span style="font-size:11.5px;color:var(--ink-faint);">—</span>')+'</td></tr>';
+      var metaCellHtml=row.ativo
+        ?(fmtMoney(row.meta)+(row.temOverride?' <span title="Meta individual definida manualmente" style="color:var(--accent-deep);">✎</span>':'')+
+          ' <button type="button" class="meta-edit-btn" data-id="'+escapeHtml(row.id)+'" data-nome="'+escapeHtml(row.nome)+'" data-meta="'+row.meta+'" data-override="'+(row.temOverride?'1':'0')+'" title="Definir meta individual">⚙</button>')
+        :'—';
+      rh+='<tr><td class="person-name">'+escapeHtml(row.nome)+inactiveTag+'</td><td class="num">'+metaCellHtml+'</td><td class="num">'+fmtMoney(row.faturado)+'</td><td class="num">'+(row.ativo?fmtMoney(row.metaAteHoje):'—')+'</td><td class="num bal '+(row.ativo?rc:'zero')+'">'+(row.ativo?((row.ritmo>=0?'+':'-')+fmtMoney(Math.abs(row.ritmo))):'—')+'</td><td class="num">'+row.vendas+'</td><td class="num">'+fmtMoney(row.ticket)+(row.ticketProjetado?' <span title="Projetado" style="color:var(--ink-faint);">*</span>':'')+'</td><td class="num">'+(row.necessarias===-1?'—':row.necessarias)+'</td><td>'+(row.ativo?('<span class="mini-track"><span class="mini-fill" style="width:'+row.progresso.toFixed(0)+'%;"></span></span><span style="font-size:11.5px;color:var(--ink-soft);">'+row.progresso.toFixed(0)+'%</span>'):'<span style="font-size:11.5px;color:var(--ink-faint);">—</span>')+'</td></tr>';
     });
     document.getElementById('tbodyVendedores').innerHTML=rh||'<tr><td colspan="9" style="text-align:center;color:var(--ink-faint);padding:30px;">Nenhum vendedor no filtro.</td></tr>';
+    document.getElementById('tbodyVendedores').querySelectorAll('.meta-edit-btn').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        abrirModalMetaIndividual(btn.getAttribute('data-id'),btn.getAttribute('data-nome'),parseFloat(btn.getAttribute('data-meta'))||0,btn.getAttribute('data-override')==='1',ctx.ano,ctx.mes);
+      });
+    });
 
     var tc=filtered.relatorios.reduce(function(s,r){return s+r.contatos;},0),tcv=filtered.relatorios.reduce(function(s,r){return s+r.conversas;},0),tp=filtered.relatorios.reduce(function(s,r){return s+r.propostas;},0),tvr=filtered.relatorios.reduce(function(s,r){return s+r.vendas;},0);
     document.getElementById('funilContatos').textContent=tc;document.getElementById('funilConversas').textContent=tcv;document.getElementById('funilPropostas').textContent=tp;document.getElementById('funilVendas').textContent=tvr;
@@ -2272,6 +2335,48 @@
     document.getElementById('vendaModal').classList.remove('hidden');
   }
   function fecharModalVenda(){ document.getElementById('vendaModal').classList.add('hidden'); }
+
+  var mimContexto=null; // {idVendedor, ano, mes}
+  var NOMES_MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+
+  function abrirModalMetaIndividual(idVendedor,nome,metaAtual,temOverride,ano,mes){
+    mimContexto={idVendedor:idVendedor,ano:ano,mes:mes};
+    document.getElementById('mim-title').textContent='Meta individual — '+nome;
+    document.getElementById('mim-sub').textContent='Só pra '+NOMES_MESES[mes-1]+'/'+ano+' — nos outros meses continua usando a meta padrão (empresa ÷ vendedores ativos).';
+    document.getElementById('mim-valor').value=metaAtual?metaAtual.toFixed(2):'';
+    document.getElementById('mim-removerBtn').style.display=temOverride?'block':'none';
+    document.getElementById('mim-msg').textContent='';
+    document.getElementById('metaIndividualModal').classList.remove('hidden');
+  }
+  function fecharModalMetaIndividual(){ document.getElementById('metaIndividualModal').classList.add('hidden'); mimContexto=null; }
+
+  function salvarMetaIndividualOverride(){
+    if(!mimContexto)return;
+    var valor=document.getElementById('mim-valor').value;
+    var msgEl=document.getElementById('mim-msg');
+    if(!valor||parseFloat(valor)<=0){ msgEl.className='uform-msg error'; msgEl.textContent='Informe um valor de meta maior que zero.'; return; }
+    var btn=document.getElementById('mim-salvarBtn');
+    btn.disabled=true; btn.textContent='Salvando…';
+    apiCall('salvarMetaIndividual',{idVendedor:mimContexto.idVendedor,ano:mimContexto.ano,mes:mimContexto.mes,valorMeta:valor}).then(function(resp){
+      btn.disabled=false; btn.textContent='Salvar';
+      if(!resp||!resp.ok){ msgEl.className='uform-msg error'; msgEl.textContent=(resp&&resp.erro)||'Não foi possível salvar.'; return; }
+      fecharModalMetaIndividual();
+      fetchFromApi(false);
+    }).catch(function(err){ btn.disabled=false; btn.textContent='Salvar'; msgEl.className='uform-msg error'; msgEl.textContent='Erro de conexão: '+err.message; });
+  }
+
+  function removerMetaIndividualOverride(){
+    if(!mimContexto)return;
+    if(!confirm('Remover a meta individual desse vendedor pra esse mês? Ele volta a usar a meta padrão dividida entre os vendedores ativos.'))return;
+    var btn=document.getElementById('mim-removerBtn');
+    btn.disabled=true; btn.textContent='Removendo…';
+    apiCall('excluirMetaIndividual',{idVendedor:mimContexto.idVendedor,ano:mimContexto.ano,mes:mimContexto.mes}).then(function(resp){
+      btn.disabled=false; btn.textContent='Remover (usar padrão)';
+      if(!resp||!resp.ok)return;
+      fecharModalMetaIndividual();
+      fetchFromApi(false);
+    });
+  }
 
   function salvarVenda(){
     var idCliente=document.getElementById('vm-cliente').value;
@@ -2409,6 +2514,11 @@
     var vRelatorios=window.SGAuth?window.SGAuth.filterByOwner(resp.relatorios||[],'IdVendedor'):(resp.relatorios||[]);
     processVendedores(vVendedores);
     vendedoresTodosMapVendas={};(resp.vendedores||[]).forEach(function(v){if(v.IdVendedor)vendedoresTodosMapVendas[v.IdVendedor]=v;});
+    metasIndividuaisMap={};(resp.metasIndividuais||[]).forEach(function(m){
+      if(!m.IdVendedor)return;
+      var chave=m.IdVendedor+'|'+parseInt(m.Ano,10)+'|'+parseInt(m.Mes,10);
+      metasIndividuaisMap[chave]={id:m.IdMetaIndividual,valor:parseBRNumber(m.ValorMeta)};
+    });
     clientesMap={};(resp.clientes||[]).forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
     vendasRecords=processVendas(vVendas);metasRecords=processMetas(resp.metas||[]);relatoriosRecords=processRelatorios(vRelatorios);custosVendaRecords=processCustosVenda(resp.custosVenda||[]);servicosMap=processServicos(resp.servicos||[]);
     // As vendas do "Cliente Teste 1" (da6dbd89) são aporte de sócios, não faturamento
@@ -2460,6 +2570,10 @@
   document.getElementById('vm-cancelarBtn').addEventListener('click',fecharModalVenda);
   document.getElementById('vm-salvarBtn').addEventListener('click',salvarVenda);
   document.getElementById('vendaModal').addEventListener('click',function(e){ if(e.target.id==='vendaModal')fecharModalVenda(); });
+  document.getElementById('mim-cancelarBtn').addEventListener('click',fecharModalMetaIndividual);
+  document.getElementById('mim-salvarBtn').addEventListener('click',salvarMetaIndividualOverride);
+  document.getElementById('mim-removerBtn').addEventListener('click',removerMetaIndividualOverride);
+  document.getElementById('metaIndividualModal').addEventListener('click',function(e){ if(e.target.id==='metaIndividualModal')fecharModalMetaIndividual(); });
   document.getElementById('vd-fecharBtn').addEventListener('click',fecharPainelVenda);
   document.getElementById('vd-excluirBtn').addEventListener('click',excluirVenda);
   document.getElementById('vd-editarBtn').addEventListener('click',function(){ if(vendaAtual)abrirModalVenda(vendaAtual.idVenda); });
@@ -2752,10 +2866,6 @@
     document.getElementById('fd-title').textContent=r?nomeClienteFor(r.idCliente):'Novo lead';
     document.getElementById('fd-excluirBtn').style.display=r?'flex':'none';
 
-    var clientesOpts='<option value="">— Selecionar cliente…</option>'+
-      Object.keys(clientesMap).map(function(id){return clientesMap[id];})
-        .sort(function(a,b){return (a['Nome Razao Social']||a.Nome||'').localeCompare(b['Nome Razao Social']||b.Nome||'','pt-BR');})
-        .map(function(c){return '<option value="'+escapeHtml(c.IdCliente)+'">'+escapeHtml(c['Nome Razao Social']||c.Nome||c.IdCliente)+'</option>';}).join('');
     var vendedoresOpts='<option value="">— Selecionar vendedor…</option>'+
       Object.keys(vendedoresTodosMap).map(function(id){return vendedoresTodosMap[id];})
         .filter(function(v){return (v.Status||'').trim().toLowerCase()!=='inativo';})
@@ -2768,7 +2878,15 @@
     var etapasOpts=ETAPAS.map(function(e){return '<option value="'+escapeHtml(e)+'">'+escapeHtml(e)+'</option>';}).join('');
 
     var html='<div class="ad-section">'+
-      '<div class="uform-field"><label>Cliente</label><select id="fd-cliente">'+clientesOpts+'</select></div>'+
+      '<div class="uform-field">'+
+        '<label>Cliente</label>'+
+        '<div class="combo-wrap">'+
+          '<input type="text" id="fd-clienteBusca" placeholder="Digite o nome do cliente…" autocomplete="off">'+
+          '<input type="hidden" id="fd-cliente">'+
+          '<div class="combo-dropdown hidden" id="fd-clienteDropdown"></div>'+
+        '</div>'+
+        '<button type="button" class="reset-btn" id="fd-cadastrarClienteBtn" style="width:100%;margin-top:8px;">+ Cadastrar cliente</button>'+
+      '</div>'+
       '<div class="uform-field"><label>Vendedor responsável</label><select id="fd-vendedor">'+vendedoresOpts+'</select></div>'+
       '<div class="uform-field"><label>Serviço (opcional)</label><select id="fd-servico">'+servicosOpts+'</select></div>'+
       '<div class="uform-field"><label>Etapa</label><select id="fd-etapa">'+etapasOpts+'</select></div>'+
@@ -2787,6 +2905,9 @@
 
     document.getElementById('fd-body').innerHTML=html;
     document.getElementById('fd-cliente').value=r?(r.idCliente||''):'';
+    document.getElementById('fd-clienteBusca').value=r?nomeClienteFor(r.idCliente):'';
+    wireComboCliente();
+    document.getElementById('fd-cadastrarClienteBtn').addEventListener('click',function(){ abrirClienteRapido(); });
     document.getElementById('fd-vendedor').value=r?(r.idVendedor||''):(window.SG_SESSION?window.SG_SESSION.idVendedor:'');
     document.getElementById('fd-servico').value=r?(r.idServico||''):'';
     document.getElementById('fd-etapa').value=r?r.etapa:'Novo Lead';
@@ -2798,6 +2919,84 @@
 
     document.getElementById('funilDetalhe').classList.add('active');
     document.getElementById('adBackdrop').classList.add('active');
+  }
+
+  /**
+   * Combo de busca de cliente: digita o nome, aparece uma lista filtrada
+   * embaixo, clica pra escolher. Substitui o <select> gigante de antes.
+   */
+  function wireComboCliente(){
+    var input=document.getElementById('fd-clienteBusca');
+    var hidden=document.getElementById('fd-cliente');
+    var dropdown=document.getElementById('fd-clienteDropdown');
+
+    function renderOpcoes(filtro){
+      var termo=(filtro||'').trim().toLowerCase();
+      var lista=Object.keys(clientesMap).map(function(id){return clientesMap[id];})
+        .filter(function(c){
+          if(!termo)return true;
+          var nome=(c['Nome Razao Social']||c.Nome||'').toLowerCase();
+          return nome.indexOf(termo)!==-1;
+        })
+        .sort(function(a,b){return (a['Nome Razao Social']||a.Nome||'').localeCompare(b['Nome Razao Social']||b.Nome||'','pt-BR');})
+        .slice(0,60);
+      if(!lista.length){
+        dropdown.innerHTML='<div class="combo-empty">Nenhum cliente encontrado com esse nome.</div>';
+      }else{
+        dropdown.innerHTML=lista.map(function(c){
+          return '<div class="combo-item" data-id="'+escapeHtml(c.IdCliente)+'" data-nome="'+escapeHtml(c['Nome Razao Social']||c.Nome||'')+'">'+escapeHtml(c['Nome Razao Social']||c.Nome||c.IdCliente)+'</div>';
+        }).join('');
+      }
+      dropdown.classList.remove('hidden');
+      dropdown.querySelectorAll('.combo-item').forEach(function(item){
+        item.addEventListener('mousedown',function(e){ // mousedown (não click) pra disparar antes do blur do input
+          e.preventDefault();
+          hidden.value=item.getAttribute('data-id');
+          input.value=item.getAttribute('data-nome');
+          dropdown.classList.add('hidden');
+        });
+      });
+    }
+    input.addEventListener('input',function(){ hidden.value=''; renderOpcoes(input.value); });
+    input.addEventListener('focus',function(){ renderOpcoes(input.value); });
+    input.addEventListener('blur',function(){ setTimeout(function(){ dropdown.classList.add('hidden'); },150); });
+  }
+
+  /**
+   * Cadastro rápido de cliente — abre POR CIMA do painel do lead (que
+   * continua ativo por baixo). Ao salvar ou voltar, some e o lead continua
+   * de onde parou.
+   */
+  function abrirClienteRapido(){
+    document.getElementById('cr-nome').value='';
+    document.getElementById('cr-telefone').value='';
+    document.getElementById('cr-endereco').value='';
+    document.getElementById('cr-msg').textContent='';
+    document.getElementById('clienteRapidoDetalhe').classList.add('active');
+  }
+  function fecharClienteRapido(){
+    document.getElementById('clienteRapidoDetalhe').classList.remove('active');
+  }
+  function salvarClienteRapido(){
+    var nome=document.getElementById('cr-nome').value.trim();
+    var telefone=document.getElementById('cr-telefone').value.trim();
+    var msgEl=document.getElementById('cr-msg');
+    if(!nome||!telefone){ msgEl.className='uform-msg error'; msgEl.textContent='Nome e telefone são obrigatórios.'; return; }
+    var btn=document.getElementById('cr-salvarBtn');
+    btn.disabled=true; btn.textContent='Cadastrando…';
+    apiCall('criarClienteRapido',{
+      nome:nome, telefone:telefone,
+      endereco:document.getElementById('cr-endereco').value.trim(),
+      vendedorResponsavel:window.SG_SESSION?window.SG_SESSION.idVendedor:''
+    }).then(function(resp){
+      btn.disabled=false; btn.textContent='Cadastrar e continuar';
+      if(!resp||!resp.ok){ msgEl.className='uform-msg error'; msgEl.textContent=(resp&&resp.erro)||'Não foi possível cadastrar.'; return; }
+      // adiciona na memória local pra já aparecer selecionado sem precisar recarregar tudo
+      clientesMap[resp.idCliente]={IdCliente:resp.idCliente,Nome:nome,'Nome Razao Social':nome,Telefone:telefone};
+      document.getElementById('fd-cliente').value=resp.idCliente;
+      document.getElementById('fd-clienteBusca').value=nome;
+      fecharClienteRapido();
+    }).catch(function(err){ btn.disabled=false; btn.textContent='Cadastrar e continuar'; msgEl.className='uform-msg error'; msgEl.textContent='Erro de conexão: '+err.message; });
   }
 
   function atualizarVisibilidadeMotivoPerda(){
@@ -3023,7 +3222,14 @@
     document.getElementById('fd-fecharBtn').addEventListener('click',fecharPainelLead);
     document.getElementById('fd-salvarBtn').addEventListener('click',salvarLead);
     document.getElementById('fd-excluirBtn').addEventListener('click',excluirLead);
-    document.getElementById('adBackdrop').addEventListener('click',fecharPainelLead);
+    document.getElementById('cr-fecharBtn').addEventListener('click',fecharClienteRapido);
+    document.getElementById('cr-salvarBtn').addEventListener('click',salvarClienteRapido);
+    document.getElementById('adBackdrop').addEventListener('click',function(){
+      // se o cadastro rápido de cliente estiver aberto por cima, fecha só ele
+      // (o lead continua aberto por baixo); senão, fecha o painel do lead.
+      if(document.getElementById('clienteRapidoDetalhe').classList.contains('active')){ fecharClienteRapido(); return; }
+      fecharPainelLead();
+    });
 
     fetchData(true);
   }
