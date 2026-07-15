@@ -1635,6 +1635,38 @@
   // input+hidden+dropdown numa caixa "digita pra filtrar, clica pra
   // escolher", com botão opcional de "+ Adicionar" pra criar uma opção
   // nova na hora sem sair do formulário.
+  // Gera um ID no mesmo formato do servidor (8 caracteres) — é isso que
+  // permite criar um registro OTIMISTA: a tela já sabe o ID final antes
+  // mesmo do servidor confirmar, então dá pra atualizar a lista na hora,
+  // sem esperar a viagem de ida e volta pro Apps Script.
+  window.SGId={
+    gerar:function(){
+      if(window.crypto&&window.crypto.randomUUID)return window.crypto.randomUUID().replace(/-/g,'').substring(0,8);
+      var s='';
+      for(var i=0;i<8;i++)s+=Math.floor(Math.random()*16).toString(16);
+      return s;
+    }
+  };
+
+  // Toast genérico reaproveitado por qualquer módulo pra avisos rápidos
+  // (usado principalmente quando uma alteração otimista precisa ser desfeita).
+  window.SGToast={
+    mostrar:function(texto,erro){
+      var el=document.getElementById('sg-toast-global');
+      if(!el){
+        el=document.createElement('div');
+        el.id='sg-toast-global';
+        el.style.cssText='position:fixed;left:14px;right:14px;bottom:14px;max-width:420px;margin:0 auto;background:#003122;color:#fff;padding:13px 16px;border-radius:11px;font-size:13px;z-index:300;box-shadow:0 10px 30px rgba(0,0,0,.3);transition:opacity .2s;opacity:0;';
+        document.body.appendChild(el);
+      }
+      el.style.background=erro?'#dc2626':'#003122';
+      el.textContent=texto;
+      el.style.opacity='1';
+      clearTimeout(el._t);
+      el._t=setTimeout(function(){ el.style.opacity='0'; },3200);
+    }
+  };
+
   window.SGCombo={
     criar:function(config){
       var input=document.getElementById(config.inputId);
@@ -2523,17 +2555,36 @@
     var dataVenda=document.getElementById('vm-data').value;
     var valor=document.getElementById('vm-valor').value;
     if(!idCliente||!idServico||!idVendedor||!dataVenda||!valor){ showVendaMsg('Preencha todos os campos.',true); return; }
-    var btn=document.getElementById('vm-salvarBtn');
-    btn.disabled=true; btn.textContent='Salvando…';
+
+    var ehNovo=!vendaAtual;
+    var idVenda=vendaAtual?vendaAtual.idVenda:window.SGId.gerar();
+    var registroAnterior=vendaAtual?Object.assign({},vendaAtual):null;
+    var indiceExistente=vendasRecords.findIndex(function(x){return String(x.idVenda)===String(idVenda);});
+    var dt=parseBRDate(dataVenda.split('-').reverse().join('/'));
+    var registroNovo={idVenda:idVenda,idCliente:idCliente,idServico:idServico,idVendedor:idVendedor,dt:dt,dateKey:dataVenda,valor:parseFloat(valor)||0};
+    if(indiceExistente===-1)vendasRecords.push(registroNovo);
+    else vendasRecords[indiceExistente]=registroNovo;
+
+    fecharModalVenda();
+    render();
+    window.SGToast.mostrar(ehNovo?'Venda criada.':'Venda atualizada.');
+
     apiCall('salvarVenda',{
-      idVenda: vendaAtual?vendaAtual.idVenda:null,
+      idVenda: idVenda,
       idCliente:idCliente, idServico:idServico, idVendedor:idVendedor, dataVenda:dataVenda, valor:valor
     }).then(function(resp){
-      btn.disabled=false; btn.textContent='Salvar';
-      if(!resp||!resp.ok){ showVendaMsg((resp&&resp.erro)||'Não foi possível salvar.',true); return; }
-      fecharModalVenda();
-      fetchFromApi(false);
-    }).catch(function(err){ btn.disabled=false; btn.textContent='Salvar'; showVendaMsg('Erro de conexão: '+err.message,true); });
+      if(!resp||!resp.ok){
+        if(ehNovo)vendasRecords=vendasRecords.filter(function(x){return String(x.idVenda)!==String(idVenda);});
+        else{ var idx=vendasRecords.findIndex(function(x){return String(x.idVenda)===String(idVenda);}); if(idx!==-1&&registroAnterior)vendasRecords[idx]=registroAnterior; }
+        render();
+        window.SGToast.mostrar((resp&&resp.erro)||'Não foi possível salvar — a alteração foi desfeita.',true);
+      }
+    }).catch(function(err){
+      if(ehNovo)vendasRecords=vendasRecords.filter(function(x){return String(x.idVenda)!==String(idVenda);});
+      else{ var idx=vendasRecords.findIndex(function(x){return String(x.idVenda)===String(idVenda);}); if(idx!==-1&&registroAnterior)vendasRecords[idx]=registroAnterior; }
+      render();
+      window.SGToast.mostrar('Erro de conexão — a alteração foi desfeita: '+err.message,true);
+    });
   }
 
   function renderCustosVendaHtml(idVenda){
@@ -2605,41 +2656,74 @@
   function adicionarCustoVenda(idVenda){
     var descricao=document.getElementById('vc-descricao').value.trim();
     var valor=document.getElementById('vc-valor').value;
+    var status=document.getElementById('vc-status').value;
+    var dataStr=document.getElementById('vc-data').value;
     if(!valor){ return; }
-    var btn=document.getElementById('vc-salvarBtn');
-    btn.disabled=true; btn.textContent='Salvando…';
+
+    var idCusto=window.SGId.gerar();
+    var registro={id:idCusto,idVenda:idVenda,descricao:descricao,status:status,dt:parseBRDate(dataStr.split('-').reverse().join('/')),dateKey:dataStr,valor:parseFloat(valor)||0};
+    custosVendaRecords.push(registro);
+    document.getElementById('vd-custosLista').innerHTML=renderCustosVendaHtml(idVenda);
+    document.getElementById('vc-descricao').value='';document.getElementById('vc-valor').value='';
+    document.getElementById('vd-custoForm').classList.add('hidden');
+    window.SGToast.mostrar('Custo adicionado.');
+
     apiCall('salvarCustoVenda',{
-      idVenda:idVenda, descricao:descricao,
-      valor:valor, status:document.getElementById('vc-status').value,
-      data:document.getElementById('vc-data').value
+      idCusto:idCusto, idVenda:idVenda, descricao:descricao,
+      valor:valor, status:status, data:dataStr
     }).then(function(resp){
-      btn.disabled=false; btn.textContent='Salvar custo';
-      if(!resp||!resp.ok)return;
-      fetchFromApi(false);
-      // otimista: adiciona localmente pra já aparecer sem esperar o refetch
-      custosVendaRecords.push({id:resp.idCusto,idVenda:idVenda,descricao:descricao,status:document.getElementById('vc-status').value,dt:parseBRDate(document.getElementById('vc-data').value.split('-').reverse().join('/')),dateKey:document.getElementById('vc-data').value,valor:parseFloat(valor)||0});
+      if(!resp||!resp.ok){
+        custosVendaRecords=custosVendaRecords.filter(function(c){return String(c.id)!==String(idCusto);});
+        document.getElementById('vd-custosLista').innerHTML=renderCustosVendaHtml(idVenda);
+        window.SGToast.mostrar((resp&&resp.erro)||'Não foi possível salvar o custo — desfeito.',true);
+      }
+    }).catch(function(err){
+      custosVendaRecords=custosVendaRecords.filter(function(c){return String(c.id)!==String(idCusto);});
       document.getElementById('vd-custosLista').innerHTML=renderCustosVendaHtml(idVenda);
-      document.getElementById('vc-descricao').value='';document.getElementById('vc-valor').value='';
-      document.getElementById('vd-custoForm').classList.add('hidden');
+      window.SGToast.mostrar('Erro de conexão — custo desfeito: '+err.message,true);
     });
   }
 
   function excluirCustoVenda(idCusto,idVenda){
     if(!confirm('Excluir esse custo?'))return;
+    var registroAnterior=custosVendaRecords.filter(function(c){return String(c.id)===String(idCusto);})[0];
+
+    custosVendaRecords=custosVendaRecords.filter(function(c){return String(c.id)!==String(idCusto);});
+    document.getElementById('vd-custosLista').innerHTML=renderCustosVendaHtml(idVenda);
+    window.SGToast.mostrar('Custo excluído.');
+
     apiCall('excluirCustoVenda',{idCusto:idCusto}).then(function(resp){
-      if(!resp||!resp.ok)return;
-      custosVendaRecords=custosVendaRecords.filter(function(c){return String(c.id)!==String(idCusto);});
+      if(!resp||!resp.ok){
+        if(registroAnterior)custosVendaRecords.push(registroAnterior);
+        document.getElementById('vd-custosLista').innerHTML=renderCustosVendaHtml(idVenda);
+        window.SGToast.mostrar((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
+      }
+    }).catch(function(err){
+      if(registroAnterior)custosVendaRecords.push(registroAnterior);
       document.getElementById('vd-custosLista').innerHTML=renderCustosVendaHtml(idVenda);
+      window.SGToast.mostrar('Erro de conexão — custo restaurado: '+err.message,true);
     });
   }
 
   function excluirVenda(){
     if(!vendaAtual)return;
     if(!confirm('Tem certeza que deseja excluir essa venda? Essa ação não pode ser desfeita.'))return;
-    apiCall('excluirVenda',{idVenda:vendaAtual.idVenda}).then(function(resp){
-      if(!resp||!resp.ok)return;
-      fecharPainelVenda();
-      fetchFromApi(false);
+    var idVenda=vendaAtual.idVenda;
+    var registroAnterior=Object.assign({},vendaAtual);
+
+    vendasRecords=vendasRecords.filter(function(x){return String(x.idVenda)!==String(idVenda);});
+    fecharPainelVenda();
+    render();
+    window.SGToast.mostrar('Venda excluída.');
+
+    apiCall('excluirVenda',{idVenda:idVenda}).then(function(resp){
+      if(!resp||!resp.ok){
+        vendasRecords.push(registroAnterior); render();
+        window.SGToast.mostrar((resp&&resp.erro)||'Não foi possível excluir — a venda foi restaurada.',true);
+      }
+    }).catch(function(err){
+      vendasRecords.push(registroAnterior); render();
+      window.SGToast.mostrar('Erro de conexão — a venda foi restaurada: '+err.message,true);
     });
   }
 
@@ -3178,23 +3262,42 @@
     if(!nome){ msgEl.className='uform-msg error'; msgEl.textContent='Nome é obrigatório.'; return; }
     if(!tipoPessoa){ msgEl.className='uform-msg error'; msgEl.textContent='Tipo de pessoa é obrigatório.'; return; }
     if(!telefone){ msgEl.className='uform-msg error'; msgEl.textContent='Telefone é obrigatório.'; return; }
-    var btn=document.getElementById('cr-salvarBtn');
-    btn.disabled=true; btn.textContent='Cadastrando…';
+
+    var cpfCnpj=document.getElementById('cr-cpfCnpj').value.trim();
+    var email=document.getElementById('cr-email').value.trim();
+    var endereco=document.getElementById('cr-endereco').value.trim();
+    var vendedorResponsavel=document.getElementById('cr-vendedor').value||(window.SG_SESSION?window.SG_SESSION.idVendedor:'');
+    var idCliente=window.SGId.gerar();
+
+    // adiciona na memória local e já seleciona no lead — sem esperar o servidor
+    clientesMap[idCliente]={IdCliente:idCliente,Nome:nome,'Nome Razao Social':nome,Telefone:telefone,'Tipo Pessoa':tipoPessoa};
+    document.getElementById('fd-cliente').value=idCliente;
+    document.getElementById('fd-clienteBusca').value=nome;
+    fecharClienteRapido();
+    mostrarToastFunil('Cliente cadastrado.');
+
     apiCall('salvarCliente',{
+      idCliente:idCliente,
       nome:nome, tipoPessoa:tipoPessoa, telefone:telefone,
-      cpfCnpj:document.getElementById('cr-cpfCnpj').value.trim(),
-      email:document.getElementById('cr-email').value.trim(),
-      endereco:document.getElementById('cr-endereco').value.trim(),
-      vendedorResponsavel:document.getElementById('cr-vendedor').value||(window.SG_SESSION?window.SG_SESSION.idVendedor:'')
+      cpfCnpj:cpfCnpj, email:email, endereco:endereco, vendedorResponsavel:vendedorResponsavel
     }).then(function(resp){
-      btn.disabled=false; btn.textContent='Cadastrar e continuar';
-      if(!resp||!resp.ok){ msgEl.className='uform-msg error'; msgEl.textContent=(resp&&resp.erro)||'Não foi possível cadastrar.'; return; }
-      // adiciona na memória local pra já aparecer selecionado sem precisar recarregar tudo
-      clientesMap[resp.idCliente]={IdCliente:resp.idCliente,Nome:nome,'Nome Razao Social':nome,Telefone:telefone,'Tipo Pessoa':tipoPessoa};
-      document.getElementById('fd-cliente').value=resp.idCliente;
-      document.getElementById('fd-clienteBusca').value=nome;
-      fecharClienteRapido();
-    }).catch(function(err){ btn.disabled=false; btn.textContent='Cadastrar e continuar'; msgEl.className='uform-msg error'; msgEl.textContent='Erro de conexão: '+err.message; });
+      if(!resp||!resp.ok){
+        delete clientesMap[idCliente];
+        // se o lead ainda estiver com esse cliente selecionado, limpa (não dá pra manter apontando pra um cliente que não existe)
+        if(document.getElementById('fd-cliente')&&document.getElementById('fd-cliente').value===idCliente){
+          document.getElementById('fd-cliente').value='';
+          document.getElementById('fd-clienteBusca').value='';
+        }
+        mostrarToastFunil((resp&&resp.erro)||'Não foi possível cadastrar o cliente — desfeito. Selecione ou cadastre de novo.',true);
+      }
+    }).catch(function(err){
+      delete clientesMap[idCliente];
+      if(document.getElementById('fd-cliente')&&document.getElementById('fd-cliente').value===idCliente){
+        document.getElementById('fd-cliente').value='';
+        document.getElementById('fd-clienteBusca').value='';
+      }
+      mostrarToastFunil('Erro de conexão — cadastro do cliente desfeito: '+err.message,true);
+    });
   }
 
   function atualizarVisibilidadeMotivoPerda(){
@@ -3220,37 +3323,76 @@
     if(!etapa){ mostrarToastFunil('Selecione a etapa.',true); return; }
     if(!valor){ mostrarToastFunil('Informe o valor estimado.',true); return; }
 
-    var btn=document.getElementById('fd-salvarBtn');
-    btn.disabled=true; btn.textContent='Salvando…';
+    var obs=document.getElementById('fd-obs').value;
+    var motivoPerda=document.getElementById('fd-motivoPerda').value;
+    var ehNovo=!leadAtual;
+    var id=leadAtual?leadAtual.id:window.SGId.gerar();
+    var agora=new Date();
+
+    // Guarda o estado anterior pra poder desfazer se o servidor recusar.
+    var registroAnterior=leadAtual?Object.assign({},leadAtual):null;
+    var indiceExistente=funilRecords.findIndex(function(x){return String(x.id)===String(id);});
+
+    var registroNovo={
+      id:id, idCliente:idCliente, idVendedor:idVendedor, idServico:idServico,
+      etapa:etapa, obs:obs, valor:parseFloat(valor)||0, motivoPerda:motivoPerda,
+      dt:leadAtual?leadAtual.dt:agora,
+      dataProcesso:agora, dataProcessoKey:dateKey(agora),
+      diasNaEtapa:(leadAtual&&leadAtual.etapa===etapa)?leadAtual.diasNaEtapa:0,
+      slaColor:(leadAtual&&leadAtual.etapa===etapa)?leadAtual.slaColor:'green',
+      temLog:true
+    };
+    if(indiceExistente===-1)funilRecords.push(registroNovo);
+    else funilRecords[indiceExistente]=registroNovo;
+
+    // Já atualiza a tela, fecha o painel e avisa — sem esperar o servidor.
+    fecharPainelLead();
+    render();
+    mostrarToastFunil(ehNovo?'Lead criado.':'Lead atualizado.');
+
+    function desfazer(motivo){
+      if(ehNovo){ funilRecords=funilRecords.filter(function(x){return String(x.id)!==String(id);}); }
+      else{ var idx=funilRecords.findIndex(function(x){return String(x.id)===String(id);}); if(idx!==-1&&registroAnterior)funilRecords[idx]=registroAnterior; }
+      render();
+      mostrarToastFunil(motivo,true);
+    }
+
     apiCall('salvarFunil',{
-      idOportunidade: leadAtual?leadAtual.id:null,
+      idOportunidade: id,
       idCliente: idCliente, idVendedor: idVendedor,
       idServico: idServico,
       etapa: etapa,
-      observacoes: document.getElementById('fd-obs').value,
-      valorEstimado: document.getElementById('fd-valor').value,
-      motivoPerda: document.getElementById('fd-motivoPerda').value
+      observacoes: obs,
+      valorEstimado: valor,
+      motivoPerda: motivoPerda
     }).then(function(resp){
-      btn.disabled=false; btn.textContent='Salvar';
-      if(!resp||!resp.ok){ mostrarToastFunil((resp&&resp.erro)||'Não foi possível salvar.',true); return; }
-      mostrarToastFunil('Lead salvo.');
-      fecharPainelLead();
-      fetchData(false); // recarrega pra já vir com dataProcesso/SLA recalculados a partir do log novo
-    }).catch(function(err){ btn.disabled=false; btn.textContent='Salvar'; mostrarToastFunil('Erro de conexão: '+err.message,true); });
+      if(!resp||!resp.ok){ desfazer((resp&&resp.erro)||'Não foi possível salvar — a alteração foi desfeita.'); return; }
+      // sincroniza em segundo plano, sem interromper o usuário, pra pegar
+      // dataProcesso/dias na etapa/SLA calculados de verdade a partir do log.
+      setTimeout(function(){ fetchData(false); },600);
+    }).catch(function(err){ desfazer('Erro de conexão — a alteração foi desfeita: '+err.message); });
   }
 
   function excluirLead(){
     if(!leadAtual)return;
     if(!confirm('Excluir esse lead do funil? Essa ação não pode ser desfeita.'))return;
-    var btn=document.getElementById('fd-excluirBtn');
-    btn.disabled=true; btn.textContent='Excluindo…';
-    apiCall('excluirFunil',{idOportunidade:leadAtual.id}).then(function(resp){
-      btn.disabled=false; btn.textContent='Excluir lead';
-      if(!resp||!resp.ok){ mostrarToastFunil((resp&&resp.erro)||'Não foi possível excluir.',true); return; }
-      mostrarToastFunil('Lead excluído.');
-      fecharPainelLead();
-      fetchData(false);
-    }).catch(function(err){ btn.disabled=false; btn.textContent='Excluir lead'; mostrarToastFunil('Erro de conexão: '+err.message,true); });
+    var id=leadAtual.id;
+    var registroAnterior=Object.assign({},leadAtual);
+
+    funilRecords=funilRecords.filter(function(x){return String(x.id)!==String(id);});
+    fecharPainelLead();
+    render();
+    mostrarToastFunil('Lead excluído.');
+
+    apiCall('excluirFunil',{idOportunidade:id}).then(function(resp){
+      if(!resp||!resp.ok){
+        funilRecords.push(registroAnterior); render();
+        mostrarToastFunil((resp&&resp.erro)||'Não foi possível excluir — o lead foi restaurado.',true);
+      }
+    }).catch(function(err){
+      funilRecords.push(registroAnterior); render();
+      mostrarToastFunil('Erro de conexão — o lead foi restaurado: '+err.message,true);
+    });
   }
 
   function mostrarToastFunil(texto,erro){
@@ -4263,31 +4405,72 @@
     if(!nome){ msgEl.className='uform-msg error'; msgEl.textContent='Nome é obrigatório.'; return; }
     if(!tipoPessoa){ msgEl.className='uform-msg error'; msgEl.textContent='Tipo de pessoa é obrigatório.'; return; }
     if(!telefone){ msgEl.className='uform-msg error'; msgEl.textContent='Telefone é obrigatório.'; return; }
-    var btn=document.getElementById('cm-salvarBtn');
-    btn.disabled=true; btn.textContent='Salvando…';
+
+    var cpfCnpj=document.getElementById('cm-cpfCnpj').value.trim();
+    var email=document.getElementById('cm-email').value.trim();
+    var endereco=document.getElementById('cm-endereco').value.trim();
+    var statusCliente=document.getElementById('cm-status').value;
+    var vendedorResponsavel=document.getElementById('cm-vendedor').value;
+
+    var ehNovo=!editandoId;
+    var idCliente=editandoId||window.SGId.gerar();
+    var registroAnterior=!ehNovo?clientes.filter(function(c){return String(c.IdCliente)===String(idCliente);})[0]:null;
+    var registroAnteriorCopia=registroAnterior?Object.assign({},registroAnterior):null;
+
+    var registroNovo={
+      IdCliente:idCliente, 'Nome Razao Social':nome, 'Tipo Pessoa':tipoPessoa, Telefone:telefone,
+      'CPF ou CNPJ':cpfCnpj, Email:email, Endereco:endereco, 'Status Cliente':statusCliente,
+      'Vendedor Responsavel':vendedorResponsavel
+    };
+    var indice=clientes.findIndex(function(c){return String(c.IdCliente)===String(idCliente);});
+    if(indice===-1)clientes.push(registroNovo);
+    else clientes[indice]=registroNovo;
+
+    fecharModalCliente();
+    render();
+    window.SGToast.mostrar(ehNovo?'Cliente criado.':'Cliente atualizado.');
+
     apiCall('salvarCliente',{
-      idCliente:editandoId,
+      idCliente:idCliente,
       nome:nome, tipoPessoa:tipoPessoa, telefone:telefone,
-      cpfCnpj:document.getElementById('cm-cpfCnpj').value.trim(),
-      email:document.getElementById('cm-email').value.trim(),
-      endereco:document.getElementById('cm-endereco').value.trim(),
-      statusCliente:document.getElementById('cm-status').value,
-      vendedorResponsavel:document.getElementById('cm-vendedor').value
+      cpfCnpj:cpfCnpj, email:email, endereco:endereco,
+      statusCliente:statusCliente, vendedorResponsavel:vendedorResponsavel
     }).then(function(resp){
-      btn.disabled=false; btn.textContent='Salvar';
-      if(!resp||!resp.ok){ msgEl.className='uform-msg error'; msgEl.textContent=(resp&&resp.erro)||'Não foi possível salvar.'; return; }
-      fecharModalCliente();
-      carregar();
-    }).catch(function(err){ btn.disabled=false; btn.textContent='Salvar'; msgEl.className='uform-msg error'; msgEl.textContent='Erro de conexão: '+err.message; });
+      if(!resp||!resp.ok){
+        if(ehNovo)clientes=clientes.filter(function(c){return String(c.IdCliente)!==String(idCliente);});
+        else{ var idx=clientes.findIndex(function(c){return String(c.IdCliente)===String(idCliente);}); if(idx!==-1&&registroAnteriorCopia)clientes[idx]=registroAnteriorCopia; }
+        render();
+        window.SGToast.mostrar((resp&&resp.erro)||'Não foi possível salvar — a alteração foi desfeita.',true);
+      }
+    }).catch(function(err){
+      if(ehNovo)clientes=clientes.filter(function(c){return String(c.IdCliente)!==String(idCliente);});
+      else{ var idx=clientes.findIndex(function(c){return String(c.IdCliente)===String(idCliente);}); if(idx!==-1&&registroAnteriorCopia)clientes[idx]=registroAnteriorCopia; }
+      render();
+      window.SGToast.mostrar('Erro de conexão — a alteração foi desfeita: '+err.message,true);
+    });
   }
 
   function excluirCliente(){
     if(!editandoId)return;
     if(!confirm('Tem certeza que deseja excluir esse cliente? Essa ação não pode ser desfeita.'))return;
-    apiCall('excluirCliente',{idCliente:editandoId}).then(function(resp){
-      if(!resp||!resp.ok)return;
-      fecharModalCliente();
-      carregar();
+    var idCliente=editandoId;
+    var registroAnterior=clientes.filter(function(c){return String(c.IdCliente)===String(idCliente);})[0];
+
+    clientes=clientes.filter(function(c){return String(c.IdCliente)!==String(idCliente);});
+    fecharModalCliente();
+    render();
+    window.SGToast.mostrar('Cliente excluído.');
+
+    apiCall('excluirCliente',{idCliente:idCliente}).then(function(resp){
+      if(!resp||!resp.ok){
+        if(registroAnterior)clientes.push(registroAnterior);
+        render();
+        window.SGToast.mostrar((resp&&resp.erro)||'Não foi possível excluir — o cliente foi restaurado.',true);
+      }
+    }).catch(function(err){
+      if(registroAnterior)clientes.push(registroAnterior);
+      render();
+      window.SGToast.mostrar('Erro de conexão — o cliente foi restaurado: '+err.message,true);
     });
   }
 
@@ -4446,36 +4629,80 @@
     var idCliente=document.getElementById('pm-cliente').value;
     var tipo=document.getElementById('pm-tipo').value;
     if(!idCliente||!tipo){ var m=document.getElementById('pm-msg'); m.className='uform-msg error'; m.textContent='Cliente e tipo de assinatura são obrigatórios.'; return; }
-    var btn=document.getElementById('pm-salvarBtn');
-    btn.disabled=true; btn.textContent='Salvando…';
+
+    var valor=document.getElementById('pm-valor').value;
+    var dataAssinatura=document.getElementById('pm-dataAssinatura').value;
+    var diaVencimento=document.getElementById('pm-vencimento').value;
+    var status=document.getElementById('pm-status').value;
+    var monitoramento=document.getElementById('pm-monitoramento').checked;
+    var vistoria=document.getElementById('pm-vistoria').checked;
+    var limpeza=document.getElementById('pm-limpeza').checked;
+    var manutencao=document.getElementById('pm-manutencao').checked;
+
+    var ehNovo=!editandoId;
+    var idPlano=editandoId||window.SGId.gerar();
+    var registroAnterior=!ehNovo?planos.filter(function(p){return String(p.IdPlano)===String(idPlano);})[0]:null;
+    var registroAnteriorCopia=registroAnterior?Object.assign({},registroAnterior):null;
+
+    function dataBRDe(iso){ if(!iso)return ''; var partes=iso.split('-'); return partes[2]+'/'+partes[1]+'/'+partes[0]; }
+    var registroNovo={
+      IdPlano:idPlano, IdCliente:idCliente, TipoAssinatura:tipo, Valor:valor,
+      DataAssinatura:dataBRDe(dataAssinatura), DiaVencimento:dataBRDe(diaVencimento), Status:status,
+      Monitoramento:monitoramento, VistoriaDiagnostica:vistoria, Limpeza:limpeza, ManutencaoPreventiva:manutencao
+    };
+    var indice=planos.findIndex(function(p){return String(p.IdPlano)===String(idPlano);});
+    if(indice===-1)planos.push(registroNovo);
+    else planos[indice]=registroNovo;
+
+    fecharModalPlano();
+    render();
+    mostrarToastPlanos(ehNovo?'Plano criado.':'Plano atualizado.');
+
     apiCall('salvarPlano',{
-      idPlano: editandoId,
+      idPlano: idPlano,
       idCliente: idCliente, tipoAssinatura: tipo,
-      valor: document.getElementById('pm-valor').value,
-      dataAssinatura: document.getElementById('pm-dataAssinatura').value,
-      diaVencimento: document.getElementById('pm-vencimento').value,
-      status: document.getElementById('pm-status').value,
-      monitoramento: document.getElementById('pm-monitoramento').checked,
-      vistoriaDiagnostica: document.getElementById('pm-vistoria').checked,
-      limpeza: document.getElementById('pm-limpeza').checked,
-      manutencaoPreventiva: document.getElementById('pm-manutencao').checked
+      valor: valor, dataAssinatura: dataAssinatura, diaVencimento: diaVencimento, status: status,
+      monitoramento: monitoramento, vistoriaDiagnostica: vistoria, limpeza: limpeza, manutencaoPreventiva: manutencao
     }).then(function(resp){
-      btn.disabled=false; btn.textContent='Salvar';
-      if(!resp||!resp.ok){ var m=document.getElementById('pm-msg'); m.className='uform-msg error'; m.textContent=(resp&&resp.erro)||'Não foi possível salvar.'; return; }
-      fecharModalPlano();
-      carregar();
-    }).catch(function(err){ btn.disabled=false; btn.textContent='Salvar'; var m=document.getElementById('pm-msg'); m.className='uform-msg error'; m.textContent='Erro de conexão: '+err.message; });
+      if(!resp||!resp.ok){
+        if(ehNovo)planos=planos.filter(function(p){return String(p.IdPlano)!==String(idPlano);});
+        else{ var idx=planos.findIndex(function(p){return String(p.IdPlano)===String(idPlano);}); if(idx!==-1&&registroAnteriorCopia)planos[idx]=registroAnteriorCopia; }
+        render();
+        mostrarToastPlanos((resp&&resp.erro)||'Não foi possível salvar — a alteração foi desfeita.',true);
+      }
+    }).catch(function(err){
+      if(ehNovo)planos=planos.filter(function(p){return String(p.IdPlano)!==String(idPlano);});
+      else{ var idx=planos.findIndex(function(p){return String(p.IdPlano)===String(idPlano);}); if(idx!==-1&&registroAnteriorCopia)planos[idx]=registroAnteriorCopia; }
+      render();
+      mostrarToastPlanos('Erro de conexão — a alteração foi desfeita: '+err.message,true);
+    });
   }
 
   function excluirPlano(){
     if(!editandoId)return;
     if(!confirm('Tem certeza que deseja excluir esse plano? Essa ação não pode ser desfeita.'))return;
-    apiCall('excluirPlano',{idPlano:editandoId}).then(function(resp){
-      if(!resp||!resp.ok)return;
-      fecharModalPlano();
-      carregar();
+    var idPlano=editandoId;
+    var registroAnterior=planos.filter(function(p){return String(p.IdPlano)===String(idPlano);})[0];
+
+    planos=planos.filter(function(p){return String(p.IdPlano)!==String(idPlano);});
+    fecharModalPlano();
+    render();
+    mostrarToastPlanos('Plano excluído.');
+
+    apiCall('excluirPlano',{idPlano:idPlano}).then(function(resp){
+      if(!resp||!resp.ok){
+        if(registroAnterior)planos.push(registroAnterior);
+        render();
+        mostrarToastPlanos((resp&&resp.erro)||'Não foi possível excluir — o plano foi restaurado.',true);
+      }
+    }).catch(function(err){
+      if(registroAnterior)planos.push(registroAnterior);
+      render();
+      mostrarToastPlanos('Erro de conexão — o plano foi restaurado: '+err.message,true);
     });
   }
+
+  function mostrarToastPlanos(texto,erro){ window.SGToast.mostrar(texto,erro); }
 
   function aplicarDados(resp){
     planos=resp.planos||[];
