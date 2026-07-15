@@ -764,6 +764,13 @@ function subtotalServicos(){
   return S.blocks.filter(function(b){return b.calcTipo!=='desconto';}).reduce(function(s,b){return s+blkTotal(b);},0);
 }
 
+// Soma só os blocos de "Valor Fixo" — esses não recebem o desconto de 10% à
+// vista (já têm preço fechado). Serviços por módulo/qtd, custo+margem e o
+// Plano Anual continuam recebendo o desconto normalmente.
+function subtotalValorFixo(){
+  return S.blocks.filter(function(b){return b.calcTipo==='fixo';}).reduce(function(s,b){return s+blkTotal(b);},0);
+}
+
 function totalDescontos(subtotal){
   return S.blocks.filter(function(b){return b.calcTipo==='desconto';}).reduce(function(s,b){
     if(b.descontoTipo==='pct') return s + subtotal*(b.descontoVal/100);
@@ -905,14 +912,18 @@ function updateSummary(){
   document.getElementById('sumDeslocamento').textContent=fmtMoney(desl);
   var total=subTotal-totalDesc+desl;
   document.getElementById('sumTotal').textContent=fmtMoney(total);
-  // Parcelamento e à vista: desconto de 10% só nos serviços (não no deslocamento)
+  // Parcelamento e à vista: desconto de 10% só nos serviços AVULSOS (por
+  // módulo/qtd ou custo+margem) e no Plano Anual — itens de Valor Fixo já
+  // têm preço fechado e não recebem esse desconto. Deslocamento também fica de fora.
   var maxParc=getMaxParcelas(total);
-  var baseDesconto=subTotal-totalDesc; // sem deslocamento
-  var aVista=baseDesconto*0.90+desl;  // desconto só nos serviços
+  var subtotalFixo=subtotalValorFixo();
+  var subtotalElegivel=subTotal-subtotalFixo; // tudo que NÃO é valor fixo (nem desconto)
+  var baseDesconto=subtotalElegivel-totalDesc; // desconto manual continua incidindo normalmente
+  var aVista=Math.max(baseDesconto,0)*0.90 + subtotalFixo + desl;
   var spEl=document.getElementById('sumParcelas');
   if(total>0){
     spEl.style.display='block';
-    spEl.innerHTML='Parcelamento: até <strong>'+maxParc+'x</strong> de <strong>'+fmtMoney(total/maxParc)+'</strong><br>À vista: <strong>'+fmtMoney(aVista)+'</strong> (10% desc. s/ serviços)';
+    spEl.innerHTML='Parcelamento: até <strong>'+maxParc+'x</strong> de <strong>'+fmtMoney(total/maxParc)+'</strong><br>À vista: <strong>'+fmtMoney(aVista)+'</strong> (10% desc. em serviços avulsos e plano anual — não incide sobre itens de valor fixo)';
   } else { spEl.style.display='none'; }
 }
 
@@ -983,8 +994,10 @@ function printProposal(){
   var obs=document.getElementById('obsGerais').value,desl=parseFloat(document.getElementById('deslocamento').value)||0;
   var dObs=document.getElementById('deslocObs').value;
   var subT=subtotalServicos(),totalDesc=totalDescontos(subT),total=subT-totalDesc+desl;
-  var baseDesconto=subT-totalDesc;       // base para o desconto à vista (sem deslocamento)
-  var aVistaPrint=baseDesconto*0.90+desl; // 10% só sobre serviços
+  var subtotalFixoPrint=subtotalValorFixo();
+  var subtotalElegivelPrint=subT-subtotalFixoPrint; // Valor Fixo fica de fora do desconto à vista
+  var baseDesconto=subtotalElegivelPrint-totalDesc; // base para o desconto à vista (sem deslocamento)
+  var aVistaPrint=Math.max(baseDesconto,0)*0.90+subtotalFixoPrint+desl; // 10% só sobre serviços avulsos + plano anual
   var maxParc=getMaxParcelas(total);
 
   // Perda
@@ -1126,7 +1139,7 @@ function printProposal(){
     (desl>0?'<div class="tot-row">Deslocamento'+(dObs?' ('+escH(dObs)+')':'')+': <strong>'+fmtMoney(desl)+'</strong></div>':'')+
     (totalDesc>0?'<div class="tot-row">Descontos: <strong style="color:#dc2626">−'+fmtMoney(totalDesc)+'</strong></div>':'')+
     '<div class="tot-final">TOTAL: '+fmtMoney(total)+'</div>'+
-    '<div class="tot-avista">&#10003; À vista: '+fmtMoney(aVistaPrint)+' <span style="font-size:12px;font-weight:400;color:#5a6b5a;">(10% de desconto sobre serviços)</span></div>'+
+    '<div class="tot-avista">&#10003; À vista: '+fmtMoney(aVistaPrint)+'</div>'+
     '<div class="tot-parcela">Parcelamento: até '+maxParc+'x de '+fmtMoney(total/maxParc)+'</div>'+
   '</div>'+
 
