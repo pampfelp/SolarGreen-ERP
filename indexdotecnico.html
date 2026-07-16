@@ -1352,33 +1352,63 @@ var SGAuth=(function(){
         var statusEl=document.getElementById('phs-'+target);
         statusEl.textContent='Preparando foto…';
         comprimirImagem(file,1600,0.8).then(function(blob){
+          // MOSTRA A FOTO NA HORA — a partir do arquivo local, sem esperar o
+          // upload. Em campo com sinal fraco isso é o que mais importa: o
+          // técnico vê confirmação visual imediata, o envio acontece atrás.
+          var urlLocal=URL.createObjectURL(blob);
+          var box=document.getElementById('ph-'+target);
+          box.classList.add('filled');
+          var img=box.querySelector('img');
+          if(!img){ img=document.createElement('img'); box.insertBefore(img,box.firstChild); }
+          img.src=urlLocal;
           statusEl.textContent='Enviando foto… ('+Math.round(blob.size/1024)+' KB)';
-          var reader=new FileReader();
-          reader.onload=function(){
-            var base64=reader.result.split(',')[1];
-            SGAuth.apiCall('uploadFotoResposta',{
-              solicitanteId:session.idVendedor, idAgendamento:idAgendamento, idTemplate:idTemplate,
-              base64:base64, mimeType:'image/jpeg', nomeArquivo:(file.name||'foto').replace(/\.[^.]+$/,'')+'.jpg'
-            }).then(function(resp){
-              if(!resp||!resp.ok){ statusEl.textContent=(resp&&resp.erro)||'Falha ao enviar.'; return; }
-              var atual=respostasMap[idAgendamento+'|'+idTemplate]||{};
-              atual.RespostaFoto=resp.url;
-              respostasMap[idAgendamento+'|'+idTemplate]=atual;
-              var box=document.getElementById('ph-'+target);
-              box.classList.add('filled');
-              var img=box.querySelector('img');
-              if(!img){ img=document.createElement('img'); box.insertBefore(img,box.firstChild); }
-              img.src=resp.url;
-              statusEl.textContent='Foto enviada ✓';
-              atualizarProgressoObrigatorios();
-              if(resp.novoStatus)aplicarNovoStatusLocal(resp.novoStatus);
-            }).catch(function(err){ statusEl.textContent='Erro de conexão: '+err.message; });
-          };
-          reader.readAsDataURL(blob);
+
+          function tentarEnviar(){
+            var reader=new FileReader();
+            reader.onload=function(){
+              var base64=reader.result.split(',')[1];
+              SGAuth.apiCall('uploadFotoResposta',{
+                solicitanteId:session.idVendedor, idAgendamento:idAgendamento, idTemplate:idTemplate,
+                base64:base64, mimeType:'image/jpeg', nomeArquivo:(file.name||'foto').replace(/\.[^.]+$/,'')+'.jpg'
+              }).then(function(resp){
+                if(!resp||!resp.ok){
+                  statusEl.innerHTML=(resp&&resp.erro)||'Falha ao enviar — a foto continua na tela, salva só no aparelho.';
+                  statusEl.innerHTML+=' <button type="button" class="ph-retry-btn" data-target="'+target+'">Tentar de novo</button>';
+                  wireRetryFoto(statusEl,target,tentarEnviar);
+                  return;
+                }
+                // troca a prévia local pela URL real do Drive — a local (blob:)
+                // não sobrevive a um recarregamento de página, a real sim.
+                URL.revokeObjectURL(urlLocal);
+                img.src=resp.url;
+                var atual=respostasMap[idAgendamento+'|'+idTemplate]||{};
+                atual.RespostaFoto=resp.url;
+                respostasMap[idAgendamento+'|'+idTemplate]=atual;
+                statusEl.textContent='Foto enviada ✓';
+                atualizarProgressoObrigatorios();
+                if(resp.novoStatus)aplicarNovoStatusLocal(resp.novoStatus);
+              }).catch(function(err){
+                statusEl.innerHTML='Erro de conexão — a foto continua na tela, salva só no aparelho.';
+                statusEl.innerHTML+=' <button type="button" class="ph-retry-btn" data-target="'+target+'">Tentar de novo</button>';
+                wireRetryFoto(statusEl,target,tentarEnviar);
+              });
+            };
+            reader.readAsDataURL(blob);
+          }
+          tentarEnviar();
         }).catch(function(err){
           statusEl.textContent='Erro ao preparar a foto: '+err.message;
         });
       });
+    });
+  }
+
+  function wireRetryFoto(statusEl,target,tentarEnviar){
+    var btn=statusEl.querySelector('.ph-retry-btn[data-target="'+target+'"]');
+    if(!btn)return;
+    btn.addEventListener('click',function(){
+      statusEl.textContent='Enviando foto…';
+      tentarEnviar();
     });
   }
 
