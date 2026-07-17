@@ -700,6 +700,7 @@
     <a href="#" id="nav-ponto"><span class="ico">⏱</span><span class="nav-label"> Ponto Eletrônico</span></a>
     <a href="#" id="nav-vendas"><span class="ico">◆</span><span class="nav-label"> Vendas</span></a>
     <a href="#" id="nav-funil"><span class="ico">◈</span><span class="nav-label"> Funil</span></a>
+    <a href="#" id="nav-relatorios"><span class="ico">📝</span><span class="nav-label"> Relatórios</span></a>
     <a href="#" id="nav-clientes"><span class="ico">👤</span><span class="nav-label"> Clientes</span></a>
     <a href="#" id="nav-agendamentos"><span class="ico">🛠</span><span class="nav-label"> Agendamentos</span></a>
     <a href="#" id="nav-planos"><span class="ico">📋</span><span class="nav-label"> Planos</span></a>
@@ -1593,7 +1594,61 @@
   </div>
 </div>
 
+<!-- ═══ VIEW: RELATÓRIOS (números diários do funil, por vendedor) ═══ -->
+
+<div id="view-relatorios" class="view">
+<div class="app">
+  <header class="top">
+    <div><h1>Relatório <span>Diário</span></h1><div class="top-sub">Números do funil por vendedor · <span id="rl-appVersion"></span></div></div>
+    <div style="text-align:right;"><div class="clock" id="rl-lastUpdate"></div></div>
+  </header>
+
+  <div class="section-head"><h2>Relatório de <span id="rl-formTitle">hoje</span></h2><div class="hint">um lançamento por dia — salvar de novo no mesmo dia atualiza os números</div></div>
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:22px;">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:14px;">
+      <div class="uform-field" style="margin-bottom:0;"><label>Data</label><input type="date" id="rl-data"></div>
+      <div class="uform-field" style="margin-bottom:0;"><label>Novos contatos</label><input type="number" id="rl-contatos" min="0" step="1"></div>
+      <div class="uform-field" style="margin-bottom:0;"><label>Conversas</label><input type="number" id="rl-conversas" min="0" step="1"></div>
+      <div class="uform-field" style="margin-bottom:0;"><label>Propostas apresentadas</label><input type="number" id="rl-propostas" min="0" step="1"></div>
+      <div class="uform-field" style="margin-bottom:0;"><label>Vendas fechadas</label><input type="number" id="rl-vendas" min="0" step="1"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <button class="connect-btn" id="rl-salvarHojeBtn" style="width:auto;padding:11px 24px;">Salvar relatório</button>
+      <span id="rl-msg" style="font-size:12.5px;"></span>
+    </div>
+  </div>
+
+  <div class="section-head">
+    <h2>Histórico <span id="rl-tableTitle"></span></h2>
+    <div class="hint" id="rl-tableHint"></div>
+    <div class="spacer"></div>
+    <select id="rl-selVendedor" style="display:none;margin-right:8px;font-size:13px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;"><option value="__all__">Todos os vendedores</option></select>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th class="sortable" data-sort="data">Data<span class="arrow-sort">▾</span></th>
+        <th class="sortable" data-sort="vendedor" id="rl-thVendedor" style="display:none;">Vendedor<span class="arrow-sort">▾</span></th>
+        <th class="num sortable" data-sort="contatos">Novos contatos<span class="arrow-sort">▾</span></th>
+        <th class="num sortable" data-sort="conversas">Conversas<span class="arrow-sort">▾</span></th>
+        <th class="num sortable" data-sort="propostas">Propostas<span class="arrow-sort">▾</span></th>
+        <th class="num sortable" data-sort="vendas">Vendas<span class="arrow-sort">▾</span></th>
+        <th></th>
+      </tr></thead>
+      <tbody id="rl-tbody"></tbody>
+    </table>
+  </div>
+  <div id="rl-paginacao" class="paginacao"></div>
+
+  <div class="empty" id="rl-emptyState" style="display:none;">
+    <div class="glyph">📝</div>
+    <p>Conectando à planilha para carregar os relatórios…</p>
+  </div>
+</div>
+</div>
+
 <!-- ═══ VIEW: METAS (somente administradores) ═══ -->
+
 
 <div id="view-metas" class="view">
 <div class="app">
@@ -1855,7 +1910,7 @@
     // cargo da pessoa não pode ver. Administradores nunca passam por aqui.
     function aplicarNoMenu(){
       if(window.SGAuth&&window.SGAuth.isAdmin())return;
-      var TELAS=['ponto','vendas','funil','clientes','agendamentos','planos'];
+      var TELAS=['ponto','vendas','funil','clientes','agendamentos','planos','relatorios'];
       var atual=localStorage.getItem('sg_active_view')||'ponto';
       var escondeuAtual=false;
       TELAS.forEach(function(t){
@@ -4171,20 +4226,22 @@
     var nome=nomeCliente(agendamentoAtual.IdCliente);
     if(!confirm('Tem certeza que deseja excluir o agendamento de "'+nome+'"? Essa ação não pode ser desfeita.'))return;
     var idAgendamento=agendamentoAtual.IdAgendamento;
-    var btn=document.getElementById('ad-excluirBtn');
-    btn.disabled=true; btn.textContent='Excluindo…';
+    var registroAnterior=Object.assign({},agendamentoAtual);
+
+    agendamentos=agendamentos.filter(function(a){return String(a.IdAgendamento)!==String(idAgendamento);});
+    fecharPainelDetalhe();
+    render();
+    showAgToast('Agendamento excluído.');
+
     apiCall('excluirAgendamento',{solicitanteId:meuId(),idAgendamento:idAgendamento}).then(function(resp){
-      btn.disabled=false; btn.textContent='🗑 Excluir agendamento';
       if(!resp||!resp.ok){
-        if(!window.SGUtil.ehNaoEncontrado(resp&&resp.erro)){ showAgToast((resp&&resp.erro)||'Não foi possível excluir.',true); return; }
+        if(window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return; // já não existia mesmo — exclusão continua válida
+        agendamentos.push(registroAnterior); render();
+        showAgToast((resp&&resp.erro)||'Não foi possível excluir — o agendamento foi restaurado.',true);
       }
-      agendamentos=agendamentos.filter(function(a){return String(a.IdAgendamento)!==String(idAgendamento);});
-      fecharPainelDetalhe();
-      render();
-      showAgToast('Agendamento excluído.');
     }).catch(function(err){
-      btn.disabled=false; btn.textContent='🗑 Excluir agendamento';
-      showAgToast('Erro de conexão: '+err.message,true);
+      agendamentos.push(registroAnterior); render();
+      showAgToast('Erro de conexão — o agendamento foi restaurado: '+err.message,true);
     });
   }
 
@@ -4548,30 +4605,63 @@
     if(!validarCliente()){ showMsg('Corrija o cadastro do cliente antes de continuar.','error'); return; }
     if(!validarHorario()){ showMsg('Corrija o horário antes de continuar.','error'); return; }
 
-    var btn=document.getElementById('ag-salvarBtn');
-    btn.disabled=true; btn.textContent='Salvando…';
+    var horaInicio=document.getElementById('ag-horaInicio').value;
+    var horaFim=document.getElementById('ag-horaFim').value;
+    var qtdModulos=document.getElementById('ag-qtdModulos').value;
+    var modeloModulos=document.getElementById('ag-modeloModulos').value;
+    var qtdInversores=document.getElementById('ag-qtdInversores').value;
+    var modeloInversores=document.getElementById('ag-modeloInversores').value;
+    var observacao=document.getElementById('ag-observacao').value;
+    var status=editandoId?document.getElementById('ag-status').value:'Agendado';
+
+    var ehNovo=!editandoId;
+    var idAlvo=editandoId||window.SGId.gerar();
+    var registroAnterior=!ehNovo?agendamentos.filter(function(a){return String(a.IdAgendamento)===String(idAlvo);})[0]:null;
+    var registroAnteriorCopia=registroAnterior?Object.assign({},registroAnterior):null;
+    var dataInicioBR=dataInicio.split('-').reverse().join('/'); // YYYY-MM-DD -> DD/MM/YYYY, igual o resto dos registros
+
+    var registroNovo={
+      IdAgendamento:idAlvo, IdCliente:idCliente, IdServico:idServico,
+      'Data Inicio':dataInicioBR, 'Hora inicio':horaInicio, 'Hora Fim':horaFim,
+      TecnicoResponsavel:tecnico, 'Status Agendamento':status,
+      'Observacao Comercial':observacao,
+      'Quantidade de Modulos':qtdModulos, 'Modelo Modulos':modeloModulos,
+      'Quantidade Inversores':qtdInversores, 'Modelo Inversores':modeloInversores
+    };
+    var indice=agendamentos.findIndex(function(a){return String(a.IdAgendamento)===String(idAlvo);});
+    if(indice===-1)agendamentos.push(registroNovo);
+    else agendamentos[indice]=registroNovo;
+
+    // Fecha o modal e atualiza a lista JÁ — sem esperar o servidor confirmar.
+    closeModal();
+    render();
+    showAgToast(ehNovo?'Agendamento criado.':'Agendamento atualizado.');
+
+    function desfazer(motivo){
+      if(ehNovo)agendamentos=agendamentos.filter(function(a){return String(a.IdAgendamento)!==String(idAlvo);});
+      else{ var idx=agendamentos.findIndex(function(a){return String(a.IdAgendamento)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)agendamentos[idx]=registroAnteriorCopia; }
+      render();
+      showAgToast(motivo,true);
+    }
+
     apiCall('salvarAgendamento',{
       solicitanteId: meuId(),
-      idAgendamento: editandoId,
+      idAgendamento: idAlvo,
       idCliente: idCliente, idServico: idServico, tecnicoResponsavel: tecnico,
       dataInicio: dataInicio,
-      horaInicio: document.getElementById('ag-horaInicio').value,
-      horaFim: document.getElementById('ag-horaFim').value,
-      quantidadeModulos: document.getElementById('ag-qtdModulos').value,
-      modeloModulos: document.getElementById('ag-modeloModulos').value,
-      quantidadeInversores: document.getElementById('ag-qtdInversores').value,
-      modeloInversores: document.getElementById('ag-modeloInversores').value,
-      observacaoComercial: document.getElementById('ag-observacao').value,
-      statusAgendamento: editandoId?document.getElementById('ag-status').value:'Agendado'
+      horaInicio: horaInicio, horaFim: horaFim,
+      quantidadeModulos: qtdModulos, modeloModulos: modeloModulos,
+      quantidadeInversores: qtdInversores, modeloInversores: modeloInversores,
+      observacaoComercial: observacao,
+      statusAgendamento: status
     }).then(function(resp){
-      btn.disabled=false; btn.textContent='Salvar agendamento';
-      if(!resp||!resp.ok){ showMsg((resp&&resp.erro)||'Não foi possível salvar.','error'); return; }
-      closeModal();
-      carregar();
-    }).catch(function(err){
-      btn.disabled=false; btn.textContent='Salvar agendamento';
-      showMsg('Erro de conexão: '+err.message,'error');
-    });
+      if(!resp||!resp.ok){ desfazer((resp&&resp.erro)||'Não foi possível salvar — a alteração foi desfeita.'); return; }
+      // se o servidor devolveu outro ID (implantação desatualizada, por ex.), corrige e redesenha na hora
+      if(resp.idAgendamento&&String(resp.idAgendamento)!==String(idAlvo)){
+        var idx2=agendamentos.findIndex(function(a){return String(a.IdAgendamento)===String(idAlvo);});
+        if(idx2!==-1){ agendamentos[idx2].IdAgendamento=resp.idAgendamento; render(); }
+      }
+    }).catch(function(err){ desfazer('Erro de conexão — a alteração foi desfeita: '+err.message); });
   }
 
   function setDefaultRange(){
@@ -4959,6 +5049,285 @@
 })();
 
 
+// ════ RELATÓRIOS (números diários do funil, por vendedor) ════
+(function(){
+  var _initialized=false;
+  var relatorios=[],vendedoresMap={};
+  var meuRegistroDeHoje=null; // se já existir lançamento pra hoje, guarda o IdRelatorio pra "salvar" virar "atualizar"
+  var editandoId=null; // quando clica numa linha do histórico pra editar uma data passada
+  var paginaAtual=1, ITENS_POR_PAGINA=10;
+  var sortState={col:'data',dir:'desc'};
+  var APP_VERSION='2026-07-16-1';
+
+  function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
+  function meuId(){ return window.SG_SESSION&&window.SG_SESSION.idVendedor; }
+  function souAdmin(){ return window.SGAuth&&window.SGAuth.isAdmin(); }
+  function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+  function nomeVendedor(id){ var v=vendedoresMap[id]; return v?(v.Nome||id):id; }
+  function dateKeyHoje(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  function parseBRDate(str){ if(!str)return null; str=String(str).trim(); var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m)return new Date(+m[3],+m[2]-1,+m[1]); var d=new Date(str.substring(0,10)); return isNaN(d)?null:d; }
+  function dateKeyFromDate(d){ return d?(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')):''; }
+  function fmtDateBRRl(d){ return d?(String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()):'—'; }
+
+  function sortRelatoriosRows(lista){
+    var col=sortState.col,dir=sortState.dir,mult=dir==='asc'?1:-1;
+    lista.sort(function(a,b){
+      if(col==='data'){var da=parseBRDate(a.Data),db=parseBRDate(b.Data);return mult*((da?da.getTime():0)-(db?db.getTime():0));}
+      if(col==='vendedor'){return mult*nomeVendedor(a.IdVendedor).localeCompare(nomeVendedor(b.IdVendedor),'pt-BR');}
+      if(col==='contatos'){return mult*((parseFloat(a['Novos Contatos'])||0)-(parseFloat(b['Novos Contatos'])||0));}
+      if(col==='conversas'){return mult*((parseFloat(a.Conversas)||0)-(parseFloat(b.Conversas)||0));}
+      if(col==='propostas'){return mult*((parseFloat(a['Propostas Apresentadas'])||0)-(parseFloat(b['Propostas Apresentadas'])||0));}
+      if(col==='vendas'){return mult*((parseFloat(a.Vendas)||0)-(parseFloat(b.Vendas)||0));}
+      return 0;
+    });
+  }
+  function updateSortHeadersRl(){
+    document.querySelectorAll('#view-relatorios th.sortable').forEach(function(th){
+      var col=th.getAttribute('data-sort');
+      th.classList.toggle('sort-active',col===sortState.col);
+      var a=th.querySelector('.arrow-sort');
+      a.textContent=(col===sortState.col)?(sortState.dir==='asc'?'▴':'▾'):'▾';
+    });
+  }
+
+  function renderPaginacao(totalPaginas){
+    var el=document.getElementById('rl-paginacao');
+    if(totalPaginas<=1){el.innerHTML='';return;}
+    el.innerHTML='<button type="button" id="rl-pgAnterior" '+(paginaAtual<=1?'disabled':'')+'>‹ Anterior</button><span class="pg-info">Página '+paginaAtual+' de '+totalPaginas+'</span><button type="button" id="rl-pgProxima" '+(paginaAtual>=totalPaginas?'disabled':'')+'>Próxima ›</button>';
+    var a=document.getElementById('rl-pgAnterior'); if(a)a.addEventListener('click',function(){if(paginaAtual>1){paginaAtual--;render();}});
+    var p=document.getElementById('rl-pgProxima'); if(p)p.addEventListener('click',function(){if(paginaAtual<totalPaginas){paginaAtual++;render();}});
+  }
+
+  function render(){
+    var admin=souAdmin();
+    var filtroVendedor=admin?((document.getElementById('rl-selVendedor')||{}).value||'__all__'):meuId();
+    var lista=relatorios.filter(function(r){
+      if(filtroVendedor!=='__all__'&&String(r.IdVendedor)!==String(filtroVendedor))return false;
+      return true;
+    });
+    sortRelatoriosRows(lista);
+    updateSortHeadersRl();
+
+    document.getElementById('rl-tableTitle').textContent=admin?'(todos os vendedores)':'(seus lançamentos)';
+    document.getElementById('rl-tableHint').textContent=lista.length+' lançamento(s)';
+
+    var totalPaginas=Math.max(1,Math.ceil(lista.length/ITENS_POR_PAGINA));
+    if(paginaAtual>totalPaginas)paginaAtual=totalPaginas;
+    if(paginaAtual<1)paginaAtual=1;
+    var inicio=(paginaAtual-1)*ITENS_POR_PAGINA;
+    var pagina=lista.slice(inicio,inicio+ITENS_POR_PAGINA);
+
+    var tbody=document.getElementById('rl-tbody');
+    if(!pagina.length){
+      tbody.innerHTML='<tr><td colspan="'+(admin?'7':'6')+'" style="text-align:center;color:var(--ink-faint);padding:30px;">Nenhum relatório lançado ainda.</td></tr>';
+      renderPaginacao(0);
+      return;
+    }
+    tbody.innerHTML=pagina.map(function(r){
+      var dt=parseBRDate(r.Data);
+      var souDono=String(r.IdVendedor)===String(meuId());
+      var podeExcluir=admin||souDono;
+      return '<tr class="ag-row-click" data-id="'+escapeHtml(r.IdRelatorio)+'">'+
+        '<td>'+fmtDateBRRl(dt)+'</td>'+
+        (admin?('<td>'+escapeHtml(nomeVendedor(r.IdVendedor))+'</td>'):'')+
+        '<td class="num">'+escapeHtml(r['Novos Contatos']||0)+'</td>'+
+        '<td class="num">'+escapeHtml(r.Conversas||0)+'</td>'+
+        '<td class="num">'+escapeHtml(r['Propostas Apresentadas']||0)+'</td>'+
+        '<td class="num">'+escapeHtml(r.Vendas||0)+'</td>'+
+        '<td class="u-row-actions">'+(podeExcluir?'<button class="rl-excluir-btn" data-id="'+escapeHtml(r.IdRelatorio)+'" style="color:var(--debit);">excluir</button>':'')+'</td>'+
+      '</tr>';
+    }).join('');
+    tbody.querySelectorAll('.ag-row-click').forEach(function(tr){
+      tr.addEventListener('click',function(e){
+        if(e.target.classList.contains('rl-excluir-btn'))return;
+        try{ carregarParaEdicao(tr.getAttribute('data-id')); }
+        catch(err){ console.error('carregarParaEdicao falhou:',err); (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Não foi possível abrir esse registro (erro: '+err.message+').',true); }
+      });
+    });
+    tbody.querySelectorAll('.rl-excluir-btn').forEach(function(btn){
+      btn.addEventListener('click',function(e){ e.stopPropagation(); excluirRelatorio(btn.getAttribute('data-id')); });
+    });
+    renderPaginacao(totalPaginas);
+    document.getElementById('rl-lastUpdate').textContent='Atualizado em '+new Date().toLocaleDateString('pt-BR')+' às '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  }
+
+  /**
+   * Clicar numa linha do histórico carrega os valores dela no formulário do
+   * topo pra editar — como o "salvar" sempre faz upsert por vendedor+data,
+   * salvar de novo atualiza o mesmo registro em vez de duplicar.
+   */
+  function carregarParaEdicao(idRelatorio){
+    var r=relatorios.filter(function(x){return String(x.IdRelatorio)===String(idRelatorio);})[0];
+    if(!r)return;
+    if(!souAdmin()&&String(r.IdVendedor)!==String(meuId()))return; // não-admin só edita o próprio
+    editandoId=r.IdRelatorio;
+    var dt=parseBRDate(r.Data);
+    document.getElementById('rl-data').value=dt?dateKeyFromDate(dt):'';
+    document.getElementById('rl-contatos').value=r['Novos Contatos']||0;
+    document.getElementById('rl-conversas').value=r.Conversas||0;
+    document.getElementById('rl-propostas').value=r['Propostas Apresentadas']||0;
+    document.getElementById('rl-vendas').value=r.Vendas||0;
+    document.getElementById('rl-formTitle').textContent=fmtDateBRRl(dt)+(souAdmin()&&String(r.IdVendedor)!==String(meuId())?' — '+nomeVendedor(r.IdVendedor):'');
+    document.getElementById('rl-msg').textContent='';
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+
+  function preencherFormularioDeHoje(){
+    editandoId=null;
+    var hojeKey=dateKeyHoje();
+    document.getElementById('rl-data').value=hojeKey;
+    var existente=relatorios.filter(function(r){
+      var dt=parseBRDate(r.Data);
+      return String(r.IdVendedor)===String(meuId())&&dt&&dateKeyFromDate(dt)===hojeKey;
+    })[0];
+    meuRegistroDeHoje=existente?existente.IdRelatorio:null;
+    document.getElementById('rl-contatos').value=existente?(existente['Novos Contatos']||0):'';
+    document.getElementById('rl-conversas').value=existente?(existente.Conversas||0):'';
+    document.getElementById('rl-propostas').value=existente?(existente['Propostas Apresentadas']||0):'';
+    document.getElementById('rl-vendas').value=existente?(existente.Vendas||0):'';
+    document.getElementById('rl-formTitle').textContent='hoje'+(existente?' (já lançado — salvar atualiza)':'');
+  }
+
+  function salvarRelatorioHoje(){
+    var dataVal=document.getElementById('rl-data').value;
+    var msgEl=document.getElementById('rl-msg');
+    if(!dataVal){ msgEl.className='uform-msg error'; msgEl.textContent='Escolha uma data.'; return; }
+    var registroExistente=editandoId&&souAdmin()?relatorios.filter(function(x){return String(x.IdRelatorio)===String(editandoId);})[0]:null;
+    var idVendedorAlvo=registroExistente?registroExistente.IdVendedor:meuId();
+    var idRelatorioAlvo=editandoId||meuRegistroDeHoje;
+
+    var contatos=document.getElementById('rl-contatos').value||0;
+    var conversas=document.getElementById('rl-conversas').value||0;
+    var propostas=document.getElementById('rl-propostas').value||0;
+    var vendas=document.getElementById('rl-vendas').value||0;
+
+    var ehNovo=!idRelatorioAlvo;
+    var idAlvo=idRelatorioAlvo||window.SGId.gerar();
+    var registroAnteriorCopia=!ehNovo?(relatorios.filter(function(x){return String(x.IdRelatorio)===String(idAlvo);})[0]):null;
+    if(registroAnteriorCopia)registroAnteriorCopia=Object.assign({},registroAnteriorCopia);
+
+    var dataBR=dataVal.split('-').reverse().join('/');
+    var registroNovo={IdRelatorio:idAlvo,IdVendedor:idVendedorAlvo,'Novos Contatos':contatos,Conversas:conversas,'Propostas Apresentadas':propostas,Vendas:vendas,Data:dataBR};
+    var indice=relatorios.findIndex(function(x){return String(x.IdRelatorio)===String(idAlvo);});
+    if(indice===-1)relatorios.push(registroNovo);
+    else relatorios[indice]=registroNovo;
+    if(String(idVendedorAlvo)===String(meuId())&&dataVal===dateKeyHoje())meuRegistroDeHoje=idAlvo;
+
+    msgEl.className='uform-msg'; msgEl.style.color='var(--accent-deep)'; msgEl.textContent='Relatório salvo ✓';
+    editandoId=null;
+    render();
+
+    apiCall('salvarRelatorio',{
+      idRelatorio:idAlvo, idVendedor:idVendedorAlvo, data:dataVal,
+      novosContatos:contatos, conversas:conversas, propostas:propostas, vendas:vendas
+    }).then(function(resp){
+      if(!resp||!resp.ok){
+        if(ehNovo)relatorios=relatorios.filter(function(x){return String(x.IdRelatorio)!==String(idAlvo);});
+        else{ var idx=relatorios.findIndex(function(x){return String(x.IdRelatorio)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)relatorios[idx]=registroAnteriorCopia; }
+        render();
+        msgEl.className='uform-msg error'; msgEl.textContent=(resp&&resp.erro)||'Não foi possível salvar — a alteração foi desfeita.';
+        return;
+      }
+      if(resp.idRelatorio&&String(resp.idRelatorio)!==String(idAlvo)){
+        var idx2=relatorios.findIndex(function(x){return String(x.IdRelatorio)===String(idAlvo);});
+        if(idx2!==-1){ relatorios[idx2].IdRelatorio=resp.idRelatorio; if(meuRegistroDeHoje===idAlvo)meuRegistroDeHoje=resp.idRelatorio; render(); }
+      }
+    }).catch(function(err){
+      if(ehNovo)relatorios=relatorios.filter(function(x){return String(x.IdRelatorio)!==String(idAlvo);});
+      else{ var idx=relatorios.findIndex(function(x){return String(x.IdRelatorio)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)relatorios[idx]=registroAnteriorCopia; }
+      render();
+      msgEl.className='uform-msg error'; msgEl.textContent='Erro de conexão — a alteração foi desfeita: '+err.message;
+    });
+  }
+
+  function excluirRelatorio(idRelatorio){
+    if(!confirm('Excluir esse lançamento de relatório? Essa ação não pode ser desfeita.'))return;
+    var registroAnterior=relatorios.filter(function(x){return String(x.IdRelatorio)===String(idRelatorio);})[0];
+    relatorios=relatorios.filter(function(x){return String(x.IdRelatorio)!==String(idRelatorio);});
+    render();
+    (window.SGToast?window.SGToast.mostrar:function(t){})('Relatório excluído.');
+
+    apiCall('excluirRelatorio',{solicitanteId:meuId(),idRelatorio:idRelatorio}).then(function(resp){
+      if(!resp||!resp.ok){
+        if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return; // já não existia mesmo
+        if(registroAnterior)relatorios.push(registroAnterior);
+        render();
+        (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
+      }
+    }).catch(function(err){
+      if(registroAnterior)relatorios.push(registroAnterior);
+      render();
+      (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — restaurado: '+err.message,true);
+    });
+  }
+
+  function popularSelectVendedorRl(){
+    var sel=document.getElementById('rl-selVendedor');
+    var atual=sel.value||'__all__';
+    sel.innerHTML='<option value="__all__">Todos os vendedores</option>'+
+      Object.keys(vendedoresMap).map(function(id){return vendedoresMap[id];})
+        .sort(function(a,b){return (a.Nome||'').localeCompare(b.Nome||'','pt-BR');})
+        .map(function(v){return '<option value="'+escapeHtml(v.IdVendedor)+'">'+escapeHtml(v.Nome)+'</option>';}).join('');
+    sel.value=atual;
+  }
+
+  function aplicarDados(resp){
+    relatorios=resp.relatorios||[];
+    vendedoresMap={};(resp.vendedores||[]).forEach(function(v){if(v.IdVendedor)vendedoresMap[v.IdVendedor]=v;});
+    if(souAdmin()){
+      document.getElementById('rl-selVendedor').style.display='';
+      document.getElementById('rl-thVendedor').style.display='';
+      popularSelectVendedorRl();
+    }
+    if(!editandoId)preencherFormularioDeHoje();
+    document.getElementById('rl-emptyState').style.display='none';
+    document.getElementById('rl-appVersion').textContent='v'+APP_VERSION;
+    render();
+  }
+
+  function carregar(){
+    var cache=window.SGCache&&window.SGCache.get('relatorios');
+    var temCache=!!(cache&&cache.dados);
+    if(temCache)aplicarDados(cache.dados);
+    apiCall('getRelatoriosData',{}).then(function(resp){
+      if(!resp||!resp.ok){
+        if(!temCache){
+          document.getElementById('rl-emptyState').style.display='block';
+          document.getElementById('rl-emptyState').querySelector('p').textContent=(resp&&resp.erro)||'Não foi possível carregar os relatórios.';
+        }
+        return;
+      }
+      if(window.SGCache)window.SGCache.set('relatorios',resp);
+      aplicarDados(resp);
+    }).catch(function(err){
+      if(!temCache){
+        document.getElementById('rl-emptyState').style.display='block';
+        document.getElementById('rl-emptyState').querySelector('p').textContent='Erro de conexão: '+err.message;
+      }
+    });
+  }
+
+  function init(){
+    if(_initialized)return;
+    if(!window.SG_SESSION)return;
+    _initialized=true;
+    document.getElementById('rl-salvarHojeBtn').addEventListener('click',salvarRelatorioHoje);
+    document.getElementById('rl-selVendedor').addEventListener('change',function(){ paginaAtual=1; render(); });
+    document.querySelectorAll('#view-relatorios th.sortable').forEach(function(th){
+      th.addEventListener('click',function(){
+        var col=th.getAttribute('data-sort');
+        if(sortState.col===col){sortState.dir=sortState.dir==='asc'?'desc':'asc';}
+        else{sortState.col=col;sortState.dir=col==='vendedor'?'asc':'desc';}
+        render();
+      });
+    });
+    carregar();
+  }
+
+  window.relatoriosApp={init:init};
+})();
+
+
 // ════ METAS (somente administradores) ════
 (function(){
   var _initialized=false;
@@ -5037,23 +5406,65 @@
     var valor=document.getElementById('mt-valor').value;
     var msgEl=document.getElementById('mt-msg');
     if(!ano||!mes||!valor){ msgEl.className='uform-msg error'; msgEl.textContent='Preencha ano, mês e valor.'; return; }
-    var btn=document.getElementById('mt-salvarBtn');
-    btn.disabled=true; btn.textContent='Salvando…';
-    apiCall('salvarMeta',{idMeta:editandoId,ano:ano,mes:mes,valor:valor}).then(function(resp){
-      btn.disabled=false; btn.textContent='Salvar';
-      if(!resp||!resp.ok){ msgEl.className='uform-msg error'; msgEl.textContent=(resp&&resp.erro)||'Não foi possível salvar.'; return; }
-      fecharModalMeta();
-      carregar();
-    }).catch(function(err){ btn.disabled=false; btn.textContent='Salvar'; msgEl.className='uform-msg error'; msgEl.textContent='Erro de conexão: '+err.message; });
+
+    // igual o servidor: se já existe uma meta pra esse ano+mês, é ELA que
+    // vai ser atualizada, mesmo que a edição tenha sido aberta como "nova".
+    var existente=metas.filter(function(x){return Number(x.Ano)===Number(ano)&&Number(x.Mes)===Number(mes);})[0];
+    var idAlvo=editandoId||(existente?existente.IdMeta:null)||window.SGId.gerar();
+    var ehNovo=!editandoId&&!existente;
+    var registroAnteriorCopia=!ehNovo?Object.assign({},(existente||metas.filter(function(x){return String(x.IdMeta)===String(idAlvo);})[0])):null;
+
+    var registroNovo={IdMeta:idAlvo,Ano:ano,Mes:mes,Valor:valor};
+    var indice=metas.findIndex(function(x){return String(x.IdMeta)===String(idAlvo);});
+    if(indice===-1)metas.push(registroNovo);
+    else metas[indice]=registroNovo;
+
+    fecharModalMeta();
+    render();
+    msgEl.className=''; msgEl.textContent='';
+    (window.SGToast?window.SGToast.mostrar:function(t){})(ehNovo?'Meta criada.':'Meta atualizada.');
+
+    apiCall('salvarMeta',{idMeta:idAlvo,ano:ano,mes:mes,valor:valor}).then(function(resp){
+      if(!resp||!resp.ok){
+        if(ehNovo)metas=metas.filter(function(x){return String(x.IdMeta)!==String(idAlvo);});
+        else{ var idx=metas.findIndex(function(x){return String(x.IdMeta)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)metas[idx]=registroAnteriorCopia; }
+        render();
+        (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível salvar — a alteração foi desfeita.',true);
+        return;
+      }
+      if(resp.idMeta&&String(resp.idMeta)!==String(idAlvo)){
+        var idx2=metas.findIndex(function(x){return String(x.IdMeta)===String(idAlvo);});
+        if(idx2!==-1){ metas[idx2].IdMeta=resp.idMeta; render(); }
+      }
+    }).catch(function(err){
+      if(ehNovo)metas=metas.filter(function(x){return String(x.IdMeta)!==String(idAlvo);});
+      else{ var idx=metas.findIndex(function(x){return String(x.IdMeta)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)metas[idx]=registroAnteriorCopia; }
+      render();
+      (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — a alteração foi desfeita: '+err.message,true);
+    });
   }
 
   function excluirMeta(){
     if(!editandoId)return;
     if(!confirm('Tem certeza que deseja excluir essa meta? Essa ação não pode ser desfeita.'))return;
-    apiCall('excluirMeta',{idMeta:editandoId}).then(function(resp){
-      if(!resp||!resp.ok)return;
-      fecharModalMeta();
-      carregar();
+    var idAlvo=editandoId;
+    var registroAnterior=metas.filter(function(x){return String(x.IdMeta)===String(idAlvo);})[0];
+    metas=metas.filter(function(x){return String(x.IdMeta)!==String(idAlvo);});
+    fecharModalMeta();
+    render();
+    (window.SGToast?window.SGToast.mostrar:function(t){})('Meta excluída.');
+
+    apiCall('excluirMeta',{idMeta:idAlvo}).then(function(resp){
+      if(!resp||!resp.ok){
+        if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
+        if(registroAnterior)metas.push(registroAnterior);
+        render();
+        (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
+      }
+    }).catch(function(err){
+      if(registroAnterior)metas.push(registroAnterior);
+      render();
+      (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — restaurado: '+err.message,true);
     });
   }
 
@@ -5065,16 +5476,24 @@
   }
 
   function carregar(){
+    var cache=window.SGCache&&window.SGCache.get('metas');
+    var temCache=!!(cache&&cache.dados);
+    if(temCache)aplicarDados(cache.dados);
     apiCall('getMetasData',{}).then(function(resp){
       if(!resp||!resp.ok){
-        document.getElementById('mt-emptyState').style.display='block';
-        document.getElementById('mt-emptyState').querySelector('p').textContent=(resp&&resp.erro)||'Não foi possível carregar as metas.';
+        if(!temCache){
+          document.getElementById('mt-emptyState').style.display='block';
+          document.getElementById('mt-emptyState').querySelector('p').textContent=(resp&&resp.erro)||'Não foi possível carregar as metas.';
+        }
         return;
       }
+      if(window.SGCache)window.SGCache.set('metas',resp);
       aplicarDados(resp);
     }).catch(function(err){
-      document.getElementById('mt-emptyState').style.display='block';
-      document.getElementById('mt-emptyState').querySelector('p').textContent='Erro de conexão: '+err.message;
+      if(!temCache){
+        document.getElementById('mt-emptyState').style.display='block';
+        document.getElementById('mt-emptyState').querySelector('p').textContent='Erro de conexão: '+err.message;
+      }
     });
   }
 
@@ -5436,17 +5855,25 @@
   }
 
   function carregar(){
+    var cache=window.SGCache&&window.SGCache.get('usuarios');
+    var temCache=!!(cache&&cache.dados);
+    if(temCache){ usuarios=cache.dados.vendedores||[]; render(); }
     apiCall('listVendedoresAdmin',{solicitanteId:meuId()}).then(function(resp){
       if(!resp||!resp.ok){
-        document.getElementById('u-emptyState').style.display='block';
-        document.getElementById('u-emptyState').querySelector('p').textContent=(resp&&resp.erro)||'Não foi possível carregar os usuários.';
+        if(!temCache){
+          document.getElementById('u-emptyState').style.display='block';
+          document.getElementById('u-emptyState').querySelector('p').textContent=(resp&&resp.erro)||'Não foi possível carregar os usuários.';
+        }
         return;
       }
+      if(window.SGCache)window.SGCache.set('usuarios',resp);
       usuarios=resp.vendedores||[];
       render();
     }).catch(function(err){
-      document.getElementById('u-emptyState').style.display='block';
-      document.getElementById('u-emptyState').querySelector('p').textContent='Erro de conexão: '+err.message;
+      if(!temCache){
+        document.getElementById('u-emptyState').style.display='block';
+        document.getElementById('u-emptyState').querySelector('p').textContent='Erro de conexão: '+err.message;
+      }
     });
   }
 
@@ -5472,19 +5899,39 @@
     var status=document.getElementById('u-status').value;
     if(!nome||!email){ showMsg('Nome e e-mail são obrigatórios.','error'); return; }
 
-    var btn=document.getElementById('u-salvarBtn');
-    btn.disabled=true; btn.textContent='Salvando…';
+    var ehNovo=!editandoId;
+    var idAlvo=editandoId||window.SGId.gerar();
+    var registroAnteriorCopia=!ehNovo?Object.assign({},usuarios.filter(function(x){return String(x.IdVendedor)===String(idAlvo);})[0]):null;
+
+    var registroNovo={IdVendedor:idAlvo,Nome:nome,Email:email,Telefone:telefone,Tipo:tipo,Status:status};
+    var indice=usuarios.findIndex(function(x){return String(x.IdVendedor)===String(idAlvo);});
+    if(indice===-1)usuarios.push(registroNovo);
+    else usuarios[indice]=registroNovo;
+
+    closeModal();
+    render();
+    (window.SGToast?window.SGToast.mostrar:function(t){})(ehNovo?'Usuário criado.':'Usuário atualizado.');
+
     apiCall('salvarVendedor',{
-      solicitanteId:meuId(), idVendedor:editandoId,
+      solicitanteId:meuId(), idVendedor:idAlvo,
       nome:nome, email:email, telefone:telefone, tipo:tipo, status:status
     }).then(function(resp){
-      btn.disabled=false; btn.textContent='Salvar';
-      if(!resp||!resp.ok){ showMsg((resp&&resp.erro)||'Não foi possível salvar.','error'); return; }
-      closeModal();
-      carregar();
+      if(!resp||!resp.ok){
+        if(ehNovo)usuarios=usuarios.filter(function(x){return String(x.IdVendedor)!==String(idAlvo);});
+        else{ var idx=usuarios.findIndex(function(x){return String(x.IdVendedor)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)usuarios[idx]=registroAnteriorCopia; }
+        render();
+        (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível salvar — a alteração foi desfeita.',true);
+        return;
+      }
+      if(resp.idVendedor&&String(resp.idVendedor)!==String(idAlvo)){
+        var idx2=usuarios.findIndex(function(x){return String(x.IdVendedor)===String(idAlvo);});
+        if(idx2!==-1){ usuarios[idx2].IdVendedor=resp.idVendedor; render(); }
+      }
     }).catch(function(err){
-      btn.disabled=false; btn.textContent='Salvar';
-      showMsg('Erro de conexão: '+err.message,'error');
+      if(ehNovo)usuarios=usuarios.filter(function(x){return String(x.IdVendedor)!==String(idAlvo);});
+      else{ var idx=usuarios.findIndex(function(x){return String(x.IdVendedor)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)usuarios[idx]=registroAnteriorCopia; }
+      render();
+      (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — a alteração foi desfeita: '+err.message,true);
     });
   }
 
@@ -5556,6 +6003,7 @@
       permissoesMap={};
       lista.forEach(function(p){ permissoesMap[chave(p.tipo,p.tela)]=p.permitido; });
       if(window.SGPermissoes)window.SGPermissoes.definirCache(telas,tipos,permissoesMap);
+      if(window.SGCache)window.SGCache.set('permissoes_tela',{ok:true,telas:telas,tipos:tipos,permissoes:lista});
     }).catch(function(err){
       btn.disabled=false; btn.textContent='Salvar permissões';
       msgEl.style.color='var(--debit)'; msgEl.textContent='Erro de conexão: '+err.message;
@@ -5563,20 +6011,31 @@
   }
 
   function carregar(){
+    var cache=window.SGCache&&window.SGCache.get('permissoes_tela');
+    var temCache=!!(cache&&cache.dados);
+    if(temCache)aplicarRespostaPermissoes(cache.dados);
     apiCall('getPermissoesData',{}).then(function(resp){
       if(!resp||!resp.ok){
-        document.getElementById('perm-emptyState').style.display='block';
-        document.getElementById('perm-emptyState').querySelector('p').textContent=(resp&&resp.erro)||'Não foi possível carregar.';
+        if(!temCache){
+          document.getElementById('perm-emptyState').style.display='block';
+          document.getElementById('perm-emptyState').querySelector('p').textContent=(resp&&resp.erro)||'Não foi possível carregar.';
+        }
         return;
       }
-      telas=resp.telas||[]; tipos=resp.tipos||[];
-      permissoesMap={};
-      (resp.permissoes||[]).forEach(function(p){ permissoesMap[chave(p.tipo,p.tela)]=p.permitido; });
-      render();
+      if(window.SGCache)window.SGCache.set('permissoes_tela',resp);
+      aplicarRespostaPermissoes(resp);
     }).catch(function(err){
-      document.getElementById('perm-emptyState').style.display='block';
-      document.getElementById('perm-emptyState').querySelector('p').textContent='Erro de conexão: '+err.message;
+      if(!temCache){
+        document.getElementById('perm-emptyState').style.display='block';
+        document.getElementById('perm-emptyState').querySelector('p').textContent='Erro de conexão: '+err.message;
+      }
     });
+  }
+  function aplicarRespostaPermissoes(resp){
+    telas=resp.telas||[]; tipos=resp.tipos||[];
+    permissoesMap={};
+    (resp.permissoes||[]).forEach(function(p){ permissoesMap[chave(p.tipo,p.tela)]=p.permitido; });
+    render();
   }
 
   function init(){
@@ -5594,8 +6053,8 @@
 
 // ════ CONTROLLER ════
 (function(){
-  var views={ponto:document.getElementById('view-ponto'),vendas:document.getElementById('view-vendas'),funil:document.getElementById('view-funil'),agendamentos:document.getElementById('view-agendamentos'),clientes:document.getElementById('view-clientes'),planos:document.getElementById('view-planos'),metas:document.getElementById('view-metas'),usuarios:document.getElementById('view-usuarios'),permissoes:document.getElementById('view-permissoes')};
-  var navLinks={ponto:document.getElementById('nav-ponto'),vendas:document.getElementById('nav-vendas'),funil:document.getElementById('nav-funil'),agendamentos:document.getElementById('nav-agendamentos'),clientes:document.getElementById('nav-clientes'),planos:document.getElementById('nav-planos'),metas:document.getElementById('nav-metas'),usuarios:document.getElementById('nav-usuarios'),permissoes:document.getElementById('nav-permissoes')};
+  var views={ponto:document.getElementById('view-ponto'),vendas:document.getElementById('view-vendas'),funil:document.getElementById('view-funil'),agendamentos:document.getElementById('view-agendamentos'),clientes:document.getElementById('view-clientes'),planos:document.getElementById('view-planos'),relatorios:document.getElementById('view-relatorios'),metas:document.getElementById('view-metas'),usuarios:document.getElementById('view-usuarios'),permissoes:document.getElementById('view-permissoes')};
+  var navLinks={ponto:document.getElementById('nav-ponto'),vendas:document.getElementById('nav-vendas'),funil:document.getElementById('nav-funil'),agendamentos:document.getElementById('nav-agendamentos'),clientes:document.getElementById('nav-clientes'),planos:document.getElementById('nav-planos'),relatorios:document.getElementById('nav-relatorios'),metas:document.getElementById('nav-metas'),usuarios:document.getElementById('nav-usuarios'),permissoes:document.getElementById('nav-permissoes')};
   function switchTo(name){
     if((name==='usuarios'||name==='permissoes'||name==='metas')&&(!window.SGAuth||!window.SGAuth.isAdmin()))name='ponto';
     Object.keys(views).forEach(function(k){if(!views[k]||!navLinks[k])return;views[k].classList.toggle('active',k===name);navLinks[k].classList.toggle('active',k===name);});
@@ -5603,6 +6062,7 @@
     if(name==='funil'&&window.funilApp)window.funilApp.init();
     if(name==='agendamentos'&&window.agendamentosApp)window.agendamentosApp.init();
     if(name==='planos'&&window.planosApp)window.planosApp.init();
+    if(name==='relatorios'&&window.relatoriosApp)window.relatoriosApp.init();
     if(name==='metas'&&window.metasApp)window.metasApp.init();
     if(name==='clientes'&&window.clientesApp)window.clientesApp.init();
     if(name==='usuarios'&&window.usuariosApp)window.usuariosApp.init();
@@ -5613,6 +6073,7 @@
   navLinks.funil.addEventListener('click',function(e){e.preventDefault();switchTo('funil');});
   if(navLinks.agendamentos)navLinks.agendamentos.addEventListener('click',function(e){e.preventDefault();switchTo('agendamentos');});
   if(navLinks.planos)navLinks.planos.addEventListener('click',function(e){e.preventDefault();switchTo('planos');});
+  if(navLinks.relatorios)navLinks.relatorios.addEventListener('click',function(e){e.preventDefault();switchTo('relatorios');});
   if(navLinks.metas)navLinks.metas.addEventListener('click',function(e){e.preventDefault();switchTo('metas');});
   if(navLinks.clientes)navLinks.clientes.addEventListener('click',function(e){e.preventDefault();switchTo('clientes');});
   if(navLinks.usuarios)navLinks.usuarios.addEventListener('click',function(e){e.preventDefault();switchTo('usuarios');});
