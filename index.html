@@ -705,6 +705,9 @@
     <a href="#" id="nav-vendas"><span class="ico">◆</span><span class="nav-label"> Vendas</span></a>
     <a href="#" id="nav-funil"><span class="ico">◈</span><span class="nav-label"> Funil</span></a>
     <a href="#" id="nav-relatorios"><span class="ico">📝</span><span class="nav-label"> Relatórios</span></a>
+    <a href="#" id="nav-custosvenda"><span class="ico">💸</span><span class="nav-label"> Custos da Venda</span></a>
+    <a href="#" id="nav-custorecorrente" style="display:none;"><span class="ico">🔁</span><span class="nav-label"> Custos Recorrentes</span></a>
+    <a href="#" id="nav-servicos" style="display:none;"><span class="ico">🛠</span><span class="nav-label"> Serviços</span></a>
     <a href="#" id="nav-clientes"><span class="ico">👤</span><span class="nav-label"> Clientes</span></a>
     <a href="#" id="nav-agendamentos"><span class="ico">🛠</span><span class="nav-label"> Agendamentos</span></a>
     <a href="#" id="nav-planos"><span class="ico">📋</span><span class="nav-label"> Planos</span></a>
@@ -1233,13 +1236,29 @@
     <div class="modal-sub">Ordem de serviço para o técnico de campo.</div>
     <div class="uform-msg" id="ag-modalMsg"></div>
 
-    <div class="uform-field"><label>Cliente</label><select id="ag-idCliente"><option value="">— Selecionar cliente…</option></select>
+    <div class="uform-field"><label>Cliente</label>
+      <div class="combo-wrap">
+        <input type="text" id="ag-idClienteBusca" placeholder="Digite o nome do cliente…" autocomplete="off">
+        <input type="hidden" id="ag-idCliente">
+        <div class="combo-dropdown hidden" id="ag-idClienteDropdown"></div>
+      </div>
       <div class="uform-msg" id="ag-clienteWarn" style="margin-top:8px;"></div>
     </div>
-    <div class="uform-field"><label>Serviço</label><select id="ag-idServico"><option value="">— Selecionar serviço…</option></select>
+    <div class="uform-field"><label>Serviço</label>
+      <div class="combo-wrap">
+        <input type="text" id="ag-idServicoBusca" placeholder="Digite o nome do serviço…" autocomplete="off">
+        <input type="hidden" id="ag-idServico">
+        <div class="combo-dropdown hidden" id="ag-idServicoDropdown"></div>
+      </div>
       <div class="uform-msg" id="ag-servicoWarn" style="margin-top:8px;"></div>
     </div>
-    <div class="uform-field"><label>Técnico responsável</label><select id="ag-tecnico"><option value="">— Selecionar técnico…</option></select></div>
+    <div class="uform-field"><label>Técnico responsável</label>
+      <div class="combo-wrap">
+        <input type="text" id="ag-tecnicoBusca" placeholder="Digite o nome do técnico…" autocomplete="off">
+        <input type="hidden" id="ag-tecnico">
+        <div class="combo-dropdown hidden" id="ag-tecnicoDropdown"></div>
+      </div>
+    </div>
 
     <div class="uform-field"><label>Data</label><input type="date" id="ag-dataInicio"></div>
     <div class="uform-field">
@@ -1357,9 +1376,27 @@
 <div class="modal-overlay hidden" id="vendaModal">
   <div class="modal-card">
     <h3 id="vendaModalTitle">Nova venda</h3>
-    <div class="uform-field"><label>Cliente</label><select id="vm-cliente"><option value="">— Selecionar cliente…</option></select></div>
-    <div class="uform-field"><label>Serviço</label><select id="vm-servico"><option value="">— Selecionar serviço…</option></select></div>
-    <div class="uform-field"><label>Vendedor</label><select id="vm-vendedor"><option value="">— Selecionar vendedor…</option></select></div>
+    <div class="uform-field"><label>Cliente</label>
+      <div class="combo-wrap">
+        <input type="text" id="vm-clienteBusca" placeholder="Digite o nome do cliente…" autocomplete="off">
+        <input type="hidden" id="vm-cliente">
+        <div class="combo-dropdown hidden" id="vm-clienteDropdown"></div>
+      </div>
+    </div>
+    <div class="uform-field"><label>Serviço</label>
+      <div class="combo-wrap">
+        <input type="text" id="vm-servicoBusca" placeholder="Digite o nome do serviço…" autocomplete="off">
+        <input type="hidden" id="vm-servico">
+        <div class="combo-dropdown hidden" id="vm-servicoDropdown"></div>
+      </div>
+    </div>
+    <div class="uform-field"><label>Vendedor</label>
+      <div class="combo-wrap">
+        <input type="text" id="vm-vendedorBusca" placeholder="Digite o nome do vendedor…" autocomplete="off">
+        <input type="hidden" id="vm-vendedor">
+        <div class="combo-dropdown hidden" id="vm-vendedorDropdown"></div>
+      </div>
+    </div>
     <div class="uform-field"><label>Data da venda</label><input type="date" id="vm-data"></div>
     <div class="uform-field"><label>Valor</label><input type="number" id="vm-valor" step="0.01" min="0"></div>
     <div class="uform-msg" id="vm-msg"></div>
@@ -1654,7 +1691,225 @@
 </div>
 </div>
 
+<!-- ═══ VIEW: CUSTOS DA VENDA ═══ -->
+
+<div id="view-custosvenda" class="view">
+<div class="app">
+  <header class="top">
+    <div><h1>Custos da <span>Venda</span></h1><div class="top-sub">Custos de operação lançados por venda · <span id="cv-appVersion"></span></div></div>
+    <div style="text-align:right;"><div class="clock" id="cv-lastUpdate"></div></div>
+  </header>
+
+  <div class="filters" style="align-items:flex-start;">
+    <div class="field"><label>Período de</label><input type="date" id="cv-dateFrom"></div>
+    <div class="field"><label>Até</label><input type="date" id="cv-dateTo"></div>
+    <div class="field"><label>Status</label><select id="cv-selStatus"><option value="__all__">Todos</option><option value="Pago">Pago</option><option value="Pendente">Aguardando pagamento</option></select></div>
+    <button class="reset-btn" id="cv-resetFiltros" style="align-self:flex-end;">Limpar filtros</button>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi"><div class="tag">Total pago</div><div class="num" id="cv-kpiPago">R$ 0,00</div><div class="bar" style="background:var(--accent);"></div></div>
+    <div class="kpi"><div class="tag">Aguardando pagamento</div><div class="num" id="cv-kpiPendente">R$ 0,00</div><div class="bar" style="background:var(--warn);"></div></div>
+    <div class="kpi"><div class="tag">Total de lançamentos</div><div class="num" id="cv-kpiTotal">0</div><div class="bar"></div></div>
+  </div>
+
+  <div style="margin:16px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <button class="connect-btn" id="cv-novoBtn" style="width:auto;padding:11px 22px;">+ Novo custo</button>
+    <input type="text" id="cv-buscaGeral" placeholder="Buscar descrição, cliente, serviço, status, data…" style="font-size:13px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;min-width:260px;flex:1;max-width:400px;">
+  </div>
+
+  <div class="table-wrap" id="tblCustosVenda">
+    <table>
+      <thead><tr>
+        <th class="sortable" data-sort="data">Data<span class="arrow-sort">▾</span></th>
+        <th class="sortable" data-sort="descricao">Descrição<span class="arrow-sort">▾</span></th>
+        <th class="sortable" data-sort="venda">Venda (cliente/serviço)<span class="arrow-sort">▾</span></th>
+        <th class="num sortable" data-sort="valor">Valor<span class="arrow-sort">▾</span></th>
+        <th class="sortable" data-sort="status">Status<span class="arrow-sort">▾</span></th>
+        <th></th>
+      </tr></thead>
+      <tbody id="cv-tbody"></tbody>
+    </table>
+  </div>
+  <div id="cv-paginacao" class="paginacao"></div>
+
+  <div class="empty" id="cv-emptyState" style="display:none;">
+    <div class="glyph">💸</div>
+    <p>Conectando à planilha para carregar os custos…</p>
+  </div>
+</div>
+</div>
+
+<div class="modal-overlay hidden" id="custoVendaModal">
+  <div class="modal-card" style="max-width:520px;">
+    <h3 id="cvModalTitle">Novo custo</h3>
+    <div class="uform-msg" id="cv-modalMsg"></div>
+
+    <div class="uform-field"><label>Venda vinculada</label>
+      <div class="combo-wrap">
+        <input type="text" id="cv-idVendaBusca" placeholder="Digite o cliente, serviço ou data da venda…" autocomplete="off">
+        <input type="hidden" id="cv-idVenda">
+        <div class="combo-dropdown hidden" id="cv-idVendaDropdown"></div>
+      </div>
+    </div>
+    <div class="uform-field"><label>Descrição</label><textarea id="cv-descricao" rows="3"></textarea></div>
+    <div class="uform-field"><label>Valor</label><input type="number" id="cv-valor" step="0.01" min="0"></div>
+    <div class="uform-field"><label>Data</label><input type="date" id="cv-data"></div>
+    <div class="uform-field"><label>Status</label><select id="cv-status"><option value="Pendente">Pendente</option><option value="Pago">Pago</option></select></div>
+
+    <div class="modal-actions">
+      <button class="reset-btn" id="cv-excluirBtn" style="color:var(--debit);">🗑 Excluir</button>
+      <div style="display:flex;gap:8px;">
+        <button class="reset-btn" id="cv-cancelarBtn">Cancelar</button>
+        <button class="connect-btn" id="cv-salvarBtn">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ VIEW: CUSTOS RECORRENTES (somente administradores) ═══ -->
+
+<div id="view-custorecorrente" class="view">
+<div class="app">
+  <header class="top">
+    <div><h1>Custos <span>Recorrentes</span></h1><div class="top-sub">Despesas fixas mensais (salários, aluguel, assinaturas…) · <span id="crec-appVersion"></span></div></div>
+    <div style="text-align:right;"><div class="clock" id="crec-lastUpdate"></div></div>
+  </header>
+
+  <div class="filters" style="align-items:flex-start;">
+    <div class="field"><label>Categoria</label><select id="crec-selCategoria"><option value="__all__">Todas</option></select></div>
+    <div class="field"><label>Status</label><select id="crec-selStatus"><option value="__all__">Todos</option><option value="Ativo">Ativo</option><option value="Inativo">Inativo</option></select></div>
+    <button class="reset-btn" id="crec-resetFiltros" style="align-self:flex-end;">Limpar filtros</button>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi"><div class="tag">Total mensal (ativos)</div><div class="num" id="crec-kpiAtivo">R$ 0,00</div><div class="bar" style="background:var(--accent);"></div></div>
+    <div class="kpi"><div class="tag">Total (inativos)</div><div class="num" id="crec-kpiInativo">R$ 0,00</div><div class="bar"></div></div>
+    <div class="kpi"><div class="tag">Lançamentos</div><div class="num" id="crec-kpiTotal">0</div><div class="bar"></div></div>
+  </div>
+
+  <div style="margin:16px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <button class="connect-btn" id="crec-novoBtn" style="width:auto;padding:11px 22px;">+ Novo custo recorrente</button>
+    <input type="text" id="crec-buscaGeral" placeholder="Buscar descrição, categoria, status…" style="font-size:13px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;min-width:260px;flex:1;max-width:400px;">
+  </div>
+
+  <div class="table-wrap" id="tblCustoRecorrente">
+    <table>
+      <thead><tr>
+        <th class="sortable" data-sort="descricao">Descrição<span class="arrow-sort">▾</span></th>
+        <th class="sortable" data-sort="categoria">Categoria<span class="arrow-sort">▾</span></th>
+        <th class="sortable" data-sort="vencimento">Dia vencimento<span class="arrow-sort">▾</span></th>
+        <th class="num sortable" data-sort="valor">Valor<span class="arrow-sort">▾</span></th>
+        <th class="sortable" data-sort="status">Status<span class="arrow-sort">▾</span></th>
+        <th></th>
+      </tr></thead>
+      <tbody id="crec-tbody"></tbody>
+    </table>
+  </div>
+  <div id="crec-paginacao" class="paginacao"></div>
+
+  <div class="empty" id="crec-emptyState" style="display:none;">
+    <div class="glyph">🔁</div>
+    <p>Conectando à planilha para carregar os custos recorrentes…</p>
+  </div>
+</div>
+</div>
+
+<div class="modal-overlay hidden" id="custoRecorrenteModal">
+  <div class="modal-card" style="max-width:480px;">
+    <h3 id="crModalTitle">Novo custo recorrente</h3>
+    <div class="uform-msg" id="crec-modalMsg"></div>
+
+    <div class="uform-field"><label>Descrição</label><input type="text" id="crec-descricao" placeholder="Ex: Salário - João Silva"></div>
+    <div class="uform-field"><label>Categoria</label>
+      <input type="text" id="crec-categoria" list="crec-categoriaList" placeholder="Digite ou escolha uma categoria…">
+      <datalist id="crec-categoriaList"></datalist>
+    </div>
+    <div class="uform-field"><label>Dia do vencimento</label><input type="number" id="crec-diaVencimento" min="1" max="31" step="1"></div>
+    <div class="uform-field"><label>Valor</label><input type="number" id="crec-valor" step="0.01" min="0"></div>
+    <div class="uform-field"><label>Status</label><select id="crec-status"><option value="Ativo">Ativo</option><option value="Inativo">Inativo</option></select></div>
+
+    <div class="modal-actions">
+      <button class="reset-btn" id="crec-excluirBtn" style="color:var(--debit);">🗑 Excluir</button>
+      <div style="display:flex;gap:8px;">
+        <button class="reset-btn" id="crec-cancelarBtn">Cancelar</button>
+        <button class="connect-btn" id="crec-salvarBtn">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ VIEW: SERVIÇOS (somente administradores) ═══ -->
+
+<div id="view-servicos" class="view">
+<div class="app">
+  <header class="top">
+    <div><h1>Catálogo de <span>Serviços</span></h1><div class="top-sub">Preços e checklist (templates) de cada serviço · <span id="sv-appVersion"></span></div></div>
+    <div style="text-align:right;"><div class="clock" id="sv-lastUpdate"></div></div>
+  </header>
+
+  <div style="margin:16px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <button class="connect-btn" id="sv-novoBtn" style="width:auto;padding:11px 22px;">+ Novo serviço</button>
+    <input type="text" id="sv-buscaGeral" placeholder="Buscar nome, tipo, descrição…" style="font-size:13px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;min-width:260px;flex:1;max-width:400px;">
+  </div>
+
+  <div class="table-wrap" id="tblServicos">
+    <table>
+      <thead><tr>
+        <th class="sortable" data-sort="nome">Nome<span class="arrow-sort">▾</span></th>
+        <th class="sortable" data-sort="cobranca">Cobrança<span class="arrow-sort">▾</span></th>
+        <th class="sortable" data-sort="tipo">Tipo<span class="arrow-sort">▾</span></th>
+        <th class="num sortable" data-sort="valor">Valor<span class="arrow-sort">▾</span></th>
+        <th class="num sortable" data-sort="valormodulo">Valor/módulo<span class="arrow-sort">▾</span></th>
+        <th class="sortable" data-sort="perguntas">Perguntas<span class="arrow-sort">▾</span></th>
+      </tr></thead>
+      <tbody id="sv-tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="empty" id="sv-emptyState" style="display:none;">
+    <div class="glyph">🛠</div>
+    <p>Conectando à planilha para carregar os serviços…</p>
+  </div>
+</div>
+</div>
+
+<div id="servicoDetalhe" class="side-panel" style="width:560px;">
+  <div class="ad-top">
+    <button class="ad-backbtn" id="sv-fecharBtn">←</button>
+    <div class="ad-title" id="sv-title">Serviço</div>
+    <button class="ad-trashbtn" id="sv-excluirBtn" title="Excluir serviço">🗑</button>
+  </div>
+  <div class="ad-body" id="sv-body">
+    <div class="uform-field"><label>Nome do serviço</label><input type="text" id="sv-nome"></div>
+    <div class="uform-field"><label>Tipo de cobrança</label>
+      <select id="sv-tipoCobranca"><option value="Unitário">Unitário</option><option value="Recorrente">Recorrente</option><option value="Por Módulo">Por Módulo</option></select>
+    </div>
+    <div class="uform-field"><label>Categoria</label>
+      <select id="sv-tipoServico"><option value="Campo">Campo (técnico vai até o cliente)</option><option value="Adm">Administrativo</option></select>
+    </div>
+    <div class="uform-field"><label>Descrição</label><textarea id="sv-descricao" rows="3"></textarea></div>
+    <div class="uform-field"><label>Valor fixo</label><input type="number" id="sv-valor" step="0.01" min="0" placeholder="Deixe em branco se o valor é por módulo"></div>
+    <div class="uform-field"><label>Valor por módulo</label><input type="number" id="sv-valorPorModulo" step="0.01" min="0" placeholder="Deixe em branco se o valor é fixo"></div>
+    <div class="uform-msg" id="sv-msg"></div>
+
+    <div class="section-head" style="margin-top:22px;">
+      <h2>Perguntas do <span>checklist</span></h2>
+      <div class="hint">o que o técnico preenche em campo pra esse serviço</div>
+      <div class="spacer"></div>
+      <button class="reset-btn" id="sv-novaPerguntaBtn" style="width:auto;">+ Nova pergunta</button>
+    </div>
+    <div id="sv-perguntasWrap"></div>
+  </div>
+  <div class="ad-actions">
+    <button class="connect-btn" id="sv-salvarBtn">Salvar serviço</button>
+  </div>
+</div>
+
 <!-- ═══ VIEW: METAS (somente administradores) ═══ -->
+
+
+
 
 
 <div id="view-metas" class="view">
@@ -1917,7 +2172,7 @@
     // cargo da pessoa não pode ver. Administradores nunca passam por aqui.
     function aplicarNoMenu(){
       if(window.SGAuth&&window.SGAuth.isAdmin())return;
-      var TELAS=['ponto','vendas','funil','clientes','agendamentos','planos','relatorios'];
+      var TELAS=['ponto','vendas','funil','clientes','agendamentos','planos','relatorios','custosvenda'];
       var atual=localStorage.getItem('sg_active_view')||'ponto';
       var escondeuAtual=false;
       TELAS.forEach(function(t){
@@ -2125,6 +2380,10 @@
     if(navPermissoes&&isAdmin()) navPermissoes.style.display='';
     var navMetas=document.getElementById('nav-metas');
     if(navMetas&&isAdmin()) navMetas.style.display='';
+    var navCustoRecorrente=document.getElementById('nav-custorecorrente');
+    if(navCustoRecorrente&&isAdmin()) navCustoRecorrente.style.display='';
+    var navServicos=document.getElementById('nav-servicos');
+    if(navServicos&&isAdmin()) navServicos.style.display='';
     if(window.SGPermissoes)window.SGPermissoes.carregar();
   }
 
@@ -2860,32 +3119,44 @@
     el.textContent=texto||'';
   }
 
-  function popularSelectsVenda(){
-    var selCliente=document.getElementById('vm-cliente');
-    selCliente.innerHTML='<option value="">— Selecionar cliente…</option>'+
-      Object.keys(clientesMap).map(function(id){return clientesMap[id];})
-        .sort(function(a,b){return (a['Nome Razao Social']||a.Nome||'').localeCompare(b['Nome Razao Social']||b.Nome||'','pt-BR');})
-        .map(function(c){return '<option value="'+escapeHtml(c.IdCliente)+'">'+escapeHtml(c['Nome Razao Social']||c.Nome||c.IdCliente)+'</option>';}).join('');
-    var selServico=document.getElementById('vm-servico');
-    selServico.innerHTML='<option value="">— Selecionar serviço…</option>'+
-      Object.keys(servicosMap).sort(function(a,b){return servicosMap[a].localeCompare(servicosMap[b],'pt-BR');})
-        .map(function(id){return '<option value="'+escapeHtml(id)+'">'+escapeHtml(servicosMap[id])+'</option>';}).join('');
-    var selVendedor=document.getElementById('vm-vendedor');
-    selVendedor.innerHTML='<option value="">— Selecionar vendedor…</option>'+
-      Object.keys(vendedoresTodosMapVendas).map(function(id){return vendedoresTodosMapVendas[id];})
-        .filter(function(v){return (v.Status||'').trim().toLowerCase()!=='inativo';})
-        .sort(function(a,b){return (a.Nome||'').localeCompare(b.Nome||'','pt-BR');})
-        .map(function(v){return '<option value="'+escapeHtml(v.IdVendedor)+'">'+escapeHtml(v.Nome)+'</option>';}).join('');
+  function opcoesClienteVenda(){
+    return Object.keys(clientesMap).map(function(id){return clientesMap[id];})
+      .sort(function(a,b){return (a['Nome Razao Social']||a.Nome||'').localeCompare(b['Nome Razao Social']||b.Nome||'','pt-BR');})
+      .map(function(c){return {id:c.IdCliente,label:c['Nome Razao Social']||c.Nome||c.IdCliente};});
+  }
+  function opcoesServicoVenda(){
+    return Object.keys(servicosMap).sort(function(a,b){return servicosMap[a].localeCompare(servicosMap[b],'pt-BR');})
+      .map(function(id){return {id:id,label:servicosMap[id]};});
+  }
+  function opcoesVendedorVenda(){
+    return Object.keys(vendedoresTodosMapVendas).map(function(id){return vendedoresTodosMapVendas[id];})
+      .filter(function(v){return (v.Status||'').trim().toLowerCase()!=='inativo';})
+      .sort(function(a,b){return (a.Nome||'').localeCompare(b.Nome||'','pt-BR');})
+      .map(function(v){return {id:v.IdVendedor,label:v.Nome};});
   }
 
   function abrirModalVenda(idVenda){
-    popularSelectsVenda();
     var v=idVenda?vendasRecords.filter(function(x){return String(x.idVenda)===String(idVenda);})[0]:null;
     vendaAtual=v;
     document.getElementById('vendaModalTitle').textContent=v?'Editar venda':'Nova venda';
-    document.getElementById('vm-cliente').value=v?(v.idCliente||''):'';
-    document.getElementById('vm-servico').value=v?(v.idServico||''):'';
-    document.getElementById('vm-vendedor').value=v?(v.idVendedor||''):(window.SG_SESSION?window.SG_SESSION.idVendedor:'');
+
+    window.SGCombo.criar({
+      inputId:'vm-clienteBusca', hiddenId:'vm-cliente', dropdownId:'vm-clienteDropdown',
+      getOpcoes:opcoesClienteVenda,
+      valorInicial:v&&v.idCliente?{id:v.idCliente,label:nomeClienteVenda(v.idCliente)}:null
+    });
+    window.SGCombo.criar({
+      inputId:'vm-servicoBusca', hiddenId:'vm-servico', dropdownId:'vm-servicoDropdown',
+      getOpcoes:opcoesServicoVenda,
+      valorInicial:v&&v.idServico?{id:v.idServico,label:servicosMap[v.idServico]||v.idServico}:null
+    });
+    var vendedorInicial=v?v.idVendedor:(window.SG_SESSION?window.SG_SESSION.idVendedor:null);
+    window.SGCombo.criar({
+      inputId:'vm-vendedorBusca', hiddenId:'vm-vendedor', dropdownId:'vm-vendedorDropdown',
+      getOpcoes:opcoesVendedorVenda,
+      valorInicial:vendedorInicial?{id:vendedorInicial,label:nomeFor(vendedorInicial)}:null
+    });
+
     document.getElementById('vm-data').value=v?v.dateKey:'';
     document.getElementById('vm-valor').value=v?v.valor:'';
     showVendaMsg('');
@@ -4504,37 +4775,49 @@
   }
   function ehTecnico(v){ return normalizaTexto(v.Tipo)==='tecnico'; }
 
+  function opcoesClienteAg(){
+    return Object.keys(clientesMap).map(function(id){return clientesMap[id];})
+      .sort(function(a,b){return (a['Nome Razao Social']||'').localeCompare(b['Nome Razao Social']||'','pt-BR');})
+      .map(function(c){return {id:c.IdCliente,label:c['Nome Razao Social']||c.Nome||c.IdCliente};});
+  }
+  // Só serviços de Campo aparecem pra agendar — os administrativos (Adm) não fazem sentido aqui.
+  function opcoesServicoAg(){
+    return Object.keys(servicosMap).map(function(id){return servicosMap[id];})
+      .filter(function(s){return normalizaTexto(s.TipoServico)==='campo';})
+      .sort(function(a,b){return (a['Nome Servico']||'').localeCompare(b['Nome Servico']||'','pt-BR');})
+      .map(function(s){return {id:s.IdServico,label:s['Nome Servico']||s.IdServico};});
+  }
+  // Só quem tem Tipo = "Tecnico" (sem diferenciar maiúscula/acento) pode ser
+  // escolhido como responsável por uma ordem de serviço em campo.
+  function opcoesTecnicoAg(){
+    return Object.keys(vendedoresMap).map(function(id){return vendedoresMap[id];})
+      .filter(function(v){return (v.Status||'').trim().toLowerCase()!=='inativo';})
+      .filter(ehTecnico)
+      .sort(function(a,b){return (a.Nome||'').localeCompare(b.Nome||'','pt-BR');});
+  }
+
   function populateSelects(){
-    var selCliente=document.getElementById('ag-idCliente');
-    selCliente.innerHTML='<option value="">— Selecionar cliente…</option>'+
-      Object.keys(clientesMap).map(function(id){return clientesMap[id];})
-        .sort(function(a,b){return (a['Nome Razao Social']||'').localeCompare(b['Nome Razao Social']||'','pt-BR');})
-        .map(function(c){return '<option value="'+escapeHtml(c.IdCliente)+'">'+escapeHtml(c['Nome Razao Social']||c.Nome||c.IdCliente)+'</option>';}).join('');
-
-    // Só serviços de Campo aparecem pra agendar — os administrativos (Adm) não fazem sentido aqui.
-    var selServico=document.getElementById('ag-idServico');
-    selServico.innerHTML='<option value="">— Selecionar serviço…</option>'+
-      Object.keys(servicosMap).map(function(id){return servicosMap[id];})
-        .filter(function(s){return normalizaTexto(s.TipoServico)==='campo';})
-        .sort(function(a,b){return (a['Nome Servico']||'').localeCompare(b['Nome Servico']||'','pt-BR');})
-        .map(function(s){return '<option value="'+escapeHtml(s.IdServico)+'">'+escapeHtml(s['Nome Servico']||s.IdServico)+'</option>';}).join('');
-
     var vendedoresLista=Object.keys(vendedoresMap).map(function(id){return vendedoresMap[id];})
       .filter(function(v){return (v.Status||'').trim().toLowerCase()!=='inativo';})
       .sort(function(a,b){return (a.Nome||'').localeCompare(b.Nome||'','pt-BR');});
-
-    // Só quem tem Tipo = "Tecnico" (sem diferenciar maiúscula/acento) pode ser
-    // escolhido como responsável por uma ordem de serviço em campo.
-    var tecnicosLista=vendedoresLista.filter(ehTecnico);
-
-    var selTecnicoModal=document.getElementById('ag-tecnico');
-    selTecnicoModal.innerHTML='<option value="">— Selecionar técnico…</option>'+
-      tecnicosLista.map(function(v){return '<option value="'+escapeHtml(v.IdVendedor)+'">'+escapeHtml(v.Nome)+'</option>';}).join('');
 
     var selTecnicoFiltro=document.getElementById('ag-selTecnico'),curT=selTecnicoFiltro.value||'__all__';
     selTecnicoFiltro.innerHTML='<option value="__all__">Todos os técnicos</option>'+
       vendedoresLista.map(function(v){return '<option value="'+escapeHtml(v.IdVendedor)+'">'+escapeHtml(v.Nome)+'</option>';}).join('');
     selTecnicoFiltro.value=curT;
+  }
+
+  function alertaTrocaDeServico(){
+    var warnEl=document.getElementById('ag-servicoWarn');
+    warnEl.className='uform-msg'; warnEl.textContent='';
+    if(!editandoId||!servicoOriginalEdicao)return;
+    var novoServico=document.getElementById('ag-idServico').value;
+    if(novoServico===servicoOriginalEdicao)return;
+    var qtd=contarRespostasDoServico(editandoId,servicoOriginalEdicao);
+    if(qtd>0){
+      warnEl.className='uform-msg success';
+      warnEl.textContent='ℹ Esse agendamento já tem '+qtd+' resposta(s) preenchida(s) pro serviço anterior. Elas continuam salvas e o técnico vai continuar vendo essas respostas na tela dele, junto com as novas perguntas do serviço "'+escapeHtml(nomeServico(novoServico))+'".';
+    }
   }
 
   function openModal(idAgendamento){
@@ -4543,9 +4826,26 @@
     var a=idAgendamento?agendamentos.filter(function(x){return String(x.IdAgendamento)===String(idAgendamento);})[0]:null;
     servicoOriginalEdicao=a?a.IdServico:null;
     document.getElementById('agendamentoModalTitle').textContent=a?'Editar agendamento':'Novo agendamento';
-    document.getElementById('ag-idCliente').value=a?(a.IdCliente||''):'';
-    document.getElementById('ag-idServico').value=a?(a.IdServico||''):'';
-    document.getElementById('ag-tecnico').value=a?(a.TecnicoResponsavel||''):'';
+
+    window.SGCombo.criar({
+      inputId:'ag-idClienteBusca', hiddenId:'ag-idCliente', dropdownId:'ag-idClienteDropdown',
+      getOpcoes:opcoesClienteAg,
+      valorInicial:a&&a.IdCliente?{id:a.IdCliente,label:nomeCliente(a.IdCliente)}:null,
+      onSelecionar:validarCliente
+    });
+    window.SGCombo.criar({
+      inputId:'ag-idServicoBusca', hiddenId:'ag-idServico', dropdownId:'ag-idServicoDropdown',
+      getOpcoes:opcoesServicoAg,
+      valorInicial:a&&a.IdServico?{id:a.IdServico,label:nomeServico(a.IdServico)}:null,
+      onSelecionar:alertaTrocaDeServico
+    });
+    window.SGCombo.criar({
+      inputId:'ag-tecnicoBusca', hiddenId:'ag-tecnico', dropdownId:'ag-tecnicoDropdown',
+      getOpcoes:opcoesTecnicoAg,
+      valorInicial:a&&a.TecnicoResponsavel?{id:a.TecnicoResponsavel,label:nomeVendedor(a.TecnicoResponsavel)}:null,
+      onSelecionar:validarHorario
+    });
+
     var dt=a?parseBRDateTime(a['Data Inicio']):null;
     document.getElementById('ag-dataInicio').value=dt?dateKey(dt):'';
     renderHoraGrid('ag-horaInicioGrid',HORAS_INICIO,a?(a['Hora inicio']||''):'','ag-horaInicio',function(){ atualizarDisponibilidadeHoraFim(); validarHorario(); });
@@ -4671,9 +4971,7 @@
     return true;
   }
 
-  document.getElementById('ag-idCliente').addEventListener('change',validarCliente);
   document.getElementById('ag-dataInicio').addEventListener('change',validarHorario);
-  document.getElementById('ag-tecnico').addEventListener('change',validarHorario);
 
   function contarRespostasDoServico(idAgendamento,idServico){
     var templates=templatesPorServico[idServico]||[];
@@ -4683,18 +4981,6 @@
     return respostas.filter(function(r){return idsTemplate[r.IdTemplate]&&respostaTemValor(r);}).length;
   }
 
-  document.getElementById('ag-idServico').addEventListener('change',function(){
-    var warnEl=document.getElementById('ag-servicoWarn');
-    warnEl.className='uform-msg'; warnEl.textContent='';
-    if(!editandoId||!servicoOriginalEdicao)return;
-    var novoServico=document.getElementById('ag-idServico').value;
-    if(novoServico===servicoOriginalEdicao)return;
-    var qtd=contarRespostasDoServico(editandoId,servicoOriginalEdicao);
-    if(qtd>0){
-      warnEl.className='uform-msg success';
-      warnEl.textContent='ℹ Esse agendamento já tem '+qtd+' resposta(s) preenchida(s) pro serviço anterior. Elas continuam salvas e o técnico vai continuar vendo essas respostas na tela dele, junto com as novas perguntas do serviço "'+escapeHtml(nomeServico(novoServico))+'".';
-    }
-  });
 
 
 
@@ -5433,6 +5719,849 @@
 })();
 
 
+// ════ CUSTOS DA VENDA ════
+(function(){
+  var _initialized=false;
+  var custos=[],vendas=[],clientesMap={},servicosMap={};
+  var editandoId=null;
+  var paginaAtual=1, ITENS_POR_PAGINA=10;
+  var sortState={col:'data',dir:'desc'};
+  var APP_VERSION='2026-07-16-1';
+
+  function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
+  function meuId(){ return window.SG_SESSION&&window.SG_SESSION.idVendedor; }
+  function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+  function fmtMoney(n){ if(typeof n==='string')n=parseFloat(n.replace(/\./g,'').replace(',','.'))||0; else n=parseFloat(n)||0; return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function parseBRDate(str){ if(!str)return null; str=String(str).trim(); var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m)return new Date(+m[3],+m[2]-1,+m[1]); var d=new Date(str.substring(0,10)); return isNaN(d)?null:d; }
+  function dateKeyFromDate(d){ return d?(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')):''; }
+  function fmtDateBRcv(d){ return d?(String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()):'—'; }
+  function normalizaBuscaCv(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+
+  function nomeCliente(id){ var c=clientesMap[id]; return c?(c['Nome Razao Social']||c.Nome||id):'—'; }
+  function nomeServico(id){ var s=servicosMap[id]; return s?(s['Nome Servico']||id):'—'; }
+  function vendaPorId(idVenda){ return vendas.filter(function(v){return String(v.IdVenda)===String(idVenda);})[0]; }
+  function labelDaVenda(idVenda){
+    var v=vendaPorId(idVenda);
+    if(!v)return idVenda?('Venda '+String(idVenda).slice(0,8)):'—';
+    var dt=parseBRDate(v.DataVenda);
+    return nomeCliente(v.IdCliente)+' — '+nomeServico(v.IdServico)+' — '+fmtDateBRcv(dt)+' — '+fmtMoney(v.Valor);
+  }
+
+  function opcoesVendaCv(){
+    return vendas.slice().sort(function(a,b){
+      var da=parseBRDate(a.DataVenda),db=parseBRDate(b.DataVenda);
+      return (db?db.getTime():0)-(da?da.getTime():0);
+    }).map(function(v){ return {id:v.IdVenda,label:labelDaVenda(v.IdVenda)}; });
+  }
+
+  function textoBuscavelCusto(c){
+    var v=vendaPorId(c.IdVenda);
+    return normalizaBuscaCv([
+      c.Descricao, c.Status, c.Data,
+      v?nomeCliente(v.IdCliente):'', v?nomeServico(v.IdServico):''
+    ].join(' | '));
+  }
+
+  function sortCustosRows(lista){
+    var col=sortState.col,dir=sortState.dir,mult=dir==='asc'?1:-1;
+    lista.sort(function(a,b){
+      if(col==='data'){var da=parseBRDate(a.Data),db=parseBRDate(b.Data);return mult*((da?da.getTime():0)-(db?db.getTime():0));}
+      if(col==='descricao'){return mult*String(a.Descricao||'').localeCompare(String(b.Descricao||''),'pt-BR');}
+      if(col==='venda'){return mult*labelDaVenda(a.IdVenda).localeCompare(labelDaVenda(b.IdVenda),'pt-BR');}
+      if(col==='valor'){var va=parseFloat(String(a.Valor||'0').replace(/\./g,'').replace(',','.'))||0,vb=parseFloat(String(b.Valor||'0').replace(/\./g,'').replace(',','.'))||0;return mult*(va-vb);}
+      if(col==='status'){return mult*String(a.Status||'').localeCompare(String(b.Status||''),'pt-BR');}
+      return 0;
+    });
+  }
+  function updateSortHeadersCv(){
+    document.querySelectorAll('#view-custosvenda th.sortable').forEach(function(th){
+      var col=th.getAttribute('data-sort');
+      th.classList.toggle('sort-active',col===sortState.col);
+      var a=th.querySelector('.arrow-sort');
+      a.textContent=(col===sortState.col)?(sortState.dir==='asc'?'▴':'▾'):'▾';
+    });
+  }
+
+  function getFiltered(){
+    var from=document.getElementById('cv-dateFrom').value,to=document.getElementById('cv-dateTo').value;
+    var status=document.getElementById('cv-selStatus').value;
+    var busca=normalizaBuscaCv(document.getElementById('cv-buscaGeral').value||'').trim();
+    return custos.filter(function(c){
+      var dt=parseBRDate(c.Data),dk=dt?dateKeyFromDate(dt):null;
+      if(from&&dk&&dk<from)return false; if(to&&dk&&dk>to)return false;
+      if(status!=='__all__'&&(c.Status||'').trim()!==status)return false;
+      if(busca&&textoBuscavelCusto(c).indexOf(busca)===-1)return false;
+      return true;
+    });
+  }
+
+  function renderPaginacao(totalPaginas){
+    var el=document.getElementById('cv-paginacao');
+    if(totalPaginas<=1){el.innerHTML='';return;}
+    el.innerHTML='<button type="button" id="cv-pgAnterior" '+(paginaAtual<=1?'disabled':'')+'>‹ Anterior</button><span class="pg-info">Página '+paginaAtual+' de '+totalPaginas+'</span><button type="button" id="cv-pgProxima" '+(paginaAtual>=totalPaginas?'disabled':'')+'>Próxima ›</button>';
+    var a=document.getElementById('cv-pgAnterior'); if(a)a.addEventListener('click',function(){if(paginaAtual>1){paginaAtual--;render();}});
+    var p=document.getElementById('cv-pgProxima'); if(p)p.addEventListener('click',function(){if(paginaAtual<totalPaginas){paginaAtual++;render();}});
+  }
+
+  function render(){
+    var filtrados=getFiltered();
+    var pago=filtrados.filter(function(c){return (c.Status||'').trim().toLowerCase()==='pago';}).reduce(function(s,c){return s+(parseFloat(String(c.Valor||'0').replace(/\./g,'').replace(',','.'))||0);},0);
+    var pendente=filtrados.filter(function(c){return (c.Status||'').trim().toLowerCase()!=='pago';}).reduce(function(s,c){return s+(parseFloat(String(c.Valor||'0').replace(/\./g,'').replace(',','.'))||0);},0);
+    document.getElementById('cv-kpiPago').textContent=fmtMoney(pago);
+    document.getElementById('cv-kpiPendente').textContent=fmtMoney(pendente);
+    document.getElementById('cv-kpiTotal').textContent=filtrados.length;
+
+    sortCustosRows(filtrados);
+    updateSortHeadersCv();
+
+    var totalPaginas=Math.max(1,Math.ceil(filtrados.length/ITENS_POR_PAGINA));
+    if(paginaAtual>totalPaginas)paginaAtual=totalPaginas;
+    if(paginaAtual<1)paginaAtual=1;
+    var inicio=(paginaAtual-1)*ITENS_POR_PAGINA;
+    var pagina=filtrados.slice(inicio,inicio+ITENS_POR_PAGINA);
+
+    var tbody=document.getElementById('cv-tbody');
+    if(!pagina.length){
+      tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--ink-faint);padding:30px;">Nenhum custo encontrado.</td></tr>';
+      renderPaginacao(0);
+      return;
+    }
+    tbody.innerHTML=pagina.map(function(c){
+      var dt=parseBRDate(c.Data);
+      var pago2=(c.Status||'').trim().toLowerCase()==='pago';
+      return '<tr class="ag-row-click" data-id="'+escapeHtml(c.IdCusto)+'">'+
+        '<td>'+fmtDateBRcv(dt)+'</td>'+
+        '<td style="max-width:280px;font-size:11.5px;color:var(--ink-soft);">'+escapeHtml((c.Descricao||'').slice(0,120))+((c.Descricao||'').length>120?'…':'')+'</td>'+
+        '<td>'+escapeHtml(labelDaVenda(c.IdVenda))+'</td>'+
+        '<td class="num">'+fmtMoney(c.Valor)+'</td>'+
+        '<td><span class="ag-status-tag '+(pago2?'concluido':'agendado')+'">'+escapeHtml(c.Status||'—')+'</span></td>'+
+        '<td class="u-row-actions"></td>'+
+      '</tr>';
+    }).join('');
+    tbody.querySelectorAll('.ag-row-click').forEach(function(tr){
+      tr.addEventListener('click',function(){ try{ abrirModal(tr.getAttribute('data-id')); }catch(err){ console.error('abrirModal falhou:',err); (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Não foi possível abrir esse registro (erro: '+err.message+').',true); } });
+    });
+    renderPaginacao(totalPaginas);
+    document.getElementById('cv-lastUpdate').textContent='Atualizado em '+new Date().toLocaleDateString('pt-BR')+' às '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  }
+
+  function abrirModal(idCusto){
+    var c=idCusto?custos.filter(function(x){return String(x.IdCusto)===String(idCusto);})[0]:null;
+    editandoId=idCusto||null;
+    document.getElementById('cvModalTitle').textContent=c?'Editar custo':'Novo custo';
+    window.SGCombo.criar({
+      inputId:'cv-idVendaBusca', hiddenId:'cv-idVenda', dropdownId:'cv-idVendaDropdown',
+      getOpcoes:opcoesVendaCv,
+      valorInicial:c&&c.IdVenda?{id:c.IdVenda,label:labelDaVenda(c.IdVenda)}:null
+    });
+    document.getElementById('cv-descricao').value=c?(c.Descricao||''):'';
+    document.getElementById('cv-valor').value=c?c.Valor:'';
+    var dt=c?parseBRDate(c.Data):new Date();
+    document.getElementById('cv-data').value=dt?dateKeyFromDate(dt):'';
+    document.getElementById('cv-status').value=c?(c.Status||'Pendente'):'Pendente';
+    document.getElementById('cv-excluirBtn').style.display=c?'block':'none';
+    document.getElementById('cv-modalMsg').textContent='';
+    document.getElementById('custoVendaModal').classList.remove('hidden');
+  }
+  function fecharModal(){ document.getElementById('custoVendaModal').classList.add('hidden'); editandoId=null; }
+
+  function salvar(){
+    var idVenda=document.getElementById('cv-idVenda').value;
+    var descricao=document.getElementById('cv-descricao').value.trim();
+    var valor=document.getElementById('cv-valor').value;
+    var dataVal=document.getElementById('cv-data').value;
+    var status=document.getElementById('cv-status').value;
+    var msgEl=document.getElementById('cv-modalMsg');
+    if(!idVenda){ msgEl.className='uform-msg error'; msgEl.textContent='Selecione a venda vinculada.'; return; }
+    if(!valor){ msgEl.className='uform-msg error'; msgEl.textContent='Informe o valor.'; return; }
+    if(!dataVal){ msgEl.className='uform-msg error'; msgEl.textContent='Escolha a data.'; return; }
+
+    var ehNovo=!editandoId;
+    var idAlvo=editandoId||window.SGId.gerar();
+    var registroAnteriorCopia=!ehNovo?Object.assign({},custos.filter(function(x){return String(x.IdCusto)===String(idAlvo);})[0]):null;
+    var dataBR=dataVal.split('-').reverse().join('/');
+
+    var registroNovo={IdCusto:idAlvo,IdVenda:idVenda,Descricao:descricao,Valor:valor,Status:status,Data:dataBR};
+    var indice=custos.findIndex(function(x){return String(x.IdCusto)===String(idAlvo);});
+    if(indice===-1)custos.push(registroNovo);
+    else custos[indice]=registroNovo;
+
+    fecharModal();
+    render();
+    (window.SGToast?window.SGToast.mostrar:function(t){})(ehNovo?'Custo criado.':'Custo atualizado.');
+
+    apiCall('salvarCustoVenda',{idCusto:idAlvo,idVenda:idVenda,descricao:descricao,valor:valor,status:status,data:dataVal}).then(function(resp){
+      if(!resp||!resp.ok){
+        if(ehNovo)custos=custos.filter(function(x){return String(x.IdCusto)!==String(idAlvo);});
+        else{ var idx=custos.findIndex(function(x){return String(x.IdCusto)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)custos[idx]=registroAnteriorCopia; }
+        render();
+        (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível salvar — a alteração foi desfeita.',true);
+        return;
+      }
+      if(resp.idCusto&&String(resp.idCusto)!==String(idAlvo)){
+        var idx2=custos.findIndex(function(x){return String(x.IdCusto)===String(idAlvo);});
+        if(idx2!==-1){ custos[idx2].IdCusto=resp.idCusto; render(); }
+      }
+    }).catch(function(err){
+      if(ehNovo)custos=custos.filter(function(x){return String(x.IdCusto)!==String(idAlvo);});
+      else{ var idx=custos.findIndex(function(x){return String(x.IdCusto)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)custos[idx]=registroAnteriorCopia; }
+      render();
+      (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — a alteração foi desfeita: '+err.message,true);
+    });
+  }
+
+  function excluir(){
+    if(!editandoId)return;
+    if(!confirm('Tem certeza que deseja excluir esse custo? Essa ação não pode ser desfeita.'))return;
+    var idAlvo=editandoId;
+    var registroAnterior=custos.filter(function(x){return String(x.IdCusto)===String(idAlvo);})[0];
+    custos=custos.filter(function(x){return String(x.IdCusto)!==String(idAlvo);});
+    fecharModal();
+    render();
+    (window.SGToast?window.SGToast.mostrar:function(t){})('Custo excluído.');
+
+    apiCall('excluirCustoVenda',{idCusto:idAlvo}).then(function(resp){
+      if(!resp||!resp.ok){
+        if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
+        if(registroAnterior)custos.push(registroAnterior);
+        render();
+        (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
+      }
+    }).catch(function(err){
+      if(registroAnterior)custos.push(registroAnterior);
+      render();
+      (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — restaurado: '+err.message,true);
+    });
+  }
+
+  function aplicarDados(resp){
+    custos=resp.custos||[];
+    vendas=resp.vendas||[];
+    clientesMap={};(resp.clientes||[]).forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
+    servicosMap={};(resp.servicos||[]).forEach(function(s){if(s.IdServico)servicosMap[s.IdServico]=s;});
+    document.getElementById('cv-emptyState').style.display='none';
+    document.getElementById('cv-appVersion').textContent='v'+APP_VERSION;
+    render();
+  }
+
+  function carregar(){
+    var cache=window.SGCache&&window.SGCache.get('custosvenda');
+    var temCache=!!(cache&&cache.dados);
+    if(temCache)aplicarDados(cache.dados);
+    apiCall('getCustosVendaData',{}).then(function(resp){
+      if(!resp||!resp.ok){
+        if(!temCache){
+          document.getElementById('cv-emptyState').style.display='block';
+          document.getElementById('cv-emptyState').querySelector('p').textContent=(resp&&resp.erro)||'Não foi possível carregar.';
+        }
+        return;
+      }
+      if(window.SGCache)window.SGCache.set('custosvenda',resp);
+      aplicarDados(resp);
+    }).catch(function(err){
+      if(!temCache){
+        document.getElementById('cv-emptyState').style.display='block';
+        document.getElementById('cv-emptyState').querySelector('p').textContent='Erro de conexão: '+err.message;
+      }
+    });
+  }
+
+  function init(){
+    if(_initialized)return;
+    if(!window.SG_SESSION)return;
+    _initialized=true;
+    document.getElementById('cv-novoBtn').addEventListener('click',function(){ abrirModal(null); });
+    document.getElementById('cv-cancelarBtn').addEventListener('click',fecharModal);
+    document.getElementById('cv-salvarBtn').addEventListener('click',salvar);
+    document.getElementById('cv-excluirBtn').addEventListener('click',excluir);
+    document.getElementById('custoVendaModal').addEventListener('click',function(e){ if(e.target.id==='custoVendaModal')fecharModal(); });
+    document.getElementById('cv-dateFrom').addEventListener('change',function(){ paginaAtual=1; render(); });
+    document.getElementById('cv-dateTo').addEventListener('change',function(){ paginaAtual=1; render(); });
+    document.getElementById('cv-selStatus').addEventListener('change',function(){ paginaAtual=1; render(); });
+    document.getElementById('cv-buscaGeral').addEventListener('input',function(){ paginaAtual=1; render(); });
+    document.getElementById('cv-resetFiltros').addEventListener('click',function(){
+      document.getElementById('cv-dateFrom').value='';document.getElementById('cv-dateTo').value='';
+      document.getElementById('cv-selStatus').value='__all__';document.getElementById('cv-buscaGeral').value='';
+      paginaAtual=1; render();
+    });
+    document.querySelectorAll('#view-custosvenda th.sortable').forEach(function(th){
+      th.addEventListener('click',function(){
+        var col=th.getAttribute('data-sort');
+        if(sortState.col===col){sortState.dir=sortState.dir==='asc'?'desc':'asc';}
+        else{sortState.col=col;sortState.dir=(col==='descricao'||col==='venda'||col==='status')?'asc':'desc';}
+        render();
+      });
+    });
+    carregar();
+  }
+
+  window.custosVendaApp={init:init};
+})();
+
+
+// ════ CUSTOS RECORRENTES (somente administradores) ════
+(function(){
+  var _initialized=false;
+  var custos=[];
+  var editandoId=null;
+  var paginaAtual=1, ITENS_POR_PAGINA=10;
+  var sortState={col:'descricao',dir:'asc'};
+  var APP_VERSION='2026-07-16-1';
+
+  function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
+  function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+  function fmtMoney(n){ if(typeof n==='string')n=parseFloat(n.replace(/\./g,'').replace(',','.'))||0; else n=parseFloat(n)||0; return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function normalizaBuscaCr(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+  function textoBuscavelCr(c){ return normalizaBuscaCr([c.Descricao,c.Categoria,c.Status,c['Dia Vencimento']].join(' | ')); }
+
+  function sortCustosRows(lista){
+    var col=sortState.col,dir=sortState.dir,mult=dir==='asc'?1:-1;
+    lista.sort(function(a,b){
+      if(col==='descricao'){return mult*String(a.Descricao||'').localeCompare(String(b.Descricao||''),'pt-BR');}
+      if(col==='categoria'){return mult*String(a.Categoria||'').localeCompare(String(b.Categoria||''),'pt-BR');}
+      if(col==='vencimento'){return mult*((parseInt(a['Dia Vencimento'],10)||0)-(parseInt(b['Dia Vencimento'],10)||0));}
+      if(col==='valor'){var va=parseFloat(String(a.Valor||'0').replace(/\./g,'').replace(',','.'))||0,vb=parseFloat(String(b.Valor||'0').replace(/\./g,'').replace(',','.'))||0;return mult*(va-vb);}
+      if(col==='status'){return mult*String(a.Status||'').localeCompare(String(b.Status||''),'pt-BR');}
+      return 0;
+    });
+  }
+  function updateSortHeadersCr(){
+    document.querySelectorAll('#view-custorecorrente th.sortable').forEach(function(th){
+      var col=th.getAttribute('data-sort');
+      th.classList.toggle('sort-active',col===sortState.col);
+      var a=th.querySelector('.arrow-sort');
+      a.textContent=(col===sortState.col)?(sortState.dir==='asc'?'▴':'▾'):'▾';
+    });
+  }
+
+  function categoriasExistentes(){
+    var set={};
+    custos.forEach(function(c){ if(c.Categoria)set[c.Categoria]=true; });
+    return Object.keys(set).sort(function(a,b){return a.localeCompare(b,'pt-BR');});
+  }
+
+  function popularFiltroCategoria(){
+    var sel=document.getElementById('crec-selCategoria');
+    var atual=sel.value||'__all__';
+    sel.innerHTML='<option value="__all__">Todas</option>'+categoriasExistentes().map(function(c){return '<option value="'+escapeHtml(c)+'">'+escapeHtml(c)+'</option>';}).join('');
+    sel.value=atual;
+    document.getElementById('crec-categoriaList').innerHTML=categoriasExistentes().map(function(c){return '<option value="'+escapeHtml(c)+'">';}).join('');
+  }
+
+  function getFiltered(){
+    var categoria=document.getElementById('crec-selCategoria').value;
+    var status=document.getElementById('crec-selStatus').value;
+    var busca=normalizaBuscaCr(document.getElementById('crec-buscaGeral').value||'').trim();
+    return custos.filter(function(c){
+      if(categoria!=='__all__'&&c.Categoria!==categoria)return false;
+      if(status!=='__all__'&&(c.Status||'').trim()!==status)return false;
+      if(busca&&textoBuscavelCr(c).indexOf(busca)===-1)return false;
+      return true;
+    });
+  }
+
+  function renderPaginacao(totalPaginas){
+    var el=document.getElementById('crec-paginacao');
+    if(totalPaginas<=1){el.innerHTML='';return;}
+    el.innerHTML='<button type="button" id="crec-pgAnterior" '+(paginaAtual<=1?'disabled':'')+'>‹ Anterior</button><span class="pg-info">Página '+paginaAtual+' de '+totalPaginas+'</span><button type="button" id="crec-pgProxima" '+(paginaAtual>=totalPaginas?'disabled':'')+'>Próxima ›</button>';
+    var a=document.getElementById('crec-pgAnterior'); if(a)a.addEventListener('click',function(){if(paginaAtual>1){paginaAtual--;render();}});
+    var p=document.getElementById('crec-pgProxima'); if(p)p.addEventListener('click',function(){if(paginaAtual<totalPaginas){paginaAtual++;render();}});
+  }
+
+  function render(){
+    popularFiltroCategoria();
+    var filtrados=getFiltered();
+    var ativoTotal=filtrados.filter(function(c){return (c.Status||'').trim().toLowerCase()==='ativo';}).reduce(function(s,c){return s+(parseFloat(String(c.Valor||'0').replace(/\./g,'').replace(',','.'))||0);},0);
+    var inativoTotal=filtrados.filter(function(c){return (c.Status||'').trim().toLowerCase()!=='ativo';}).reduce(function(s,c){return s+(parseFloat(String(c.Valor||'0').replace(/\./g,'').replace(',','.'))||0);},0);
+    document.getElementById('crec-kpiAtivo').textContent=fmtMoney(ativoTotal);
+    document.getElementById('crec-kpiInativo').textContent=fmtMoney(inativoTotal);
+    document.getElementById('crec-kpiTotal').textContent=filtrados.length;
+
+    sortCustosRows(filtrados);
+    updateSortHeadersCr();
+
+    var totalPaginas=Math.max(1,Math.ceil(filtrados.length/ITENS_POR_PAGINA));
+    if(paginaAtual>totalPaginas)paginaAtual=totalPaginas;
+    if(paginaAtual<1)paginaAtual=1;
+    var inicio=(paginaAtual-1)*ITENS_POR_PAGINA;
+    var pagina=filtrados.slice(inicio,inicio+ITENS_POR_PAGINA);
+
+    var tbody=document.getElementById('crec-tbody');
+    if(!pagina.length){
+      tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--ink-faint);padding:30px;">Nenhum custo recorrente cadastrado ainda.</td></tr>';
+      renderPaginacao(0);
+      return;
+    }
+    tbody.innerHTML=pagina.map(function(c){
+      var ativo=(c.Status||'').trim().toLowerCase()==='ativo';
+      return '<tr class="ag-row-click" data-id="'+escapeHtml(c.IdCR)+'">'+
+        '<td>'+escapeHtml(c.Descricao||'—')+'</td>'+
+        '<td>'+escapeHtml(c.Categoria||'—')+'</td>'+
+        '<td>'+(c['Dia Vencimento']?('dia '+escapeHtml(c['Dia Vencimento'])):'—')+'</td>'+
+        '<td class="num">'+fmtMoney(c.Valor)+'</td>'+
+        '<td><span class="ag-status-tag '+(ativo?'concluido':'cancelado')+'">'+escapeHtml(c.Status||'—')+'</span></td>'+
+        '<td class="u-row-actions"></td>'+
+      '</tr>';
+    }).join('');
+    tbody.querySelectorAll('.ag-row-click').forEach(function(tr){
+      tr.addEventListener('click',function(){ try{ abrirModal(tr.getAttribute('data-id')); }catch(err){ console.error('abrirModal falhou:',err); (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Não foi possível abrir esse registro (erro: '+err.message+').',true); } });
+    });
+    renderPaginacao(totalPaginas);
+    document.getElementById('crec-lastUpdate').textContent='Atualizado em '+new Date().toLocaleDateString('pt-BR')+' às '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  }
+
+  function abrirModal(idCR){
+    var c=idCR?custos.filter(function(x){return String(x.IdCR)===String(idCR);})[0]:null;
+    editandoId=idCR||null;
+    document.getElementById('crModalTitle').textContent=c?'Editar custo recorrente':'Novo custo recorrente';
+    document.getElementById('crec-descricao').value=c?(c.Descricao||''):'';
+    document.getElementById('crec-categoria').value=c?(c.Categoria||''):'';
+    document.getElementById('crec-diaVencimento').value=c?(c['Dia Vencimento']||''):'';
+    document.getElementById('crec-valor').value=c?c.Valor:'';
+    document.getElementById('crec-status').value=c?(c.Status||'Ativo'):'Ativo';
+    document.getElementById('crec-excluirBtn').style.display=c?'block':'none';
+    document.getElementById('crec-modalMsg').textContent='';
+    document.getElementById('custoRecorrenteModal').classList.remove('hidden');
+  }
+  function fecharModal(){ document.getElementById('custoRecorrenteModal').classList.add('hidden'); editandoId=null; }
+
+  function salvar(){
+    var descricao=document.getElementById('crec-descricao').value.trim();
+    var categoria=document.getElementById('crec-categoria').value.trim();
+    var diaVencimento=document.getElementById('crec-diaVencimento').value;
+    var valor=document.getElementById('crec-valor').value;
+    var status=document.getElementById('crec-status').value;
+    var msgEl=document.getElementById('crec-modalMsg');
+    if(!descricao){ msgEl.className='uform-msg error'; msgEl.textContent='Informe a descrição.'; return; }
+    if(!valor){ msgEl.className='uform-msg error'; msgEl.textContent='Informe o valor.'; return; }
+
+    var ehNovo=!editandoId;
+    var idAlvo=editandoId||window.SGId.gerar();
+    var registroAnteriorCopia=!ehNovo?Object.assign({},custos.filter(function(x){return String(x.IdCR)===String(idAlvo);})[0]):null;
+
+    var registroNovo={IdCR:idAlvo,Descricao:descricao,'Dia Vencimento':diaVencimento,Valor:valor,Categoria:categoria,Status:status};
+    var indice=custos.findIndex(function(x){return String(x.IdCR)===String(idAlvo);});
+    if(indice===-1)custos.push(registroNovo);
+    else custos[indice]=registroNovo;
+
+    fecharModal();
+    render();
+    (window.SGToast?window.SGToast.mostrar:function(t){})(ehNovo?'Custo recorrente criado.':'Custo recorrente atualizado.');
+
+    apiCall('salvarCustoRecorrente',{idCR:idAlvo,descricao:descricao,diaVencimento:diaVencimento,valor:valor,categoria:categoria,status:status}).then(function(resp){
+      if(!resp||!resp.ok){
+        if(ehNovo)custos=custos.filter(function(x){return String(x.IdCR)!==String(idAlvo);});
+        else{ var idx=custos.findIndex(function(x){return String(x.IdCR)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)custos[idx]=registroAnteriorCopia; }
+        render();
+        (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível salvar — a alteração foi desfeita.',true);
+        return;
+      }
+      if(resp.idCR&&String(resp.idCR)!==String(idAlvo)){
+        var idx2=custos.findIndex(function(x){return String(x.IdCR)===String(idAlvo);});
+        if(idx2!==-1){ custos[idx2].IdCR=resp.idCR; render(); }
+      }
+    }).catch(function(err){
+      if(ehNovo)custos=custos.filter(function(x){return String(x.IdCR)!==String(idAlvo);});
+      else{ var idx=custos.findIndex(function(x){return String(x.IdCR)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)custos[idx]=registroAnteriorCopia; }
+      render();
+      (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — a alteração foi desfeita: '+err.message,true);
+    });
+  }
+
+  function excluir(){
+    if(!editandoId)return;
+    if(!confirm('Tem certeza que deseja excluir esse custo recorrente? Essa ação não pode ser desfeita.'))return;
+    var idAlvo=editandoId;
+    var registroAnterior=custos.filter(function(x){return String(x.IdCR)===String(idAlvo);})[0];
+    custos=custos.filter(function(x){return String(x.IdCR)!==String(idAlvo);});
+    fecharModal();
+    render();
+    (window.SGToast?window.SGToast.mostrar:function(t){})('Custo recorrente excluído.');
+
+    apiCall('excluirCustoRecorrente',{idCR:idAlvo}).then(function(resp){
+      if(!resp||!resp.ok){
+        if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
+        if(registroAnterior)custos.push(registroAnterior);
+        render();
+        (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
+      }
+    }).catch(function(err){
+      if(registroAnterior)custos.push(registroAnterior);
+      render();
+      (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — restaurado: '+err.message,true);
+    });
+  }
+
+  function aplicarDados(resp){
+    custos=resp.custos||[];
+    document.getElementById('crec-emptyState').style.display='none';
+    document.getElementById('crec-appVersion').textContent='v'+APP_VERSION;
+    render();
+  }
+
+  function carregar(){
+    var cache=window.SGCache&&window.SGCache.get('custorecorrente');
+    var temCache=!!(cache&&cache.dados);
+    if(temCache)aplicarDados(cache.dados);
+    apiCall('getCustoRecorrenteData',{}).then(function(resp){
+      if(!resp||!resp.ok){
+        if(!temCache){
+          document.getElementById('crec-emptyState').style.display='block';
+          document.getElementById('crec-emptyState').querySelector('p').textContent=(resp&&resp.erro)||'Não foi possível carregar.';
+        }
+        return;
+      }
+      if(window.SGCache)window.SGCache.set('custorecorrente',resp);
+      aplicarDados(resp);
+    }).catch(function(err){
+      if(!temCache){
+        document.getElementById('crec-emptyState').style.display='block';
+        document.getElementById('crec-emptyState').querySelector('p').textContent='Erro de conexão: '+err.message;
+      }
+    });
+  }
+
+  function init(){
+    if(_initialized)return;
+    if(!window.SGAuth||!window.SGAuth.isAdmin())return;
+    _initialized=true;
+    document.getElementById('crec-novoBtn').addEventListener('click',function(){ abrirModal(null); });
+    document.getElementById('crec-cancelarBtn').addEventListener('click',fecharModal);
+    document.getElementById('crec-salvarBtn').addEventListener('click',salvar);
+    document.getElementById('crec-excluirBtn').addEventListener('click',excluir);
+    document.getElementById('custoRecorrenteModal').addEventListener('click',function(e){ if(e.target.id==='custoRecorrenteModal')fecharModal(); });
+    document.getElementById('crec-selCategoria').addEventListener('change',function(){ paginaAtual=1; render(); });
+    document.getElementById('crec-selStatus').addEventListener('change',function(){ paginaAtual=1; render(); });
+    document.getElementById('crec-buscaGeral').addEventListener('input',function(){ paginaAtual=1; render(); });
+    document.getElementById('crec-resetFiltros').addEventListener('click',function(){
+      document.getElementById('crec-selCategoria').value='__all__';document.getElementById('crec-selStatus').value='__all__';document.getElementById('crec-buscaGeral').value='';
+      paginaAtual=1; render();
+    });
+    document.querySelectorAll('#view-custorecorrente th.sortable').forEach(function(th){
+      th.addEventListener('click',function(){
+        var col=th.getAttribute('data-sort');
+        if(sortState.col===col){sortState.dir=sortState.dir==='asc'?'desc':'asc';}
+        else{sortState.col=col;sortState.dir=(col==='descricao'||col==='categoria'||col==='status')?'asc':'desc';}
+        render();
+      });
+    });
+    carregar();
+  }
+
+  window.custoRecorrenteApp={init:init};
+})();
+
+
+// ════ SERVIÇOS + TEMPLATES (somente administradores) ════
+(function(){
+  var _initialized=false;
+  var servicos=[],templates=[];
+  var servicoAtualId=null;
+  var sortState={col:'nome',dir:'asc'};
+  var APP_VERSION='2026-07-16-1';
+  var TIPOS_INPUT=['Texto','Number','Foto','Lista','Sim/Nao'];
+
+  function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
+  function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+  function fmtMoney(n){ if(n===undefined||n===null||n==='')return '—'; if(typeof n==='string')n=parseFloat(n.replace(/\./g,'').replace(',','.'))||0; else n=parseFloat(n)||0; return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function normalizaBuscaSv(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+  function isObrigatorioSv(v){ if(v===true)return true; if(v===false||v===undefined||v===null||v==='')return false; var s=String(v).trim().toUpperCase(); return s==='VERDADEIRO'||s==='TRUE'||s==='SIM'||s==='1'; }
+  function templatesDoServico(idServico){ return templates.filter(function(t){return String(t.IdServico)===String(idServico);}).sort(function(a,b){return (parseInt(a.Ordem,10)||0)-(parseInt(b.Ordem,10)||0);}); }
+  function textoBuscavelServico(s){ return normalizaBuscaSv([s['Nome Servico'],s['Tipo Cobranca'],s.TipoServico,s.Descricao].join(' | ')); }
+
+  function sortServicosRows(lista){
+    var col=sortState.col,dir=sortState.dir,mult=dir==='asc'?1:-1;
+    lista.sort(function(a,b){
+      if(col==='nome'){return mult*String(a['Nome Servico']||'').localeCompare(String(b['Nome Servico']||''),'pt-BR');}
+      if(col==='cobranca'){return mult*String(a['Tipo Cobranca']||'').localeCompare(String(b['Tipo Cobranca']||''),'pt-BR');}
+      if(col==='tipo'){return mult*String(a.TipoServico||'').localeCompare(String(b.TipoServico||''),'pt-BR');}
+      if(col==='valor'){var va=parseFloat(String(a.Valor||'0').replace(/\./g,'').replace(',','.'))||0,vb=parseFloat(String(b.Valor||'0').replace(/\./g,'').replace(',','.'))||0;return mult*(va-vb);}
+      if(col==='valormodulo'){var va2=parseFloat(String(a.ValorPorModulo||'0').replace(/\./g,'').replace(',','.'))||0,vb2=parseFloat(String(b.ValorPorModulo||'0').replace(/\./g,'').replace(',','.'))||0;return mult*(va2-vb2);}
+      if(col==='perguntas'){return mult*(templatesDoServico(a.IdServico).length-templatesDoServico(b.IdServico).length);}
+      return 0;
+    });
+  }
+  function updateSortHeadersSv(){
+    document.querySelectorAll('#view-servicos th.sortable').forEach(function(th){
+      var col=th.getAttribute('data-sort');
+      th.classList.toggle('sort-active',col===sortState.col);
+      var a=th.querySelector('.arrow-sort');
+      a.textContent=(col===sortState.col)?(sortState.dir==='asc'?'▴':'▾'):'▾';
+    });
+  }
+
+  function render(){
+    var busca=normalizaBuscaSv(document.getElementById('sv-buscaGeral').value||'').trim();
+    var filtrados=busca?servicos.filter(function(s){return textoBuscavelServico(s).indexOf(busca)!==-1;}):servicos.slice();
+    sortServicosRows(filtrados);
+    updateSortHeadersSv();
+
+    var tbody=document.getElementById('sv-tbody');
+    if(!filtrados.length){
+      tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--ink-faint);padding:30px;">Nenhum serviço encontrado.</td></tr>';
+      return;
+    }
+    tbody.innerHTML=filtrados.map(function(s){
+      var nPerg=templatesDoServico(s.IdServico).length;
+      return '<tr class="ag-row-click" data-id="'+escapeHtml(s.IdServico)+'">'+
+        '<td>'+escapeHtml(s['Nome Servico']||'—')+'</td>'+
+        '<td>'+escapeHtml(s['Tipo Cobranca']||'—')+'</td>'+
+        '<td>'+escapeHtml(s.TipoServico||'—')+'</td>'+
+        '<td class="num">'+fmtMoney(s.Valor)+'</td>'+
+        '<td class="num">'+fmtMoney(s.ValorPorModulo)+'</td>'+
+        '<td>'+nPerg+' pergunta(s)</td>'+
+      '</tr>';
+    }).join('');
+    tbody.querySelectorAll('.ag-row-click').forEach(function(tr){
+      tr.addEventListener('click',function(){ try{ abrirPainel(tr.getAttribute('data-id')); }catch(err){ console.error('abrirPainel falhou:',err); (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Não foi possível abrir esse registro (erro: '+err.message+').',true); } });
+    });
+    document.getElementById('sv-lastUpdate').textContent='Atualizado em '+new Date().toLocaleDateString('pt-BR')+' às '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  }
+
+  function renderPerguntas(){
+    var lista=servicoAtualId?templatesDoServico(servicoAtualId):[];
+    var wrap=document.getElementById('sv-perguntasWrap');
+    if(!servicoAtualId){
+      wrap.innerHTML='<div style="text-align:center;color:var(--ink-faint);font-size:12.5px;padding:14px;">Salve o serviço primeiro pra poder adicionar perguntas.</div>';
+      return;
+    }
+    if(!lista.length){
+      wrap.innerHTML='<div style="text-align:center;color:var(--ink-faint);font-size:12.5px;padding:14px;">Nenhuma pergunta cadastrada ainda.</div>';
+      return;
+    }
+    wrap.innerHTML=lista.map(function(t){
+      return '<div class="tpl-row" data-id="'+escapeHtml(t.IdTemplate)+'" style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;">'+
+        '<input type="text" class="tpl-pergunta" value="'+escapeHtml(t.TextoPergunta||'')+'" placeholder="Texto da pergunta" style="width:100%;margin-bottom:6px;padding:7px 9px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;">'+
+        '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">'+
+          '<select class="tpl-tipo" style="font-size:11.5px;padding:5px 7px;border:1px solid var(--line);border-radius:6px;">'+
+            TIPOS_INPUT.map(function(tp){return '<option value="'+tp+'"'+(t.TipoInput===tp?' selected':'')+'>'+tp+'</option>';}).join('')+
+          '</select>'+
+          '<input type="text" class="tpl-opcoes" value="'+escapeHtml(t.OpcoesEnum||'')+'" placeholder="opções (se Lista), separadas por vírgula" style="flex:1;min-width:140px;font-size:11.5px;padding:5px 7px;border:1px solid var(--line);border-radius:6px;">'+
+          '<input type="number" class="tpl-ordem" value="'+escapeHtml(t.Ordem||'')+'" placeholder="ordem" style="width:64px;font-size:11.5px;padding:5px 7px;border:1px solid var(--line);border-radius:6px;">'+
+          '<label style="font-size:11px;display:flex;align-items:center;gap:3px;white-space:nowrap;"><input type="checkbox" class="tpl-obrigatorio" '+(isObrigatorioSv(t.Obrigatorio)?'checked':'')+'> obrigatória</label>'+
+          '<button type="button" class="tpl-excluir" style="margin-left:auto;color:var(--debit);background:none;border:none;cursor:pointer;font-size:11.5px;">excluir</button>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+    wrap.querySelectorAll('.tpl-row').forEach(function(row){
+      var idTpl=row.getAttribute('data-id');
+      function salvarLinha(){ salvarPergunta(idTpl,row); }
+      row.querySelector('.tpl-pergunta').addEventListener('blur',salvarLinha);
+      row.querySelector('.tpl-tipo').addEventListener('change',salvarLinha);
+      row.querySelector('.tpl-opcoes').addEventListener('blur',salvarLinha);
+      row.querySelector('.tpl-ordem').addEventListener('blur',salvarLinha);
+      row.querySelector('.tpl-obrigatorio').addEventListener('change',salvarLinha);
+      row.querySelector('.tpl-excluir').addEventListener('click',function(){ excluirPergunta(idTpl); });
+    });
+  }
+
+  function salvarPergunta(idTpl,row){
+    var textoPergunta=row.querySelector('.tpl-pergunta').value.trim();
+    if(!textoPergunta)return; // não salva pergunta vazia
+    var tipoInput=row.querySelector('.tpl-tipo').value;
+    var opcoesEnum=row.querySelector('.tpl-opcoes').value;
+    var ordem=row.querySelector('.tpl-ordem').value;
+    var obrigatorio=row.querySelector('.tpl-obrigatorio').checked;
+
+    var indice=templates.findIndex(function(x){return String(x.IdTemplate)===String(idTpl);});
+    if(indice!==-1){
+      templates[indice]=Object.assign({},templates[indice],{TextoPergunta:textoPergunta,TipoInput:tipoInput,OpcoesEnum:opcoesEnum,Ordem:ordem,Obrigatorio:obrigatorio});
+    }
+
+    apiCall('salvarTemplate',{idTemplate:idTpl,idServico:servicoAtualId,ordem:ordem,textoPergunta:textoPergunta,tipoInput:tipoInput,opcoesEnum:opcoesEnum,obrigatorio:obrigatorio}).then(function(resp){
+      if(!resp||!resp.ok){ (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível salvar a pergunta.',true); return; }
+      if(resp.idTemplate&&String(resp.idTemplate)!==String(idTpl)){
+        var idx=templates.findIndex(function(x){return String(x.IdTemplate)===String(idTpl);});
+        if(idx!==-1){ templates[idx].IdTemplate=resp.idTemplate; renderPerguntas(); }
+      }
+    }).catch(function(err){ (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão: '+err.message,true); });
+  }
+
+  function excluirPergunta(idTpl){
+    if(!confirm('Excluir essa pergunta do checklist? Essa ação não pode ser desfeita.'))return;
+    var registroAnterior=templates.filter(function(x){return String(x.IdTemplate)===String(idTpl);})[0];
+    templates=templates.filter(function(x){return String(x.IdTemplate)!==String(idTpl);});
+    renderPerguntas();
+    render();
+
+    apiCall('excluirTemplate',{idTemplate:idTpl}).then(function(resp){
+      if(!resp||!resp.ok){
+        if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
+        if(registroAnterior)templates.push(registroAnterior);
+        renderPerguntas(); render();
+        (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
+      }
+    }).catch(function(err){
+      if(registroAnterior)templates.push(registroAnterior);
+      renderPerguntas(); render();
+      (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — restaurado: '+err.message,true);
+    });
+  }
+
+  function novaPergunta(){
+    if(!servicoAtualId){ (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Salve o serviço primeiro.',true); return; }
+    var idNovo=window.SGId.gerar();
+    var ordemSugerida=templatesDoServico(servicoAtualId).length+1;
+    var registroNovo={IdTemplate:idNovo,IdServico:servicoAtualId,Ordem:String(ordemSugerida),TextoPergunta:'Nova pergunta',TipoInput:'Texto',OpcoesEnum:'',Obrigatorio:false};
+    templates.push(registroNovo);
+    renderPerguntas();
+    render();
+    apiCall('salvarTemplate',{idTemplate:idNovo,idServico:servicoAtualId,ordem:String(ordemSugerida),textoPergunta:'Nova pergunta',tipoInput:'Texto',opcoesEnum:'',obrigatorio:false}).then(function(resp){
+      if(!resp||!resp.ok){
+        templates=templates.filter(function(x){return String(x.IdTemplate)!==String(idNovo);});
+        renderPerguntas(); render();
+        (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível criar a pergunta.',true);
+      }
+    });
+  }
+
+  function abrirPainel(idServico){
+    var s=idServico?servicos.filter(function(x){return String(x.IdServico)===String(idServico);})[0]:null;
+    servicoAtualId=idServico||null;
+    document.getElementById('sv-title').textContent=s?(s['Nome Servico']||'Serviço'):'Novo serviço';
+    document.getElementById('sv-nome').value=s?(s['Nome Servico']||''):'';
+    document.getElementById('sv-tipoCobranca').value=s?(s['Tipo Cobranca']||'Unitário'):'Unitário';
+    document.getElementById('sv-tipoServico').value=s?(s.TipoServico||'Campo'):'Campo';
+    document.getElementById('sv-descricao').value=s?(s.Descricao||''):'';
+    document.getElementById('sv-valor').value=s?s.Valor:'';
+    document.getElementById('sv-valorPorModulo').value=s?s.ValorPorModulo:'';
+    document.getElementById('sv-excluirBtn').style.display=s?'block':'none';
+    document.getElementById('sv-novaPerguntaBtn').style.display=s?'inline-block':'none';
+    document.getElementById('sv-msg').textContent='';
+    renderPerguntas();
+    document.getElementById('servicoDetalhe').classList.add('active');
+  }
+  function fecharPainel(){ document.getElementById('servicoDetalhe').classList.remove('active'); servicoAtualId=null; }
+
+  function salvarServico(){
+    var nome=document.getElementById('sv-nome').value.trim();
+    var msgEl=document.getElementById('sv-msg');
+    if(!nome){ msgEl.className='uform-msg error'; msgEl.textContent='Informe o nome do serviço.'; return; }
+
+    var tipoCobranca=document.getElementById('sv-tipoCobranca').value;
+    var tipoServico=document.getElementById('sv-tipoServico').value;
+    var descricao=document.getElementById('sv-descricao').value;
+    var valor=document.getElementById('sv-valor').value;
+    var valorPorModulo=document.getElementById('sv-valorPorModulo').value;
+
+    var ehNovo=!servicoAtualId;
+    var idAlvo=servicoAtualId||window.SGId.gerar();
+    var registroAnteriorCopia=!ehNovo?Object.assign({},servicos.filter(function(x){return String(x.IdServico)===String(idAlvo);})[0]):null;
+
+    var registroNovo={IdServico:idAlvo,'Nome Servico':nome,'Tipo Cobranca':tipoCobranca,TipoServico:tipoServico,Descricao:descricao,Valor:valor,ValorPorModulo:valorPorModulo};
+    var indice=servicos.findIndex(function(x){return String(x.IdServico)===String(idAlvo);});
+    if(indice===-1)servicos.push(registroNovo);
+    else servicos[indice]=registroNovo;
+
+    var abriaNovo=ehNovo;
+    servicoAtualId=idAlvo;
+    document.getElementById('sv-title').textContent=nome;
+    document.getElementById('sv-excluirBtn').style.display='block';
+    document.getElementById('sv-novaPerguntaBtn').style.display='inline-block';
+    render();
+    renderPerguntas();
+    (window.SGToast?window.SGToast.mostrar:function(t){})(ehNovo?'Serviço criado.':'Serviço atualizado.');
+
+    apiCall('salvarServico',{idServico:idAlvo,nomeServico:nome,tipoCobranca:tipoCobranca,tipoServico:tipoServico,descricao:descricao,valor:valor,valorPorModulo:valorPorModulo}).then(function(resp){
+      if(!resp||!resp.ok){
+        if(abriaNovo)servicos=servicos.filter(function(x){return String(x.IdServico)!==String(idAlvo);});
+        else{ var idx=servicos.findIndex(function(x){return String(x.IdServico)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)servicos[idx]=registroAnteriorCopia; }
+        if(abriaNovo)servicoAtualId=null;
+        render();
+        msgEl.className='uform-msg error'; msgEl.textContent=(resp&&resp.erro)||'Não foi possível salvar — a alteração foi desfeita.';
+        return;
+      }
+      if(resp.idServico&&String(resp.idServico)!==String(idAlvo)){
+        var idx2=servicos.findIndex(function(x){return String(x.IdServico)===String(idAlvo);});
+        if(idx2!==-1){ servicos[idx2].IdServico=resp.idServico; servicoAtualId=resp.idServico; render(); }
+      }
+    }).catch(function(err){
+      if(abriaNovo){ servicos=servicos.filter(function(x){return String(x.IdServico)!==String(idAlvo);}); servicoAtualId=null; }
+      else{ var idx=servicos.findIndex(function(x){return String(x.IdServico)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)servicos[idx]=registroAnteriorCopia; }
+      render();
+      msgEl.className='uform-msg error'; msgEl.textContent='Erro de conexão — a alteração foi desfeita: '+err.message;
+    });
+  }
+
+  function excluirServico(){
+    if(!servicoAtualId)return;
+    if(!confirm('Tem certeza que deseja excluir esse serviço? As perguntas do checklist dele NÃO são apagadas automaticamente. Essa ação não pode ser desfeita.'))return;
+    var idAlvo=servicoAtualId;
+    var registroAnterior=servicos.filter(function(x){return String(x.IdServico)===String(idAlvo);})[0];
+    servicos=servicos.filter(function(x){return String(x.IdServico)!==String(idAlvo);});
+    fecharPainel();
+    render();
+    (window.SGToast?window.SGToast.mostrar:function(t){})('Serviço excluído.');
+
+    apiCall('excluirServico',{idServico:idAlvo}).then(function(resp){
+      if(!resp||!resp.ok){
+        if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
+        if(registroAnterior)servicos.push(registroAnterior);
+        render();
+        (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
+      }
+    }).catch(function(err){
+      if(registroAnterior)servicos.push(registroAnterior);
+      render();
+      (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — restaurado: '+err.message,true);
+    });
+  }
+
+  function aplicarDados(resp){
+    servicos=resp.servicos||[];
+    templates=resp.templates||[];
+    document.getElementById('sv-emptyState').style.display='none';
+    document.getElementById('sv-appVersion').textContent='v'+APP_VERSION;
+    render();
+  }
+
+  function carregar(){
+    var cache=window.SGCache&&window.SGCache.get('servicos_tela');
+    var temCache=!!(cache&&cache.dados);
+    if(temCache)aplicarDados(cache.dados);
+    apiCall('getServicosData',{}).then(function(resp){
+      if(!resp||!resp.ok){
+        if(!temCache){
+          document.getElementById('sv-emptyState').style.display='block';
+          document.getElementById('sv-emptyState').querySelector('p').textContent=(resp&&resp.erro)||'Não foi possível carregar.';
+        }
+        return;
+      }
+      if(window.SGCache)window.SGCache.set('servicos_tela',resp);
+      aplicarDados(resp);
+    }).catch(function(err){
+      if(!temCache){
+        document.getElementById('sv-emptyState').style.display='block';
+        document.getElementById('sv-emptyState').querySelector('p').textContent='Erro de conexão: '+err.message;
+      }
+    });
+  }
+
+  function init(){
+    if(_initialized)return;
+    if(!window.SGAuth||!window.SGAuth.isAdmin())return;
+    _initialized=true;
+    document.getElementById('sv-novoBtn').addEventListener('click',function(){ abrirPainel(null); });
+    document.getElementById('sv-fecharBtn').addEventListener('click',fecharPainel);
+    document.getElementById('sv-salvarBtn').addEventListener('click',salvarServico);
+    document.getElementById('sv-excluirBtn').addEventListener('click',excluirServico);
+    document.getElementById('sv-novaPerguntaBtn').addEventListener('click',novaPergunta);
+    document.getElementById('sv-buscaGeral').addEventListener('input',render);
+    document.querySelectorAll('#view-servicos th.sortable').forEach(function(th){
+      th.addEventListener('click',function(){
+        var col=th.getAttribute('data-sort');
+        if(sortState.col===col){sortState.dir=sortState.dir==='asc'?'desc':'asc';}
+        else{sortState.col=col;sortState.dir=(col==='nome'||col==='cobranca'||col==='tipo')?'asc':'desc';}
+        render();
+      });
+    });
+    carregar();
+  }
+
+  window.servicosApp={init:init};
+})();
+
+
 // ════ METAS (somente administradores) ════
 (function(){
   var _initialized=false;
@@ -6158,16 +7287,19 @@
 
 // ════ CONTROLLER ════
 (function(){
-  var views={ponto:document.getElementById('view-ponto'),vendas:document.getElementById('view-vendas'),funil:document.getElementById('view-funil'),agendamentos:document.getElementById('view-agendamentos'),clientes:document.getElementById('view-clientes'),planos:document.getElementById('view-planos'),relatorios:document.getElementById('view-relatorios'),metas:document.getElementById('view-metas'),usuarios:document.getElementById('view-usuarios'),permissoes:document.getElementById('view-permissoes')};
-  var navLinks={ponto:document.getElementById('nav-ponto'),vendas:document.getElementById('nav-vendas'),funil:document.getElementById('nav-funil'),agendamentos:document.getElementById('nav-agendamentos'),clientes:document.getElementById('nav-clientes'),planos:document.getElementById('nav-planos'),relatorios:document.getElementById('nav-relatorios'),metas:document.getElementById('nav-metas'),usuarios:document.getElementById('nav-usuarios'),permissoes:document.getElementById('nav-permissoes')};
+  var views={ponto:document.getElementById('view-ponto'),vendas:document.getElementById('view-vendas'),funil:document.getElementById('view-funil'),agendamentos:document.getElementById('view-agendamentos'),clientes:document.getElementById('view-clientes'),planos:document.getElementById('view-planos'),relatorios:document.getElementById('view-relatorios'),custosvenda:document.getElementById('view-custosvenda'),custorecorrente:document.getElementById('view-custorecorrente'),servicos:document.getElementById('view-servicos'),metas:document.getElementById('view-metas'),usuarios:document.getElementById('view-usuarios'),permissoes:document.getElementById('view-permissoes')};
+  var navLinks={ponto:document.getElementById('nav-ponto'),vendas:document.getElementById('nav-vendas'),funil:document.getElementById('nav-funil'),agendamentos:document.getElementById('nav-agendamentos'),clientes:document.getElementById('nav-clientes'),planos:document.getElementById('nav-planos'),relatorios:document.getElementById('nav-relatorios'),custosvenda:document.getElementById('nav-custosvenda'),custorecorrente:document.getElementById('nav-custorecorrente'),servicos:document.getElementById('nav-servicos'),metas:document.getElementById('nav-metas'),usuarios:document.getElementById('nav-usuarios'),permissoes:document.getElementById('nav-permissoes')};
   function switchTo(name){
-    if((name==='usuarios'||name==='permissoes'||name==='metas')&&(!window.SGAuth||!window.SGAuth.isAdmin()))name='ponto';
+    if((name==='usuarios'||name==='permissoes'||name==='metas'||name==='custorecorrente'||name==='servicos')&&(!window.SGAuth||!window.SGAuth.isAdmin()))name='ponto';
     Object.keys(views).forEach(function(k){if(!views[k]||!navLinks[k])return;views[k].classList.toggle('active',k===name);navLinks[k].classList.toggle('active',k===name);});
     localStorage.setItem('sg_active_view',name);
     if(name==='funil'&&window.funilApp)window.funilApp.init();
     if(name==='agendamentos'&&window.agendamentosApp)window.agendamentosApp.init();
     if(name==='planos'&&window.planosApp)window.planosApp.init();
     if(name==='relatorios'&&window.relatoriosApp)window.relatoriosApp.init();
+    if(name==='custosvenda'&&window.custosVendaApp)window.custosVendaApp.init();
+    if(name==='custorecorrente'&&window.custoRecorrenteApp)window.custoRecorrenteApp.init();
+    if(name==='servicos'&&window.servicosApp)window.servicosApp.init();
     if(name==='metas'&&window.metasApp)window.metasApp.init();
     if(name==='clientes'&&window.clientesApp)window.clientesApp.init();
     if(name==='usuarios'&&window.usuariosApp)window.usuariosApp.init();
@@ -6179,6 +7311,9 @@
   if(navLinks.agendamentos)navLinks.agendamentos.addEventListener('click',function(e){e.preventDefault();switchTo('agendamentos');});
   if(navLinks.planos)navLinks.planos.addEventListener('click',function(e){e.preventDefault();switchTo('planos');});
   if(navLinks.relatorios)navLinks.relatorios.addEventListener('click',function(e){e.preventDefault();switchTo('relatorios');});
+  if(navLinks.custosvenda)navLinks.custosvenda.addEventListener('click',function(e){e.preventDefault();switchTo('custosvenda');});
+  if(navLinks.custorecorrente)navLinks.custorecorrente.addEventListener('click',function(e){e.preventDefault();switchTo('custorecorrente');});
+  if(navLinks.servicos)navLinks.servicos.addEventListener('click',function(e){e.preventDefault();switchTo('servicos');});
   if(navLinks.metas)navLinks.metas.addEventListener('click',function(e){e.preventDefault();switchTo('metas');});
   if(navLinks.clientes)navLinks.clientes.addEventListener('click',function(e){e.preventDefault();switchTo('clientes');});
   if(navLinks.usuarios)navLinks.usuarios.addEventListener('click',function(e){e.preventDefault();switchTo('usuarios');});
