@@ -2383,6 +2383,41 @@
     var navCustoRecorrente=document.getElementById('nav-custorecorrente');
     if(navCustoRecorrente&&isAdmin()) navCustoRecorrente.style.display='';
     if(window.SGPermissoes)window.SGPermissoes.carregar();
+    aquecerAbasEmSegundoPlano();
+  }
+
+  /**
+   * Ponto e Vendas já carregam de cara (não são "preguiçosas"). Todas as
+   * outras abas só buscam dado da planilha na primeira vez que a pessoa
+   * clica nelas — por isso a PRIMEIRA visita a qualquer aba é lenta, e só
+   * fica rápida da segunda vez em diante (quando o cache local já existe).
+   *
+   * Essa função chama o init() de cada uma dessas abas sozinha, por trás,
+   * pouco depois do login — assim, quando a pessoa realmente clicar numa
+   * aba, o cache já vai estar quente e a troca é instantânea, igual já
+   * acontecia da segunda visita em diante.
+   *
+   * Cada init() já contém sua própria trava de admin (as abas administrativas
+   * simplesmente não fazem nada se quem estiver logado não for admin) e sua
+   * própria trava de "já inicializei" (não constrói a tela de novo se a
+   * pessoa já tiver clicado nela antes desse aquecimento rodar).
+   *
+   * As chamadas são espalhadas no tempo (não todas de uma vez) pra não
+   * sobrecarregar o Apps Script com várias execuções simultâneas — ele lida
+   * mal com um monte de pedidos ao mesmo tempo vindos da mesma sessão.
+   */
+  function aquecerAbasEmSegundoPlano(){
+    var modulos=[
+      'funilApp','agendamentosApp','clientesApp','planosApp','relatoriosApp',
+      'custosVendaApp','metasApp','custoRecorrenteApp','servicosApp',
+      'usuariosApp','permissoesApp'
+    ];
+    modulos.forEach(function(nomeModulo,i){
+      setTimeout(function(){
+        var modulo=window[nomeModulo];
+        if(modulo&&typeof modulo.init==='function')modulo.init();
+      }, 900+i*450); // primeiro dá espaço pra aba atual e pro Ponto/Vendas carregarem sem concorrência
+    });
   }
 
   document.addEventListener('DOMContentLoaded',function(){
