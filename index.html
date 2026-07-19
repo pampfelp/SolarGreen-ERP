@@ -161,6 +161,11 @@
   /* ── KPIs ── */
   .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:28px;}
   .kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;position:relative;overflow:hidden;}
+  .ag-status-kpis{margin-top:10px;}
+  .ag-kpi-pill{cursor:pointer;transition:border-color .12s,box-shadow .12s;padding:14px 16px;}
+  .ag-kpi-pill:hover{border-color:var(--accent);}
+  .ag-kpi-pill.active{border-color:var(--accent-deep);box-shadow:0 0 0 2px var(--accent-deep) inset;}
+  .ag-kpi-pill .num{font-size:22px;}
   .kpi .tag{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-faint);font-weight:600;}
   .kpi .num{font-family:var(--unbounded);font-size:22px;font-weight:700;margin-top:8px;color:var(--ink);}
   .kpi .sub{font-size:11.5px;color:var(--ink-soft);margin-top:4px;}
@@ -707,7 +712,7 @@
     <a href="#" id="nav-relatorios"><span class="ico">📝</span><span class="nav-label"> Relatórios</span></a>
     <a href="#" id="nav-custosvenda"><span class="ico">💸</span><span class="nav-label"> Custos da Venda</span></a>
     <a href="#" id="nav-custorecorrente" style="display:none;"><span class="ico">🔁</span><span class="nav-label"> Custos Recorrentes</span></a>
-    <a href="#" id="nav-servicos" style="display:none;"><span class="ico">🛠</span><span class="nav-label"> Serviços</span></a>
+    <a href="#" id="nav-servicos"><span class="ico">🛠</span><span class="nav-label"> Serviços</span></a>
     <a href="#" id="nav-clientes"><span class="ico">👤</span><span class="nav-label"> Clientes</span></a>
     <a href="#" id="nav-agendamentos"><span class="ico">🛠</span><span class="nav-label"> Agendamentos</span></a>
     <a href="#" id="nav-planos"><span class="ico">📋</span><span class="nav-label"> Planos</span></a>
@@ -1185,14 +1190,14 @@
       <button class="qr-btn active" data-agrange="all">Tudo</button>
     </div></div>
     <div class="field"><label>Técnico</label><select id="ag-selTecnico"><option value="__all__">Todos os técnicos</option></select></div>
-    <div class="stage-filter-group">
-      <label>Status</label>
-      <div class="stage-pills">
-        <button class="stage-pill active" data-agstatus="__all__">Todos</button>
-        <button class="stage-pill" data-agstatus="Agendado">Agendado</button>
-        <button class="stage-pill" data-agstatus="Em Andamento">Em Andamento</button>
-        <button class="stage-pill" data-agstatus="Concluído">Concluído</button>
-        <button class="stage-pill" data-agstatus="Cancelado">Cancelado</button>
+    <div class="stage-filter-group" style="width:100%;">
+      <label>Status <span style="font-weight:400;color:var(--ink-faint);">(clique pra filtrar)</span></label>
+      <div class="kpi-row ag-status-kpis">
+        <div class="kpi ag-kpi-pill active" data-agstatus="__all__"><div class="tag">Todos</div><div class="num" id="ag-kpiTodos">0</div><div class="bar"></div></div>
+        <div class="kpi ag-kpi-pill" data-agstatus="Agendado"><div class="tag">Agendado</div><div class="num" id="ag-kpiAgendado">0</div><div class="bar" style="background:#3b82f6;"></div></div>
+        <div class="kpi ag-kpi-pill" data-agstatus="Em Andamento"><div class="tag">Em Andamento</div><div class="num" id="ag-kpiAndamento">0</div><div class="bar" style="background:var(--warn);"></div></div>
+        <div class="kpi ag-kpi-pill" data-agstatus="Concluído"><div class="tag">Concluído</div><div class="num" id="ag-kpiConcluido">0</div><div class="bar" style="background:var(--accent);"></div></div>
+        <div class="kpi ag-kpi-pill" data-agstatus="Cancelado"><div class="tag">Cancelado</div><div class="num" id="ag-kpiCancelado">0</div><div class="bar" style="background:var(--debit);"></div></div>
       </div>
     </div>
     <div class="spacer"></div>
@@ -1650,6 +1655,7 @@
   <div class="section-head"><h2>Relatório de <span id="rl-formTitle">hoje</span></h2><div class="hint">um lançamento por dia — salvar de novo no mesmo dia atualiza os números</div></div>
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:22px;">
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:14px;">
+      <div class="uform-field" style="margin-bottom:0;"><label>Vendedor</label><select id="rl-formVendedor"></select></div>
       <div class="uform-field" style="margin-bottom:0;"><label>Data</label><input type="date" id="rl-data"></div>
       <div class="uform-field" style="margin-bottom:0;"><label>Novos contatos</label><input type="number" id="rl-contatos" min="0" step="1"></div>
       <div class="uform-field" style="margin-bottom:0;"><label>Conversas</label><input type="number" id="rl-conversas" min="0" step="1"></div>
@@ -1740,11 +1746,14 @@
 </div>
 </div>
 
-<div class="modal-overlay hidden" id="custoVendaModal">
-  <div class="modal-card" style="max-width:520px;">
-    <h3 id="cvModalTitle">Novo custo</h3>
+<div id="custoVendaDetalhe" class="side-panel">
+  <div class="ad-top">
+    <button class="ad-backbtn" id="cv-fecharBtn">←</button>
+    <div class="ad-title" id="cvModalTitle">Novo custo</div>
+    <button class="ad-trashbtn" id="cv-excluirBtn" title="Excluir custo" style="display:none;">🗑</button>
+  </div>
+  <div class="ad-body">
     <div class="uform-msg" id="cv-modalMsg"></div>
-
     <div class="uform-field"><label>Venda vinculada</label>
       <div class="combo-wrap">
         <input type="text" id="cv-idVendaBusca" placeholder="Digite o cliente, serviço ou data da venda…" autocomplete="off">
@@ -1756,14 +1765,9 @@
     <div class="uform-field"><label>Valor</label><input type="number" id="cv-valor" step="0.01" min="0"></div>
     <div class="uform-field"><label>Data</label><input type="date" id="cv-data"></div>
     <div class="uform-field"><label>Status</label><select id="cv-status"><option value="Pendente">Pendente</option><option value="Pago">Pago</option></select></div>
-
-    <div class="modal-actions">
-      <button class="reset-btn" id="cv-excluirBtn" style="color:var(--debit);">🗑 Excluir</button>
-      <div style="display:flex;gap:8px;">
-        <button class="reset-btn" id="cv-cancelarBtn">Cancelar</button>
-        <button class="connect-btn" id="cv-salvarBtn">Salvar</button>
-      </div>
-    </div>
+  </div>
+  <div class="ad-actions">
+    <button class="connect-btn" id="cv-salvarBtn">Salvar custo</button>
   </div>
 </div>
 
@@ -1815,11 +1819,14 @@
 </div>
 </div>
 
-<div class="modal-overlay hidden" id="custoRecorrenteModal">
-  <div class="modal-card" style="max-width:480px;">
-    <h3 id="crModalTitle">Novo custo recorrente</h3>
+<div id="custoRecorrenteDetalhe" class="side-panel">
+  <div class="ad-top">
+    <button class="ad-backbtn" id="crec-fecharBtn">←</button>
+    <div class="ad-title" id="crModalTitle">Novo custo recorrente</div>
+    <button class="ad-trashbtn" id="crec-excluirBtn" title="Excluir custo recorrente" style="display:none;">🗑</button>
+  </div>
+  <div class="ad-body">
     <div class="uform-msg" id="crec-modalMsg"></div>
-
     <div class="uform-field"><label>Descrição</label><input type="text" id="crec-descricao" placeholder="Ex: Salário - João Silva"></div>
     <div class="uform-field"><label>Categoria</label>
       <input type="text" id="crec-categoria" list="crec-categoriaList" placeholder="Digite ou escolha uma categoria…">
@@ -1828,14 +1835,9 @@
     <div class="uform-field"><label>Dia do vencimento</label><input type="number" id="crec-diaVencimento" min="1" max="31" step="1"></div>
     <div class="uform-field"><label>Valor</label><input type="number" id="crec-valor" step="0.01" min="0"></div>
     <div class="uform-field"><label>Status</label><select id="crec-status"><option value="Ativo">Ativo</option><option value="Inativo">Inativo</option></select></div>
-
-    <div class="modal-actions">
-      <button class="reset-btn" id="crec-excluirBtn" style="color:var(--debit);">🗑 Excluir</button>
-      <div style="display:flex;gap:8px;">
-        <button class="reset-btn" id="crec-cancelarBtn">Cancelar</button>
-        <button class="connect-btn" id="crec-salvarBtn">Salvar</button>
-      </div>
-    </div>
+  </div>
+  <div class="ad-actions">
+    <button class="connect-btn" id="crec-salvarBtn">Salvar custo recorrente</button>
   </div>
 </div>
 
@@ -1896,10 +1898,9 @@
     <div class="section-head" style="margin-top:22px;">
       <h2>Perguntas do <span>checklist</span></h2>
       <div class="hint">o que o técnico preenche em campo pra esse serviço</div>
-      <div class="spacer"></div>
-      <button class="reset-btn" id="sv-novaPerguntaBtn" style="width:auto;">+ Nova pergunta</button>
     </div>
     <div id="sv-perguntasWrap"></div>
+    <button class="reset-btn" id="sv-novaPerguntaBtn" style="width:100%;margin-top:6px;">+ Nova pergunta</button>
   </div>
   <div class="ad-actions">
     <button class="connect-btn" id="sv-salvarBtn">Salvar serviço</button>
@@ -1944,9 +1945,13 @@
 </div>
 </div>
 
-<div class="modal-overlay hidden" id="metaModal">
-  <div class="modal-card">
-    <h3 id="metaModalTitle">Nova meta</h3>
+<div id="metaDetalhe" class="side-panel">
+  <div class="ad-top">
+    <button class="ad-backbtn" id="mt-fecharBtn">←</button>
+    <div class="ad-title" id="metaModalTitle">Nova meta</div>
+    <button class="ad-trashbtn" id="mt-excluirBtn" title="Excluir meta" style="display:none;">🗑</button>
+  </div>
+  <div class="ad-body">
     <div class="uform-field"><label>Ano</label><input type="number" id="mt-ano" min="2020" max="2100" step="1"></div>
     <div class="uform-field">
       <label>Mês</label>
@@ -1959,13 +1964,9 @@
     </div>
     <div class="uform-field"><label>Valor da meta (empresa)</label><input type="number" id="mt-valor" step="0.01" min="0"></div>
     <div class="uform-msg" id="mt-msg"></div>
-    <div class="modal-actions">
-      <button class="reset-btn" id="mt-excluirBtn" style="color:var(--debit);">🗑 Excluir meta</button>
-      <div style="display:flex;gap:8px;">
-        <button class="reset-btn" id="mt-cancelarBtn">Cancelar</button>
-        <button class="connect-btn" id="mt-salvarBtn">Salvar</button>
-      </div>
-    </div>
+  </div>
+  <div class="ad-actions">
+    <button class="connect-btn" id="mt-salvarBtn">Salvar meta</button>
   </div>
 </div>
 
@@ -2172,7 +2173,7 @@
     // cargo da pessoa não pode ver. Administradores nunca passam por aqui.
     function aplicarNoMenu(){
       if(window.SGAuth&&window.SGAuth.isAdmin())return;
-      var TELAS=['ponto','vendas','funil','clientes','agendamentos','planos','relatorios','custosvenda'];
+      var TELAS=['ponto','vendas','funil','clientes','agendamentos','planos','relatorios','custosvenda','servicos'];
       var atual=localStorage.getItem('sg_active_view')||'ponto';
       var escondeuAtual=false;
       TELAS.forEach(function(t){
@@ -2382,8 +2383,6 @@
     if(navMetas&&isAdmin()) navMetas.style.display='';
     var navCustoRecorrente=document.getElementById('nav-custorecorrente');
     if(navCustoRecorrente&&isAdmin()) navCustoRecorrente.style.display='';
-    var navServicos=document.getElementById('nav-servicos');
-    if(navServicos&&isAdmin()) navServicos.style.display='';
     if(window.SGPermissoes)window.SGPermissoes.carregar();
   }
 
@@ -2751,6 +2750,7 @@
   var vendedoresTodosMapVendas={};
   var metasIndividuaisMap={}; // 'idVendedor|ano|mes' -> valor da sobreposição
   var vendaAtual=null;
+  var custoEditandoId=null;
   var vPaginaAtual=1, V_ITENS_POR_PAGINA=10;
   var API_URL_KEY='ponto_api_url',API_KEY_KEY='ponto_api_key';
   var DEFAULT_API_URL='https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA34xrlLTVUUNhKBIlguJT3ectH7Yus-VW1n41GcCclc5q_Yj0Di2O7g/exec';
@@ -3252,12 +3252,27 @@
     });
   }
 
+  /**
+   * Monta a descrição padrão do custo, no mesmo formato que já era usado
+   * manualmente: "Referente aos custos de operação do serviço de X no
+   * cliente Y em DD/MM/AAAA. Valor: R$Z" — pré-preenche quando abre o
+   * formulário e atualiza sozinha enquanto o valor muda, mas só até a
+   * pessoa editar a descrição manualmente (aí para de mexer, respeita o texto dela).
+   */
+  function gerarDescricaoAutomaticaCusto(v,valorAtual){
+    var nomeServ=servicosMap[v.idServico]||v.idServico||'';
+    var nomeCli=nomeClienteVenda(v.idCliente)||'';
+    var dataFmt=fmtDateBRVendas(v.dt);
+    var valorFmt=valorAtual!==undefined&&valorAtual!==''?valorAtual:'';
+    return 'Referente aos custos de operação do serviço de '+nomeServ+' no cliente '+nomeCli+' em '+dataFmt+'. Valor: R$'+valorFmt;
+  }
+
   function renderCustosVendaHtml(idVenda){
     var lista=custosVendaRecords.filter(function(c){return String(c.idVenda)===String(idVenda);});
     lista.sort(function(a,b){return (b.dt?b.dt.getTime():0)-(a.dt?a.dt.getTime():0);});
     var total=lista.reduce(function(s,c){return s+c.valor;},0);
     var itensHtml=lista.length?lista.map(function(c){
-      return '<div class="resp-item" data-custo-id="'+escapeHtml(c.id)+'">'+
+      return '<div class="resp-item custo-item-click" data-custo-id="'+escapeHtml(c.id)+'" style="cursor:pointer;">'+
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">'+
           '<div style="flex:1;">'+
             '<div class="resp-q">'+escapeHtml(c.descricao||'(sem descrição)')+'</div>'+
@@ -3265,7 +3280,7 @@
           '</div>'+
           '<div style="text-align:right;flex:none;">'+
             '<div style="font-weight:700;font-size:13px;">'+fmtMoney(c.valor)+'</div>'+
-            '<button type="button" class="custo-del-btn" data-custo-id="'+escapeHtml(c.id)+'" style="color:var(--debit);background:none;border:none;font-size:11px;cursor:pointer;padding:2px 0;">excluir</button>'+
+            '<button type="button" class="custo-del-btn" data-custo-id="'+escapeHtml(c.id)+'" title="Excluir custo" style="color:var(--debit);background:none;border:none;font-size:15px;cursor:pointer;padding:2px 4px;">🗑</button>'+
           '</div>'+
         '</div>'+
       '</div>';
@@ -3290,24 +3305,67 @@
       '<div id="vd-custosLista">'+renderCustosVendaHtml(v.idVenda)+'</div>'+
       '<button type="button" class="connect-btn" id="vd-addCustoToggle" style="width:100%;margin-top:10px;">+ Adicionar custo</button>'+
       '<div id="vd-custoForm" class="hidden" style="margin-top:12px;">'+
-        '<div class="uform-field"><label>Descrição</label><input type="text" id="vc-descricao" placeholder="Ex: Combustível, material, comissão…"></div>'+
+        '<div class="uform-field"><label>Descrição</label><textarea id="vc-descricao" rows="3" placeholder="Ex: Combustível, material, comissão…"></textarea></div>'+
         '<div class="uform-field"><label>Valor</label><input type="number" id="vc-valor" step="0.01" min="0"></div>'+
         '<div class="uform-field"><label>Status</label><select id="vc-status"><option value="Pago">Pago</option><option value="Pendente">Pendente</option></select></div>'+
         '<div class="uform-field"><label>Data</label><input type="date" id="vc-data"></div>'+
-        '<button type="button" class="connect-btn" id="vc-salvarBtn" style="width:100%;">Salvar custo</button>'+
+        '<div style="display:flex;gap:8px;">'+
+          '<button type="button" class="reset-btn" id="vc-excluirBtn" style="color:var(--debit);display:none;">🗑 Excluir</button>'+
+          '<button type="button" class="reset-btn" id="vc-cancelarBtn" style="display:none;flex:1;">Cancelar</button>'+
+          '<button type="button" class="connect-btn" id="vc-salvarBtn" style="flex:1;">Salvar custo</button>'+
+        '</div>'+
       '</div>'+
     '</div>';
     document.getElementById('vd-body').innerHTML=html;
+    custoEditandoId=null;
     document.getElementById('vc-data').value=dateKey(new Date());
+    var descricaoEditadaManualmente=false;
+    document.getElementById('vc-descricao').addEventListener('input',function(){ descricaoEditadaManualmente=true; });
+    document.getElementById('vc-valor').addEventListener('input',function(){
+      if(descricaoEditadaManualmente)return;
+      document.getElementById('vc-descricao').value=gerarDescricaoAutomaticaCusto(v,document.getElementById('vc-valor').value);
+    });
 
     document.getElementById('vd-addCustoToggle').addEventListener('click',function(){
-      document.getElementById('vd-custoForm').classList.toggle('hidden');
+      abrirFormularioCusto(v,null);
     });
-    document.getElementById('vc-salvarBtn').addEventListener('click',function(){ adicionarCustoVenda(v.idVenda); });
+    document.getElementById('vc-cancelarBtn').addEventListener('click',function(){
+      document.getElementById('vd-custoForm').classList.add('hidden');
+      custoEditandoId=null;
+    });
+    document.getElementById('vc-salvarBtn').addEventListener('click',function(){ salvarCustoVendaInline(v); });
+    document.getElementById('vc-excluirBtn').addEventListener('click',function(){ if(custoEditandoId)excluirCustoVenda(custoEditandoId,v.idVenda); });
     wireCustoDelButtons(v.idVenda);
+    wireCustoItemClick(v);
 
     document.getElementById('vendaDetalhe').classList.add('active');
     document.getElementById('adBackdrop').classList.add('active');
+  }
+
+  /**
+   * Abre o formulário de custo — sem idCusto é "novo" (com a descrição já
+   * sugerida automaticamente), com idCusto é edição (pré-preenche tudo,
+   * inclusive a descrição existente, sem sobrescrever o que a pessoa escreveu).
+   */
+  function abrirFormularioCusto(v,idCusto){
+    custoEditandoId=idCusto||null;
+    var c=idCusto?custosVendaRecords.filter(function(x){return String(x.id)===String(idCusto);})[0]:null;
+    document.getElementById('vc-descricao').value=c?(c.descricao||''):gerarDescricaoAutomaticaCusto(v,'');
+    document.getElementById('vc-valor').value=c?c.valor:'';
+    document.getElementById('vc-status').value=c?(c.status||'Pendente'):'Pendente';
+    document.getElementById('vc-data').value=c?c.dateKey:dateKey(new Date());
+    document.getElementById('vc-excluirBtn').style.display=c?'block':'none';
+    document.getElementById('vc-cancelarBtn').style.display='block';
+    document.getElementById('vd-custoForm').classList.remove('hidden');
+  }
+
+  function wireCustoItemClick(v){
+    document.getElementById('vd-body').querySelectorAll('.custo-item-click').forEach(function(item){
+      item.addEventListener('click',function(e){
+        if(e.target.classList.contains('custo-del-btn'))return;
+        abrirFormularioCusto(v,item.getAttribute('data-custo-id'));
+      });
+    });
   }
 
   /**
@@ -3327,30 +3385,40 @@
     vendaAtual=null;
   }
 
-  function adicionarCustoVenda(idVenda){
+  function salvarCustoVendaInline(v){
+    var idVenda=v.idVenda;
     var descricao=document.getElementById('vc-descricao').value.trim();
     var valor=document.getElementById('vc-valor').value;
     var status=document.getElementById('vc-status').value;
     var dataStr=document.getElementById('vc-data').value;
     if(!valor){ return; }
 
-    var idCusto=window.SGId.gerar();
-    var registro={id:idCusto,idVenda:idVenda,descricao:descricao,status:status,dt:parseBRDate(dataStr.split('-').reverse().join('/')),dateKey:dataStr,valor:parseFloat(valor)||0};
-    custosVendaRecords.push(registro);
+    var ehNovo=!custoEditandoId;
+    var idCusto=custoEditandoId||window.SGId.gerar();
+    var registroAnteriorCopia=!ehNovo?Object.assign({},custosVendaRecords.filter(function(c){return String(c.id)===String(idCusto);})[0]):null;
+
+    var registroNovo={id:idCusto,idVenda:idVenda,descricao:descricao,status:status,dt:parseBRDate(dataStr.split('-').reverse().join('/')),dateKey:dataStr,valor:parseFloat(valor)||0};
+    var indice=custosVendaRecords.findIndex(function(c){return String(c.id)===String(idCusto);});
+    if(indice===-1)custosVendaRecords.push(registroNovo);
+    else custosVendaRecords[indice]=registroNovo;
+
     document.getElementById('vd-custosLista').innerHTML=renderCustosVendaHtml(idVenda);
     wireCustoDelButtons(idVenda);
-    document.getElementById('vc-descricao').value='';document.getElementById('vc-valor').value='';
+    wireCustoItemClick(v);
     document.getElementById('vd-custoForm').classList.add('hidden');
-    window.SGToast.mostrar('Custo adicionado.');
+    custoEditandoId=null;
+    window.SGToast.mostrar(ehNovo?'Custo adicionado.':'Custo atualizado.');
 
     apiCall('salvarCustoVenda',{
       idCusto:idCusto, idVenda:idVenda, descricao:descricao,
       valor:valor, status:status, data:dataStr
     }).then(function(resp){
       if(!resp||!resp.ok){
-        custosVendaRecords=custosVendaRecords.filter(function(c){return String(c.id)!==String(idCusto);});
+        if(ehNovo)custosVendaRecords=custosVendaRecords.filter(function(c){return String(c.id)!==String(idCusto);});
+        else{ var idx=custosVendaRecords.findIndex(function(c){return String(c.id)===String(idCusto);}); if(idx!==-1&&registroAnteriorCopia)custosVendaRecords[idx]=registroAnteriorCopia; }
         document.getElementById('vd-custosLista').innerHTML=renderCustosVendaHtml(idVenda);
         wireCustoDelButtons(idVenda);
+        wireCustoItemClick(v);
         window.SGToast.mostrar((resp&&resp.erro)||'Não foi possível salvar o custo — desfeito.',true);
         return;
       }
@@ -3359,11 +3427,14 @@
         if(reg)reg.id=resp.idCusto;
         document.getElementById('vd-custosLista').innerHTML=renderCustosVendaHtml(idVenda);
         wireCustoDelButtons(idVenda);
+        wireCustoItemClick(v);
       }
     }).catch(function(err){
-      custosVendaRecords=custosVendaRecords.filter(function(c){return String(c.id)!==String(idCusto);});
+      if(ehNovo)custosVendaRecords=custosVendaRecords.filter(function(c){return String(c.id)!==String(idCusto);});
+      else{ var idx=custosVendaRecords.findIndex(function(c){return String(c.id)===String(idCusto);}); if(idx!==-1&&registroAnteriorCopia)custosVendaRecords[idx]=registroAnteriorCopia; }
       document.getElementById('vd-custosLista').innerHTML=renderCustosVendaHtml(idVenda);
       wireCustoDelButtons(idVenda);
+      wireCustoItemClick(v);
       window.SGToast.mostrar('Erro de conexão — custo desfeito: '+err.message,true);
     });
   }
@@ -3371,10 +3442,15 @@
   function excluirCustoVenda(idCusto,idVenda){
     if(!confirm('Excluir esse custo?'))return;
     var registroAnterior=custosVendaRecords.filter(function(c){return String(c.id)===String(idCusto);})[0];
+    if(custoEditandoId===idCusto){
+      document.getElementById('vd-custoForm').classList.add('hidden');
+      custoEditandoId=null;
+    }
 
     custosVendaRecords=custosVendaRecords.filter(function(c){return String(c.id)!==String(idCusto);});
     document.getElementById('vd-custosLista').innerHTML=renderCustosVendaHtml(idVenda);
     wireCustoDelButtons(idVenda);
+    wireCustoItemClick(vendaAtual);
     window.SGToast.mostrar('Custo excluído.');
 
     apiCall('excluirCustoVenda',{idCusto:idCusto}).then(function(resp){
@@ -3383,12 +3459,14 @@
         if(registroAnterior)custosVendaRecords.push(registroAnterior);
         document.getElementById('vd-custosLista').innerHTML=renderCustosVendaHtml(idVenda);
         wireCustoDelButtons(idVenda);
+        wireCustoItemClick(vendaAtual);
         window.SGToast.mostrar((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
       }
     }).catch(function(err){
       if(registroAnterior)custosVendaRecords.push(registroAnterior);
       document.getElementById('vd-custosLista').innerHTML=renderCustosVendaHtml(idVenda);
       wireCustoDelButtons(idVenda);
+      wireCustoItemClick(vendaAtual);
       window.SGToast.mostrar('Erro de conexão — custo restaurado: '+err.message,true);
     });
   }
@@ -4673,10 +4751,38 @@
     ].join(' | '));
   }
 
+  /**
+   * Conta quantos agendamentos caem em cada status, respeitando os OUTROS
+   * filtros ativos (data, técnico, busca) mas ignorando o de status — é
+   * assim que cada KPI mostra "quantos apareceriam se eu clicasse aqui".
+   */
+  function contarPorStatus(){
+    var from=document.getElementById('ag-dateFrom').value,to=document.getElementById('ag-dateTo').value;
+    var tecnico=document.getElementById('ag-selTecnico').value;
+    var busca=normalizaBuscaAg((document.getElementById('ag-buscaGeral')||{}).value||'').trim();
+    var base=agendamentos.filter(function(a){
+      var dt=parseBRDateTime(a['Data Inicio']); var dk=dt?dateKey(dt):null;
+      if(from&&dk&&dk<from)return false; if(to&&dk&&dk>to)return false;
+      if(tecnico!=='__all__'&&String(a.TecnicoResponsavel)!==tecnico)return false;
+      if(busca&&textoBuscavelAgendamento(a).indexOf(busca)===-1)return false;
+      return true;
+    });
+    var contagem={Todos:base.length,Agendado:0,'Em Andamento':0,'Concluído':0,Cancelado:0};
+    base.forEach(function(a){
+      var s=(a['Status Agendamento']||'').trim();
+      if(contagem[s]!==undefined)contagem[s]++;
+    });
+    document.getElementById('ag-kpiTodos').textContent=contagem.Todos;
+    document.getElementById('ag-kpiAgendado').textContent=contagem.Agendado;
+    document.getElementById('ag-kpiAndamento').textContent=contagem['Em Andamento'];
+    document.getElementById('ag-kpiConcluido').textContent=contagem['Concluído'];
+    document.getElementById('ag-kpiCancelado').textContent=contagem.Cancelado;
+  }
+
   function getFiltered(){
     var from=document.getElementById('ag-dateFrom').value,to=document.getElementById('ag-dateTo').value;
     var tecnico=document.getElementById('ag-selTecnico').value;
-    var statusBtn=document.querySelector('#view-agendamentos .stage-pill.active');
+    var statusBtn=document.querySelector('#view-agendamentos .ag-kpi-pill.active');
     var status=statusBtn?statusBtn.getAttribute('data-agstatus'):'__all__';
     var busca=normalizaBuscaAg((document.getElementById('ag-buscaGeral')||{}).value||'').trim();
     var lista=agendamentos.filter(function(a){
@@ -4731,6 +4837,7 @@
   function render(){
     var tbody=document.getElementById('ag-tbody');
     var filtrados=getFiltered();
+    contarPorStatus();
     updateSortHeadersAg();
     if(!filtrados.length){
       tbody.innerHTML='';
@@ -5138,9 +5245,9 @@
     document.getElementById('ag-dateTo').addEventListener('change',function(){ paginaAtual=1; render(); });
     document.getElementById('ag-selTecnico').addEventListener('change',function(){ paginaAtual=1; render(); });
     document.getElementById('ag-buscaGeral').addEventListener('input',function(){ paginaAtual=1; render(); });
-    document.querySelectorAll('#view-agendamentos .stage-pill').forEach(function(pill){
+    document.querySelectorAll('#view-agendamentos .ag-kpi-pill').forEach(function(pill){
       pill.addEventListener('click',function(){
-        document.querySelectorAll('#view-agendamentos .stage-pill').forEach(function(p){p.classList.remove('active');});
+        document.querySelectorAll('#view-agendamentos .ag-kpi-pill').forEach(function(p){p.classList.remove('active');});
         pill.classList.add('active'); paginaAtual=1; render();
       });
     });
@@ -5148,8 +5255,8 @@
       document.getElementById('ag-selTecnico').value='__all__';
       document.getElementById('ag-buscaGeral').value='';
       setDefaultRange();
-      document.querySelectorAll('#view-agendamentos .stage-pill').forEach(function(p){p.classList.remove('active');});
-      document.querySelector('#view-agendamentos .stage-pill[data-agstatus="__all__"]').classList.add('active');
+      document.querySelectorAll('#view-agendamentos .ag-kpi-pill').forEach(function(p){p.classList.remove('active');});
+      document.querySelector('#view-agendamentos .ag-kpi-pill[data-agstatus="__all__"]').classList.add('active');
       document.querySelectorAll('#view-agendamentos .qr-btn[data-agrange]').forEach(function(b){b.classList.remove('active');});
       document.querySelector('#view-agendamentos .qr-btn[data-agrange="all"]').classList.add('active');
       paginaAtual=1; render();
@@ -5552,6 +5659,8 @@
     if(!r)return;
     if(!souAdmin()&&String(r.IdVendedor)!==String(meuId()))return; // não-admin só edita o próprio
     editandoId=r.IdRelatorio;
+    popularSelectVendedorFormulario();
+    if(souAdmin())document.getElementById('rl-formVendedor').value=r.IdVendedor;
     var dt=parseBRDate(r.Data);
     document.getElementById('rl-data').value=dt?dateKeyFromDate(dt):'';
     document.getElementById('rl-contatos').value=r['Novos Contatos']||0;
@@ -5563,13 +5672,34 @@
     window.scrollTo({top:0,behavior:'smooth'});
   }
 
+  function popularSelectVendedorFormulario(){
+    var sel=document.getElementById('rl-formVendedor');
+    if(souAdmin()){
+      sel.disabled=false;
+      var atual=sel.value||meuId();
+      sel.innerHTML=Object.keys(vendedoresMap).map(function(id){return vendedoresMap[id];})
+        .sort(function(a,b){return (a.Nome||'').localeCompare(b.Nome||'','pt-BR');})
+        .map(function(v){return '<option value="'+escapeHtmlRl(v.IdVendedor)+'">'+escapeHtmlRl(v.Nome)+'</option>';}).join('');
+      if([...sel.options].some(function(o){return o.value===atual;}))sel.value=atual;
+      else sel.value=meuId();
+    }else{
+      // não-admin só pode lançar o próprio relatório — trava no próprio nome
+      sel.innerHTML='<option value="'+escapeHtmlRl(meuId())+'">'+escapeHtmlRl(nomeVendedor(meuId()))+' (você)</option>';
+      sel.value=meuId();
+      sel.disabled=true;
+    }
+  }
+  function escapeHtmlRl(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+
   function preencherFormularioDeHoje(){
     editandoId=null;
+    popularSelectVendedorFormulario();
+    var vendedorAlvo=document.getElementById('rl-formVendedor').value||meuId();
     var hojeKey=dateKeyHoje();
     document.getElementById('rl-data').value=hojeKey;
     var existente=relatorios.filter(function(r){
       var dt=parseBRDate(r.Data);
-      return String(r.IdVendedor)===String(meuId())&&dt&&dateKeyFromDate(dt)===hojeKey;
+      return String(r.IdVendedor)===String(vendedorAlvo)&&dt&&dateKeyFromDate(dt)===hojeKey;
     })[0];
     meuRegistroDeHoje=existente?existente.IdRelatorio:null;
     document.getElementById('rl-contatos').value=existente?(existente['Novos Contatos']||0):'';
@@ -5579,12 +5709,31 @@
     document.getElementById('rl-formTitle').textContent='hoje'+(existente?' (já lançado — salvar atualiza)':'');
   }
 
+  /** Roda quando o admin troca o vendedor no formulário — recarrega o que
+   *  já existe pra essa pessoa+data, igual preencherFormularioDeHoje faz. */
+  function aoTrocarVendedorFormulario(){
+    editandoId=null;
+    var vendedorAlvo=document.getElementById('rl-formVendedor').value;
+    var dataAtual=document.getElementById('rl-data').value||dateKeyHoje();
+    var existente=relatorios.filter(function(r){
+      var dt=parseBRDate(r.Data);
+      return String(r.IdVendedor)===String(vendedorAlvo)&&dt&&dateKeyFromDate(dt)===dataAtual;
+    })[0];
+    if(dataAtual===dateKeyHoje())meuRegistroDeHoje=existente?existente.IdRelatorio:null;
+    document.getElementById('rl-contatos').value=existente?(existente['Novos Contatos']||0):'';
+    document.getElementById('rl-conversas').value=existente?(existente.Conversas||0):'';
+    document.getElementById('rl-propostas').value=existente?(existente['Propostas Apresentadas']||0):'';
+    document.getElementById('rl-vendas').value=existente?(existente.Vendas||0):'';
+    document.getElementById('rl-formTitle').textContent=(dataAtual===dateKeyHoje()?'hoje':fmtDateBRRl(parseBRDate(dataAtual.split('-').reverse().join('/'))))+(existente?' (já lançado — salvar atualiza)':'');
+  }
+
   function salvarRelatorioHoje(){
     var dataVal=document.getElementById('rl-data').value;
     var msgEl=document.getElementById('rl-msg');
     if(!dataVal){ msgEl.className='uform-msg error'; msgEl.textContent='Escolha uma data.'; return; }
+    var vendedorSelecionado=document.getElementById('rl-formVendedor').value||meuId();
     var registroExistente=editandoId&&souAdmin()?relatorios.filter(function(x){return String(x.IdRelatorio)===String(editandoId);})[0]:null;
-    var idVendedorAlvo=registroExistente?registroExistente.IdVendedor:meuId();
+    var idVendedorAlvo=registroExistente?registroExistente.IdVendedor:vendedorSelecionado;
     var idRelatorioAlvo=editandoId||meuRegistroDeHoje;
 
     var contatos=document.getElementById('rl-contatos').value||0;
@@ -5602,7 +5751,7 @@
     var indice=relatorios.findIndex(function(x){return String(x.IdRelatorio)===String(idAlvo);});
     if(indice===-1)relatorios.push(registroNovo);
     else relatorios[indice]=registroNovo;
-    if(String(idVendedorAlvo)===String(meuId())&&dataVal===dateKeyHoje())meuRegistroDeHoje=idAlvo;
+    if(String(idVendedorAlvo)===String(vendedorSelecionado)&&dataVal===dateKeyHoje())meuRegistroDeHoje=idAlvo;
 
     msgEl.className='uform-msg'; msgEl.style.color='var(--accent-deep)'; msgEl.textContent='Relatório salvo ✓';
     editandoId=null;
@@ -5703,6 +5852,7 @@
     if(!window.SG_SESSION)return;
     _initialized=true;
     document.getElementById('rl-salvarHojeBtn').addEventListener('click',salvarRelatorioHoje);
+    document.getElementById('rl-formVendedor').addEventListener('change',aoTrocarVendedorFormulario);
     document.getElementById('rl-selVendedor').addEventListener('change',function(){ paginaAtual=1; render(); });
     document.querySelectorAll('#view-relatorios th.sortable').forEach(function(th){
       th.addEventListener('click',function(){
@@ -5731,7 +5881,7 @@
   function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
   function meuId(){ return window.SG_SESSION&&window.SG_SESSION.idVendedor; }
   function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
-  function fmtMoney(n){ if(typeof n==='string')n=parseFloat(n.replace(/\./g,'').replace(',','.'))||0; else n=parseFloat(n)||0; return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function fmtMoney(n){ if(typeof n==='string'){ n=n.indexOf(',')!==-1?parseFloat(n.replace(/\./g,'').replace(',','.'))||0:parseFloat(n)||0; } else n=parseFloat(n)||0; return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
   function parseBRDate(str){ if(!str)return null; str=String(str).trim(); var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m)return new Date(+m[3],+m[2]-1,+m[1]); var d=new Date(str.substring(0,10)); return isNaN(d)?null:d; }
   function dateKeyFromDate(d){ return d?(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')):''; }
   function fmtDateBRcv(d){ return d?(String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()):'—'; }
@@ -5745,6 +5895,13 @@
     if(!v)return idVenda?('Venda '+String(idVenda).slice(0,8)):'—';
     var dt=parseBRDate(v.DataVenda);
     return nomeCliente(v.IdCliente)+' — '+nomeServico(v.IdServico)+' — '+fmtDateBRcv(dt)+' — '+fmtMoney(v.Valor);
+  }
+  function gerarDescricaoAutomaticaCv(idVenda,valorAtual){
+    var v=vendaPorId(idVenda);
+    if(!v)return '';
+    var dt=parseBRDate(v.DataVenda);
+    var valorFmt=valorAtual!==undefined&&valorAtual!==''?valorAtual:'';
+    return 'Referente aos custos de operação do serviço de '+nomeServico(v.IdServico)+' no cliente '+nomeCliente(v.IdCliente)+' em '+fmtDateBRcv(dt)+'. Valor: R$'+valorFmt;
   }
 
   function opcoesVendaCv(){
@@ -5768,7 +5925,7 @@
       if(col==='data'){var da=parseBRDate(a.Data),db=parseBRDate(b.Data);return mult*((da?da.getTime():0)-(db?db.getTime():0));}
       if(col==='descricao'){return mult*String(a.Descricao||'').localeCompare(String(b.Descricao||''),'pt-BR');}
       if(col==='venda'){return mult*labelDaVenda(a.IdVenda).localeCompare(labelDaVenda(b.IdVenda),'pt-BR');}
-      if(col==='valor'){var va=parseFloat(String(a.Valor||'0').replace(/\./g,'').replace(',','.'))||0,vb=parseFloat(String(b.Valor||'0').replace(/\./g,'').replace(',','.'))||0;return mult*(va-vb);}
+      if(col==='valor'){var va=(String(a.Valor||'0').indexOf(',')!==-1?parseFloat(String(a.Valor||'0').replace(/\./g,'').replace(',','.')):parseFloat(a.Valor))||0,vb=(String(b.Valor||'0').indexOf(',')!==-1?parseFloat(String(b.Valor||'0').replace(/\./g,'').replace(',','.')):parseFloat(b.Valor))||0;return mult*(va-vb);}
       if(col==='status'){return mult*String(a.Status||'').localeCompare(String(b.Status||''),'pt-BR');}
       return 0;
     });
@@ -5805,8 +5962,8 @@
 
   function render(){
     var filtrados=getFiltered();
-    var pago=filtrados.filter(function(c){return (c.Status||'').trim().toLowerCase()==='pago';}).reduce(function(s,c){return s+(parseFloat(String(c.Valor||'0').replace(/\./g,'').replace(',','.'))||0);},0);
-    var pendente=filtrados.filter(function(c){return (c.Status||'').trim().toLowerCase()!=='pago';}).reduce(function(s,c){return s+(parseFloat(String(c.Valor||'0').replace(/\./g,'').replace(',','.'))||0);},0);
+    var pago=filtrados.filter(function(c){return (c.Status||'').trim().toLowerCase()==='pago';}).reduce(function(s,c){return s+((String(c.Valor||'0').indexOf(',')!==-1?parseFloat(String(c.Valor||'0').replace(/\./g,'').replace(',','.')):parseFloat(c.Valor))||0);},0);
+    var pendente=filtrados.filter(function(c){return (c.Status||'').trim().toLowerCase()!=='pago';}).reduce(function(s,c){return s+((String(c.Valor||'0').indexOf(',')!==-1?parseFloat(String(c.Valor||'0').replace(/\./g,'').replace(',','.')):parseFloat(c.Valor))||0);},0);
     document.getElementById('cv-kpiPago').textContent=fmtMoney(pago);
     document.getElementById('cv-kpiPendente').textContent=fmtMoney(pendente);
     document.getElementById('cv-kpiTotal').textContent=filtrados.length;
@@ -5849,10 +6006,15 @@
     var c=idCusto?custos.filter(function(x){return String(x.IdCusto)===String(idCusto);})[0]:null;
     editandoId=idCusto||null;
     document.getElementById('cvModalTitle').textContent=c?'Editar custo':'Novo custo';
+    var descricaoEditadaManualmente=!!c; // editando um já existente, não mexe na descrição sozinho
     window.SGCombo.criar({
       inputId:'cv-idVendaBusca', hiddenId:'cv-idVenda', dropdownId:'cv-idVendaDropdown',
       getOpcoes:opcoesVendaCv,
-      valorInicial:c&&c.IdVenda?{id:c.IdVenda,label:labelDaVenda(c.IdVenda)}:null
+      valorInicial:c&&c.IdVenda?{id:c.IdVenda,label:labelDaVenda(c.IdVenda)}:null,
+      onSelecionar:function(idVendaSelecionada){
+        if(descricaoEditadaManualmente)return;
+        document.getElementById('cv-descricao').value=gerarDescricaoAutomaticaCv(idVendaSelecionada,document.getElementById('cv-valor').value);
+      }
     });
     document.getElementById('cv-descricao').value=c?(c.Descricao||''):'';
     document.getElementById('cv-valor').value=c?c.Valor:'';
@@ -5861,9 +6023,14 @@
     document.getElementById('cv-status').value=c?(c.Status||'Pendente'):'Pendente';
     document.getElementById('cv-excluirBtn').style.display=c?'block':'none';
     document.getElementById('cv-modalMsg').textContent='';
-    document.getElementById('custoVendaModal').classList.remove('hidden');
+    document.getElementById('cv-descricao').oninput=function(){ descricaoEditadaManualmente=true; };
+    document.getElementById('cv-valor').oninput=function(){
+      if(descricaoEditadaManualmente)return;
+      document.getElementById('cv-descricao').value=gerarDescricaoAutomaticaCv(document.getElementById('cv-idVenda').value,document.getElementById('cv-valor').value);
+    };
+    document.getElementById('custoVendaDetalhe').classList.add('active');
   }
-  function fecharModal(){ document.getElementById('custoVendaModal').classList.add('hidden'); editandoId=null; }
+  function fecharModal(){ document.getElementById('custoVendaDetalhe').classList.remove('active'); editandoId=null; }
 
   function salvar(){
     var idVenda=document.getElementById('cv-idVenda').value;
@@ -5971,10 +6138,9 @@
     if(!window.SG_SESSION)return;
     _initialized=true;
     document.getElementById('cv-novoBtn').addEventListener('click',function(){ abrirModal(null); });
-    document.getElementById('cv-cancelarBtn').addEventListener('click',fecharModal);
+    document.getElementById('cv-fecharBtn').addEventListener('click',fecharModal);
     document.getElementById('cv-salvarBtn').addEventListener('click',salvar);
     document.getElementById('cv-excluirBtn').addEventListener('click',excluir);
-    document.getElementById('custoVendaModal').addEventListener('click',function(e){ if(e.target.id==='custoVendaModal')fecharModal(); });
     document.getElementById('cv-dateFrom').addEventListener('change',function(){ paginaAtual=1; render(); });
     document.getElementById('cv-dateTo').addEventListener('change',function(){ paginaAtual=1; render(); });
     document.getElementById('cv-selStatus').addEventListener('change',function(){ paginaAtual=1; render(); });
@@ -6010,7 +6176,7 @@
 
   function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
   function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
-  function fmtMoney(n){ if(typeof n==='string')n=parseFloat(n.replace(/\./g,'').replace(',','.'))||0; else n=parseFloat(n)||0; return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function fmtMoney(n){ if(typeof n==='string'){ n=n.indexOf(',')!==-1?parseFloat(n.replace(/\./g,'').replace(',','.'))||0:parseFloat(n)||0; } else n=parseFloat(n)||0; return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
   function normalizaBuscaCr(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
   function textoBuscavelCr(c){ return normalizaBuscaCr([c.Descricao,c.Categoria,c.Status,c['Dia Vencimento']].join(' | ')); }
 
@@ -6020,7 +6186,7 @@
       if(col==='descricao'){return mult*String(a.Descricao||'').localeCompare(String(b.Descricao||''),'pt-BR');}
       if(col==='categoria'){return mult*String(a.Categoria||'').localeCompare(String(b.Categoria||''),'pt-BR');}
       if(col==='vencimento'){return mult*((parseInt(a['Dia Vencimento'],10)||0)-(parseInt(b['Dia Vencimento'],10)||0));}
-      if(col==='valor'){var va=parseFloat(String(a.Valor||'0').replace(/\./g,'').replace(',','.'))||0,vb=parseFloat(String(b.Valor||'0').replace(/\./g,'').replace(',','.'))||0;return mult*(va-vb);}
+      if(col==='valor'){var va=(String(a.Valor||'0').indexOf(',')!==-1?parseFloat(String(a.Valor||'0').replace(/\./g,'').replace(',','.')):parseFloat(a.Valor))||0,vb=(String(b.Valor||'0').indexOf(',')!==-1?parseFloat(String(b.Valor||'0').replace(/\./g,'').replace(',','.')):parseFloat(b.Valor))||0;return mult*(va-vb);}
       if(col==='status'){return mult*String(a.Status||'').localeCompare(String(b.Status||''),'pt-BR');}
       return 0;
     });
@@ -6071,8 +6237,8 @@
   function render(){
     popularFiltroCategoria();
     var filtrados=getFiltered();
-    var ativoTotal=filtrados.filter(function(c){return (c.Status||'').trim().toLowerCase()==='ativo';}).reduce(function(s,c){return s+(parseFloat(String(c.Valor||'0').replace(/\./g,'').replace(',','.'))||0);},0);
-    var inativoTotal=filtrados.filter(function(c){return (c.Status||'').trim().toLowerCase()!=='ativo';}).reduce(function(s,c){return s+(parseFloat(String(c.Valor||'0').replace(/\./g,'').replace(',','.'))||0);},0);
+    var ativoTotal=filtrados.filter(function(c){return (c.Status||'').trim().toLowerCase()==='ativo';}).reduce(function(s,c){return s+((String(c.Valor||'0').indexOf(',')!==-1?parseFloat(String(c.Valor||'0').replace(/\./g,'').replace(',','.')):parseFloat(c.Valor))||0);},0);
+    var inativoTotal=filtrados.filter(function(c){return (c.Status||'').trim().toLowerCase()!=='ativo';}).reduce(function(s,c){return s+((String(c.Valor||'0').indexOf(',')!==-1?parseFloat(String(c.Valor||'0').replace(/\./g,'').replace(',','.')):parseFloat(c.Valor))||0);},0);
     document.getElementById('crec-kpiAtivo').textContent=fmtMoney(ativoTotal);
     document.getElementById('crec-kpiInativo').textContent=fmtMoney(inativoTotal);
     document.getElementById('crec-kpiTotal').textContent=filtrados.length;
@@ -6121,9 +6287,9 @@
     document.getElementById('crec-status').value=c?(c.Status||'Ativo'):'Ativo';
     document.getElementById('crec-excluirBtn').style.display=c?'block':'none';
     document.getElementById('crec-modalMsg').textContent='';
-    document.getElementById('custoRecorrenteModal').classList.remove('hidden');
+    document.getElementById('custoRecorrenteDetalhe').classList.add('active');
   }
-  function fecharModal(){ document.getElementById('custoRecorrenteModal').classList.add('hidden'); editandoId=null; }
+  function fecharModal(){ document.getElementById('custoRecorrenteDetalhe').classList.remove('active'); editandoId=null; }
 
   function salvar(){
     var descricao=document.getElementById('crec-descricao').value.trim();
@@ -6226,10 +6392,9 @@
     if(!window.SGAuth||!window.SGAuth.isAdmin())return;
     _initialized=true;
     document.getElementById('crec-novoBtn').addEventListener('click',function(){ abrirModal(null); });
-    document.getElementById('crec-cancelarBtn').addEventListener('click',fecharModal);
+    document.getElementById('crec-fecharBtn').addEventListener('click',fecharModal);
     document.getElementById('crec-salvarBtn').addEventListener('click',salvar);
     document.getElementById('crec-excluirBtn').addEventListener('click',excluir);
-    document.getElementById('custoRecorrenteModal').addEventListener('click',function(e){ if(e.target.id==='custoRecorrenteModal')fecharModal(); });
     document.getElementById('crec-selCategoria').addEventListener('change',function(){ paginaAtual=1; render(); });
     document.getElementById('crec-selStatus').addEventListener('change',function(){ paginaAtual=1; render(); });
     document.getElementById('crec-buscaGeral').addEventListener('input',function(){ paginaAtual=1; render(); });
@@ -6263,7 +6428,7 @@
 
   function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
   function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
-  function fmtMoney(n){ if(n===undefined||n===null||n==='')return '—'; if(typeof n==='string')n=parseFloat(n.replace(/\./g,'').replace(',','.'))||0; else n=parseFloat(n)||0; return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function fmtMoney(n){ if(n===undefined||n===null||n==='')return '—'; if(typeof n==='string')n=(n.indexOf(',')!==-1?parseFloat(n.replace(/\./g,'').replace(',','.')):parseFloat(n))||0; else n=parseFloat(n)||0; return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
   function normalizaBuscaSv(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
   function isObrigatorioSv(v){ if(v===true)return true; if(v===false||v===undefined||v===null||v==='')return false; var s=String(v).trim().toUpperCase(); return s==='VERDADEIRO'||s==='TRUE'||s==='SIM'||s==='1'; }
   function templatesDoServico(idServico){ return templates.filter(function(t){return String(t.IdServico)===String(idServico);}).sort(function(a,b){return (parseInt(a.Ordem,10)||0)-(parseInt(b.Ordem,10)||0);}); }
@@ -6275,8 +6440,8 @@
       if(col==='nome'){return mult*String(a['Nome Servico']||'').localeCompare(String(b['Nome Servico']||''),'pt-BR');}
       if(col==='cobranca'){return mult*String(a['Tipo Cobranca']||'').localeCompare(String(b['Tipo Cobranca']||''),'pt-BR');}
       if(col==='tipo'){return mult*String(a.TipoServico||'').localeCompare(String(b.TipoServico||''),'pt-BR');}
-      if(col==='valor'){var va=parseFloat(String(a.Valor||'0').replace(/\./g,'').replace(',','.'))||0,vb=parseFloat(String(b.Valor||'0').replace(/\./g,'').replace(',','.'))||0;return mult*(va-vb);}
-      if(col==='valormodulo'){var va2=parseFloat(String(a.ValorPorModulo||'0').replace(/\./g,'').replace(',','.'))||0,vb2=parseFloat(String(b.ValorPorModulo||'0').replace(/\./g,'').replace(',','.'))||0;return mult*(va2-vb2);}
+      if(col==='valor'){var va=(String(a.Valor||'0').indexOf(',')!==-1?parseFloat(String(a.Valor||'0').replace(/\./g,'').replace(',','.')):parseFloat(a.Valor))||0,vb=(String(b.Valor||'0').indexOf(',')!==-1?parseFloat(String(b.Valor||'0').replace(/\./g,'').replace(',','.')):parseFloat(b.Valor))||0;return mult*(va-vb);}
+      if(col==='valormodulo'){var va2=(String(a.ValorPorModulo||'0').indexOf(',')!==-1?parseFloat(String(a.ValorPorModulo||'0').replace(/\./g,'').replace(',','.')):parseFloat(a.ValorPorModulo))||0,vb2=(String(b.ValorPorModulo||'0').indexOf(',')!==-1?parseFloat(String(b.ValorPorModulo||'0').replace(/\./g,'').replace(',','.')):parseFloat(b.ValorPorModulo))||0;return mult*(va2-vb2);}
       if(col==='perguntas'){return mult*(templatesDoServico(a.IdServico).length-templatesDoServico(b.IdServico).length);}
       return 0;
     });
@@ -6539,7 +6704,7 @@
 
   function init(){
     if(_initialized)return;
-    if(!window.SGAuth||!window.SGAuth.isAdmin())return;
+    if(!window.SG_SESSION)return; // agora é controlado pela matriz de permissões, não mais admin-only fixo
     _initialized=true;
     document.getElementById('sv-novoBtn').addEventListener('click',function(){ abrirPainel(null); });
     document.getElementById('sv-fecharBtn').addEventListener('click',fecharPainel);
@@ -6573,14 +6738,14 @@
 
   function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
   function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
-  function fmtMoney(n){ if(typeof n==='string')n=parseFloat(n.replace(/\./g,'').replace(',','.'))||0; else n=parseFloat(n)||0; return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function fmtMoney(n){ if(typeof n==='string'){ n=n.indexOf(',')!==-1?parseFloat(n.replace(/\./g,'').replace(',','.'))||0:parseFloat(n)||0; } else n=parseFloat(n)||0; return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 
   function sortMetasRows(lista){
     var col=sortState.col,dir=sortState.dir,mult=dir==='asc'?1:-1;
     lista.sort(function(a,b){
       if(col==='ano'){var d=(Number(a.Ano)||0)-(Number(b.Ano)||0); if(d!==0)return mult*d; return mult*((Number(a.Mes)||0)-(Number(b.Mes)||0));}
       if(col==='mes'){return mult*((Number(a.Mes)||0)-(Number(b.Mes)||0));}
-      if(col==='valor'){var va=parseFloat(String(a.Valor||'0').replace(/\./g,'').replace(',','.'))||0,vb=parseFloat(String(b.Valor||'0').replace(/\./g,'').replace(',','.'))||0;return mult*(va-vb);}
+      if(col==='valor'){var va=(String(a.Valor||'0').indexOf(',')!==-1?parseFloat(String(a.Valor||'0').replace(/\./g,'').replace(',','.')):parseFloat(a.Valor))||0,vb=(String(b.Valor||'0').indexOf(',')!==-1?parseFloat(String(b.Valor||'0').replace(/\./g,'').replace(',','.')):parseFloat(b.Valor))||0;return mult*(va-vb);}
       return 0;
     });
   }
@@ -6630,9 +6795,9 @@
     document.getElementById('mt-valor').value=m?m.Valor:'';
     document.getElementById('mt-excluirBtn').style.display=m?'block':'none';
     document.getElementById('mt-msg').textContent='';
-    document.getElementById('metaModal').classList.remove('hidden');
+    document.getElementById('metaDetalhe').classList.add('active');
   }
-  function fecharModalMeta(){ document.getElementById('metaModal').classList.add('hidden'); editandoId=null; }
+  function fecharModalMeta(){ document.getElementById('metaDetalhe').classList.remove('active'); editandoId=null; }
 
   function salvarMeta(){
     var ano=document.getElementById('mt-ano').value;
@@ -6736,10 +6901,9 @@
     if(!window.SGAuth||!window.SGAuth.isAdmin())return; // trava extra no front (o backend também recusa se quiser)
     _initialized=true;
     document.getElementById('mt-novaBtn').addEventListener('click',function(){ abrirModalMeta(null); });
-    document.getElementById('mt-cancelarBtn').addEventListener('click',fecharModalMeta);
+    document.getElementById('mt-fecharBtn').addEventListener('click',fecharModalMeta);
     document.getElementById('mt-salvarBtn').addEventListener('click',salvarMeta);
     document.getElementById('mt-excluirBtn').addEventListener('click',excluirMeta);
-    document.getElementById('metaModal').addEventListener('click',function(e){ if(e.target.id==='metaModal')fecharModalMeta(); });
     document.querySelectorAll('#view-metas th.sortable').forEach(function(th){
       th.addEventListener('click',function(){
         var col=th.getAttribute('data-sort');
@@ -6771,7 +6935,7 @@
   function nomeCliente(id){ var c=clientesMap[id]; return c?(c['Nome Razao Social']||c.Nome||id):id; }
   function idVendedorDoCliente(idCliente){ var c=clientesMap[idCliente]; return c?(c['Vendedor Responsavel']||''):''; }
   function nomeVendedorDoCliente(idCliente){ var idV=idVendedorDoCliente(idCliente); var v=vendedoresMap[idV]; return v?(v.Nome||idV):(idV?idV:'—'); }
-  function fmtMoney(n){ if(typeof n==='string')n=parseFloat(n.replace(/\./g,'').replace(',','.'))||0; else n=parseFloat(n)||0; return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function fmtMoney(n){ if(typeof n==='string'){ n=n.indexOf(',')!==-1?parseFloat(n.replace(/\./g,'').replace(',','.'))||0:parseFloat(n)||0; } else n=parseFloat(n)||0; return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
   function parseBRDate(str){ if(!str)return null; str=String(str).trim(); var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m)return new Date(+m[3],+m[2]-1,+m[1]); var d=new Date(str.substring(0,10)); return isNaN(d)?null:d; }
   function fmtDateBR(d){ return d?(String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()):'—'; }
   function dateKeyFromDate(d){ return d?(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')):''; }
@@ -6804,7 +6968,7 @@
       if(col==='vendedor'){va=nomeVendedorDoCliente(a.IdCliente);vb=nomeVendedorDoCliente(b.IdCliente);return mult*va.localeCompare(vb,'pt-BR');}
       if(col==='tipo'){va=a.TipoAssinatura||'';vb=b.TipoAssinatura||'';return mult*va.localeCompare(vb,'pt-BR');}
       if(col==='status'){va=a.Status||'';vb=b.Status||'';return mult*va.localeCompare(vb,'pt-BR');}
-      if(col==='valor'){va=parseFloat(String(a.Valor||'0').replace(/\./g,'').replace(',','.'))||0;vb=parseFloat(String(b.Valor||'0').replace(/\./g,'').replace(',','.'))||0;return mult*(va-vb);}
+      if(col==='valor'){va=(String(a.Valor||'0').indexOf(',')!==-1?parseFloat(String(a.Valor||'0').replace(/\./g,'').replace(',','.')):parseFloat(a.Valor))||0;vb=(String(b.Valor||'0').indexOf(',')!==-1?parseFloat(String(b.Valor||'0').replace(/\./g,'').replace(',','.')):parseFloat(b.Valor))||0;return mult*(va-vb);}
       if(col==='vencimento'){va=parseBRDate(a.DiaVencimento);vb=parseBRDate(b.DiaVencimento);va=va?va.getTime():-Infinity;vb=vb?vb.getTime():-Infinity;return mult*(va-vb);}
       return 0;
     });
@@ -6825,7 +6989,7 @@
 
     var ativos=planosFiltrados.filter(function(p){return (p.Status||'').trim().toLowerCase()==='ativo';});
     var inativos=planosFiltrados.filter(function(p){return (p.Status||'').trim().toLowerCase()!=='ativo';});
-    var receita=ativos.filter(function(p){return normalizaTextoPl(p.TipoAssinatura)==='mensal';}).reduce(function(s,p){var v=p.Valor;if(typeof v==='string')v=parseFloat(v.replace(/\./g,'').replace(',','.'))||0;else v=parseFloat(v)||0;return s+v;},0);
+    var receita=ativos.filter(function(p){return normalizaTextoPl(p.TipoAssinatura)==='mensal';}).reduce(function(s,p){var v=p.Valor;if(typeof v==='string')v=(v.indexOf(',')!==-1?parseFloat(v.replace(/\./g,'').replace(',','.')):parseFloat(v))||0;else v=parseFloat(v)||0;return s+v;},0);
     document.getElementById('pl-kpiAtivos').textContent=ativos.length;
     document.getElementById('pl-kpiInativos').textContent=inativos.length;
     document.getElementById('pl-kpiReceita').textContent=fmtMoney(receita);
@@ -7290,7 +7454,7 @@
   var views={ponto:document.getElementById('view-ponto'),vendas:document.getElementById('view-vendas'),funil:document.getElementById('view-funil'),agendamentos:document.getElementById('view-agendamentos'),clientes:document.getElementById('view-clientes'),planos:document.getElementById('view-planos'),relatorios:document.getElementById('view-relatorios'),custosvenda:document.getElementById('view-custosvenda'),custorecorrente:document.getElementById('view-custorecorrente'),servicos:document.getElementById('view-servicos'),metas:document.getElementById('view-metas'),usuarios:document.getElementById('view-usuarios'),permissoes:document.getElementById('view-permissoes')};
   var navLinks={ponto:document.getElementById('nav-ponto'),vendas:document.getElementById('nav-vendas'),funil:document.getElementById('nav-funil'),agendamentos:document.getElementById('nav-agendamentos'),clientes:document.getElementById('nav-clientes'),planos:document.getElementById('nav-planos'),relatorios:document.getElementById('nav-relatorios'),custosvenda:document.getElementById('nav-custosvenda'),custorecorrente:document.getElementById('nav-custorecorrente'),servicos:document.getElementById('nav-servicos'),metas:document.getElementById('nav-metas'),usuarios:document.getElementById('nav-usuarios'),permissoes:document.getElementById('nav-permissoes')};
   function switchTo(name){
-    if((name==='usuarios'||name==='permissoes'||name==='metas'||name==='custorecorrente'||name==='servicos')&&(!window.SGAuth||!window.SGAuth.isAdmin()))name='ponto';
+    if((name==='usuarios'||name==='permissoes'||name==='metas'||name==='custorecorrente')&&(!window.SGAuth||!window.SGAuth.isAdmin()))name='ponto';
     Object.keys(views).forEach(function(k){if(!views[k]||!navLinks[k])return;views[k].classList.toggle('active',k===name);navLinks[k].classList.toggle('active',k===name);});
     localStorage.setItem('sg_active_view',name);
     if(name==='funil'&&window.funilApp)window.funilApp.init();
