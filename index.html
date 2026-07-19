@@ -1191,11 +1191,10 @@
     </div></div>
     <div class="field"><label>Técnico</label><select id="ag-selTecnico"><option value="__all__">Todos os técnicos</option></select></div>
     <div class="stage-filter-group" style="width:100%;">
-      <label>Status <span style="font-weight:400;color:var(--ink-faint);">(clique pra filtrar)</span></label>
-      <div class="kpi-row ag-status-kpis">
-        <div class="kpi ag-kpi-pill active" data-agstatus="__all__"><div class="tag">Todos</div><div class="num" id="ag-kpiTodos">0</div><div class="bar"></div></div>
-        <div class="kpi ag-kpi-pill" data-agstatus="Agendado"><div class="tag">Agendado</div><div class="num" id="ag-kpiAgendado">0</div><div class="bar" style="background:#3b82f6;"></div></div>
-        <div class="kpi ag-kpi-pill" data-agstatus="Em Andamento"><div class="tag">Em Andamento</div><div class="num" id="ag-kpiAndamento">0</div><div class="bar" style="background:var(--warn);"></div></div>
+      <label>Status <span style="font-weight:400;color:var(--ink-faint);">(clique pra filtrar; clique de novo pra limpar)</span></label>
+      <div class="kpis ag-status-kpis">
+        <div class="kpi ag-kpi-pill" data-agstatus="Agendado"><div class="tag">Pendente</div><div class="num" id="ag-kpiAgendado">0</div><div class="bar" style="background:var(--warn);"></div></div>
+        <div class="kpi ag-kpi-pill" data-agstatus="Em Andamento"><div class="tag">Em Andamento</div><div class="num" id="ag-kpiAndamento">0</div><div class="bar" style="background:#3b82f6;"></div></div>
         <div class="kpi ag-kpi-pill" data-agstatus="Concluído"><div class="tag">Concluído</div><div class="num" id="ag-kpiConcluido">0</div><div class="bar" style="background:var(--accent);"></div></div>
         <div class="kpi ag-kpi-pill" data-agstatus="Cancelado"><div class="tag">Cancelado</div><div class="num" id="ag-kpiCancelado">0</div><div class="bar" style="background:var(--debit);"></div></div>
       </div>
@@ -1713,7 +1712,7 @@
     <button class="reset-btn" id="cv-resetFiltros" style="align-self:flex-end;">Limpar filtros</button>
   </div>
 
-  <div class="kpi-row">
+  <div class="kpis">
     <div class="kpi"><div class="tag">Total pago</div><div class="num" id="cv-kpiPago">R$ 0,00</div><div class="bar" style="background:var(--accent);"></div></div>
     <div class="kpi"><div class="tag">Aguardando pagamento</div><div class="num" id="cv-kpiPendente">R$ 0,00</div><div class="bar" style="background:var(--warn);"></div></div>
     <div class="kpi"><div class="tag">Total de lançamentos</div><div class="num" id="cv-kpiTotal">0</div><div class="bar"></div></div>
@@ -1786,7 +1785,7 @@
     <button class="reset-btn" id="crec-resetFiltros" style="align-self:flex-end;">Limpar filtros</button>
   </div>
 
-  <div class="kpi-row">
+  <div class="kpis">
     <div class="kpi"><div class="tag">Total mensal (ativos)</div><div class="num" id="crec-kpiAtivo">R$ 0,00</div><div class="bar" style="background:var(--accent);"></div></div>
     <div class="kpi"><div class="tag">Total (inativos)</div><div class="num" id="crec-kpiInativo">R$ 0,00</div><div class="bar"></div></div>
     <div class="kpi"><div class="tag">Lançamentos</div><div class="num" id="crec-kpiTotal">0</div><div class="bar"></div></div>
@@ -4772,7 +4771,6 @@
       var s=(a['Status Agendamento']||'').trim();
       if(contagem[s]!==undefined)contagem[s]++;
     });
-    document.getElementById('ag-kpiTodos').textContent=contagem.Todos;
     document.getElementById('ag-kpiAgendado').textContent=contagem.Agendado;
     document.getElementById('ag-kpiAndamento').textContent=contagem['Em Andamento'];
     document.getElementById('ag-kpiConcluido').textContent=contagem['Concluído'];
@@ -4900,7 +4898,8 @@
     return Object.keys(vendedoresMap).map(function(id){return vendedoresMap[id];})
       .filter(function(v){return (v.Status||'').trim().toLowerCase()!=='inativo';})
       .filter(ehTecnico)
-      .sort(function(a,b){return (a.Nome||'').localeCompare(b.Nome||'','pt-BR');});
+      .sort(function(a,b){return (a.Nome||'').localeCompare(b.Nome||'','pt-BR');})
+      .map(function(v){return {id:v.IdVendedor,label:v.Nome};});
   }
 
   function populateSelects(){
@@ -5247,8 +5246,10 @@
     document.getElementById('ag-buscaGeral').addEventListener('input',function(){ paginaAtual=1; render(); });
     document.querySelectorAll('#view-agendamentos .ag-kpi-pill').forEach(function(pill){
       pill.addEventListener('click',function(){
+        var jaAtivo=pill.classList.contains('active');
         document.querySelectorAll('#view-agendamentos .ag-kpi-pill').forEach(function(p){p.classList.remove('active');});
-        pill.classList.add('active'); paginaAtual=1; render();
+        if(!jaAtivo)pill.classList.add('active');
+        paginaAtual=1; render();
       });
     });
     document.getElementById('ag-resetFiltros').addEventListener('click',function(){
@@ -5256,7 +5257,6 @@
       document.getElementById('ag-buscaGeral').value='';
       setDefaultRange();
       document.querySelectorAll('#view-agendamentos .ag-kpi-pill').forEach(function(p){p.classList.remove('active');});
-      document.querySelector('#view-agendamentos .ag-kpi-pill[data-agstatus="__all__"]').classList.add('active');
       document.querySelectorAll('#view-agendamentos .qr-btn[data-agrange]').forEach(function(b){b.classList.remove('active');});
       document.querySelector('#view-agendamentos .qr-btn[data-agrange="all"]').classList.add('active');
       paginaAtual=1; render();
