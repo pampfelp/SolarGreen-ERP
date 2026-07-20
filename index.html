@@ -166,6 +166,9 @@
   .ag-kpi-pill:hover{border-color:var(--accent);}
   .ag-kpi-pill.active{border-color:var(--accent-deep);box-shadow:0 0 0 2px var(--accent-deep) inset;}
   .ag-kpi-pill .num{font-size:22px;}
+  .kpi-clickable{cursor:pointer;transition:border-color .12s,box-shadow .12s;}
+  .kpi-clickable:hover{border-color:var(--accent);}
+  .kpi-clickable.active{border-color:var(--accent-deep);box-shadow:0 0 0 2px var(--accent-deep) inset;}
   .kpi .tag{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-faint);font-weight:600;}
   .kpi .num{font-family:var(--unbounded);font-size:22px;font-weight:700;margin-top:8px;color:var(--ink);}
   .kpi .sub{font-size:11.5px;color:var(--ink-soft);margin-top:4px;}
@@ -496,6 +499,27 @@
   .chart-col .bar-fill .bar-count{position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);font-family:var(--sans);font-size:11px;font-weight:700;color:var(--ink);white-space:nowrap;pointer-events:none;}
   .chart-col .bar-label{font-size:9px;color:var(--ink-faint);margin-top:4px;text-align:center;position:absolute;bottom:0;}
   .chart-empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--ink-faint);font-size:13px;}
+  /* Dashboard: gráfico de linha (SVG) */
+  .linechart-wrap{position:relative;width:100%;height:240px;}
+  .linechart-svg{width:100%;height:100%;overflow:visible;}
+  .linechart-area{fill:var(--accent);fill-opacity:.08;stroke:none;}
+  .linechart-line{fill:none;stroke:var(--accent-deep);stroke-width:2.5;}
+  .linechart-dot{fill:#fff;stroke:var(--accent-deep);stroke-width:2.5;cursor:pointer;transition:r .1s;}
+  .linechart-dot:hover,.linechart-dot.selected{fill:var(--accent-deep);r:6;}
+  .linechart-label{font-size:9px;fill:var(--ink-faint);font-family:var(--sans);}
+  .linechart-tooltip{position:absolute;background:#003122;color:#fff;font-size:11.5px;font-weight:700;padding:5px 9px;border-radius:7px;pointer-events:none;transform:translate(-50%,-115%);white-space:nowrap;opacity:0;transition:opacity .1s;z-index:5;}
+  /* Dashboard: barras horizontais comparativas */
+  .hbar-row{display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;border-radius:8px;transition:background .12s;}
+  .hbar-row:hover{background:var(--bg);}
+  .hbar-row.selected{background:rgba(120,216,0,.12);}
+  .hbar-label{width:130px;flex:none;font-size:12.5px;font-weight:600;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .hbar-track{flex:1;height:20px;background:var(--bg);border-radius:6px;overflow:hidden;position:relative;}
+  .hbar-fill{height:100%;background:var(--accent);border-radius:6px;transition:width .3s;min-width:2px;}
+  .hbar-row.selected .hbar-fill{background:var(--accent-deep);}
+  .hbar-value{width:100px;flex:none;text-align:right;font-size:12.5px;font-weight:700;}
+  .dash-insight{background:linear-gradient(135deg,#f2f7f2,#e8f5e0);border:1px solid var(--line);border-left:4px solid var(--accent-deep);border-radius:12px;padding:18px 20px;font-size:13.5px;line-height:1.65;color:var(--ink-soft);}
+  .dash-insight strong{color:var(--ink);}
+  .dash-insight .dash-insight-title{font-size:11.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--accent-deep);margin-bottom:8px;}
 
   /* ── Tabela de leads ── */
   .funil-table-wrap{background:#fff;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;}
@@ -706,6 +730,7 @@
     <div class="sg-sub">Suporte · Painéis</div>
   </div>
   <nav>
+    <a href="#" id="nav-dashboard"><span class="ico">📊</span><span class="nav-label"> Dashboard</span></a>
     <a href="#" id="nav-ponto"><span class="ico">⏱</span><span class="nav-label"> Ponto Eletrônico</span></a>
     <a href="#" id="nav-vendas"><span class="ico">◆</span><span class="nav-label"> Vendas</span></a>
     <a href="#" id="nav-funil"><span class="ico">◈</span><span class="nav-label"> Funil</span></a>
@@ -735,6 +760,70 @@
 </aside>
 
 <!-- ═══ VIEW: PONTO ELETRÔNICO ═══ -->
+<!-- ═══ VIEW: DASHBOARD COMERCIAL/FINANCEIRO ═══ -->
+
+<div id="view-dashboard" class="view">
+<div class="app">
+  <header class="top">
+    <div><h1>Dashboard <span>Comercial</span></h1><div class="top-sub">Visão geral de vendas, custos e funil · <span id="db-appVersion"></span></div></div>
+    <div style="text-align:right;"><div class="clock" id="db-lastUpdate"></div></div>
+  </header>
+
+  <div class="filters" style="align-items:flex-start;">
+    <div class="field"><label>Período de</label><input type="date" id="db-dateFrom"></div>
+    <div class="field"><label>Até</label><input type="date" id="db-dateTo"></div>
+    <div class="field"><label>Atalhos</label><div style="display:flex;gap:6px;">
+      <button class="qr-btn" data-dbrange="30">30 dias</button>
+      <button class="qr-btn" data-dbrange="90">90 dias</button>
+      <button class="qr-btn" data-dbrange="month">Este mês</button>
+      <button class="qr-btn active" data-dbrange="all">Tudo</button>
+    </div></div>
+    <div class="field"><label>Vendedor</label><select id="db-selVendedor"><option value="__all__">Todos os vendedores</option></select></div>
+    <div class="field"><label>Serviço</label><select id="db-selServico"><option value="__all__">Todos os serviços</option></select></div>
+    <div class="spacer"></div>
+    <button class="reset-btn" id="db-resetFiltros">Limpar filtros</button>
+  </div>
+
+  <div class="kpis" id="db-kpiRow">
+    <div class="kpi"><div class="tag">Faturamento</div><div class="num" id="db-kpiFaturamento">R$ 0,00</div><div class="sub" id="db-kpiFaturamentoSub"></div><div class="bar" style="background:var(--accent);"></div></div>
+    <div class="kpi"><div class="tag">Custos totais</div><div class="num" id="db-kpiCustos">R$ 0,00</div><div class="sub">operação + escritório, no período</div><div class="bar" style="background:var(--debit);"></div></div>
+    <div class="kpi"><div class="tag">Lucro operacional</div><div class="num" id="db-kpiLucro">R$ 0,00</div><div class="sub">faturamento − custos</div><div class="bar"></div></div>
+    <div class="kpi"><div class="tag">Ticket médio</div><div class="num" id="db-kpiTicket">R$ 0,00</div><div class="sub" id="db-kpiTicketSub"></div><div class="bar"></div></div>
+    <div class="kpi"><div class="tag">Conversão propostas → vendas</div><div class="num" id="db-kpiConversao">0%</div><div class="sub" id="db-kpiConversaoSub"></div><div class="bar" style="background:#3b82f6;"></div></div>
+    <div class="kpi"><div class="tag">Novos leads no funil</div><div class="num" id="db-kpiLeads">0</div><div class="sub" id="db-kpiLeadsSub"></div><div class="bar"></div></div>
+  </div>
+
+  <div class="dash-insight" id="db-insight" style="margin-bottom:24px;">
+    <div class="dash-insight-title">📌 Leitura automática do período</div>
+    <div id="db-insightText">Carregando dados…</div>
+  </div>
+
+  <div class="section-head"><h2>Faturamento <span>ao longo do tempo</span></h2><div class="hint" id="db-lineHint">clique num ponto pra filtrar o dia · shift+clique pra selecionar um período</div></div>
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 24px 12px;margin-bottom:24px;">
+    <div class="linechart-wrap" id="db-lineWrap"></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+    <div>
+      <div class="section-head"><h2>Faturamento por <span>vendedor</span></h2><div class="hint">clique numa barra pra filtrar</div></div>
+      <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;" id="db-barVendedores"></div>
+    </div>
+    <div>
+      <div class="section-head"><h2>Faturamento por <span>serviço</span></h2><div class="hint">clique numa barra pra filtrar</div></div>
+      <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;" id="db-barServicos"></div>
+    </div>
+  </div>
+
+  <div class="section-head" style="margin-top:24px;"><h2>Funil de <span>conversão</span></h2><div class="hint">números lançados em Relatórios, no período filtrado</div></div>
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;" id="db-funilConversao"></div>
+
+  <div class="empty" id="db-emptyState" style="display:none;">
+    <div class="glyph">📊</div>
+    <p>Conectando à planilha para carregar o dashboard…</p>
+  </div>
+</div>
+</div>
+
 <div id="view-ponto" class="view">
 <div class="app">
 
@@ -1355,6 +1444,13 @@
       </div>
     </div>
     <div class="uform-msg" id="cr-msg"></div>
+    <div id="cr-avisoDuplicado" class="hidden" style="background:#fef2f2;border:1px solid var(--debit);border-radius:10px;padding:12px 14px;margin-top:4px;">
+      <div style="font-size:12.5px;color:var(--debit);font-weight:700;margin-bottom:8px;">⚠️ Já existe um contato cadastrado para esse número</div>
+      <label style="font-size:12px;color:var(--ink-soft);display:flex;align-items:flex-start;gap:7px;cursor:pointer;">
+        <input type="checkbox" id="cr-confirmarDiferente" style="margin-top:2px;">
+        <span>Confirmo que é um cliente diferente (endereço diferente do outro cadastro com esse telefone)</span>
+      </label>
+    </div>
   </div>
   <div class="ad-actions">
     <button class="connect-btn" id="cr-salvarBtn" style="width:100%;">Cadastrar e continuar</button>
@@ -1435,7 +1531,7 @@
     <h2>Clientes <span id="cl-tableTitle">cadastrados</span></h2>
     <div class="hint" id="cl-tableHint"></div>
     <div class="spacer"></div>
-    <input type="text" id="cl-buscaFiltro" placeholder="Buscar por nome…" style="max-width:220px;font-size:13px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;margin-right:8px;">
+    <input type="text" id="cl-buscaFiltro" placeholder="Buscar nome, telefone, e-mail, vendedor, status…" style="max-width:280px;font-size:13px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;margin-right:8px;">
     <button class="connect-btn" id="cl-novoBtn">+ Novo cliente</button>
   </div>
   <div class="table-wrap">
@@ -1484,6 +1580,13 @@
       </div>
     </div>
     <div class="uform-msg" id="cm-msg"></div>
+    <div id="cm-avisoDuplicado" class="hidden" style="background:#fef2f2;border:1px solid var(--debit);border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+      <div style="font-size:12.5px;color:var(--debit);font-weight:700;margin-bottom:8px;">⚠️ Já existe um contato cadastrado para esse número</div>
+      <label style="font-size:12px;color:var(--ink-soft);display:flex;align-items:flex-start;gap:7px;cursor:pointer;">
+        <input type="checkbox" id="cm-confirmarDiferente" style="margin-top:2px;">
+        <span>Confirmo que é um cliente diferente (endereço diferente do outro cadastro com esse telefone)</span>
+      </label>
+    </div>
     <div class="modal-actions">
       <button class="reset-btn" id="cm-excluirBtn" style="color:var(--debit);">🗑 Excluir cliente</button>
       <div style="display:flex;gap:8px;">
@@ -1504,8 +1607,8 @@
   </header>
 
   <div class="kpis" style="margin-bottom:20px;">
-    <div class="kpi accentbar"><div class="tag">Assinantes ativos</div><div class="num" id="pl-kpiAtivos">0</div><div class="sub" id="pl-kpiAtivosSub">planos com Status = Ativo</div><div class="bar"></div></div>
-    <div class="kpi debitbar"><div class="tag">Assinantes inativos</div><div class="num" id="pl-kpiInativos">0</div><div class="sub" id="pl-kpiInativosSub">planos com Status ≠ Ativo</div><div class="bar"></div></div>
+    <div class="kpi accentbar kpi-clickable" data-plstatus="Ativo"><div class="tag">Assinantes ativos</div><div class="num" id="pl-kpiAtivos">0</div><div class="sub" id="pl-kpiAtivosSub">planos com Status = Ativo</div><div class="bar"></div></div>
+    <div class="kpi debitbar kpi-clickable" data-plstatus="Inativo"><div class="tag">Assinantes inativos</div><div class="num" id="pl-kpiInativos">0</div><div class="sub" id="pl-kpiInativosSub">planos com Status ≠ Ativo</div><div class="bar"></div></div>
     <div class="kpi"><div class="tag">Receita recorrente (ativos)</div><div class="num" id="pl-kpiReceita">R$ 0,00</div><div class="sub">soma dos planos Mensais ativos — anual é pago à vista, não entra aqui</div><div class="bar"></div></div>
   </div>
 
@@ -1708,13 +1811,13 @@
   <div class="filters" style="align-items:flex-start;">
     <div class="field"><label>Período de</label><input type="date" id="cv-dateFrom"></div>
     <div class="field"><label>Até</label><input type="date" id="cv-dateTo"></div>
-    <div class="field"><label>Status</label><select id="cv-selStatus"><option value="__all__">Todos</option><option value="Pago">Pago</option><option value="Pendente">Aguardando pagamento</option></select></div>
+    <div class="field"><label>Status</label><select id="cv-selStatus"><option value="__all__">Todos</option><option value="Pago">Pago</option><option value="Aguardando Pagamento">Aguardando pagamento</option></select></div>
     <button class="reset-btn" id="cv-resetFiltros" style="align-self:flex-end;">Limpar filtros</button>
   </div>
 
   <div class="kpis">
-    <div class="kpi"><div class="tag">Total pago</div><div class="num" id="cv-kpiPago">R$ 0,00</div><div class="bar" style="background:var(--accent);"></div></div>
-    <div class="kpi"><div class="tag">Aguardando pagamento</div><div class="num" id="cv-kpiPendente">R$ 0,00</div><div class="bar" style="background:var(--warn);"></div></div>
+    <div class="kpi kpi-clickable" data-cvstatus="Pago"><div class="tag">Total pago</div><div class="num" id="cv-kpiPago">R$ 0,00</div><div class="bar" style="background:var(--accent);"></div></div>
+    <div class="kpi kpi-clickable" data-cvstatus="Aguardando Pagamento"><div class="tag">Aguardando pagamento</div><div class="num" id="cv-kpiPendente">R$ 0,00</div><div class="bar" style="background:var(--warn);"></div></div>
     <div class="kpi"><div class="tag">Total de lançamentos</div><div class="num" id="cv-kpiTotal">0</div><div class="bar"></div></div>
   </div>
 
@@ -1763,7 +1866,7 @@
     <div class="uform-field"><label>Descrição</label><textarea id="cv-descricao" rows="3"></textarea></div>
     <div class="uform-field"><label>Valor</label><input type="number" id="cv-valor" step="0.01" min="0"></div>
     <div class="uform-field"><label>Data</label><input type="date" id="cv-data"></div>
-    <div class="uform-field"><label>Status</label><select id="cv-status"><option value="Pendente">Pendente</option><option value="Pago">Pago</option></select></div>
+    <div class="uform-field"><label>Status</label><select id="cv-status"><option value="Aguardando Pagamento">Aguardando Pagamento</option><option value="Pago">Pago</option></select></div>
   </div>
   <div class="ad-actions">
     <button class="connect-btn" id="cv-salvarBtn">Salvar custo</button>
@@ -1786,8 +1889,8 @@
   </div>
 
   <div class="kpis">
-    <div class="kpi"><div class="tag">Total mensal (ativos)</div><div class="num" id="crec-kpiAtivo">R$ 0,00</div><div class="bar" style="background:var(--accent);"></div></div>
-    <div class="kpi"><div class="tag">Total (inativos)</div><div class="num" id="crec-kpiInativo">R$ 0,00</div><div class="bar"></div></div>
+    <div class="kpi kpi-clickable" data-crecstatus="Ativo"><div class="tag">Total mensal (ativos)</div><div class="num" id="crec-kpiAtivo">R$ 0,00</div><div class="bar" style="background:var(--accent);"></div></div>
+    <div class="kpi kpi-clickable" data-crecstatus="Inativo"><div class="tag">Total (inativos)</div><div class="num" id="crec-kpiInativo">R$ 0,00</div><div class="bar"></div></div>
     <div class="kpi"><div class="tag">Lançamentos</div><div class="num" id="crec-kpiTotal">0</div><div class="bar"></div></div>
   </div>
 
@@ -2127,7 +2230,28 @@
   // por causa de algum descompasso passado). Nesse caso o resultado desejado
   // (não existir mais) já está garantido, então não faz sentido desfazer.
   window.SGUtil={
-    ehNaoEncontrado:function(erro){ return !!(erro&&/n[aã]o encontrad[oa]/i.test(String(erro))); }
+    ehNaoEncontrado:function(erro){ return !!(erro&&/n[aã]o encontrad[oa]/i.test(String(erro))); },
+    // Pega só os dígitos do telefone (ignora hífen, espaço, parênteses, +55…)
+    // e devolve os últimos 8 — é o "miolo" do número, sem DDD nem 9 na frente,
+    // que costuma ser igual mesmo quando a pessoa digita o número de formas
+    // diferentes ("91 98765-4321" vs "5591987654321" vs "98765-4321").
+    ultimos8DigitosTelefone:function(tel){
+      var digitos=String(tel||'').replace(/\D/g,'');
+      return digitos.length>=8?digitos.slice(-8):null; // menos de 8 dígitos não é telefone válido pra comparar
+    },
+    // Procura, numa lista de clientes, se já existe alguém com os mesmos
+    // últimos 8 dígitos de telefone. idClienteIgnorar exclui o próprio
+    // registro (necessário ao EDITAR um cliente já existente).
+    encontrarClienteMesmoTelefone:function(telefone,listaClientes,idClienteIgnorar){
+      var alvo=window.SGUtil.ultimos8DigitosTelefone(telefone);
+      if(!alvo)return null;
+      for(var i=0;i<listaClientes.length;i++){
+        var c=listaClientes[i];
+        if(idClienteIgnorar&&String(c.IdCliente)===String(idClienteIgnorar))continue;
+        if(window.SGUtil.ultimos8DigitosTelefone(c.Telefone)===alvo)return c;
+      }
+      return null;
+    }
   };
 
   // Cache de "quem pode ver o quê" — carregado uma vez por sessão (uma
@@ -2172,7 +2296,7 @@
     // cargo da pessoa não pode ver. Administradores nunca passam por aqui.
     function aplicarNoMenu(){
       if(window.SGAuth&&window.SGAuth.isAdmin())return;
-      var TELAS=['ponto','vendas','funil','clientes','agendamentos','planos','relatorios','custosvenda','servicos'];
+      var TELAS=['dashboard','ponto','vendas','funil','clientes','agendamentos','planos','relatorios','custosvenda','servicos'];
       var atual=localStorage.getItem('sg_active_view')||'ponto';
       var escondeuAtual=false;
       TELAS.forEach(function(t){
@@ -2408,7 +2532,7 @@
    */
   function aquecerAbasEmSegundoPlano(){
     var modulos=[
-      'funilApp','agendamentosApp','clientesApp','planosApp','relatoriosApp',
+      'dashboardApp','funilApp','agendamentosApp','clientesApp','planosApp','relatoriosApp',
       'custosVendaApp','metasApp','custoRecorrenteApp','servicosApp',
       'usuariosApp','permissoesApp'
     ];
@@ -2425,6 +2549,364 @@
     if(getSession()){ initLoggedUI(); }
   });
 })();
+
+// ════ DASHBOARD COMERCIAL/FINANCEIRO ════
+(function(){
+  var _initialized=false;
+  var vendasRecords=[],custosVendaRecords=[],relatoriosRecords=[],funilRecords=[];
+  var vendedoresMap={},clientesMap={},servicosMap={};
+  var ID_VENDA_CUSTOS_ESCRITORIO='2b45b472';
+  var ID_CLIENTE_APORTE_SOCIOS='da6dbd89';
+  var APP_VERSION='2026-07-16-1';
+  var chartAnchorDay=null;
+
+  function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
+  function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+  function fmtMoney(n){ n=parseFloat(n)||0; return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function parseBRDate(str){ if(!str)return null; str=String(str).trim(); var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m)return new Date(+m[3],+m[2]-1,+m[1]); var d=new Date(str.substring(0,10)); return isNaN(d)?null:d; }
+  function parseISOSimples(iso){ var p=iso.split('-'); return new Date(+p[0],+p[1]-1,+p[2]); }
+  function parseBRNumber(v){ if(v===''||v===null||v===undefined)return 0; if(typeof v==='number')return v; var s=String(v).trim().replace(/R\$\s?/g,''); if(s.indexOf(',')!==-1)s=s.replace(/\./g,'').replace(',','.'); var n=parseFloat(s); return isNaN(n)?0:n; }
+  function dateKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  function fmtDateBR(d){ return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear(); }
+  function fmtDateBRDoISO(iso){ var p=iso.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
+  function nomeVendedor(id){ var v=vendedoresMap[id]; return v?(v.Nome||id):'—'; }
+  function nomeServico(id){ var s=servicosMap[id]; return s?(s['Nome Servico']||id):'—'; }
+
+  function processVendas(list){var out=[];list.forEach(function(o){if(!o.IdVenda)return;var dt=parseBRDate(o.DataVenda);if(!dt)return;out.push({idVenda:o.IdVenda,idCliente:o.IdCliente,idServico:o.IdServico,idVendedor:o.IdVendedor,dt:dt,dateKey:dateKey(dt),valor:parseBRNumber(o.Valor)});});return out;}
+  function processCustosVenda(list){var out=[];list.forEach(function(o){if(!o.IdCusto)return;var dt=parseBRDate(o.Data);out.push({idCusto:o.IdCusto,idVenda:o.IdVenda,status:String(o.Status||''),dt:dt,dateKey:dt?dateKey(dt):null,valor:parseBRNumber(o.Valor)});});return out;}
+  function processRelatorios(list){var out=[];list.forEach(function(o){if(!o.IdRelatorio)return;var dt=parseBRDate(o.Data);if(!dt)return;out.push({idVendedor:o.IdVendedor,dt:dt,dateKey:dateKey(dt),contatos:parseBRNumber(o['Novos Contatos']),conversas:parseBRNumber(o.Conversas),propostas:parseBRNumber(o['Propostas Apresentadas']),vendas:parseBRNumber(o.Vendas)});});return out;}
+  function processFunil(list){var out=[];list.forEach(function(o){var id=o.IdOportunidade||o.IdFunil;if(!id)return;var dt=parseBRDate(o['Data Criacao']);out.push({id:id,idCliente:o.IdCliente,idVendedor:o.IdVendedor,idServico:o.IdServico,etapa:o.Etapa,dt:dt,dateKey:dt?dateKey(dt):null});});return out;}
+
+  function getFiltered(){
+    var from=document.getElementById('db-dateFrom').value,to=document.getElementById('db-dateTo').value;
+    var vendedor=document.getElementById('db-selVendedor').value,servico=document.getElementById('db-selServico').value;
+    function passa(v){ if(from&&v.dateKey<from)return false; if(to&&v.dateKey>to)return false; if(vendedor!=='__all__'&&v.idVendedor!==vendedor)return false; if(servico!=='__all__'&&v.idServico!==servico)return false; return true; }
+    var vendasTodas=vendasRecords.filter(passa);
+    var vendasFat=vendasTodas.filter(function(v){return v.idCliente!==ID_CLIENTE_APORTE_SOCIOS;});
+    var vendaIds={}; vendasTodas.forEach(function(v){vendaIds[v.idVenda]=true;});
+    var custosOp=custosVendaRecords.filter(function(c){ return c.idVenda!==ID_VENDA_CUSTOS_ESCRITORIO && c.status.toLowerCase()==='pago' && vendaIds[c.idVenda]; });
+    var custosEsc=custosVendaRecords.filter(function(c){
+      if(c.idVenda!==ID_VENDA_CUSTOS_ESCRITORIO)return false;
+      if(c.status.toLowerCase()!=='pago')return false;
+      if(c.dateKey){ if(from&&c.dateKey<from)return false; if(to&&c.dateKey>to)return false; }
+      return true;
+    });
+    var relatorios=relatoriosRecords.filter(function(r){ if(from&&r.dateKey<from)return false; if(to&&r.dateKey>to)return false; if(vendedor!=='__all__'&&r.idVendedor!==vendedor)return false; return true; });
+    var leads=funilRecords.filter(function(l){ if(!l.dateKey)return false; if(from&&l.dateKey<from)return false; if(to&&l.dateKey>to)return false; if(vendedor!=='__all__'&&l.idVendedor!==vendedor)return false; if(servico!=='__all__'&&l.idServico!==servico)return false; return true; });
+    return {vendasTodas:vendasTodas,vendasFat:vendasFat,custosOp:custosOp,custosEsc:custosEsc,relatorios:relatorios,leads:leads};
+  }
+
+  /** Custo de escritório é despesa geral — rateado proporcional à fatia de
+   *  faturamento do filtro atual (mesmo padrão já usado na tela de Vendas),
+   *  pra não jogar o custo da empresa inteira em cima de um recorte. */
+  function custoEscritorioProporcional(ceTotal,fatFiltrado){
+    var from=document.getElementById('db-dateFrom').value,to=document.getElementById('db-dateTo').value;
+    var fatTotalPeriodo=vendasRecords.filter(function(v){
+      if(v.idCliente===ID_CLIENTE_APORTE_SOCIOS)return false;
+      if(from&&v.dateKey<from)return false; if(to&&v.dateKey>to)return false;
+      return true;
+    }).reduce(function(s,v){return s+v.valor;},0);
+    if(fatTotalPeriodo<=0)return 0;
+    return ceTotal*(fatFiltrado/fatTotalPeriodo);
+  }
+
+  function setRangeDias(qtdDias){
+    var hoje=new Date(); var de=new Date(hoje); de.setDate(hoje.getDate()-qtdDias);
+    document.getElementById('db-dateFrom').value=dateKey(de);
+    document.getElementById('db-dateTo').value=dateKey(hoje);
+  }
+  function setRangeEsteMes(){
+    var hoje=new Date(); var inicio=new Date(hoje.getFullYear(),hoje.getMonth(),1);
+    document.getElementById('db-dateFrom').value=dateKey(inicio);
+    document.getElementById('db-dateTo').value=dateKey(hoje);
+  }
+  function setRangeTudo(){
+    if(!vendasRecords.length){ document.getElementById('db-dateFrom').value=''; document.getElementById('db-dateTo').value=''; return; }
+    var datas=vendasRecords.map(function(v){return v.dateKey;}).sort();
+    document.getElementById('db-dateFrom').value=datas[0];
+    document.getElementById('db-dateTo').value=datas[datas.length-1];
+  }
+
+  function popularSelects(){
+    var selV=document.getElementById('db-selVendedor'),curV=selV.value||'__all__';
+    selV.innerHTML='<option value="__all__">Todos os vendedores</option>'+
+      Object.keys(vendedoresMap).map(function(id){return vendedoresMap[id];}).sort(function(a,b){return (a.Nome||'').localeCompare(b.Nome||'','pt-BR');})
+        .map(function(v){return '<option value="'+escapeHtml(v.IdVendedor)+'">'+escapeHtml(v.Nome)+'</option>';}).join('');
+    if([].slice.call(selV.options).some(function(o){return o.value===curV;}))selV.value=curV;
+
+    var selS=document.getElementById('db-selServico'),curS=selS.value||'__all__';
+    selS.innerHTML='<option value="__all__">Todos os serviços</option>'+
+      Object.keys(servicosMap).map(function(id){return servicosMap[id];}).sort(function(a,b){return (a['Nome Servico']||'').localeCompare(b['Nome Servico']||'','pt-BR');})
+        .map(function(s){return '<option value="'+escapeHtml(s.IdServico)+'">'+escapeHtml(s['Nome Servico'])+'</option>';}).join('');
+    if([].slice.call(selS.options).some(function(o){return o.value===curS;}))selS.value=curS;
+  }
+
+  function selecionarPeriodoChart(dayKey,toKey,isShift){
+    var fi=document.getElementById('db-dateFrom'),ti=document.getElementById('db-dateTo');
+    if(isShift&&chartAnchorDay){
+      var lo=dayKey<chartAnchorDay?dayKey:chartAnchorDay,hi=dayKey<chartAnchorDay?chartAnchorDay:dayKey;
+      fi.value=lo; ti.value=hi;
+    }else{
+      chartAnchorDay=dayKey; fi.value=dayKey; ti.value=toKey||dayKey;
+    }
+    document.querySelectorAll('#view-dashboard .qr-btn[data-dbrange]').forEach(function(b){b.classList.remove('active');});
+    render();
+  }
+
+  function highlightLineSelection(){
+    var from=document.getElementById('db-dateFrom').value,to=document.getElementById('db-dateTo').value;
+    document.querySelectorAll('#db-lineWrap .linechart-dot').forEach(function(dot){
+      var k=dot.getAttribute('data-key'),kTo=dot.getAttribute('data-tokey');
+      var dentro=!!(from&&to&&((k>=from&&k<=to)||(kTo>=from&&kTo<=to)||(k<=from&&kTo>=to)));
+      dot.classList.toggle('selected',dentro);
+    });
+  }
+
+  function renderLineChart(vendasFat){
+    var wrap=document.getElementById('db-lineWrap');
+    if(!vendasFat.length){ wrap.innerHTML='<div class="chart-empty">Nenhum dado no período</div>'; return; }
+    var byDay={}; vendasFat.forEach(function(v){ byDay[v.dateKey]=(byDay[v.dateKey]||0)+v.valor; });
+    var dts=vendasFat.map(function(v){return v.dt.getTime();});
+    var minDt=new Date(Math.min.apply(null,dts)),maxDt=new Date(Math.max.apply(null,dts));
+    var fromVal=document.getElementById('db-dateFrom').value,toVal=document.getElementById('db-dateTo').value;
+    if(fromVal){var fd=parseISOSimples(fromVal); if(fd<minDt)minDt=fd;}
+    if(toVal){var td=parseISOSimples(toVal); if(td>maxDt)maxDt=td;}
+
+    var pontos=[],cursor=new Date(minDt.getFullYear(),minDt.getMonth(),minDt.getDate()),end=new Date(maxDt.getFullYear(),maxDt.getMonth(),maxDt.getDate());
+    while(cursor<=end){ var k=dateKey(cursor); pontos.push({key:k,toKey:k,label:fmtDateBR(cursor),value:byDay[k]||0}); cursor.setDate(cursor.getDate()+1); }
+
+    var pontosFinal=pontos;
+    if(pontos.length>60){ // agrupa por semana pra não poluir quando o período é muito longo
+      var porSemana={};
+      pontos.forEach(function(p){
+        var d=parseISOSimples(p.key); var inicioSemana=new Date(d); inicioSemana.setDate(d.getDate()-d.getDay());
+        var chaveSemana=dateKey(inicioSemana);
+        if(!porSemana[chaveSemana])porSemana[chaveSemana]={key:chaveSemana,toKey:p.key,label:fmtDateBR(inicioSemana),value:0};
+        porSemana[chaveSemana].value+=p.value; porSemana[chaveSemana].toKey=p.key;
+      });
+      pontosFinal=Object.keys(porSemana).sort().map(function(k){return porSemana[k];});
+    }
+
+    var w=1000,h=220,padL=10,padR=10,padT=16,padB=28;
+    var maxV=Math.max.apply(null,pontosFinal.map(function(p){return p.value;}))||1;
+    var n=pontosFinal.length,stepX=n>1?(w-padL-padR)/(n-1):0;
+    function x(i){return padL+i*stepX;}
+    function y(v){return h-padB-(v/maxV)*(h-padT-padB);}
+    var pathD=pontosFinal.map(function(p,i){return (i===0?'M':'L')+x(i).toFixed(1)+','+y(p.value).toFixed(1);}).join(' ');
+    var areaD=pathD+' L'+x(n-1).toFixed(1)+','+(h-padB)+' L'+x(0).toFixed(1)+','+(h-padB)+' Z';
+    var circles=pontosFinal.map(function(p,i){return '<circle class="linechart-dot" data-key="'+p.key+'" data-tokey="'+p.toKey+'" data-label="'+escapeHtml(p.label)+'" data-value="'+p.value+'" cx="'+x(i).toFixed(1)+'" cy="'+y(p.value).toFixed(1)+'" r="4"></circle>';}).join('');
+    var passoLabel=Math.max(1,Math.ceil(n/10));
+    var labels=pontosFinal.map(function(p,i){ if(i%passoLabel!==0&&i!==n-1)return ''; return '<text class="linechart-label" x="'+x(i).toFixed(1)+'" y="'+(h-8)+'" text-anchor="middle">'+escapeHtml(p.label)+'</text>'; }).join('');
+
+    wrap.innerHTML='<svg viewBox="0 0 '+w+' '+h+'" class="linechart-svg" preserveAspectRatio="none">'+
+      '<path d="'+areaD+'" class="linechart-area"></path>'+
+      '<path d="'+pathD+'" class="linechart-line" vector-effect="non-scaling-stroke"></path>'+
+      circles+labels+
+    '</svg><div class="linechart-tooltip" id="db-lineTooltip"></div>';
+
+    wrap.querySelectorAll('.linechart-dot').forEach(function(dot){
+      dot.addEventListener('mouseenter',function(){
+        var tt=document.getElementById('db-lineTooltip');
+        var wrapRect=wrap.getBoundingClientRect(),dotRect=dot.getBoundingClientRect();
+        tt.textContent=dot.getAttribute('data-label')+': '+fmtMoney(dot.getAttribute('data-value'));
+        tt.style.left=(dotRect.left-wrapRect.left+dotRect.width/2)+'px';
+        tt.style.top=(dotRect.top-wrapRect.top)+'px';
+        tt.style.opacity='1';
+      });
+      dot.addEventListener('mouseleave',function(){ var tt=document.getElementById('db-lineTooltip'); if(tt)tt.style.opacity='0'; });
+      dot.addEventListener('click',function(e){ selecionarPeriodoChart(dot.getAttribute('data-key'),dot.getAttribute('data-tokey'),e.shiftKey); });
+    });
+    highlightLineSelection();
+  }
+
+  function renderHBars(containerId,mapaValores,funcaoNome,idSelectAlvo){
+    var container=document.getElementById(containerId);
+    var entradas=Object.keys(mapaValores).map(function(id){return {id:id,valor:mapaValores[id]};}).sort(function(a,b){return b.valor-a.valor;}).slice(0,8);
+    if(!entradas.length){ container.innerHTML='<div class="chart-empty" style="height:80px;">Nenhum dado no período</div>'; return; }
+    var maxV=entradas[0].valor||1;
+    var selecionado=document.getElementById(idSelectAlvo).value;
+    container.innerHTML=entradas.map(function(e){
+      var pct=Math.max(2,Math.round((e.valor/maxV)*100));
+      var ativo=selecionado===e.id;
+      return '<div class="hbar-row'+(ativo?' selected':'')+'" data-id="'+escapeHtml(e.id)+'">'+
+        '<div class="hbar-label" title="'+escapeHtml(funcaoNome(e.id))+'">'+escapeHtml(funcaoNome(e.id))+'</div>'+
+        '<div class="hbar-track"><div class="hbar-fill" style="width:'+pct+'%;"></div></div>'+
+        '<div class="hbar-value">'+fmtMoney(e.valor)+'</div>'+
+      '</div>';
+    }).join('');
+    container.querySelectorAll('.hbar-row').forEach(function(row){
+      row.addEventListener('click',function(){
+        var sel=document.getElementById(idSelectAlvo),id=row.getAttribute('data-id');
+        sel.value=(sel.value===id)?'__all__':id;
+        render();
+      });
+    });
+  }
+
+  function renderFunilConversao(relatorios){
+    var contatos=relatorios.reduce(function(s,r){return s+r.contatos;},0);
+    var conversas=relatorios.reduce(function(s,r){return s+r.conversas;},0);
+    var propostas=relatorios.reduce(function(s,r){return s+r.propostas;},0);
+    var vendas=relatorios.reduce(function(s,r){return s+r.vendas;},0);
+    var etapas=[{label:'Novos contatos',valor:contatos,cor:'#3b82f6'},{label:'Conversas',valor:conversas,cor:'var(--accent)'},{label:'Propostas apresentadas',valor:propostas,cor:'var(--warn)'},{label:'Vendas fechadas',valor:vendas,cor:'var(--accent-deep)'}];
+    var maxV=Math.max(contatos,1);
+    document.getElementById('db-funilConversao').innerHTML=etapas.map(function(e){
+      var pct=Math.max(2,Math.round((e.valor/maxV)*100));
+      var pctDoContato=contatos>0?Math.round(e.valor/contatos*100):0;
+      return '<div style="margin-bottom:12px;">'+
+        '<div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px;"><span style="font-weight:600;color:var(--ink-soft);">'+e.label+'</span><span style="font-weight:700;">'+e.valor+(e.label!=='Novos contatos'?' · '+pctDoContato+'% dos contatos':'')+'</span></div>'+
+        '<div class="hbar-track" style="height:16px;"><div class="hbar-fill" style="width:'+pct+'%;background:'+e.cor+';"></div></div>'+
+      '</div>';
+    }).join('');
+  }
+
+  function renderInsight(f,faturamento,custosTotais,lucro,ticketMedio,conversao,novosLeads){
+    var el=document.getElementById('db-insightText');
+    if(!f.vendasFat.length&&!f.relatorios.length&&!f.leads.length){ el.textContent='Sem dados no período/filtro selecionado.'; return; }
+    var partes=[];
+    var from=document.getElementById('db-dateFrom').value,to=document.getElementById('db-dateTo').value;
+    var periodoTexto=(from&&to)?('entre '+fmtDateBRDoISO(from)+' e '+fmtDateBRDoISO(to)):'no período selecionado';
+
+    partes.push('No período '+periodoTexto+', o faturamento foi de <strong>'+fmtMoney(faturamento)+'</strong>, com '+f.vendasFat.length+' venda(s) e ticket médio de <strong>'+fmtMoney(ticketMedio)+'</strong>.');
+
+    if(custosTotais>0){
+      var margemPct=faturamento>0?(lucro/faturamento*100):0;
+      partes.push('Os custos somaram '+fmtMoney(custosTotais)+', resultando num lucro operacional de <strong>'+fmtMoney(lucro)+'</strong>'+(faturamento>0?(' (margem de '+margemPct.toFixed(1).replace('.',',')+'%)'):'')+'.');
+    }
+
+    var porVendedor={};
+    f.vendasFat.forEach(function(v){ porVendedor[v.idVendedor]=(porVendedor[v.idVendedor]||0)+v.valor; });
+    var idsVendedores=Object.keys(porVendedor);
+    if(idsVendedores.length>1){
+      idsVendedores.sort(function(a,b){return porVendedor[b]-porVendedor[a];});
+      var liderId=idsVendedores[0];
+      var fatiaLider=faturamento>0?(porVendedor[liderId]/faturamento*100):0;
+      partes.push('<strong>'+escapeHtml(nomeVendedor(liderId))+'</strong> liderou o período, respondendo por '+fatiaLider.toFixed(0)+'% do faturamento.');
+    }
+
+    if(f.relatorios.length){
+      partes.push('A taxa de conversão de propostas em vendas ficou em <strong>'+conversao.toFixed(1).replace('.',',')+'%</strong>, com '+novosLeads+' novo(s) lead(s) entrando no funil.');
+    }
+
+    if(f.vendasFat.length>=4){
+      var datasOrdenadas=f.vendasFat.map(function(v){return v.dt.getTime();}).sort(function(a,b){return a-b;});
+      var meio=datasOrdenadas[Math.floor(datasOrdenadas.length/2)];
+      var primeiraMetade=f.vendasFat.filter(function(v){return v.dt.getTime()<meio;}).reduce(function(s,v){return s+v.valor;},0);
+      var segundaMetade=f.vendasFat.filter(function(v){return v.dt.getTime()>=meio;}).reduce(function(s,v){return s+v.valor;},0);
+      if(primeiraMetade>0){
+        var variacao=((segundaMetade-primeiraMetade)/primeiraMetade*100);
+        if(Math.abs(variacao)>=8){
+          partes.push('O ritmo de vendas '+(variacao>0?'acelerou':'desacelerou')+' na segunda metade do período ('+(variacao>0?'+':'')+variacao.toFixed(0)+'%).');
+        }
+      }
+    }
+
+    el.innerHTML=partes.join(' ');
+  }
+
+  function render(){
+    var f=getFiltered();
+    var faturamento=f.vendasFat.reduce(function(s,v){return s+v.valor;},0);
+    var custosOpTotal=f.custosOp.reduce(function(s,c){return s+c.valor;},0);
+    var custosEscTotal=f.custosEsc.reduce(function(s,c){return s+c.valor;},0);
+    var custosEscProporcional=custoEscritorioProporcional(custosEscTotal,faturamento);
+    var custosTotais=custosOpTotal+custosEscProporcional;
+    var lucro=faturamento-custosTotais;
+    var ticketMedio=f.vendasFat.length>0?faturamento/f.vendasFat.length:0;
+    var propostasTotal=f.relatorios.reduce(function(s,r){return s+r.propostas;},0);
+    var vendasRelTotal=f.relatorios.reduce(function(s,r){return s+r.vendas;},0);
+    var conversao=propostasTotal>0?(vendasRelTotal/propostasTotal*100):0;
+    var novosLeads=f.leads.length;
+
+    document.getElementById('db-kpiFaturamento').textContent=fmtMoney(faturamento);
+    document.getElementById('db-kpiFaturamentoSub').textContent=f.vendasFat.length+' venda(s) no período/filtro';
+    document.getElementById('db-kpiCustos').textContent=fmtMoney(custosTotais);
+    document.getElementById('db-kpiLucro').textContent=fmtMoney(lucro);
+    document.getElementById('db-kpiLucro').style.color=lucro>=0?'var(--accent-deep)':'var(--debit)';
+    document.getElementById('db-kpiTicket').textContent=fmtMoney(ticketMedio);
+    document.getElementById('db-kpiTicketSub').textContent='faturamento ÷ nº de vendas';
+    document.getElementById('db-kpiConversao').textContent=conversao.toFixed(1).replace('.',',')+'%';
+    document.getElementById('db-kpiConversaoSub').textContent=vendasRelTotal+' vendas / '+propostasTotal+' propostas (Relatórios)';
+    document.getElementById('db-kpiLeads').textContent=novosLeads;
+    document.getElementById('db-kpiLeadsSub').textContent='criados no período, no Funil';
+
+    var porVendedor={}; f.vendasFat.forEach(function(v){ porVendedor[v.idVendedor]=(porVendedor[v.idVendedor]||0)+v.valor; });
+    var porServico={}; f.vendasFat.forEach(function(v){ porServico[v.idServico]=(porServico[v.idServico]||0)+v.valor; });
+
+    renderLineChart(f.vendasFat);
+    renderHBars('db-barVendedores',porVendedor,nomeVendedor,'db-selVendedor');
+    renderHBars('db-barServicos',porServico,nomeServico,'db-selServico');
+    renderFunilConversao(f.relatorios);
+    renderInsight(f,faturamento,custosTotais,lucro,ticketMedio,conversao,novosLeads);
+
+    document.getElementById('db-lastUpdate').textContent='Atualizado em '+new Date().toLocaleDateString('pt-BR')+' às '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  }
+
+  function aplicarDados(vendasResp,funilResp,relatoriosResp){
+    vendedoresMap={}; (vendasResp.vendedores||[]).forEach(function(v){if(v.IdVendedor)vendedoresMap[v.IdVendedor]=v;});
+    clientesMap={}; (vendasResp.clientes||[]).forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
+    servicosMap={}; (vendasResp.servicos||[]).forEach(function(s){if(s.IdServico)servicosMap[s.IdServico]=s;});
+    vendasRecords=processVendas(vendasResp.vendas||[]);
+    custosVendaRecords=processCustosVenda(vendasResp.custosVenda||[]);
+    relatoriosRecords=processRelatorios((relatoriosResp&&relatoriosResp.relatorios)||[]);
+    funilRecords=processFunil((funilResp&&funilResp.funil)||[]);
+    popularSelects();
+    if(!document.getElementById('db-dateFrom').value&&!document.getElementById('db-dateTo').value)setRangeTudo();
+    document.getElementById('db-emptyState').style.display='none';
+    document.getElementById('db-appVersion').textContent='v'+APP_VERSION;
+    render();
+  }
+
+  function carregar(){
+    var cacheKey='dashboard_comercial';
+    var cache=window.SGCache&&window.SGCache.get(cacheKey);
+    var temCache=!!(cache&&cache.dados);
+    if(temCache)aplicarDados(cache.dados.vendas,cache.dados.funil,cache.dados.relatorios);
+
+    Promise.all([apiCall('getVendasData',{}),apiCall('getFunilData',{}),apiCall('getRelatoriosData',{})]).then(function(resps){
+      var vendasResp=resps[0],funilResp=resps[1],relatoriosResp=resps[2];
+      if(!vendasResp||!vendasResp.ok){
+        if(!temCache){ document.getElementById('db-emptyState').style.display='block'; document.getElementById('db-emptyState').querySelector('p').textContent=(vendasResp&&vendasResp.erro)||'Não foi possível carregar.'; }
+        return;
+      }
+      if(window.SGCache)window.SGCache.set(cacheKey,{vendas:vendasResp,funil:funilResp,relatorios:relatoriosResp});
+      aplicarDados(vendasResp,funilResp,relatoriosResp);
+    }).catch(function(err){
+      if(!temCache){ document.getElementById('db-emptyState').style.display='block'; document.getElementById('db-emptyState').querySelector('p').textContent='Erro de conexão: '+err.message; }
+    });
+  }
+
+  function init(){
+    if(_initialized)return;
+    if(!window.SG_SESSION)return;
+    _initialized=true;
+    document.getElementById('db-dateFrom').addEventListener('change',function(){ document.querySelectorAll('#view-dashboard .qr-btn[data-dbrange]').forEach(function(b){b.classList.remove('active');}); render(); });
+    document.getElementById('db-dateTo').addEventListener('change',function(){ document.querySelectorAll('#view-dashboard .qr-btn[data-dbrange]').forEach(function(b){b.classList.remove('active');}); render(); });
+    document.getElementById('db-selVendedor').addEventListener('change',render);
+    document.getElementById('db-selServico').addEventListener('change',render);
+    document.querySelectorAll('#view-dashboard .qr-btn[data-dbrange]').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        document.querySelectorAll('#view-dashboard .qr-btn[data-dbrange]').forEach(function(b){b.classList.remove('active');});
+        btn.classList.add('active');
+        var r=btn.getAttribute('data-dbrange');
+        if(r==='30')setRangeDias(30); else if(r==='90')setRangeDias(90); else if(r==='month')setRangeEsteMes(); else setRangeTudo();
+        render();
+      });
+    });
+    document.getElementById('db-resetFiltros').addEventListener('click',function(){
+      document.getElementById('db-selVendedor').value='__all__';
+      document.getElementById('db-selServico').value='__all__';
+      document.querySelectorAll('#view-dashboard .qr-btn[data-dbrange]').forEach(function(b){b.classList.remove('active');});
+      document.querySelector('#view-dashboard .qr-btn[data-dbrange="all"]').classList.add('active');
+      setRangeTudo();
+      render();
+    });
+    carregar();
+  }
+
+  window.dashboardApp={init:init};
+})();
+
 
 // ════ PONTO ELETRÔNICO ════
 (function(){
@@ -3310,7 +3792,7 @@
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">'+
           '<div style="flex:1;">'+
             '<div class="resp-q">'+escapeHtml(c.descricao||'(sem descrição)')+'</div>'+
-            '<div style="font-size:11.5px;color:var(--ink-faint);margin-top:2px;">'+(c.dt?fmtDateBRVendas(c.dt):'—')+' · <span style="font-weight:700;color:'+(c.status.toLowerCase()==='pago'?'var(--accent-deep)':'var(--warn)')+';">'+escapeHtml(c.status||'Pendente')+'</span></div>'+
+            '<div style="font-size:11.5px;color:var(--ink-faint);margin-top:2px;">'+(c.dt?fmtDateBRVendas(c.dt):'—')+' · <span style="font-weight:700;color:'+(c.status.toLowerCase()==='pago'?'var(--accent-deep)':'var(--warn)')+';">'+escapeHtml(c.status||'Aguardando Pagamento')+'</span></div>'+
           '</div>'+
           '<div style="text-align:right;flex:none;">'+
             '<div style="font-weight:700;font-size:13px;">'+fmtMoney(c.valor)+'</div>'+
@@ -3341,7 +3823,7 @@
       '<div id="vd-custoForm" class="hidden" style="margin-top:12px;">'+
         '<div class="uform-field"><label>Descrição</label><textarea id="vc-descricao" rows="3" placeholder="Ex: Combustível, material, comissão…"></textarea></div>'+
         '<div class="uform-field"><label>Valor</label><input type="number" id="vc-valor" step="0.01" min="0"></div>'+
-        '<div class="uform-field"><label>Status</label><select id="vc-status"><option value="Pago">Pago</option><option value="Pendente">Pendente</option></select></div>'+
+        '<div class="uform-field"><label>Status</label><select id="vc-status"><option value="Pago">Pago</option><option value="Aguardando Pagamento">Aguardando Pagamento</option></select></div>'+
         '<div class="uform-field"><label>Data</label><input type="date" id="vc-data"></div>'+
         '<div style="display:flex;gap:8px;">'+
           '<button type="button" class="reset-btn" id="vc-excluirBtn" style="color:var(--debit);display:none;">🗑 Excluir</button>'+
@@ -3386,7 +3868,7 @@
     var c=idCusto?custosVendaRecords.filter(function(x){return String(x.id)===String(idCusto);})[0]:null;
     document.getElementById('vc-descricao').value=c?(c.descricao||''):gerarDescricaoAutomaticaCusto(v,'');
     document.getElementById('vc-valor').value=c?c.valor:'';
-    document.getElementById('vc-status').value=c?(c.status||'Pendente'):'Pendente';
+    document.getElementById('vc-status').value=c?(c.status||'Aguardando Pagamento'):'Aguardando Pagamento';
     document.getElementById('vc-data').value=c?c.dateKey:dateKey(new Date());
     document.getElementById('vc-excluirBtn').style.display=c?'block':'none';
     document.getElementById('vc-cancelarBtn').style.display='block';
@@ -4116,6 +4598,8 @@
     document.getElementById('cr-email').value='';
     document.getElementById('cr-endereco').value='';
     document.getElementById('cr-msg').textContent='';
+    document.getElementById('cr-avisoDuplicado').classList.add('hidden');
+    document.getElementById('cr-confirmarDiferente').checked=false;
     window.SGCombo.criar({
       inputId:'cr-vendedorBusca', hiddenId:'cr-vendedor', dropdownId:'cr-vendedorDropdown',
       getOpcoes:function(){
@@ -4144,6 +4628,21 @@
     var email=document.getElementById('cr-email').value.trim();
     var endereco=document.getElementById('cr-endereco').value.trim();
     var vendedorResponsavel=document.getElementById('cr-vendedor').value||(window.SG_SESSION?window.SG_SESSION.idVendedor:'');
+
+    // Telefone repetido + endereço em branco = provável duplicata. Só deixa
+    // passar se a pessoa confirmar explicitamente que é um cliente diferente.
+    var confirmado=document.getElementById('cr-confirmarDiferente').checked;
+    if(!endereco&&!confirmado){
+      var listaClientes=Object.keys(clientesMap).map(function(id){return clientesMap[id];});
+      var duplicado=window.SGUtil.encontrarClienteMesmoTelefone(telefone,listaClientes,null);
+      if(duplicado){
+        document.getElementById('cr-avisoDuplicado').classList.remove('hidden');
+        msgEl.className='uform-msg error'; msgEl.textContent='Já existe um contato cadastrado para esse número';
+        return;
+      }
+    }
+    document.getElementById('cr-avisoDuplicado').classList.add('hidden');
+
     var idCliente=window.SGId.gerar();
 
     // adiciona na memória local e já seleciona no lead — sem esperar o servidor
@@ -4156,7 +4655,8 @@
     apiCall('salvarCliente',{
       idCliente:idCliente,
       nome:nome, tipoPessoa:tipoPessoa, telefone:telefone,
-      cpfCnpj:cpfCnpj, email:email, endereco:endereco, vendedorResponsavel:vendedorResponsavel
+      cpfCnpj:cpfCnpj, email:email, endereco:endereco, vendedorResponsavel:vendedorResponsavel,
+      confirmarClienteDiferente:confirmado
     }).then(function(resp){
       if(!resp||!resp.ok){
         delete clientesMap[idCliente];
@@ -5370,12 +5870,19 @@
     var p=document.getElementById('cl-pgProxima'); if(p)p.addEventListener('click',function(){if(paginaAtual<totalPaginas){paginaAtual++;render();}});
   }
 
+  function normalizaBuscaCl(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+  function textoBuscavelCliente(c){
+    return normalizaBuscaCl([
+      c['Nome Razao Social']||c.Nome, c['Tipo Pessoa'], c.Telefone, c.Email,
+      nomeVendedor(c['Vendedor Responsavel']), c['Status Cliente']
+    ].join(' | '));
+  }
+
   function render(){
-    var termo=buscaFiltro.trim().toLowerCase();
+    var termo=normalizaBuscaCl(buscaFiltro).trim();
     var filtrados=clientes.filter(function(c){
       if(!termo)return true;
-      var nome=(c['Nome Razao Social']||c.Nome||'').toLowerCase();
-      return nome.indexOf(termo)!==-1;
+      return textoBuscavelCliente(c).indexOf(termo)!==-1;
     });
     sortClientesRows(filtrados);
     updateSortHeadersCl();
@@ -5443,6 +5950,8 @@
     document.getElementById('cm-status').value=c?(c['Status Cliente']||'Lead'):'Lead';
     document.getElementById('cm-excluirBtn').style.display=c?'block':'none';
     document.getElementById('cm-msg').textContent='';
+    document.getElementById('cm-avisoDuplicado').classList.add('hidden');
+    document.getElementById('cm-confirmarDiferente').checked=false;
     var idVend=c?c['Vendedor Responsavel']:'';
     wireComboVendedor(idVend&&vendedoresMap[idVend]?{id:idVend,label:vendedoresMap[idVend].Nome}:null);
     document.getElementById('clienteModal').classList.remove('hidden');
@@ -5465,6 +5974,20 @@
     var vendedorResponsavel=document.getElementById('cm-vendedor').value;
 
     var ehNovo=!editandoId;
+    // Só checa duplicidade em cadastro NOVO — editar um cliente que já existe
+    // não deveria disparar isso (ele nunca vai "bater" com ele mesmo, mas por
+    // segurança já exclui o próprio ID da busca de qualquer forma).
+    var confirmado=document.getElementById('cm-confirmarDiferente').checked;
+    if(ehNovo&&!endereco&&!confirmado){
+      var duplicado=window.SGUtil.encontrarClienteMesmoTelefone(telefone,clientes,editandoId);
+      if(duplicado){
+        document.getElementById('cm-avisoDuplicado').classList.remove('hidden');
+        msgEl.className='uform-msg error'; msgEl.textContent='Já existe um contato cadastrado para esse número';
+        return;
+      }
+    }
+    document.getElementById('cm-avisoDuplicado').classList.add('hidden');
+
     var idCliente=editandoId||window.SGId.gerar();
     var registroAnterior=!ehNovo?clientes.filter(function(c){return String(c.IdCliente)===String(idCliente);})[0]:null;
     var registroAnteriorCopia=registroAnterior?Object.assign({},registroAnterior):null;
@@ -5486,7 +6009,8 @@
       idCliente:idCliente,
       nome:nome, tipoPessoa:tipoPessoa, telefone:telefone,
       cpfCnpj:cpfCnpj, email:email, endereco:endereco,
-      statusCliente:statusCliente, vendedorResponsavel:vendedorResponsavel
+      statusCliente:statusCliente, vendedorResponsavel:vendedorResponsavel,
+      confirmarClienteDiferente:confirmado
     }).then(function(resp){
       if(!resp||!resp.ok){
         if(ehNovo)clientes=clientes.filter(function(c){return String(c.IdCliente)!==String(idCliente);});
@@ -5974,6 +6498,20 @@
     });
   }
 
+  /** Igual getFiltered, mas SEM aplicar o filtro de status — usada pros KPIs
+   *  clicáveis mostrarem o total de verdade (senão clicar num deles zerava
+   *  o outro, o que não faz sentido pra um filtro). */
+  function getBaseSemStatus(){
+    var from=document.getElementById('cv-dateFrom').value,to=document.getElementById('cv-dateTo').value;
+    var busca=normalizaBuscaCv(document.getElementById('cv-buscaGeral').value||'').trim();
+    return custos.filter(function(c){
+      var dt=parseBRDate(c.Data),dk=dt?dateKeyFromDate(dt):null;
+      if(from&&dk&&dk<from)return false; if(to&&dk&&dk>to)return false;
+      if(busca&&textoBuscavelCusto(c).indexOf(busca)===-1)return false;
+      return true;
+    });
+  }
+
   function getFiltered(){
     var from=document.getElementById('cv-dateFrom').value,to=document.getElementById('cv-dateTo').value;
     var status=document.getElementById('cv-selStatus').value;
@@ -5981,7 +6519,7 @@
     return custos.filter(function(c){
       var dt=parseBRDate(c.Data),dk=dt?dateKeyFromDate(dt):null;
       if(from&&dk&&dk<from)return false; if(to&&dk&&dk>to)return false;
-      if(status!=='__all__'&&(c.Status||'').trim()!==status)return false;
+      if(status!=='__all__'&&(c.Status||'').trim().toLowerCase()!==status.toLowerCase())return false;
       if(busca&&textoBuscavelCusto(c).indexOf(busca)===-1)return false;
       return true;
     });
@@ -5996,12 +6534,17 @@
   }
 
   function render(){
+    var base=getBaseSemStatus();
     var filtrados=getFiltered();
-    var pago=filtrados.filter(function(c){return (c.Status||'').trim().toLowerCase()==='pago';}).reduce(function(s,c){return s+((String(c.Valor||'0').indexOf(',')!==-1?parseFloat(String(c.Valor||'0').replace(/\./g,'').replace(',','.')):parseFloat(c.Valor))||0);},0);
-    var pendente=filtrados.filter(function(c){return (c.Status||'').trim().toLowerCase()!=='pago';}).reduce(function(s,c){return s+((String(c.Valor||'0').indexOf(',')!==-1?parseFloat(String(c.Valor||'0').replace(/\./g,'').replace(',','.')):parseFloat(c.Valor))||0);},0);
+    var pago=base.filter(function(c){return (c.Status||'').trim().toLowerCase()==='pago';}).reduce(function(s,c){return s+((String(c.Valor||'0').indexOf(',')!==-1?parseFloat(String(c.Valor||'0').replace(/\./g,'').replace(',','.')):parseFloat(c.Valor))||0);},0);
+    var pendente=base.filter(function(c){return (c.Status||'').trim().toLowerCase()!=='pago';}).reduce(function(s,c){return s+((String(c.Valor||'0').indexOf(',')!==-1?parseFloat(String(c.Valor||'0').replace(/\./g,'').replace(',','.')):parseFloat(c.Valor))||0);},0);
     document.getElementById('cv-kpiPago').textContent=fmtMoney(pago);
     document.getElementById('cv-kpiPendente').textContent=fmtMoney(pendente);
     document.getElementById('cv-kpiTotal').textContent=filtrados.length;
+    var statusAtivo=document.getElementById('cv-selStatus').value;
+    document.querySelectorAll('#view-custosvenda .kpi-clickable').forEach(function(k){
+      k.classList.toggle('active',k.getAttribute('data-cvstatus').toLowerCase()===statusAtivo.toLowerCase());
+    });
 
     sortCustosRows(filtrados);
     updateSortHeadersCv();
@@ -6055,7 +6598,7 @@
     document.getElementById('cv-valor').value=c?c.Valor:'';
     var dt=c?parseBRDate(c.Data):new Date();
     document.getElementById('cv-data').value=dt?dateKeyFromDate(dt):'';
-    document.getElementById('cv-status').value=c?(c.Status||'Pendente'):'Pendente';
+    document.getElementById('cv-status').value=c?(c.Status||'Aguardando Pagamento'):'Aguardando Pagamento';
     document.getElementById('cv-excluirBtn').style.display=c?'block':'none';
     document.getElementById('cv-modalMsg').textContent='';
     document.getElementById('cv-descricao').oninput=function(){ descricaoEditadaManualmente=true; };
@@ -6180,6 +6723,14 @@
     document.getElementById('cv-dateTo').addEventListener('change',function(){ paginaAtual=1; render(); });
     document.getElementById('cv-selStatus').addEventListener('change',function(){ paginaAtual=1; render(); });
     document.getElementById('cv-buscaGeral').addEventListener('input',function(){ paginaAtual=1; render(); });
+    document.querySelectorAll('#view-custosvenda .kpi-clickable').forEach(function(k){
+      k.addEventListener('click',function(){
+        var alvo=k.getAttribute('data-cvstatus');
+        var sel=document.getElementById('cv-selStatus');
+        sel.value=(sel.value.toLowerCase()===alvo.toLowerCase())?'__all__':alvo;
+        paginaAtual=1; render();
+      });
+    });
     document.getElementById('cv-resetFiltros').addEventListener('click',function(){
       document.getElementById('cv-dateFrom').value='';document.getElementById('cv-dateTo').value='';
       document.getElementById('cv-selStatus').value='__all__';document.getElementById('cv-buscaGeral').value='';
@@ -6249,13 +6800,23 @@
     document.getElementById('crec-categoriaList').innerHTML=categoriasExistentes().map(function(c){return '<option value="'+escapeHtml(c)+'">';}).join('');
   }
 
+  function getBaseSemStatus(){
+    var categoria=document.getElementById('crec-selCategoria').value;
+    var busca=normalizaBuscaCr(document.getElementById('crec-buscaGeral').value||'').trim();
+    return custos.filter(function(c){
+      if(categoria!=='__all__'&&c.Categoria!==categoria)return false;
+      if(busca&&textoBuscavelCr(c).indexOf(busca)===-1)return false;
+      return true;
+    });
+  }
+
   function getFiltered(){
     var categoria=document.getElementById('crec-selCategoria').value;
     var status=document.getElementById('crec-selStatus').value;
     var busca=normalizaBuscaCr(document.getElementById('crec-buscaGeral').value||'').trim();
     return custos.filter(function(c){
       if(categoria!=='__all__'&&c.Categoria!==categoria)return false;
-      if(status!=='__all__'&&(c.Status||'').trim()!==status)return false;
+      if(status!=='__all__'&&(c.Status||'').trim().toLowerCase()!==status.toLowerCase())return false;
       if(busca&&textoBuscavelCr(c).indexOf(busca)===-1)return false;
       return true;
     });
@@ -6271,12 +6832,17 @@
 
   function render(){
     popularFiltroCategoria();
+    var base=getBaseSemStatus();
     var filtrados=getFiltered();
-    var ativoTotal=filtrados.filter(function(c){return (c.Status||'').trim().toLowerCase()==='ativo';}).reduce(function(s,c){return s+((String(c.Valor||'0').indexOf(',')!==-1?parseFloat(String(c.Valor||'0').replace(/\./g,'').replace(',','.')):parseFloat(c.Valor))||0);},0);
-    var inativoTotal=filtrados.filter(function(c){return (c.Status||'').trim().toLowerCase()!=='ativo';}).reduce(function(s,c){return s+((String(c.Valor||'0').indexOf(',')!==-1?parseFloat(String(c.Valor||'0').replace(/\./g,'').replace(',','.')):parseFloat(c.Valor))||0);},0);
+    var ativoTotal=base.filter(function(c){return (c.Status||'').trim().toLowerCase()==='ativo';}).reduce(function(s,c){return s+((String(c.Valor||'0').indexOf(',')!==-1?parseFloat(String(c.Valor||'0').replace(/\./g,'').replace(',','.')):parseFloat(c.Valor))||0);},0);
+    var inativoTotal=base.filter(function(c){return (c.Status||'').trim().toLowerCase()!=='ativo';}).reduce(function(s,c){return s+((String(c.Valor||'0').indexOf(',')!==-1?parseFloat(String(c.Valor||'0').replace(/\./g,'').replace(',','.')):parseFloat(c.Valor))||0);},0);
     document.getElementById('crec-kpiAtivo').textContent=fmtMoney(ativoTotal);
     document.getElementById('crec-kpiInativo').textContent=fmtMoney(inativoTotal);
     document.getElementById('crec-kpiTotal').textContent=filtrados.length;
+    var statusAtivo=document.getElementById('crec-selStatus').value;
+    document.querySelectorAll('#view-custorecorrente .kpi-clickable').forEach(function(k){
+      k.classList.toggle('active',k.getAttribute('data-crecstatus').toLowerCase()===statusAtivo.toLowerCase());
+    });
 
     sortCustosRows(filtrados);
     updateSortHeadersCr();
@@ -6433,6 +6999,14 @@
     document.getElementById('crec-selCategoria').addEventListener('change',function(){ paginaAtual=1; render(); });
     document.getElementById('crec-selStatus').addEventListener('change',function(){ paginaAtual=1; render(); });
     document.getElementById('crec-buscaGeral').addEventListener('input',function(){ paginaAtual=1; render(); });
+    document.querySelectorAll('#view-custorecorrente .kpi-clickable').forEach(function(k){
+      k.addEventListener('click',function(){
+        var alvo=k.getAttribute('data-crecstatus');
+        var sel=document.getElementById('crec-selStatus');
+        sel.value=(sel.value.toLowerCase()===alvo.toLowerCase())?'__all__':alvo;
+        paginaAtual=1; render();
+      });
+    });
     document.getElementById('crec-resetFiltros').addEventListener('click',function(){
       document.getElementById('crec-selCategoria').value='__all__';document.getElementById('crec-selStatus').value='__all__';document.getElementById('crec-buscaGeral').value='';
       paginaAtual=1; render();
@@ -6961,6 +7535,7 @@
   var editandoId=null;
   var paginaAtual=1, ITENS_POR_PAGINA=10;
   var sortState={col:'cliente',dir:'asc'};
+  var filtroStatusPlanos='__all__';
   var APP_VERSION='2026-07-16-1';
 
   function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
@@ -7028,8 +7603,17 @@
     document.getElementById('pl-kpiAtivos').textContent=ativos.length;
     document.getElementById('pl-kpiInativos').textContent=inativos.length;
     document.getElementById('pl-kpiReceita').textContent=fmtMoney(receita);
+    document.querySelectorAll('#view-planos .kpi-clickable').forEach(function(k){
+      k.classList.toggle('active',k.getAttribute('data-plstatus')===filtroStatusPlanos);
+    });
 
-    var ordenados=planosFiltrados.slice();
+    // o filtro de status (clicando nos KPIs) só se aplica na TABELA — os
+    // próprios KPIs continuam mostrando o total de cada um, senão clicar
+    // num deles zerava o outro, o que não faz sentido pra um filtro clicável
+    var planosParaTabela=filtroStatusPlanos==='__all__'?planosFiltrados:
+      (filtroStatusPlanos==='Ativo'?ativos:inativos);
+
+    var ordenados=planosParaTabela.slice();
     sortPlanosRows(ordenados);
     updateSortHeadersPl();
 
@@ -7229,6 +7813,13 @@
     document.getElementById('pm-excluirBtn').addEventListener('click',excluirPlano);
     document.getElementById('planoModal').addEventListener('click',function(e){ if(e.target.id==='planoModal')fecharModalPlano(); });
     document.getElementById('pl-selVendedor').addEventListener('change',function(){ paginaAtual=1; render(); });
+    document.querySelectorAll('#view-planos .kpi-clickable').forEach(function(k){
+      k.addEventListener('click',function(){
+        var alvo=k.getAttribute('data-plstatus');
+        filtroStatusPlanos=(filtroStatusPlanos===alvo)?'__all__':alvo;
+        paginaAtual=1; render();
+      });
+    });
     document.querySelectorAll('#view-planos th.sortable').forEach(function(th){
       th.addEventListener('click',function(){
         var col=th.getAttribute('data-sort');
@@ -7486,12 +8077,13 @@
 
 // ════ CONTROLLER ════
 (function(){
-  var views={ponto:document.getElementById('view-ponto'),vendas:document.getElementById('view-vendas'),funil:document.getElementById('view-funil'),agendamentos:document.getElementById('view-agendamentos'),clientes:document.getElementById('view-clientes'),planos:document.getElementById('view-planos'),relatorios:document.getElementById('view-relatorios'),custosvenda:document.getElementById('view-custosvenda'),custorecorrente:document.getElementById('view-custorecorrente'),servicos:document.getElementById('view-servicos'),metas:document.getElementById('view-metas'),usuarios:document.getElementById('view-usuarios'),permissoes:document.getElementById('view-permissoes')};
-  var navLinks={ponto:document.getElementById('nav-ponto'),vendas:document.getElementById('nav-vendas'),funil:document.getElementById('nav-funil'),agendamentos:document.getElementById('nav-agendamentos'),clientes:document.getElementById('nav-clientes'),planos:document.getElementById('nav-planos'),relatorios:document.getElementById('nav-relatorios'),custosvenda:document.getElementById('nav-custosvenda'),custorecorrente:document.getElementById('nav-custorecorrente'),servicos:document.getElementById('nav-servicos'),metas:document.getElementById('nav-metas'),usuarios:document.getElementById('nav-usuarios'),permissoes:document.getElementById('nav-permissoes')};
+  var views={dashboard:document.getElementById('view-dashboard'),ponto:document.getElementById('view-ponto'),vendas:document.getElementById('view-vendas'),funil:document.getElementById('view-funil'),agendamentos:document.getElementById('view-agendamentos'),clientes:document.getElementById('view-clientes'),planos:document.getElementById('view-planos'),relatorios:document.getElementById('view-relatorios'),custosvenda:document.getElementById('view-custosvenda'),custorecorrente:document.getElementById('view-custorecorrente'),servicos:document.getElementById('view-servicos'),metas:document.getElementById('view-metas'),usuarios:document.getElementById('view-usuarios'),permissoes:document.getElementById('view-permissoes')};
+  var navLinks={dashboard:document.getElementById('nav-dashboard'),ponto:document.getElementById('nav-ponto'),vendas:document.getElementById('nav-vendas'),funil:document.getElementById('nav-funil'),agendamentos:document.getElementById('nav-agendamentos'),clientes:document.getElementById('nav-clientes'),planos:document.getElementById('nav-planos'),relatorios:document.getElementById('nav-relatorios'),custosvenda:document.getElementById('nav-custosvenda'),custorecorrente:document.getElementById('nav-custorecorrente'),servicos:document.getElementById('nav-servicos'),metas:document.getElementById('nav-metas'),usuarios:document.getElementById('nav-usuarios'),permissoes:document.getElementById('nav-permissoes')};
   function switchTo(name){
     if((name==='usuarios'||name==='permissoes'||name==='metas'||name==='custorecorrente')&&(!window.SGAuth||!window.SGAuth.isAdmin()))name='ponto';
     Object.keys(views).forEach(function(k){if(!views[k]||!navLinks[k])return;views[k].classList.toggle('active',k===name);navLinks[k].classList.toggle('active',k===name);});
     localStorage.setItem('sg_active_view',name);
+    if(name==='dashboard'&&window.dashboardApp)window.dashboardApp.init();
     if(name==='funil'&&window.funilApp)window.funilApp.init();
     if(name==='agendamentos'&&window.agendamentosApp)window.agendamentosApp.init();
     if(name==='planos'&&window.planosApp)window.planosApp.init();
@@ -7504,6 +8096,7 @@
     if(name==='usuarios'&&window.usuariosApp)window.usuariosApp.init();
     if(name==='permissoes'&&window.permissoesApp)window.permissoesApp.init();
   }
+  navLinks.dashboard.addEventListener('click',function(e){e.preventDefault();switchTo('dashboard');});
   navLinks.ponto.addEventListener('click',function(e){e.preventDefault();switchTo('ponto');});
   navLinks.vendas.addEventListener('click',function(e){e.preventDefault();switchTo('vendas');});
   navLinks.funil.addEventListener('click',function(e){e.preventDefault();switchTo('funil');});
