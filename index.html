@@ -2189,6 +2189,31 @@
     }
   };
 
+  /**
+   * Resolve uma condição de corrida real: uma tela busca dado (cache-first,
+   * depois confirma com o servidor em segundo plano). Se, ENQUANTO essa
+   * busca ainda está no ar, a pessoa criar/editar/excluir algo (otimista —
+   * já aparece na hora), e DEPOIS a busca antiga (que começou antes dessa
+   * edição) finalmente responder, ela reescreve a lista inteira com um
+   * retrato de ANTES da edição — e o que a pessoa acabou de fazer some da
+   * tela, mesmo já tendo sido salvo direitinho no servidor.
+   *
+   * Cada tela pega sua PRÓPRIA "época" (window.SGEpoca.criar()) — não é
+   * compartilhada entre telas, uma edição em Vendas não deve fazer o Funil
+   * descartar a resposta dele à toa. Uso: cada edição otimista chama
+   * epoca.marcar(); toda busca guarda epoca.atual() antes de disparar o
+   * fetch, e ao aplicar a resposta, só sobrescreve a tela se a época não
+   * tiver mudado nesse meio tempo — senão, só atualiza o cache (pro próximo
+   * carregamento já vir certo) e deixa a tela como está, com a edição
+   * recente intacta.
+   */
+  window.SGEpoca={
+    criar:function(){
+      var contador=0;
+      return{ marcar:function(){ contador++; }, atual:function(){ return contador; } };
+    }
+  };
+
   // Combo de busca reutilizável: qualquer módulo pode transformar um
   // input+hidden+dropdown numa caixa "digita pra filtrar, clica pra
   // escolher", com botão opcional de "+ Adicionar" pra criar uma opção
@@ -2553,6 +2578,7 @@
 // ════ DASHBOARD COMERCIAL/FINANCEIRO ════
 (function(){
   var _initialized=false;
+  var _epoca=window.SGEpoca.criar();
   var vendasRecords=[],custosVendaRecords=[],relatoriosRecords=[],funilRecords=[];
   var vendedoresMap={},clientesMap={},servicosMap={};
   var ID_VENDA_CUSTOS_ESCRITORIO='2b45b472';
@@ -2863,6 +2889,7 @@
     var temCache=!!(cache&&cache.dados);
     if(temCache)aplicarDados(cache.dados.vendas,cache.dados.funil,cache.dados.relatorios);
 
+    var epocaInicio=_epoca.atual();
     Promise.all([apiCall('getVendasData',{}),apiCall('getFunilData',{}),apiCall('getRelatoriosData',{})]).then(function(resps){
       var vendasResp=resps[0],funilResp=resps[1],relatoriosResp=resps[2];
       if(!vendasResp||!vendasResp.ok){
@@ -2870,6 +2897,7 @@
         return;
       }
       if(window.SGCache)window.SGCache.set(cacheKey,{vendas:vendasResp,funil:funilResp,relatorios:relatoriosResp});
+      if(_epoca.atual()!==epocaInicio)return;
       aplicarDados(vendasResp,funilResp,relatoriosResp);
     }).catch(function(err){
       if(!temCache){ document.getElementById('db-emptyState').style.display='block'; document.getElementById('db-emptyState').querySelector('p').textContent='Erro de conexão: '+err.message; }
@@ -2912,6 +2940,7 @@
 (function(){
 (function(){
 
+  var _epoca=window.SGEpoca.criar();
   var rawVendedores = null;
   var rawPonto = null;
   var vendedoresMap = {};
@@ -2955,6 +2984,7 @@
     var key=overrideKey(funcionario,dateKeyStr);
     if(!data||(!data.abonado&&!data.entrada&&!data.almoco&&!data.retorno&&!data.saida)){ delete overrides[key]; }
     else{ overrides[key]=data; }
+    _epoca.marcar();
     saveOverridesLocalCache();
     if(useApi&&hasApiCreds()){
       setSyncPill('saving','Salvando na planilha…');
@@ -3178,10 +3208,12 @@
     }
     if(showStatus&&!temCache){document.getElementById('p-connectStatus').style.display='flex';document.getElementById('p-connectStatus').className='connect-status';document.getElementById('p-connectStatusText').textContent='Conectando…';}
     var btn=document.getElementById('p-connectBtn');if(btn)btn.disabled=true;
+    var epocaInicio=_epoca.atual();
     apiCall('getData').then(function(resp){
       if(btn)btn.disabled=false;
       if(!resp||!resp.ok){if(showStatus&&!temCache){document.getElementById('p-connectStatus').className='connect-status error';document.getElementById('p-connectStatusText').textContent=(resp&&resp.erro)||'Não foi possível conectar.';}return;}
       if(window.SGCache)window.SGCache.set('ponto',resp);
+      if(_epoca.atual()!==epocaInicio)return;
       var pVendedores=window.SGAuth?window.SGAuth.filterByOwner(resp.vendedores||[],'IdVendedor'):(resp.vendedores||[]);
       var pPonto=window.SGAuth?window.SGAuth.filterByOwner(resp.ponto||[],'Funcionario'):(resp.ponto||[]);
       buildReportFrom(processVendedoresFromObjects(pVendedores),processPontoFromObjects(pPonto),resp.overrides||{});
@@ -3261,6 +3293,7 @@
 (function(){
 (function(){
 
+  var _epoca=window.SGEpoca.criar();
   var vendedoresMap={},sortState={col:'faturado',dir:'desc'},vendedoresAtivosVenda=[],vendasRecords=[],metasRecords=[],relatoriosRecords=[],custosVendaRecords=[],servicosMap={};
   var clientesMap={};
   var vendedoresTodosMapVendas={};
@@ -3738,6 +3771,7 @@
     var registroNovo={idVenda:idVenda,idCliente:idCliente,idServico:idServico,idVendedor:idVendedor,dt:dt,dateKey:dataVenda,valor:parseFloat(valor)||0};
     if(indiceExistente===-1)vendasRecords.push(registroNovo);
     else vendasRecords[indiceExistente]=registroNovo;
+    _epoca.marcar();
 
     fecharModalVenda();
     render();
@@ -3750,6 +3784,7 @@
       if(!resp||!resp.ok){
         if(ehNovo)vendasRecords=vendasRecords.filter(function(x){return String(x.idVenda)!==String(idVenda);});
         else{ var idx=vendasRecords.findIndex(function(x){return String(x.idVenda)===String(idVenda);}); if(idx!==-1&&registroAnterior)vendasRecords[idx]=registroAnterior; }
+        _epoca.marcar();
         render();
         window.SGToast.mostrar((resp&&resp.erro)||'Não foi possível salvar — a alteração foi desfeita.',true);
         return;
@@ -3763,6 +3798,7 @@
     }).catch(function(err){
       if(ehNovo)vendasRecords=vendasRecords.filter(function(x){return String(x.idVenda)!==String(idVenda);});
       else{ var idx=vendasRecords.findIndex(function(x){return String(x.idVenda)===String(idVenda);}); if(idx!==-1&&registroAnterior)vendasRecords[idx]=registroAnterior; }
+      _epoca.marcar();
       render();
       window.SGToast.mostrar('Erro de conexão — a alteração foi desfeita: '+err.message,true);
     });
@@ -3917,6 +3953,7 @@
     var indice=custosVendaRecords.findIndex(function(c){return String(c.id)===String(idCusto);});
     if(indice===-1)custosVendaRecords.push(registroNovo);
     else custosVendaRecords[indice]=registroNovo;
+    _epoca.marcar();
 
     document.getElementById('vd-custosLista').innerHTML=renderCustosVendaHtml(idVenda);
     wireCustoDelButtons(idVenda);
@@ -3932,6 +3969,7 @@
       if(!resp||!resp.ok){
         if(ehNovo)custosVendaRecords=custosVendaRecords.filter(function(c){return String(c.id)!==String(idCusto);});
         else{ var idx=custosVendaRecords.findIndex(function(c){return String(c.id)===String(idCusto);}); if(idx!==-1&&registroAnteriorCopia)custosVendaRecords[idx]=registroAnteriorCopia; }
+        _epoca.marcar();
         document.getElementById('vd-custosLista').innerHTML=renderCustosVendaHtml(idVenda);
         wireCustoDelButtons(idVenda);
         wireCustoItemClick(v);
@@ -3948,6 +3986,7 @@
     }).catch(function(err){
       if(ehNovo)custosVendaRecords=custosVendaRecords.filter(function(c){return String(c.id)!==String(idCusto);});
       else{ var idx=custosVendaRecords.findIndex(function(c){return String(c.id)===String(idCusto);}); if(idx!==-1&&registroAnteriorCopia)custosVendaRecords[idx]=registroAnteriorCopia; }
+      _epoca.marcar();
       document.getElementById('vd-custosLista').innerHTML=renderCustosVendaHtml(idVenda);
       wireCustoDelButtons(idVenda);
       wireCustoItemClick(v);
@@ -3964,6 +4003,7 @@
     }
 
     custosVendaRecords=custosVendaRecords.filter(function(c){return String(c.id)!==String(idCusto);});
+    _epoca.marcar();
     document.getElementById('vd-custosLista').innerHTML=renderCustosVendaHtml(idVenda);
     wireCustoDelButtons(idVenda);
     wireCustoItemClick(vendaAtual);
@@ -3973,6 +4013,7 @@
       if(!resp||!resp.ok){
         if(window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
         if(registroAnterior)custosVendaRecords.push(registroAnterior);
+        _epoca.marcar();
         document.getElementById('vd-custosLista').innerHTML=renderCustosVendaHtml(idVenda);
         wireCustoDelButtons(idVenda);
         wireCustoItemClick(vendaAtual);
@@ -3980,6 +4021,7 @@
       }
     }).catch(function(err){
       if(registroAnterior)custosVendaRecords.push(registroAnterior);
+      _epoca.marcar();
       document.getElementById('vd-custosLista').innerHTML=renderCustosVendaHtml(idVenda);
       wireCustoDelButtons(idVenda);
       wireCustoItemClick(vendaAtual);
@@ -3994,6 +4036,7 @@
     var registroAnterior=Object.assign({},vendaAtual);
 
     vendasRecords=vendasRecords.filter(function(x){return String(x.idVenda)!==String(idVenda);});
+    _epoca.marcar();
     fecharPainelVenda();
     render();
     window.SGToast.mostrar('Venda excluída.');
@@ -4001,11 +4044,11 @@
     apiCall('excluirVenda',{idVenda:idVenda}).then(function(resp){
       if(!resp||!resp.ok){
         if(window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
-        vendasRecords.push(registroAnterior); render();
+        vendasRecords.push(registroAnterior); _epoca.marcar(); render();
         window.SGToast.mostrar((resp&&resp.erro)||'Não foi possível excluir — a venda foi restaurada.',true);
       }
     }).catch(function(err){
-      vendasRecords.push(registroAnterior); render();
+      vendasRecords.push(registroAnterior); _epoca.marcar(); render();
       window.SGToast.mostrar('Erro de conexão — a venda foi restaurada: '+err.message,true);
     });
   }
@@ -4042,11 +4085,13 @@
     if(temCache)aplicarDadosVendas(cache.dados);
     if(showStatus&&!temCache){document.getElementById('v-connectStatus').style.display='flex';document.getElementById('v-connectStatus').className='connect-status';document.getElementById('v-connectStatusText').textContent='Conectando…';}
     var btn=document.getElementById('v-connectBtn');if(btn)btn.disabled=true;
+    var epocaInicio=_epoca.atual();
     apiCall('getVendasData').then(function(resp){
       if(btn)btn.disabled=false;
       if(!resp||!resp.ok){if(showStatus&&!temCache){document.getElementById('v-connectStatus').className='connect-status error';document.getElementById('v-connectStatusText').textContent=(resp&&resp.erro)||'Não foi possível conectar.';}return;}
       if(resp.diagnostico)console.log('[Vendas] Diagnóstico:',resp.diagnostico);
       if(window.SGCache)window.SGCache.set('vendas',resp);
+      if(_epoca.atual()!==epocaInicio)return;
       aplicarDadosVendas(resp);
       if(showStatus){document.getElementById('v-connectStatus').className='connect-status online';document.getElementById('v-connectStatusText').textContent='Conectado.';}
     }).catch(function(err){if(btn)btn.disabled=false;if(showStatus&&!temCache){document.getElementById('v-connectStatus').className='connect-status error';document.getElementById('v-connectStatusText').textContent='Erro: '+err.message;}});
@@ -4104,6 +4149,7 @@
   var clientesMap   = {};
   var servicosMapFunil = {};
   var _initialized  = false;
+  var _epoca=window.SGEpoca.criar();
   var sortState     = { col: 'dataProcesso', dir: 'desc' };
   var visaoAtual    = localStorage.getItem('sg_funil_visao')||'lista';
   var leadAtual     = null; // lead aberto no painel lateral (null = criando um novo)
@@ -4410,6 +4456,7 @@
       diasNaEtapa:0, slaColor:'green', temLog:true
     });
     funilRecords[indice]=registroNovo;
+    _epoca.marcar();
     render();
     mostrarToastFunil(nomeClienteFor(leadOriginal.idCliente)+' movido para "'+novaEtapa+'".');
 
@@ -4425,12 +4472,14 @@
       if(!resp||!resp.ok){
         var idx=funilRecords.findIndex(function(x){return String(x.id)===String(idLead);});
         if(idx!==-1)funilRecords[idx]=registroAnterior;
+        _epoca.marcar();
         render();
         mostrarToastFunil((resp&&resp.erro)||'Não foi possível mover — desfeito.',true);
       }
     }).catch(function(err){
       var idx=funilRecords.findIndex(function(x){return String(x.id)===String(idLead);});
       if(idx!==-1)funilRecords[idx]=registroAnterior;
+      _epoca.marcar();
       render();
       mostrarToastFunil('Erro de conexão — desfeito: '+err.message,true);
     });
@@ -4647,6 +4696,7 @@
 
     // adiciona na memória local e já seleciona no lead — sem esperar o servidor
     clientesMap[idCliente]={IdCliente:idCliente,Nome:nome,'Nome Razao Social':nome,Telefone:telefone,'Tipo Pessoa':tipoPessoa};
+    _epoca.marcar();
     document.getElementById('fd-cliente').value=idCliente;
     document.getElementById('fd-clienteBusca').value=nome;
     fecharClienteRapido();
@@ -4729,6 +4779,7 @@
     };
     if(indiceExistente===-1)funilRecords.push(registroNovo);
     else funilRecords[indiceExistente]=registroNovo;
+    _epoca.marcar();
 
     // Já atualiza a tela, fecha o painel e avisa — sem esperar o servidor.
     fecharPainelLead();
@@ -4738,6 +4789,7 @@
     function desfazer(motivo){
       if(ehNovo){ funilRecords=funilRecords.filter(function(x){return String(x.id)!==String(id);}); }
       else{ var idx=funilRecords.findIndex(function(x){return String(x.id)===String(id);}); if(idx!==-1&&registroAnterior)funilRecords[idx]=registroAnterior; }
+      _epoca.marcar();
       render();
       mostrarToastFunil(motivo,true);
     }
@@ -4775,6 +4827,7 @@
     var registroAnterior=Object.assign({},leadAtual);
 
     funilRecords=funilRecords.filter(function(x){return String(x.id)!==String(id);});
+    _epoca.marcar();
     fecharPainelLead();
     render();
     mostrarToastFunil('Lead excluído.');
@@ -4782,11 +4835,11 @@
     apiCall('excluirFunil',{idOportunidade:id}).then(function(resp){
       if(!resp||!resp.ok){
         if(window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return; // já não existia — exclusão continua válida
-        funilRecords.push(registroAnterior); render();
+        funilRecords.push(registroAnterior); _epoca.marcar(); render();
         mostrarToastFunil((resp&&resp.erro)||'Não foi possível excluir — o lead foi restaurado.',true);
       }
     }).catch(function(err){
-      funilRecords.push(registroAnterior); render();
+      funilRecords.push(registroAnterior); _epoca.marcar(); render();
       mostrarToastFunil('Erro de conexão — o lead foi restaurado: '+err.message,true);
     });
   }
@@ -4898,10 +4951,12 @@
     if(temCache)aplicarDadosFunil(cache.dados);
     if(showStatus&&!temCache){document.getElementById('f-connectStatus').style.display='flex';document.getElementById('f-connectStatus').className='connect-status';document.getElementById('f-connectStatusText').textContent='Conectando…';}
     document.getElementById('f-connectBtn').disabled=true;
+    var epocaInicio=_epoca.atual();
     apiCall('getFunilData').then(function(resp){
       document.getElementById('f-connectBtn').disabled=false;
       if(!resp||!resp.ok){if(showStatus&&!temCache){document.getElementById('f-connectStatus').className='connect-status error';document.getElementById('f-connectStatusText').textContent=(resp&&resp.erro)||'Não foi possível conectar.';}return;}
       if(window.SGCache)window.SGCache.set('funil',resp);
+      if(_epoca.atual()!==epocaInicio)return;
       aplicarDadosFunil(resp);
       if(showStatus){document.getElementById('f-connectStatus').className='connect-status online';document.getElementById('f-connectStatusText').textContent='Conectado.';}
     }).catch(function(err){document.getElementById('f-connectBtn').disabled=false;if(showStatus&&!temCache){document.getElementById('f-connectStatus').className='connect-status error';document.getElementById('f-connectStatusText').textContent='Erro: '+err.message;}});
@@ -4985,6 +5040,7 @@
 // ════ AGENDAMENTOS ════
 (function(){
   var _initialized=false;
+  var _epoca=window.SGEpoca.criar();
   var agendamentos=[],clientesMap={},vendedoresMap={},servicosMap={},templatesPorServico={},templatesPorId={},respostasPorAgendamento={};
   var editandoId=null;
   var servicoOriginalEdicao=null;
@@ -5736,6 +5792,7 @@
     if(temCache){
       aplicarDadosAgendamentos(cache.dados);
     }
+    var epocaInicio=_epoca.atual();
     apiCall('getAgendamentosData',{}).then(function(resp){
       if(!resp||!resp.ok){
         if(!temCache){
@@ -5745,6 +5802,7 @@
         return;
       }
       if(window.SGCache)window.SGCache.set('agendamentos',resp);
+      if(_epoca.atual()!==epocaInicio)return;
       if(!temCache)paginaAtual=1;
       aplicarDadosAgendamentos(resp);
     }).catch(function(err){
@@ -5828,6 +5886,7 @@
 // ════ CLIENTES (cadastro) ════
 (function(){
   var _initialized=false;
+  var _epoca=window.SGEpoca.criar();
   var clientes=[], vendedoresMap={};
   var editandoId=null;
   var paginaAtual=1, ITENS_POR_PAGINA=10;
@@ -6000,6 +6059,7 @@
     var indice=clientes.findIndex(function(c){return String(c.IdCliente)===String(idCliente);});
     if(indice===-1)clientes.push(registroNovo);
     else clientes[indice]=registroNovo;
+    _epoca.marcar();
 
     fecharModalCliente();
     render();
@@ -6015,6 +6075,7 @@
       if(!resp||!resp.ok){
         if(ehNovo)clientes=clientes.filter(function(c){return String(c.IdCliente)!==String(idCliente);});
         else{ var idx=clientes.findIndex(function(c){return String(c.IdCliente)===String(idCliente);}); if(idx!==-1&&registroAnteriorCopia)clientes[idx]=registroAnteriorCopia; }
+        _epoca.marcar();
         render();
         window.SGToast.mostrar((resp&&resp.erro)||'Não foi possível salvar — a alteração foi desfeita.',true);
         return;
@@ -6027,6 +6088,7 @@
     }).catch(function(err){
       if(ehNovo)clientes=clientes.filter(function(c){return String(c.IdCliente)!==String(idCliente);});
       else{ var idx=clientes.findIndex(function(c){return String(c.IdCliente)===String(idCliente);}); if(idx!==-1&&registroAnteriorCopia)clientes[idx]=registroAnteriorCopia; }
+      _epoca.marcar();
       render();
       window.SGToast.mostrar('Erro de conexão — a alteração foi desfeita: '+err.message,true);
     });
@@ -6039,6 +6101,7 @@
     var registroAnterior=clientes.filter(function(c){return String(c.IdCliente)===String(idCliente);})[0];
 
     clientes=clientes.filter(function(c){return String(c.IdCliente)!==String(idCliente);});
+    _epoca.marcar();
     fecharModalCliente();
     render();
     window.SGToast.mostrar('Cliente excluído.');
@@ -6047,11 +6110,13 @@
       if(!resp||!resp.ok){
         if(window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
         if(registroAnterior)clientes.push(registroAnterior);
+        _epoca.marcar();
         render();
         window.SGToast.mostrar((resp&&resp.erro)||'Não foi possível excluir — o cliente foi restaurado.',true);
       }
     }).catch(function(err){
       if(registroAnterior)clientes.push(registroAnterior);
+      _epoca.marcar();
       render();
       window.SGToast.mostrar('Erro de conexão — o cliente foi restaurado: '+err.message,true);
     });
@@ -6069,12 +6134,14 @@
     var cache=window.SGCache&&window.SGCache.get('clientes');
     var temCache=!!(cache&&cache.dados);
     if(temCache)aplicarDados(cache.dados);
+    var epocaInicio=_epoca.atual();
     apiCall('getClientesData',{}).then(function(resp){
       if(!resp||!resp.ok){
         if(!temCache){document.getElementById('cl-emptyState').style.display='block';document.getElementById('cl-emptyState').querySelector('p').textContent=(resp&&resp.erro)||'Não foi possível carregar os clientes.';}
         return;
       }
       if(window.SGCache)window.SGCache.set('clientes',resp);
+      if(_epoca.atual()!==epocaInicio)return;
       aplicarDados(resp);
     }).catch(function(err){
       if(!temCache){document.getElementById('cl-emptyState').style.display='block';document.getElementById('cl-emptyState').querySelector('p').textContent='Erro de conexão: '+err.message;}
@@ -6109,6 +6176,7 @@
 // ════ RELATÓRIOS (números diários do funil, por vendedor) ════
 (function(){
   var _initialized=false;
+  var _epoca=window.SGEpoca.criar();
   var relatorios=[],vendedoresMap={};
   var meuRegistroDeHoje=null; // se já existir lançamento pra hoje, guarda o IdRelatorio pra "salvar" virar "atualizar"
   var editandoId=null; // quando clica numa linha do histórico pra editar uma data passada
@@ -6311,6 +6379,7 @@
     if(indice===-1)relatorios.push(registroNovo);
     else relatorios[indice]=registroNovo;
     if(String(idVendedorAlvo)===String(vendedorSelecionado)&&dataVal===dateKeyHoje())meuRegistroDeHoje=idAlvo;
+    _epoca.marcar();
 
     msgEl.className='uform-msg'; msgEl.style.color='var(--accent-deep)'; msgEl.textContent='Relatório salvo ✓';
     editandoId=null;
@@ -6323,6 +6392,7 @@
       if(!resp||!resp.ok){
         if(ehNovo)relatorios=relatorios.filter(function(x){return String(x.IdRelatorio)!==String(idAlvo);});
         else{ var idx=relatorios.findIndex(function(x){return String(x.IdRelatorio)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)relatorios[idx]=registroAnteriorCopia; }
+        _epoca.marcar();
         render();
         msgEl.className='uform-msg error'; msgEl.textContent=(resp&&resp.erro)||'Não foi possível salvar — a alteração foi desfeita.';
         return;
@@ -6334,6 +6404,7 @@
     }).catch(function(err){
       if(ehNovo)relatorios=relatorios.filter(function(x){return String(x.IdRelatorio)!==String(idAlvo);});
       else{ var idx=relatorios.findIndex(function(x){return String(x.IdRelatorio)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)relatorios[idx]=registroAnteriorCopia; }
+      _epoca.marcar();
       render();
       msgEl.className='uform-msg error'; msgEl.textContent='Erro de conexão — a alteração foi desfeita: '+err.message;
     });
@@ -6343,6 +6414,7 @@
     if(!confirm('Excluir esse lançamento de relatório? Essa ação não pode ser desfeita.'))return;
     var registroAnterior=relatorios.filter(function(x){return String(x.IdRelatorio)===String(idRelatorio);})[0];
     relatorios=relatorios.filter(function(x){return String(x.IdRelatorio)!==String(idRelatorio);});
+    _epoca.marcar();
     render();
     (window.SGToast?window.SGToast.mostrar:function(t){})('Relatório excluído.');
 
@@ -6350,11 +6422,13 @@
       if(!resp||!resp.ok){
         if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return; // já não existia mesmo
         if(registroAnterior)relatorios.push(registroAnterior);
+        _epoca.marcar();
         render();
         (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
       }
     }).catch(function(err){
       if(registroAnterior)relatorios.push(registroAnterior);
+      _epoca.marcar();
       render();
       (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — restaurado: '+err.message,true);
     });
@@ -6388,6 +6462,7 @@
     var cache=window.SGCache&&window.SGCache.get('relatorios');
     var temCache=!!(cache&&cache.dados);
     if(temCache)aplicarDados(cache.dados);
+    var epocaInicio=_epoca.atual();
     apiCall('getRelatoriosData',{}).then(function(resp){
       if(!resp||!resp.ok){
         if(!temCache){
@@ -6397,6 +6472,7 @@
         return;
       }
       if(window.SGCache)window.SGCache.set('relatorios',resp);
+      if(_epoca.atual()!==epocaInicio)return;
       aplicarDados(resp);
     }).catch(function(err){
       if(!temCache){
@@ -6431,6 +6507,7 @@
 // ════ CUSTOS DA VENDA ════
 (function(){
   var _initialized=false;
+  var _epoca=window.SGEpoca.criar();
   var custos=[],vendas=[],clientesMap={},servicosMap={};
   var editandoId=null;
   var paginaAtual=1, ITENS_POR_PAGINA=10;
@@ -6630,6 +6707,7 @@
     var indice=custos.findIndex(function(x){return String(x.IdCusto)===String(idAlvo);});
     if(indice===-1)custos.push(registroNovo);
     else custos[indice]=registroNovo;
+    _epoca.marcar();
 
     fecharModal();
     render();
@@ -6639,6 +6717,7 @@
       if(!resp||!resp.ok){
         if(ehNovo)custos=custos.filter(function(x){return String(x.IdCusto)!==String(idAlvo);});
         else{ var idx=custos.findIndex(function(x){return String(x.IdCusto)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)custos[idx]=registroAnteriorCopia; }
+        _epoca.marcar();
         render();
         (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível salvar — a alteração foi desfeita.',true);
         return;
@@ -6650,6 +6729,7 @@
     }).catch(function(err){
       if(ehNovo)custos=custos.filter(function(x){return String(x.IdCusto)!==String(idAlvo);});
       else{ var idx=custos.findIndex(function(x){return String(x.IdCusto)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)custos[idx]=registroAnteriorCopia; }
+      _epoca.marcar();
       render();
       (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — a alteração foi desfeita: '+err.message,true);
     });
@@ -6661,6 +6741,7 @@
     var idAlvo=editandoId;
     var registroAnterior=custos.filter(function(x){return String(x.IdCusto)===String(idAlvo);})[0];
     custos=custos.filter(function(x){return String(x.IdCusto)!==String(idAlvo);});
+    _epoca.marcar();
     fecharModal();
     render();
     (window.SGToast?window.SGToast.mostrar:function(t){})('Custo excluído.');
@@ -6669,11 +6750,13 @@
       if(!resp||!resp.ok){
         if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
         if(registroAnterior)custos.push(registroAnterior);
+        _epoca.marcar();
         render();
         (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
       }
     }).catch(function(err){
       if(registroAnterior)custos.push(registroAnterior);
+      _epoca.marcar();
       render();
       (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — restaurado: '+err.message,true);
     });
@@ -6693,6 +6776,7 @@
     var cache=window.SGCache&&window.SGCache.get('custosvenda');
     var temCache=!!(cache&&cache.dados);
     if(temCache)aplicarDados(cache.dados);
+    var epocaInicio=_epoca.atual();
     apiCall('getCustosVendaData',{}).then(function(resp){
       if(!resp||!resp.ok){
         if(!temCache){
@@ -6702,6 +6786,7 @@
         return;
       }
       if(window.SGCache)window.SGCache.set('custosvenda',resp);
+      if(_epoca.atual()!==epocaInicio)return;
       aplicarDados(resp);
     }).catch(function(err){
       if(!temCache){
@@ -6759,6 +6844,7 @@
   var paginaAtual=1, ITENS_POR_PAGINA=10;
   var sortState={col:'descricao',dir:'asc'};
   var APP_VERSION='2026-07-16-1';
+  var _epoca=window.SGEpoca.criar();
 
   function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
   function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
@@ -6910,6 +6996,7 @@
     var indice=custos.findIndex(function(x){return String(x.IdCR)===String(idAlvo);});
     if(indice===-1)custos.push(registroNovo);
     else custos[indice]=registroNovo;
+    _epoca.marcar();
 
     fecharModal();
     render();
@@ -6919,6 +7006,7 @@
       if(!resp||!resp.ok){
         if(ehNovo)custos=custos.filter(function(x){return String(x.IdCR)!==String(idAlvo);});
         else{ var idx=custos.findIndex(function(x){return String(x.IdCR)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)custos[idx]=registroAnteriorCopia; }
+        _epoca.marcar();
         render();
         (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível salvar — a alteração foi desfeita.',true);
         return;
@@ -6930,6 +7018,7 @@
     }).catch(function(err){
       if(ehNovo)custos=custos.filter(function(x){return String(x.IdCR)!==String(idAlvo);});
       else{ var idx=custos.findIndex(function(x){return String(x.IdCR)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)custos[idx]=registroAnteriorCopia; }
+      _epoca.marcar();
       render();
       (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — a alteração foi desfeita: '+err.message,true);
     });
@@ -6941,6 +7030,7 @@
     var idAlvo=editandoId;
     var registroAnterior=custos.filter(function(x){return String(x.IdCR)===String(idAlvo);})[0];
     custos=custos.filter(function(x){return String(x.IdCR)!==String(idAlvo);});
+    _epoca.marcar();
     fecharModal();
     render();
     (window.SGToast?window.SGToast.mostrar:function(t){})('Custo recorrente excluído.');
@@ -6949,11 +7039,13 @@
       if(!resp||!resp.ok){
         if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
         if(registroAnterior)custos.push(registroAnterior);
+        _epoca.marcar();
         render();
         (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
       }
     }).catch(function(err){
       if(registroAnterior)custos.push(registroAnterior);
+      _epoca.marcar();
       render();
       (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — restaurado: '+err.message,true);
     });
@@ -6970,6 +7062,7 @@
     var cache=window.SGCache&&window.SGCache.get('custorecorrente');
     var temCache=!!(cache&&cache.dados);
     if(temCache)aplicarDados(cache.dados);
+    var epocaInicio=_epoca.atual();
     apiCall('getCustoRecorrenteData',{}).then(function(resp){
       if(!resp||!resp.ok){
         if(!temCache){
@@ -6979,6 +7072,7 @@
         return;
       }
       if(window.SGCache)window.SGCache.set('custorecorrente',resp);
+      if(_epoca.atual()!==epocaInicio)return; // algo mudou aqui na tela enquanto essa busca estava no ar — não sobrescreve
       aplicarDados(resp);
     }).catch(function(err){
       if(!temCache){
@@ -7029,6 +7123,7 @@
 // ════ SERVIÇOS + TEMPLATES (somente administradores) ════
 (function(){
   var _initialized=false;
+  var _epoca=window.SGEpoca.criar();
   var servicos=[],templates=[];
   var servicoAtualId=null;
   var sortState={col:'nome',dir:'asc'};
@@ -7140,6 +7235,7 @@
     var indice=templates.findIndex(function(x){return String(x.IdTemplate)===String(idTpl);});
     if(indice!==-1){
       templates[indice]=Object.assign({},templates[indice],{TextoPergunta:textoPergunta,TipoInput:tipoInput,OpcoesEnum:opcoesEnum,Ordem:ordem,Obrigatorio:obrigatorio});
+      _epoca.marcar();
     }
 
     apiCall('salvarTemplate',{idTemplate:idTpl,idServico:servicoAtualId,ordem:ordem,textoPergunta:textoPergunta,tipoInput:tipoInput,opcoesEnum:opcoesEnum,obrigatorio:obrigatorio}).then(function(resp){
@@ -7155,6 +7251,7 @@
     if(!confirm('Excluir essa pergunta do checklist? Essa ação não pode ser desfeita.'))return;
     var registroAnterior=templates.filter(function(x){return String(x.IdTemplate)===String(idTpl);})[0];
     templates=templates.filter(function(x){return String(x.IdTemplate)!==String(idTpl);});
+    _epoca.marcar();
     renderPerguntas();
     render();
 
@@ -7162,11 +7259,13 @@
       if(!resp||!resp.ok){
         if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
         if(registroAnterior)templates.push(registroAnterior);
+        _epoca.marcar();
         renderPerguntas(); render();
         (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
       }
     }).catch(function(err){
       if(registroAnterior)templates.push(registroAnterior);
+      _epoca.marcar();
       renderPerguntas(); render();
       (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — restaurado: '+err.message,true);
     });
@@ -7178,11 +7277,13 @@
     var ordemSugerida=templatesDoServico(servicoAtualId).length+1;
     var registroNovo={IdTemplate:idNovo,IdServico:servicoAtualId,Ordem:String(ordemSugerida),TextoPergunta:'Nova pergunta',TipoInput:'Texto',OpcoesEnum:'',Obrigatorio:false};
     templates.push(registroNovo);
+    _epoca.marcar();
     renderPerguntas();
     render();
     apiCall('salvarTemplate',{idTemplate:idNovo,idServico:servicoAtualId,ordem:String(ordemSugerida),textoPergunta:'Nova pergunta',tipoInput:'Texto',opcoesEnum:'',obrigatorio:false}).then(function(resp){
       if(!resp||!resp.ok){
         templates=templates.filter(function(x){return String(x.IdTemplate)!==String(idNovo);});
+        _epoca.marcar();
         renderPerguntas(); render();
         (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível criar a pergunta.',true);
       }
@@ -7226,6 +7327,7 @@
     var indice=servicos.findIndex(function(x){return String(x.IdServico)===String(idAlvo);});
     if(indice===-1)servicos.push(registroNovo);
     else servicos[indice]=registroNovo;
+    _epoca.marcar();
 
     var abriaNovo=ehNovo;
     servicoAtualId=idAlvo;
@@ -7241,6 +7343,7 @@
         if(abriaNovo)servicos=servicos.filter(function(x){return String(x.IdServico)!==String(idAlvo);});
         else{ var idx=servicos.findIndex(function(x){return String(x.IdServico)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)servicos[idx]=registroAnteriorCopia; }
         if(abriaNovo)servicoAtualId=null;
+        _epoca.marcar();
         render();
         msgEl.className='uform-msg error'; msgEl.textContent=(resp&&resp.erro)||'Não foi possível salvar — a alteração foi desfeita.';
         return;
@@ -7252,6 +7355,7 @@
     }).catch(function(err){
       if(abriaNovo){ servicos=servicos.filter(function(x){return String(x.IdServico)!==String(idAlvo);}); servicoAtualId=null; }
       else{ var idx=servicos.findIndex(function(x){return String(x.IdServico)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)servicos[idx]=registroAnteriorCopia; }
+      _epoca.marcar();
       render();
       msgEl.className='uform-msg error'; msgEl.textContent='Erro de conexão — a alteração foi desfeita: '+err.message;
     });
@@ -7263,6 +7367,7 @@
     var idAlvo=servicoAtualId;
     var registroAnterior=servicos.filter(function(x){return String(x.IdServico)===String(idAlvo);})[0];
     servicos=servicos.filter(function(x){return String(x.IdServico)!==String(idAlvo);});
+    _epoca.marcar();
     fecharPainel();
     render();
     (window.SGToast?window.SGToast.mostrar:function(t){})('Serviço excluído.');
@@ -7271,11 +7376,13 @@
       if(!resp||!resp.ok){
         if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
         if(registroAnterior)servicos.push(registroAnterior);
+        _epoca.marcar();
         render();
         (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
       }
     }).catch(function(err){
       if(registroAnterior)servicos.push(registroAnterior);
+      _epoca.marcar();
       render();
       (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — restaurado: '+err.message,true);
     });
@@ -7293,6 +7400,7 @@
     var cache=window.SGCache&&window.SGCache.get('servicos_tela');
     var temCache=!!(cache&&cache.dados);
     if(temCache)aplicarDados(cache.dados);
+    var epocaInicio=_epoca.atual();
     apiCall('getServicosData',{}).then(function(resp){
       if(!resp||!resp.ok){
         if(!temCache){
@@ -7302,6 +7410,7 @@
         return;
       }
       if(window.SGCache)window.SGCache.set('servicos_tela',resp);
+      if(_epoca.atual()!==epocaInicio)return;
       aplicarDados(resp);
     }).catch(function(err){
       if(!temCache){
@@ -7339,6 +7448,7 @@
 // ════ METAS (somente administradores) ════
 (function(){
   var _initialized=false;
+  var _epoca=window.SGEpoca.criar();
   var metas=[];
   var editandoId=null;
   var sortState={col:'ano',dir:'desc'};
@@ -7426,6 +7536,7 @@
     var indice=metas.findIndex(function(x){return String(x.IdMeta)===String(idAlvo);});
     if(indice===-1)metas.push(registroNovo);
     else metas[indice]=registroNovo;
+    _epoca.marcar();
 
     fecharModalMeta();
     render();
@@ -7436,6 +7547,7 @@
       if(!resp||!resp.ok){
         if(ehNovo)metas=metas.filter(function(x){return String(x.IdMeta)!==String(idAlvo);});
         else{ var idx=metas.findIndex(function(x){return String(x.IdMeta)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)metas[idx]=registroAnteriorCopia; }
+        _epoca.marcar();
         render();
         (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível salvar — a alteração foi desfeita.',true);
         return;
@@ -7447,6 +7559,7 @@
     }).catch(function(err){
       if(ehNovo)metas=metas.filter(function(x){return String(x.IdMeta)!==String(idAlvo);});
       else{ var idx=metas.findIndex(function(x){return String(x.IdMeta)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)metas[idx]=registroAnteriorCopia; }
+      _epoca.marcar();
       render();
       (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — a alteração foi desfeita: '+err.message,true);
     });
@@ -7458,6 +7571,7 @@
     var idAlvo=editandoId;
     var registroAnterior=metas.filter(function(x){return String(x.IdMeta)===String(idAlvo);})[0];
     metas=metas.filter(function(x){return String(x.IdMeta)!==String(idAlvo);});
+    _epoca.marcar();
     fecharModalMeta();
     render();
     (window.SGToast?window.SGToast.mostrar:function(t){})('Meta excluída.');
@@ -7466,11 +7580,13 @@
       if(!resp||!resp.ok){
         if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
         if(registroAnterior)metas.push(registroAnterior);
+        _epoca.marcar();
         render();
         (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
       }
     }).catch(function(err){
       if(registroAnterior)metas.push(registroAnterior);
+      _epoca.marcar();
       render();
       (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — restaurado: '+err.message,true);
     });
@@ -7487,6 +7603,7 @@
     var cache=window.SGCache&&window.SGCache.get('metas');
     var temCache=!!(cache&&cache.dados);
     if(temCache)aplicarDados(cache.dados);
+    var epocaInicio=_epoca.atual();
     apiCall('getMetasData',{}).then(function(resp){
       if(!resp||!resp.ok){
         if(!temCache){
@@ -7496,6 +7613,7 @@
         return;
       }
       if(window.SGCache)window.SGCache.set('metas',resp);
+      if(_epoca.atual()!==epocaInicio)return;
       aplicarDados(resp);
     }).catch(function(err){
       if(!temCache){
@@ -7531,6 +7649,7 @@
 // ════ PLANOS (clientes assinantes) ════
 (function(){
   var _initialized=false;
+  var _epoca=window.SGEpoca.criar();
   var planos=[], clientesMap={}, vendedoresMap={};
   var editandoId=null;
   var paginaAtual=1, ITENS_POR_PAGINA=10;
@@ -7719,6 +7838,7 @@
     var indice=planos.findIndex(function(p){return String(p.IdPlano)===String(idPlano);});
     if(indice===-1)planos.push(registroNovo);
     else planos[indice]=registroNovo;
+    _epoca.marcar();
 
     fecharModalPlano();
     render();
@@ -7733,6 +7853,7 @@
       if(!resp||!resp.ok){
         if(ehNovo)planos=planos.filter(function(p){return String(p.IdPlano)!==String(idPlano);});
         else{ var idx=planos.findIndex(function(p){return String(p.IdPlano)===String(idPlano);}); if(idx!==-1&&registroAnteriorCopia)planos[idx]=registroAnteriorCopia; }
+        _epoca.marcar();
         render();
         mostrarToastPlanos((resp&&resp.erro)||'Não foi possível salvar — a alteração foi desfeita.',true);
         return;
@@ -7745,6 +7866,7 @@
     }).catch(function(err){
       if(ehNovo)planos=planos.filter(function(p){return String(p.IdPlano)!==String(idPlano);});
       else{ var idx=planos.findIndex(function(p){return String(p.IdPlano)===String(idPlano);}); if(idx!==-1&&registroAnteriorCopia)planos[idx]=registroAnteriorCopia; }
+      _epoca.marcar();
       render();
       mostrarToastPlanos('Erro de conexão — a alteração foi desfeita: '+err.message,true);
     });
@@ -7757,6 +7879,7 @@
     var registroAnterior=planos.filter(function(p){return String(p.IdPlano)===String(idPlano);})[0];
 
     planos=planos.filter(function(p){return String(p.IdPlano)!==String(idPlano);});
+    _epoca.marcar();
     fecharModalPlano();
     render();
     mostrarToastPlanos('Plano excluído.');
@@ -7765,11 +7888,13 @@
       if(!resp||!resp.ok){
         if(window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
         if(registroAnterior)planos.push(registroAnterior);
+        _epoca.marcar();
         render();
         mostrarToastPlanos((resp&&resp.erro)||'Não foi possível excluir — o plano foi restaurado.',true);
       }
     }).catch(function(err){
       if(registroAnterior)planos.push(registroAnterior);
+      _epoca.marcar();
       render();
       mostrarToastPlanos('Erro de conexão — o plano foi restaurado: '+err.message,true);
     });
@@ -7791,12 +7916,14 @@
     var cache=window.SGCache&&window.SGCache.get('planos');
     var temCache=!!(cache&&cache.dados);
     if(temCache)aplicarDados(cache.dados);
+    var epocaInicio=_epoca.atual();
     apiCall('getPlanosData',{}).then(function(resp){
       if(!resp||!resp.ok){
         if(!temCache){document.getElementById('pl-emptyState').style.display='block';document.getElementById('pl-emptyState').querySelector('p').textContent=(resp&&resp.erro)||'Não foi possível carregar os planos.';}
         return;
       }
       if(window.SGCache)window.SGCache.set('planos',resp);
+      if(_epoca.atual()!==epocaInicio)return;
       aplicarDados(resp);
     }).catch(function(err){
       if(!temCache){document.getElementById('pl-emptyState').style.display='block';document.getElementById('pl-emptyState').querySelector('p').textContent='Erro de conexão: '+err.message;}
@@ -7838,6 +7965,7 @@
 // ════ USUÁRIOS (somente administradores) ════
 (function(){
   var _initialized=false;
+  var _epoca=window.SGEpoca.criar();
   var usuarios=[];
   var editandoId=null; // null = criando novo
 
@@ -7882,6 +8010,7 @@
     var cache=window.SGCache&&window.SGCache.get('usuarios');
     var temCache=!!(cache&&cache.dados);
     if(temCache){ usuarios=cache.dados.vendedores||[]; render(); }
+    var epocaInicio=_epoca.atual();
     apiCall('listVendedoresAdmin',{solicitanteId:meuId()}).then(function(resp){
       if(!resp||!resp.ok){
         if(!temCache){
@@ -7891,6 +8020,7 @@
         return;
       }
       if(window.SGCache)window.SGCache.set('usuarios',resp);
+      if(_epoca.atual()!==epocaInicio)return;
       usuarios=resp.vendedores||[];
       render();
     }).catch(function(err){
@@ -7931,6 +8061,7 @@
     var indice=usuarios.findIndex(function(x){return String(x.IdVendedor)===String(idAlvo);});
     if(indice===-1)usuarios.push(registroNovo);
     else usuarios[indice]=registroNovo;
+    _epoca.marcar();
 
     closeModal();
     render();
@@ -7943,6 +8074,7 @@
       if(!resp||!resp.ok){
         if(ehNovo)usuarios=usuarios.filter(function(x){return String(x.IdVendedor)!==String(idAlvo);});
         else{ var idx=usuarios.findIndex(function(x){return String(x.IdVendedor)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)usuarios[idx]=registroAnteriorCopia; }
+        _epoca.marcar();
         render();
         (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível salvar — a alteração foi desfeita.',true);
         return;
@@ -7978,6 +8110,7 @@
 // ════ PERMISSÕES (somente administradores) ════
 (function(){
   var _initialized=false;
+  var _epoca=window.SGEpoca.criar();
   var telas=[], tipos=[], permissoesMap={}; // chave: tipo+'|'+tela -> true/false
 
   function apiCall(action,payload){ return window.SGAuth.apiCall(action,payload); }
@@ -8026,6 +8159,7 @@
       // atualiza o mapa local (pra não precisar recarregar) e o cache global usado pelo menu
       permissoesMap={};
       lista.forEach(function(p){ permissoesMap[chave(p.tipo,p.tela)]=p.permitido; });
+      _epoca.marcar();
       if(window.SGPermissoes)window.SGPermissoes.definirCache(telas,tipos,permissoesMap);
       if(window.SGCache)window.SGCache.set('permissoes_tela',{ok:true,telas:telas,tipos:tipos,permissoes:lista});
     }).catch(function(err){
@@ -8038,6 +8172,7 @@
     var cache=window.SGCache&&window.SGCache.get('permissoes_tela');
     var temCache=!!(cache&&cache.dados);
     if(temCache)aplicarRespostaPermissoes(cache.dados);
+    var epocaInicio=_epoca.atual();
     apiCall('getPermissoesData',{}).then(function(resp){
       if(!resp||!resp.ok){
         if(!temCache){
@@ -8047,6 +8182,7 @@
         return;
       }
       if(window.SGCache)window.SGCache.set('permissoes_tela',resp);
+      if(_epoca.atual()!==epocaInicio)return;
       aplicarRespostaPermissoes(resp);
     }).catch(function(err){
       if(!temCache){
