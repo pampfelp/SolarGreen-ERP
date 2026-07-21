@@ -1445,7 +1445,8 @@
     </div>
     <div class="uform-msg" id="cr-msg"></div>
     <div id="cr-avisoDuplicado" class="hidden" style="background:#fef2f2;border:1px solid var(--debit);border-radius:10px;padding:12px 14px;margin-top:4px;">
-      <div style="font-size:12.5px;color:var(--debit);font-weight:700;margin-bottom:8px;">⚠️ Já existe um contato cadastrado para esse número</div>
+      <div style="font-size:12.5px;color:var(--debit);font-weight:700;margin-bottom:4px;">⚠️ Já existe um contato cadastrado para esse número</div>
+      <div id="cr-avisoDuplicadoDetalhe" style="font-size:11.5px;color:var(--ink-faint);margin-bottom:8px;"></div>
       <label style="font-size:12px;color:var(--ink-soft);display:flex;align-items:flex-start;gap:7px;cursor:pointer;">
         <input type="checkbox" id="cr-confirmarDiferente" style="margin-top:2px;">
         <span>Confirmo que é um cliente diferente (endereço diferente do outro cadastro com esse telefone)</span>
@@ -1581,7 +1582,8 @@
     </div>
     <div class="uform-msg" id="cm-msg"></div>
     <div id="cm-avisoDuplicado" class="hidden" style="background:#fef2f2;border:1px solid var(--debit);border-radius:10px;padding:12px 14px;margin-bottom:14px;">
-      <div style="font-size:12.5px;color:var(--debit);font-weight:700;margin-bottom:8px;">⚠️ Já existe um contato cadastrado para esse número</div>
+      <div style="font-size:12.5px;color:var(--debit);font-weight:700;margin-bottom:4px;">⚠️ Já existe um contato cadastrado para esse número</div>
+      <div id="cm-avisoDuplicadoDetalhe" style="font-size:11.5px;color:var(--ink-faint);margin-bottom:8px;"></div>
       <label style="font-size:12px;color:var(--ink-soft);display:flex;align-items:flex-start;gap:7px;cursor:pointer;">
         <input type="checkbox" id="cm-confirmarDiferente" style="margin-top:2px;">
         <span>Confirmo que é um cliente diferente (endereço diferente do outro cadastro com esse telefone)</span>
@@ -4648,6 +4650,7 @@
     document.getElementById('cr-endereco').value='';
     document.getElementById('cr-msg').textContent='';
     document.getElementById('cr-avisoDuplicado').classList.add('hidden');
+    document.getElementById('cr-avisoDuplicadoDetalhe').textContent='';
     document.getElementById('cr-confirmarDiferente').checked=false;
     window.SGCombo.criar({
       inputId:'cr-vendedorBusca', hiddenId:'cr-vendedor', dropdownId:'cr-vendedorDropdown',
@@ -4685,7 +4688,9 @@
       var listaClientes=Object.keys(clientesMap).map(function(id){return clientesMap[id];});
       var duplicado=window.SGUtil.encontrarClienteMesmoTelefone(telefone,listaClientes,null);
       if(duplicado){
+        var nomeDuplicado=duplicado['Nome Razao Social']||duplicado.Nome||'(sem nome)';
         document.getElementById('cr-avisoDuplicado').classList.remove('hidden');
+        document.getElementById('cr-avisoDuplicadoDetalhe').textContent='Encontrado: "'+nomeDuplicado+'" — telefone '+(duplicado.Telefone||'—')+' (mesmos 8 últimos dígitos)';
         msgEl.className='uform-msg error'; msgEl.textContent='Já existe um contato cadastrado para esse número';
         return;
       }
@@ -6010,6 +6015,7 @@
     document.getElementById('cm-excluirBtn').style.display=c?'block':'none';
     document.getElementById('cm-msg').textContent='';
     document.getElementById('cm-avisoDuplicado').classList.add('hidden');
+    document.getElementById('cm-avisoDuplicadoDetalhe').textContent='';
     document.getElementById('cm-confirmarDiferente').checked=false;
     var idVend=c?c['Vendedor Responsavel']:'';
     wireComboVendedor(idVend&&vendedoresMap[idVend]?{id:idVend,label:vendedoresMap[idVend].Nome}:null);
@@ -6040,7 +6046,9 @@
     if(ehNovo&&!endereco&&!confirmado){
       var duplicado=window.SGUtil.encontrarClienteMesmoTelefone(telefone,clientes,editandoId);
       if(duplicado){
+        var nomeDuplicado=duplicado['Nome Razao Social']||duplicado.Nome||'(sem nome)';
         document.getElementById('cm-avisoDuplicado').classList.remove('hidden');
+        document.getElementById('cm-avisoDuplicadoDetalhe').textContent='Encontrado: "'+nomeDuplicado+'" — telefone '+(duplicado.Telefone||'—')+' (mesmos 8 últimos dígitos)';
         msgEl.className='uform-msg error'; msgEl.textContent='Já existe um contato cadastrado para esse número';
         return;
       }
