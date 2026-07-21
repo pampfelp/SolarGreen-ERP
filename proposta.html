@@ -69,6 +69,14 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 
 /* ── Fields ── */
 .field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;}
+.combo-wrap{position:relative;}
+.combo-wrap input[type=text]{width:100%;}
+.combo-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;max-height:260px;overflow-y:auto;background:#fff;border:1px solid var(--line);border-radius:9px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:30;}
+.combo-dropdown.hidden{display:none;}
+.combo-item{padding:10px 12px;font-size:13px;color:var(--ink);cursor:pointer;border-bottom:1px solid var(--bg);}
+.combo-item:last-child{border-bottom:none;}
+.combo-item:hover{background:var(--bg);}
+.combo-empty{padding:12px;font-size:12.5px;color:var(--ink-faint);text-align:center;}
 .field:last-child{margin-bottom:0;}
 .field label{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-faint);font-weight:600;}
 .field input,.field select,.field textarea{font-family:var(--sans);font-size:13px;border:1px solid var(--line);border-radius:7px;padding:8px 12px;background:#fff;color:var(--ink);}
@@ -356,7 +364,13 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
   <!-- ── LEAD ── -->
   <div class="card">
     <div class="card-head">Lead do Funil</div>
-    <div class="field"><label>Cliente / Oportunidade</label><select id="selLead"><option value="">— Selecionar lead…</option></select></div>
+    <div class="field"><label>Cliente / Oportunidade</label>
+      <div class="combo-wrap">
+        <input type="text" id="selLeadBusca" placeholder="Digite o nome do cliente…" autocomplete="off">
+        <input type="hidden" id="selLead">
+        <div class="combo-dropdown hidden" id="selLeadDropdown"></div>
+      </div>
+    </div>
     <div id="leadCard" class="lead-card">
       <div class="lc-nome" id="lcNome">—</div>
       <div class="lc-grid">
@@ -446,7 +460,11 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
   <div class="card">
     <div class="card-head">Cliente</div>
     <div class="field"><label>Selecionar cliente (tabela Clientes)</label>
-      <select id="ctrSelCliente"><option value="">— Selecionar cliente…</option></select>
+      <div class="combo-wrap">
+        <input type="text" id="ctrSelClienteBusca" placeholder="Digite o nome do cliente…" autocomplete="off">
+        <input type="hidden" id="ctrSelCliente">
+        <div class="combo-dropdown hidden" id="ctrSelClienteDropdown"></div>
+      </div>
     </div>
     <div class="frow tri" style="margin-top:12px;">
       <div class="field"><label>Nome / Razão Social</label><input type="text" id="ctrNome" oninput="renderContratoPreview();markClienteDirty();"></div>
@@ -582,6 +600,56 @@ var S={
   funilRecords:[],clientesMap:{},vendedoresMap:{},servicosMap:{},servicosArray:[],
   propostas:[],blocks:[],seq:0,propostaId:null
 };
+var leadCombo=null,clienteCombo=null;
+
+// ── Combo de busca digitável (mesmo componente do index.html) ──────────
+window.SGCombo=window.SGCombo||{
+  criar:function(config){
+    var input=document.getElementById(config.inputId);
+    var hidden=document.getElementById(config.hiddenId);
+    var dropdown=document.getElementById(config.dropdownId);
+    if(!input||!hidden||!dropdown)return null;
+
+    function escapeHtmlCombo(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+
+    if(config.valorInicial){ hidden.value=config.valorInicial.id||''; input.value=config.valorInicial.label||''; }
+    else{ hidden.value=''; input.value=''; }
+
+    function render(filtro){
+      var termo=(filtro||'').trim().toLowerCase();
+      var todas=config.getOpcoes()||[];
+      var lista=todas.filter(function(o){ return !termo||String(o.label||'').toLowerCase().indexOf(termo)!==-1; }).slice(0,60);
+      if(!lista.length){
+        dropdown.innerHTML='<div class="combo-empty">Nenhuma opção encontrada.</div>';
+      }else{
+        dropdown.innerHTML=lista.map(function(o){
+          return '<div class="combo-item" data-id="'+escapeHtmlCombo(o.id)+'" data-label="'+escapeHtmlCombo(o.label)+'">'+escapeHtmlCombo(o.label)+'</div>';
+        }).join('');
+      }
+      dropdown.classList.remove('hidden');
+      dropdown.querySelectorAll('.combo-item').forEach(function(item){
+        item.addEventListener('mousedown',function(e){
+          e.preventDefault();
+          var id=item.getAttribute('data-id'),label=item.getAttribute('data-label');
+          hidden.value=id; input.value=label;
+          dropdown.classList.add('hidden');
+          if(config.onSelecionar)config.onSelecionar(id,label);
+        });
+      });
+    }
+
+    if(!input.dataset.comboWired){
+      input.dataset.comboWired='1';
+      input.addEventListener('input',function(){ hidden.value=''; render(input.value); });
+      input.addEventListener('focus',function(){ render(input.value); });
+      input.addEventListener('blur',function(){ setTimeout(function(){ dropdown.classList.add('hidden'); },150); });
+    }
+
+    return {
+      setValor:function(id,label){ hidden.value=id||''; input.value=label||''; }
+    };
+  }
+};
 
 // ── Processar dados da API ─────────────────────────────────────────────
 function buildMaps(resp){
@@ -623,25 +691,29 @@ function buildMaps(resp){
 }
 
 // ── Leads ──────────────────────────────────────────────────────────────
+function opcoesLead(){
+  return S.funilRecords.slice().sort(function(a,b){return a.nomeCliente.localeCompare(b.nomeCliente,'pt-BR');})
+    .map(function(r){return {id:r.id,label:r.nomeCliente+' · '+r.etapa+' · '+r.nomeVendedor};});
+}
 function populateLeads(){
-  var sel=document.getElementById('selLead');
-  sel.innerHTML='<option value="">— Selecionar lead…</option>';
-  S.funilRecords.slice().sort(function(a,b){return a.nomeCliente.localeCompare(b.nomeCliente,'pt-BR');}).forEach(function(r){
-    var opt=document.createElement('option'); opt.value=r.id;
-    opt.textContent=r.nomeCliente+' · '+r.etapa+' · '+r.nomeVendedor;
-    sel.appendChild(opt);
+  leadCombo=window.SGCombo.criar({
+    inputId:'selLeadBusca', hiddenId:'selLead', dropdownId:'selLeadDropdown',
+    getOpcoes:opcoesLead,
+    onSelecionar:function(){ onLeadChange(); }
   });
 }
 
 // ── Clientes (aba Contrato, independente do Funil) ─────────────────────
+function opcoesClienteContrato(){
+  return S.clientesArray.slice().sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');})
+    .map(function(c){return {id:c.id,label:c.nome+(c.status?' · '+c.status:'')};});
+}
 function populateClientesContrato(){
-  var sel=document.getElementById('ctrSelCliente');
-  if(!sel)return;
-  sel.innerHTML='<option value="">— Selecionar cliente…</option>';
-  S.clientesArray.slice().sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');}).forEach(function(c){
-    var opt=document.createElement('option'); opt.value=c.id;
-    opt.textContent=c.nome+(c.status?' · '+c.status:'');
-    sel.appendChild(opt);
+  if(!document.getElementById('ctrSelCliente'))return;
+  clienteCombo=window.SGCombo.criar({
+    inputId:'ctrSelClienteBusca', hiddenId:'ctrSelCliente', dropdownId:'ctrSelClienteDropdown',
+    getOpcoes:opcoesClienteContrato,
+    onSelecionar:function(){ onClienteContratoChange(); }
   });
 }
 
@@ -704,7 +776,9 @@ function syncClienteToSheet(){
     if(S.clientesMap[CT.clienteId]){ S.clientesMap[CT.clienteId].nome=nome; S.clientesMap[CT.clienteId].cpf=cpf; S.clientesMap[CT.clienteId].endereco=endereco; }
     CT.clienteOriginal={nome:nome,cpf:cpf,endereco:endereco};
     markClienteDirty();
-    populateClientesContrato(); document.getElementById('ctrSelCliente').value=CT.clienteId;
+    populateClientesContrato();
+    var cAtual=S.clientesMap[CT.clienteId];
+    if(clienteCombo)clienteCombo.setValor(CT.clienteId,cAtual?(cAtual.nome+(cAtual.status?' · '+cAtual.status:'')):'');
     showToast('Cadastro do cliente atualizado na planilha!');
   }).catch(function(err){ btn.disabled=false; btn.textContent='💾 Salvar na planilha'; btnB.disabled=false; btnB.textContent='💾 Salvar na planilha'; showToast('Erro: '+err.message,false); });
 }
@@ -947,7 +1021,10 @@ window._loadProp=function(pid){
   apiCall('getProposals',{id:pid}).then(function(resp){
     if(!resp||!resp.ok||!resp.proposta){showToast('Proposta não encontrada',false);return;}
     var p=resp.proposta;
-    document.getElementById('selLead').value=p.IdOportunidade||''; onLeadChange();
+    var leadSalvo=S.funilRecords.find(function(r){return r.id===p.IdOportunidade;});
+    if(leadCombo)leadCombo.setValor(p.IdOportunidade||'',leadSalvo?(leadSalvo.nomeCliente+' · '+leadSalvo.etapa+' · '+leadSalvo.nomeVendedor):(p.NomeCliente||''));
+    else document.getElementById('selLead').value=p.IdOportunidade||'';
+    onLeadChange();
     document.getElementById('numeroProp').value=p.Numero||'';
     document.getElementById('dataProp').value=String(p.Data||'').substring(0,10);
     document.getElementById('statusProp').value=p.Status||'Rascunho';
@@ -1166,7 +1243,8 @@ function printProposal(){
 
 // ── Reset ──────────────────────────────────────────────────────────────
 function resetForm(){
-  document.getElementById('selLead').value=''; document.getElementById('leadCard').style.display='none';
+  if(leadCombo)leadCombo.setValor('',''); else document.getElementById('selLead').value='';
+  document.getElementById('leadCard').style.display='none';
   document.getElementById('numeroProp').value=''; document.getElementById('dataProp').value=dateKey(new Date());
   document.getElementById('statusProp').value='Rascunho'; document.getElementById('obsGerais').value='';
   document.getElementById('deslocamento').value=''; document.getElementById('deslocObs').value='';
@@ -1587,7 +1665,7 @@ function printContrato(){
 }
 
 function resetContrato(){
-  document.getElementById('ctrSelCliente').value='';
+  if(clienteCombo)clienteCombo.setValor('',''); else document.getElementById('ctrSelCliente').value='';
   document.getElementById('ctrNome').value=''; document.getElementById('ctrCpf').value='';
   document.getElementById('ctrEndereco').value=''; document.getElementById('ctrCidade').value='';
   document.getElementById('ctrSyncRow').style.display='none';
