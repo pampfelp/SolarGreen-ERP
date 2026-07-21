@@ -1442,6 +1442,19 @@
           <div class="combo-dropdown hidden" id="cr-vendedorDropdown"></div>
         </div>
       </div>
+      <div class="uform-field" style="border-top:1px dashed var(--line);padding-top:14px;margin-top:4px;">
+        <label>O titular da conta de energia (Equatorial) é o mesmo do contrato?</label>
+        <div style="display:flex;gap:18px;margin-top:6px;">
+          <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;">
+            <input type="radio" name="cr-titularEquatorial" id="cr-titularSim" value="sim"> Sim
+          </label>
+          <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;">
+            <input type="radio" name="cr-titularEquatorial" id="cr-titularNao" value="nao"> Não, é outra pessoa
+          </label>
+        </div>
+      </div>
+      <div class="uform-field"><label>CPF do titular Equatorial</label><input type="text" id="cr-cpfEquatorial" placeholder="Necessário pra cadastrar Planos"></div>
+      <div class="uform-field"><label>Data de nascimento do titular Equatorial</label><input type="date" id="cr-dataNascimentoEquatorial"></div>
     </div>
     <div class="uform-msg" id="cr-msg"></div>
     <div id="cr-avisoDuplicado" class="hidden" style="background:#fef2f2;border:1px solid var(--debit);border-radius:10px;padding:12px 14px;margin-top:4px;">
@@ -1580,6 +1593,19 @@
         <div class="combo-dropdown hidden" id="cm-vendedorDropdown"></div>
       </div>
     </div>
+    <div class="uform-field" style="border-top:1px dashed var(--line);padding-top:14px;margin-top:4px;">
+      <label>O titular da conta de energia (Equatorial) é o mesmo do contrato?</label>
+      <div style="display:flex;gap:18px;margin-top:6px;">
+        <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;">
+          <input type="radio" name="cm-titularEquatorial" id="cm-titularSim" value="sim"> Sim
+        </label>
+        <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;">
+          <input type="radio" name="cm-titularEquatorial" id="cm-titularNao" value="nao"> Não, é outra pessoa
+        </label>
+      </div>
+    </div>
+    <div class="uform-field"><label>CPF do titular Equatorial</label><input type="text" id="cm-cpfEquatorial" placeholder="Necessário pra cadastrar Planos"></div>
+    <div class="uform-field"><label>Data de nascimento do titular Equatorial</label><input type="date" id="cm-dataNascimentoEquatorial"></div>
     <div class="uform-msg" id="cm-msg"></div>
     <div id="cm-avisoDuplicado" class="hidden" style="background:#fef2f2;border:1px solid var(--debit);border-radius:10px;padding:12px 14px;margin-bottom:14px;">
       <div style="font-size:12.5px;color:var(--debit);font-weight:700;margin-bottom:4px;">⚠️ Já existe um contato cadastrado para esse número</div>
@@ -4652,6 +4678,11 @@
     document.getElementById('cr-avisoDuplicado').classList.add('hidden');
     document.getElementById('cr-avisoDuplicadoDetalhe').textContent='';
     document.getElementById('cr-confirmarDiferente').checked=false;
+    document.getElementById('cr-titularSim').checked=false;
+    document.getElementById('cr-titularNao').checked=false;
+    document.getElementById('cr-cpfEquatorial').value='';
+    document.getElementById('cr-cpfEquatorial').readOnly=false;
+    document.getElementById('cr-dataNascimentoEquatorial').value='';
     window.SGCombo.criar({
       inputId:'cr-vendedorBusca', hiddenId:'cr-vendedor', dropdownId:'cr-vendedorDropdown',
       getOpcoes:function(){
@@ -4680,6 +4711,8 @@
     var email=document.getElementById('cr-email').value.trim();
     var endereco=document.getElementById('cr-endereco').value.trim();
     var vendedorResponsavel=document.getElementById('cr-vendedor').value||(window.SG_SESSION?window.SG_SESSION.idVendedor:'');
+    var cpfEquatorial=document.getElementById('cr-cpfEquatorial').value.trim();
+    var dataNascimentoEquatorialVal=document.getElementById('cr-dataNascimentoEquatorial').value;
 
     // Telefone repetido + endereço em branco = provável duplicata. Só deixa
     // passar se a pessoa confirmar explicitamente que é um cliente diferente.
@@ -4700,7 +4733,7 @@
     var idCliente=window.SGId.gerar();
 
     // adiciona na memória local e já seleciona no lead — sem esperar o servidor
-    clientesMap[idCliente]={IdCliente:idCliente,Nome:nome,'Nome Razao Social':nome,Telefone:telefone,'Tipo Pessoa':tipoPessoa};
+    clientesMap[idCliente]={IdCliente:idCliente,Nome:nome,'Nome Razao Social':nome,Telefone:telefone,'Tipo Pessoa':tipoPessoa,CPFEquatorial:cpfEquatorial};
     _epoca.marcar();
     document.getElementById('fd-cliente').value=idCliente;
     document.getElementById('fd-clienteBusca').value=nome;
@@ -4711,7 +4744,8 @@
       idCliente:idCliente,
       nome:nome, tipoPessoa:tipoPessoa, telefone:telefone,
       cpfCnpj:cpfCnpj, email:email, endereco:endereco, vendedorResponsavel:vendedorResponsavel,
-      confirmarClienteDiferente:confirmado
+      confirmarClienteDiferente:confirmado,
+      cpfEquatorial:cpfEquatorial, dataNascimentoEquatorial:dataNascimentoEquatorialVal
     }).then(function(resp){
       if(!resp||!resp.ok){
         delete clientesMap[idCliente];
@@ -5027,6 +5061,16 @@
     document.getElementById('fd-excluirBtn').addEventListener('click',excluirLead);
     document.getElementById('cr-fecharBtn').addEventListener('click',fecharClienteRapido);
     document.getElementById('cr-salvarBtn').addEventListener('click',salvarClienteRapido);
+    document.getElementById('cr-titularSim').addEventListener('change',function(){
+      document.getElementById('cr-cpfEquatorial').value=document.getElementById('cr-cpfCnpj').value;
+      document.getElementById('cr-cpfEquatorial').readOnly=true;
+    });
+    document.getElementById('cr-titularNao').addEventListener('change',function(){
+      document.getElementById('cr-cpfEquatorial').readOnly=false;
+    });
+    document.getElementById('cr-cpfCnpj').addEventListener('input',function(){
+      if(document.getElementById('cr-titularSim').checked)document.getElementById('cr-cpfEquatorial').value=this.value;
+    });
     document.getElementById('adBackdrop').addEventListener('click',function(){
       // se o cadastro rápido de cliente estiver aberto por cima, fecha só ele
       // (o lead continua aberto por baixo); senão, fecha o painel do lead.
@@ -6001,6 +6045,23 @@
     });
   }
 
+  function parseBRDateCl(str){ if(!str)return null; str=String(str).trim(); var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m)return new Date(+m[3],+m[2]-1,+m[1]); var d=new Date(str.substring(0,10)); return isNaN(d)?null:d; }
+  function dateKeyDoISOCl(d){ return d?(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')):''; }
+
+  /** Enquanto "Sim" estiver marcado, o CPF Equatorial acompanha o CPF do
+   *  cliente ao vivo — se a pessoa mudar de ideia e marcar "Não", libera
+   *  o campo pra digitar o CPF de outra pessoa. */
+  function sincronizarTitularEquatorial(){
+    var sim=document.getElementById('cm-titularSim').checked;
+    var campoCpfEq=document.getElementById('cm-cpfEquatorial');
+    if(sim){
+      campoCpfEq.value=document.getElementById('cm-cpfCnpj').value;
+      campoCpfEq.readOnly=true;
+    }else{
+      campoCpfEq.readOnly=false;
+    }
+  }
+
   function abrirModalCliente(idCliente){
     var c=idCliente?clientes.filter(function(x){return String(x.IdCliente)===String(idCliente);})[0]:null;
     editandoId=idCliente||null;
@@ -6017,6 +6078,23 @@
     document.getElementById('cm-avisoDuplicado').classList.add('hidden');
     document.getElementById('cm-avisoDuplicadoDetalhe').textContent='';
     document.getElementById('cm-confirmarDiferente').checked=false;
+
+    var cpfEq=c?(c.CPFEquatorial||''):'';
+    var dtNascEq=c?parseBRDateCl(c.DataNascimentoEquatorial):null;
+    document.getElementById('cm-dataNascimentoEquatorial').value=dtNascEq?dateKeyDoISOCl(dtNascEq):'';
+    // se o CPF Equatorial já registrado bate com o CPF do próprio cliente, assume "Sim";
+    // se tem CPF Equatorial mas é diferente, assume "Não"; sem nenhum registro ainda, deixa em branco
+    var cpfCliente=(c&&c['CPF ou CNPJ']||'').replace(/\D/g,'');
+    var cpfEqLimpo=cpfEq.replace(/\D/g,'');
+    document.getElementById('cm-titularSim').checked=false;
+    document.getElementById('cm-titularNao').checked=false;
+    if(cpfEqLimpo){
+      if(cpfEqLimpo===cpfCliente&&cpfCliente)document.getElementById('cm-titularSim').checked=true;
+      else document.getElementById('cm-titularNao').checked=true;
+    }
+    document.getElementById('cm-cpfEquatorial').value=cpfEq;
+    document.getElementById('cm-cpfEquatorial').readOnly=document.getElementById('cm-titularSim').checked;
+
     var idVend=c?c['Vendedor Responsavel']:'';
     wireComboVendedor(idVend&&vendedoresMap[idVend]?{id:idVend,label:vendedoresMap[idVend].Nome}:null);
     document.getElementById('clienteModal').classList.remove('hidden');
@@ -6037,6 +6115,8 @@
     var endereco=document.getElementById('cm-endereco').value.trim();
     var statusCliente=document.getElementById('cm-status').value;
     var vendedorResponsavel=document.getElementById('cm-vendedor').value;
+    var cpfEquatorial=document.getElementById('cm-cpfEquatorial').value.trim();
+    var dataNascimentoEquatorialVal=document.getElementById('cm-dataNascimentoEquatorial').value;
 
     var ehNovo=!editandoId;
     // Só checa duplicidade em cadastro NOVO — editar um cliente que já existe
@@ -6062,7 +6142,8 @@
     var registroNovo={
       IdCliente:idCliente, 'Nome Razao Social':nome, 'Tipo Pessoa':tipoPessoa, Telefone:telefone,
       'CPF ou CNPJ':cpfCnpj, Email:email, Endereco:endereco, 'Status Cliente':statusCliente,
-      'Vendedor Responsavel':vendedorResponsavel
+      'Vendedor Responsavel':vendedorResponsavel, CPFEquatorial:cpfEquatorial,
+      DataNascimentoEquatorial:dataNascimentoEquatorialVal?dataNascimentoEquatorialVal.split('-').reverse().join('/'):''
     };
     var indice=clientes.findIndex(function(c){return String(c.IdCliente)===String(idCliente);});
     if(indice===-1)clientes.push(registroNovo);
@@ -6078,7 +6159,8 @@
       nome:nome, tipoPessoa:tipoPessoa, telefone:telefone,
       cpfCnpj:cpfCnpj, email:email, endereco:endereco,
       statusCliente:statusCliente, vendedorResponsavel:vendedorResponsavel,
-      confirmarClienteDiferente:confirmado
+      confirmarClienteDiferente:confirmado,
+      cpfEquatorial:cpfEquatorial, dataNascimentoEquatorial:dataNascimentoEquatorialVal
     }).then(function(resp){
       if(!resp||!resp.ok){
         if(ehNovo)clientes=clientes.filter(function(c){return String(c.IdCliente)!==String(idCliente);});
@@ -6163,6 +6245,9 @@
     document.getElementById('cl-novoBtn').addEventListener('click',function(){ abrirModalCliente(null); });
     document.getElementById('cm-cancelarBtn').addEventListener('click',fecharModalCliente);
     document.getElementById('cm-salvarBtn').addEventListener('click',salvarCliente);
+    document.getElementById('cm-titularSim').addEventListener('change',sincronizarTitularEquatorial);
+    document.getElementById('cm-titularNao').addEventListener('change',sincronizarTitularEquatorial);
+    document.getElementById('cm-cpfCnpj').addEventListener('input',function(){ if(document.getElementById('cm-titularSim').checked)sincronizarTitularEquatorial(); });
     document.getElementById('cm-excluirBtn').addEventListener('click',excluirCliente);
     document.getElementById('clienteModal').addEventListener('click',function(e){ if(e.target.id==='clienteModal')fecharModalCliente(); });
     document.getElementById('cl-buscaFiltro').addEventListener('input',function(){ buscaFiltro=this.value; paginaAtual=1; render(); });
@@ -7822,6 +7907,19 @@
     var idCliente=document.getElementById('pm-cliente').value;
     var tipo=document.getElementById('pm-tipo').value;
     if(!idCliente||!tipo){ var m=document.getElementById('pm-msg'); m.className='uform-msg error'; m.textContent='Cliente e tipo de assinatura são obrigatórios.'; return; }
+
+    // O plano depende de saber acessar a fatura de energia (Equatorial) do
+    // titular — que pode ser uma pessoa diferente de quem assina o contrato.
+    // Sem esses dois dados no cadastro do cliente, não dá pra operar o plano.
+    var clienteDoPlano=clientesMap[idCliente];
+    var cpfEqOk=clienteDoPlano&&String(clienteDoPlano.CPFEquatorial||'').trim();
+    var dataNascEqOk=clienteDoPlano&&String(clienteDoPlano.DataNascimentoEquatorial||'').trim();
+    if(!cpfEqOk||!dataNascEqOk){
+      var m2=document.getElementById('pm-msg');
+      m2.className='uform-msg error';
+      m2.textContent='Esse cliente ainda não tem CPF e data de nascimento do titular Equatorial cadastrados — preencha isso no cadastro do cliente antes de criar o plano.';
+      return;
+    }
 
     var valor=document.getElementById('pm-valor').value;
     var dataAssinatura=document.getElementById('pm-dataAssinatura').value;
