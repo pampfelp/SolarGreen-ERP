@@ -275,6 +275,16 @@
   .combo-item:last-child{border-bottom:none;}
   .combo-item:hover{background:var(--bg);}
   .combo-empty{padding:12px;font-size:12.5px;color:var(--ink-faint);text-align:center;}
+  .combo-with-toggle{display:flex;gap:6px;align-items:stretch;}
+  .combo-with-toggle .combo-wrap{flex:1;min-width:0;}
+  .combo-toggle-btn{flex:0 0 38px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink-soft);font-size:12px;cursor:pointer;transition:transform .15s,background .15s,color .15s;}
+  .combo-toggle-btn:hover{background:var(--bg);}
+  .combo-toggle-btn.open{transform:rotate(180deg);background:var(--accent-soft);color:var(--accent-deep);}
+  .cliente-info-panel{margin-top:8px;padding:10px 12px;background:var(--bg);border:1px solid var(--line);border-radius:9px;}
+  .cliente-info-panel.hidden{display:none;}
+  .cliente-info-panel .cip-row{display:flex;gap:6px;padding:3px 0;font-size:12.5px;}
+  .cliente-info-panel .cip-label{font-weight:600;color:var(--ink-faint);min-width:74px;flex:0 0 auto;}
+  .cliente-info-panel .cip-val{color:var(--ink);word-break:break-word;}
   #perm-table th,#perm-table td{text-align:center;}
   #perm-table th:first-child,#perm-table td:first-child{text-align:left;font-weight:700;}
   .perm-check{width:19px;height:19px;cursor:pointer;accent-color:var(--accent-deep);}
@@ -3010,15 +3020,28 @@
 
   function setOverride(funcionario,dateKeyStr,data){
     var key=overrideKey(funcionario,dateKeyStr);
+    var existiaAntes=Object.prototype.hasOwnProperty.call(overrides,key);
+    var valorAnterior=existiaAntes?Object.assign({},overrides[key]):null;
     if(!data||(!data.abonado&&!data.entrada&&!data.almoco&&!data.retorno&&!data.saida)){ delete overrides[key]; }
     else{ overrides[key]=data; }
     _epoca.marcar();
     saveOverridesLocalCache();
+
+    function desfazer(motivo){
+      if(existiaAntes)overrides[key]=valorAnterior; else delete overrides[key];
+      _epoca.marcar();
+      saveOverridesLocalCache();
+      buildDailyRecords();
+      render();
+      if(window.SGToast)window.SGToast.mostrar(motivo,true);
+    }
+
     if(useApi&&hasApiCreds()){
       setSyncPill('saving','Salvando na planilha…');
       apiCall('setOverride',{funcionario:funcionario,data:dateKeyStr,abonado:!!(data&&data.abonado),entrada:(data&&data.entrada)||'',almoco:(data&&data.almoco)||'',retorno:(data&&data.retorno)||'',saida:(data&&data.saida)||''}).then(function(resp){
-        if(resp&&resp.ok){setSyncPill('ok','Sincronizado com a planilha');}else{setSyncPill('error','Falha ao salvar');}
-      }).catch(function(){setSyncPill('error','Sem conexão');});
+        if(resp&&resp.ok){ setSyncPill('ok','Sincronizado com a planilha'); }
+        else{ setSyncPill('error','Falha ao salvar'); desfazer((resp&&resp.erro)||'Não foi possível salvar na planilha — a alteração foi desfeita.'); }
+      }).catch(function(err){ setSyncPill('error','Sem conexão'); desfazer('Erro de conexão — a alteração foi desfeita: '+err.message); });
     }
   }
 
@@ -4529,11 +4552,15 @@
     var html='<div class="ad-section">'+
       '<div class="uform-field">'+
         '<label>Cliente <span class="req">*</span></label>'+
-        '<div class="combo-wrap">'+
-          '<input type="text" id="fd-clienteBusca" placeholder="Digite o nome do cliente…" autocomplete="off">'+
-          '<input type="hidden" id="fd-cliente">'+
-          '<div class="combo-dropdown hidden" id="fd-clienteDropdown"></div>'+
+        '<div class="combo-with-toggle">'+
+          '<div class="combo-wrap">'+
+            '<input type="text" id="fd-clienteBusca" placeholder="Digite o nome do cliente…" autocomplete="off">'+
+            '<input type="hidden" id="fd-cliente">'+
+            '<div class="combo-dropdown hidden" id="fd-clienteDropdown"></div>'+
+          '</div>'+
+          '<button type="button" class="combo-toggle-btn" id="fd-clienteInfoToggle" title="Ver contato e endereço do cliente" aria-expanded="false">&#9662;</button>'+
         '</div>'+
+        '<div class="cliente-info-panel hidden" id="fd-clienteInfoPanel"></div>'+
         '<button type="button" class="reset-btn" id="fd-cadastrarClienteBtn" style="width:100%;margin-top:8px;">+ Cadastrar cliente</button>'+
       '</div>'+
       '<div class="uform-field">'+
@@ -4574,6 +4601,8 @@
     document.getElementById('fd-cliente').value=r?(r.idCliente||''):'';
     document.getElementById('fd-clienteBusca').value=r?nomeClienteFor(r.idCliente):'';
     wireComboCliente();
+    wireToggleInfoClienteFunil();
+    renderInfoClienteFunil();
     document.getElementById('fd-cadastrarClienteBtn').addEventListener('click',function(){ abrirClienteRapido(); });
 
     window.SGCombo.criar({
@@ -4654,12 +4683,53 @@
           hidden.value=item.getAttribute('data-id');
           input.value=item.getAttribute('data-nome');
           dropdown.classList.add('hidden');
+          renderInfoClienteFunil();
         });
       });
     }
-    input.addEventListener('input',function(){ hidden.value=''; renderOpcoes(input.value); });
+    input.addEventListener('input',function(){ hidden.value=''; renderOpcoes(input.value); renderInfoClienteFunil(); });
     input.addEventListener('focus',function(){ renderOpcoes(input.value); });
     input.addEventListener('blur',function(){ setTimeout(function(){ dropdown.classList.add('hidden'); },150); });
+  }
+
+  /**
+   * Painel de contato/endereço do cliente selecionado no lead — some por
+   * padrão, abre ao clicar na seta ao lado do campo Cliente. O conteúdo é
+   * sempre recalculado na hora de abrir (e também é atualizado toda vez que
+   * a seleção do cliente muda), então nunca fica com dado velho na tela.
+   */
+  function renderInfoClienteFunil(){
+    var painel=document.getElementById('fd-clienteInfoPanel');
+    if(!painel)return;
+    var idCliente=document.getElementById('fd-cliente')?document.getElementById('fd-cliente').value:'';
+    var c=idCliente?clientesMap[idCliente]:null;
+    if(!c){
+      painel.innerHTML='<div class="cip-row"><span class="cip-val">Selecione um cliente para ver telefone, e-mail e endereço.</span></div>';
+      return;
+    }
+    var telefone=c.Telefone||'—';
+    var email=c.Email||'—';
+    var cpfCnpj=c['CPF ou CNPJ']||c.CPFEquatorial||'—';
+    var endereco=c.Endereco||'—';
+    painel.innerHTML=
+      '<div class="cip-row"><span class="cip-label">Telefone</span><span class="cip-val">'+escapeHtml(telefone)+'</span></div>'+
+      '<div class="cip-row"><span class="cip-label">E-mail</span><span class="cip-val">'+escapeHtml(email)+'</span></div>'+
+      '<div class="cip-row"><span class="cip-label">CPF/CNPJ</span><span class="cip-val">'+escapeHtml(cpfCnpj)+'</span></div>'+
+      '<div class="cip-row"><span class="cip-label">Endereço</span><span class="cip-val">'+escapeHtml(endereco)+'</span></div>';
+  }
+
+  function wireToggleInfoClienteFunil(){
+    var btn=document.getElementById('fd-clienteInfoToggle');
+    var painel=document.getElementById('fd-clienteInfoPanel');
+    if(!btn||!painel||btn.dataset.wired)return;
+    btn.dataset.wired='1';
+    btn.addEventListener('click',function(){
+      var abrindo=painel.classList.contains('hidden');
+      if(abrindo)renderInfoClienteFunil();
+      painel.classList.toggle('hidden',!abrindo);
+      btn.classList.toggle('open',abrindo);
+      btn.setAttribute('aria-expanded',abrindo?'true':'false');
+    });
   }
 
   /**
@@ -4737,6 +4807,7 @@
     _epoca.marcar();
     document.getElementById('fd-cliente').value=idCliente;
     document.getElementById('fd-clienteBusca').value=nome;
+    renderInfoClienteFunil();
     fecharClienteRapido();
     mostrarToastFunil('Cliente cadastrado.');
 
@@ -4753,6 +4824,7 @@
         if(document.getElementById('fd-cliente')&&document.getElementById('fd-cliente').value===idCliente){
           document.getElementById('fd-cliente').value='';
           document.getElementById('fd-clienteBusca').value='';
+          renderInfoClienteFunil();
         }
         mostrarToastFunil((resp&&resp.erro)||'Não foi possível cadastrar o cliente — desfeito. Selecione ou cadastre de novo.',true);
         return;
@@ -4762,6 +4834,7 @@
         delete clientesMap[idCliente];
         if(document.getElementById('fd-cliente')&&document.getElementById('fd-cliente').value===idCliente){
           document.getElementById('fd-cliente').value=resp.idCliente;
+          renderInfoClienteFunil();
         }
       }
     }).catch(function(err){
@@ -4769,6 +4842,7 @@
       if(document.getElementById('fd-cliente')&&document.getElementById('fd-cliente').value===idCliente){
         document.getElementById('fd-cliente').value='';
         document.getElementById('fd-clienteBusca').value='';
+        renderInfoClienteFunil();
       }
       mostrarToastFunil('Erro de conexão — cadastro do cliente desfeito: '+err.message,true);
     });
