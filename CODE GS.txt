@@ -213,11 +213,29 @@ function getSheetObjectsComCache(sheetName, chave, ttlSegundos) {
   }
   var sheet = getSheetSafe(sheetName);
   var dados = sheet ? sheetToObjects(sheet) : [];
+  if (normalizeSheetName(sheetName) === normalizeSheetName(CONFIG.ABA_VENDEDORES)) {
+    dados = sanitizeVendedoresPublico(dados);
+  }
   try {
     var json = JSON.stringify(dados);
     if (json.length < 95000) cache.put(chave, json, ttlSegundos || SG_CACHE_TTL_PADRAO); // CacheService tem limite de ~100KB por chave
   } catch (e) { /* não é crítico — só não guarda cache dessa vez, continua funcionando normal */ }
   return dados;
+}
+
+/**
+ * Remove os campos sensíveis de autenticação (hash/salt de senha, token de
+ * redefinição) antes de qualquer vendedor sair pro cliente. Toda leitura de
+ * Vendedores por getSheetObjectsComCache passa por aqui — login/troca de
+ * senha não usam esse caminho, então continuam funcionando normalmente.
+ */
+function sanitizeVendedoresPublico(lista) {
+  var camposOcultos = { SenhaHash: 1, SenhaSalt: 1, ResetToken: 1, ResetTokenExpira: 1 };
+  return (lista || []).map(function (v) {
+    var out = {};
+    Object.keys(v).forEach(function (k) { if (!camposOcultos[k]) out[k] = v[k]; });
+    return out;
+  });
 }
 
 function invalidarCache(chave) {
@@ -514,11 +532,23 @@ function actionExcluirVenda(body) {
   var sheet = getSheetSafe(CONFIG.ABA_VENDAS);
   if (!sheet) return { ok: false, erro: 'Aba Vendas não encontrada.' };
   var data = sheet.getDataRange().getValues();
-  var idCol = -1;
-  for (var c = 0; c < data[0].length; c++) { if (String(data[0][c]).trim() === 'IdVenda') { idCol = c; break; } }
+  var idCol = -1, vendedorCol = -1;
+  for (var c = 0; c < data[0].length; c++) {
+    var h = String(data[0][c]).trim();
+    if (h === 'IdVenda') idCol = c;
+    if (h === 'IdVendedor') vendedorCol = c;
+  }
   if (idCol === -1) return { ok: false, erro: 'Coluna IdVenda não encontrada.' };
   for (var i = 1; i < data.length; i++) {
-    if (String(data[i][idCol]) === String(idVenda)) { sheet.deleteRow(i + 1); return { ok: true }; }
+    if (String(data[i][idCol]) === String(idVenda)) {
+      var dono = vendedorCol !== -1 ? String(data[i][vendedorCol]) : null;
+      var ehDono = dono && String(body.solicitanteId) === dono;
+      if (!ehDono && !isSolicitanteAdmin(body.solicitanteId)) {
+        return { ok: false, erro: 'Você só pode excluir as próprias vendas.' };
+      }
+      sheet.deleteRow(i + 1);
+      return { ok: true };
+    }
   }
   return { ok: false, erro: 'Venda não encontrada.' };
 }
@@ -570,6 +600,9 @@ function actionSalvarCustoVenda(body) {
  * action: excluirCustoVenda — body { idCusto }
  */
 function actionExcluirCustoVenda(body) {
+  if (!isSolicitanteAdmin(body.solicitanteId)) {
+    return { ok: false, erro: 'Acesso restrito a administradores.' };
+  }
   var idCusto = body.idCusto;
   if (!idCusto) return { ok: false, erro: 'idCusto é obrigatório.' };
   var sheet = getSheetSafe(CONFIG.ABA_CUSTOS_VENDA);
@@ -642,6 +675,9 @@ function actionSalvarMeta(body) {
  * action: excluirMeta — body { idMeta }
  */
 function actionExcluirMeta(body) {
+  if (!isSolicitanteAdmin(body.solicitanteId)) {
+    return { ok: false, erro: 'Acesso restrito a administradores.' };
+  }
   var idMeta = body.idMeta;
   if (!idMeta) return { ok: false, erro: 'idMeta é obrigatório.' };
   var sheet = getSheetSafe(CONFIG.ABA_METAS);
@@ -826,6 +862,9 @@ function actionSalvarCustoRecorrente(body) {
 }
 
 function actionExcluirCustoRecorrente(body) {
+  if (!isSolicitanteAdmin(body.solicitanteId)) {
+    return { ok: false, erro: 'Acesso restrito a administradores.' };
+  }
   var idCR = body.idCR;
   if (!idCR) return { ok: false, erro: 'idCR é obrigatório.' };
   var sheet = getSheetSafe(CONFIG.ABA_CUSTO_RECORRENTE);
@@ -896,6 +935,9 @@ function actionSalvarServico(body) {
 }
 
 function actionExcluirServico(body) {
+  if (!isSolicitanteAdmin(body.solicitanteId)) {
+    return { ok: false, erro: 'Acesso restrito a administradores.' };
+  }
   var idServico = body.idServico;
   if (!idServico) return { ok: false, erro: 'idServico é obrigatório.' };
   var sheet = getSheetSafe(CONFIG.ABA_SERVICOS);
@@ -957,6 +999,9 @@ function actionSalvarTemplate(body) {
 }
 
 function actionExcluirTemplate(body) {
+  if (!isSolicitanteAdmin(body.solicitanteId)) {
+    return { ok: false, erro: 'Acesso restrito a administradores.' };
+  }
   var idTemplate = body.idTemplate;
   if (!idTemplate) return { ok: false, erro: 'idTemplate é obrigatório.' };
   var sheet = getSheetSafe(CONFIG.ABA_TEMPLATES);
@@ -1059,6 +1104,9 @@ function actionSalvarPlano(body) {
  * action: excluirPlano — body { idPlano }
  */
 function actionExcluirPlano(body) {
+  if (!isSolicitanteAdmin(body.solicitanteId)) {
+    return { ok: false, erro: 'Acesso restrito a administradores.' };
+  }
   var idPlano = body.idPlano;
   if (!idPlano) return { ok: false, erro: 'idPlano é obrigatório.' };
   var sheet = getSheetSafe(CONFIG.ABA_PLANOS);
@@ -1223,13 +1271,20 @@ function actionExcluirFunil(body) {
   var sheet = getSheetSafe(CONFIG.ABA_FUNIL);
   if (!sheet) return { ok: false, erro: 'Aba Funil não encontrada.' };
   var data = sheet.getDataRange().getValues();
-  var idCol = -1;
+  var idCol = -1, vendedorCol = -1;
   for (var c = 0; c < data[0].length; c++) {
-    if (String(data[0][c]).trim() === 'IdOportunidade') { idCol = c; break; }
+    var h = String(data[0][c]).trim();
+    if (h === 'IdOportunidade') idCol = c;
+    if (h === 'IdVendedor') vendedorCol = c;
   }
   if (idCol === -1) return { ok: false, erro: 'Coluna IdOportunidade não encontrada.' };
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][idCol]) === String(idOportunidade)) {
+      var dono = vendedorCol !== -1 ? String(data[i][vendedorCol]) : null;
+      var ehDono = dono && String(body.solicitanteId) === dono;
+      if (!ehDono && !isSolicitanteAdmin(body.solicitanteId)) {
+        return { ok: false, erro: 'Você só pode excluir os próprios leads.' };
+      }
       sheet.deleteRow(i + 1);
       return { ok: true };
     }
@@ -1508,6 +1563,13 @@ function updateCliente(body) {
   }
   if (rowIdx === -1) return { ok: false, erro: 'Cliente não encontrado (IdCliente ' + idCliente + ').' };
 
+  var vendCol = colIdx['Vendedor Responsavel'];
+  var dono = vendCol !== undefined ? String(data[rowIdx - 1][vendCol]) : null;
+  var ehDono = dono && String(body.solicitanteId) === dono;
+  if (!ehDono && !isSolicitanteAdmin(body.solicitanteId)) {
+    return { ok: false, erro: 'Você só pode editar os próprios clientes.' };
+  }
+
   var nomeCol = colIdx['Nome Razao Social'] !== undefined ? colIdx['Nome Razao Social'] : colIdx['Nome'];
   var cpfCol  = colIdx['CPF ou CNPJ']       !== undefined ? colIdx['CPF ou CNPJ']       : colIdx['CPF'];
   var endCol  = colIdx['Endereco'];
@@ -1571,7 +1633,9 @@ function saveProposal(body) {
     sheet.appendRow(rowData);
     var lastRow = sheet.getLastRow();
     var linkCol = 14; // coluna N = LinkProposta
-    sheet.getRange(lastRow, linkCol).setFormula('=HYPERLINK("' + linkProposta + '","Ver proposta")');
+    // Aspas duplicadas neutralizam qualquer tentativa de "fechar" a string da fórmula
+    // via baseUrl (que vem do cliente) e injetar outra coisa dentro do HYPERLINK().
+    sheet.getRange(lastRow, linkCol).setFormula('=HYPERLINK("' + linkProposta.replace(/"/g, '""') + '","Ver proposta")');
     return { ok: true, acao: 'criado', id: propostaId, link: linkProposta };
   }
 }
@@ -1608,6 +1672,11 @@ function deleteProposal(body) {
   var values = sheet.getDataRange().getValues();
   for (var i = 1; i < values.length; i++) {
     if (String(values[i][0]) === String(id)) {
+      var dono = String(values[i][5] || ''); // coluna F = IdVendedor (mesma ordem gravada por saveProposal)
+      var ehDono = dono && String(body.solicitanteId) === dono;
+      if (!ehDono && !isSolicitanteAdmin(body.solicitanteId)) {
+        return { ok: false, erro: 'Você só pode excluir as próprias propostas.' };
+      }
       sheet.deleteRow(i + 1);
       return { ok: true, acao: 'deletado' };
     }
@@ -2332,67 +2401,82 @@ function actionSalvarAgendamento(body) {
   }
 
   // Regra 3: sem conflito de horário pro mesmo técnico no mesmo dia (cancelados não contam).
-  var todosAgendamentos = sheetToObjects(getOrCreateAgendamentosSheet());
-  var conflito = todosAgendamentos.filter(function (a) {
-    if (body.idAgendamento && String(a.IdAgendamento) === String(body.idAgendamento)) return false;
-    if (String(a.TecnicoResponsavel) !== String(tecnico)) return false;
-    if (normalizarTextoGS(a['Status Agendamento']) === 'cancelado') return false;
-    if (normalizeDateKey(a['Data Inicio']) !== dataInicio) return false;
-    var aIni = minutosDeHoraGS(a['Hora inicio']), aFim = minutosDeHoraGS(a['Hora Fim']);
-    if (aIni === null || aFim === null) return false;
-    return aIni < minFim && aFim > minIni;
-  })[0];
-  if (conflito) {
-    var vendedores = getSheetObjectsComCache(CONFIG.ABA_VENDEDORES, 'sh_vendedores');
-    var tecnicoObj = vendedores.filter(function (v) { return String(v.IdVendedor) === String(tecnico); })[0];
-    var nomeTecnico = tecnicoObj ? tecnicoObj.Nome : tecnico;
-    return { ok: false, erro: 'Conflito! O técnico ' + nomeTecnico + ' já possui agendamento neste horário no dia ' + formatarDataBRGS(dataInicio) + '.' };
+  // O check + a gravação ficam dentro de um LockService: sem isso, duas requisições
+  // simultâneas podem ler a planilha ANTES de qualquer uma escrever, nenhuma vê o
+  // agendamento da outra, e as duas passam no check — dois agendamentos conflitantes
+  // seriam salvos com sucesso ao mesmo tempo (é exatamente esse buraco que o
+  // comentário da função já dizia que não devia existir).
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+  } catch (e) {
+    return { ok: false, erro: 'Sistema ocupado, tente novamente em alguns segundos.' };
   }
-
-  var sheet  = getOrCreateAgendamentosSheet();
-  var colIdx = agendamentosColIdx(sheet);
-  var idCol  = colIdx['IdAgendamento'];
-
-  var rowIndex = -1;
-  if (body.idAgendamento) {
-    var values = sheet.getDataRange().getValues();
-    for (var i = 1; i < values.length; i++) {
-      if (String(values[i][idCol - 1]) === String(body.idAgendamento)) { rowIndex = i + 1; break; }
+  try {
+    var todosAgendamentos = sheetToObjects(getOrCreateAgendamentosSheet());
+    var conflito = todosAgendamentos.filter(function (a) {
+      if (body.idAgendamento && String(a.IdAgendamento) === String(body.idAgendamento)) return false;
+      if (String(a.TecnicoResponsavel) !== String(tecnico)) return false;
+      if (normalizarTextoGS(a['Status Agendamento']) === 'cancelado') return false;
+      if (normalizeDateKey(a['Data Inicio']) !== dataInicio) return false;
+      var aIni = minutosDeHoraGS(a['Hora inicio']), aFim = minutosDeHoraGS(a['Hora Fim']);
+      if (aIni === null || aFim === null) return false;
+      return aIni < minFim && aFim > minIni;
+    })[0];
+    if (conflito) {
+      var vendedores = getSheetObjectsComCache(CONFIG.ABA_VENDEDORES, 'sh_vendedores');
+      var tecnicoObj = vendedores.filter(function (v) { return String(v.IdVendedor) === String(tecnico); })[0];
+      var nomeTecnico = tecnicoObj ? tecnicoObj.Nome : tecnico;
+      return { ok: false, erro: 'Conflito! O técnico ' + nomeTecnico + ' já possui agendamento neste horário no dia ' + formatarDataBRGS(dataInicio) + '.' };
     }
-  }
 
-  var campos = {
-    'IdCliente': idCliente,
-    'IdContrato': body.idContrato || '',
-    'IdServico': idServico,
-    'Data Inicio': parseDataISO(dataInicio),
-    'Hora inicio': body.horaInicio || '',
-    'Hora Fim': body.horaFim || '',
-    'TecnicoResponsavel': tecnico,
-    'Status Agendamento': body.statusAgendamento || 'Agendado',
-    'Observacao Comercial': body.observacaoComercial || '',
-    'Quantidade de Modulos': body.quantidadeModulos !== undefined ? body.quantidadeModulos : '',
-    'Modelo Modulos': body.modeloModulos || '',
-    'Quantidade Inversores': body.quantidadeInversores !== undefined ? body.quantidadeInversores : '',
-    'Modelo Inversores': body.modeloInversores || ''
-  };
+    var sheet  = getOrCreateAgendamentosSheet();
+    var colIdx = agendamentosColIdx(sheet);
+    var idCol  = colIdx['IdAgendamento'];
 
-  if (rowIndex === -1) {
-    var novoId = body.idAgendamento || generateShortId(); // usa o ID que o cliente já gerou (otimista) — só gera aqui se não veio
-    var lastCol = sheet.getLastColumn();
-    var novaLinha = new Array(lastCol).fill('');
-    Object.keys(colIdx).forEach(function (h) {
-      if (h === 'IdAgendamento') novaLinha[colIdx[h] - 1] = novoId;
-      else if (campos[h] !== undefined) novaLinha[colIdx[h] - 1] = campos[h];
-    });
-    sheet.getRange(sheet.getLastRow() + 1, 1, 1, novaLinha.length).setValues([novaLinha]);
-    return { ok: true, acao: 'criado', idAgendamento: novoId };
-  } else {
-    Object.keys(campos).forEach(function (h) {
-      if (!colIdx[h]) return;
-      sheet.getRange(rowIndex, colIdx[h]).setValue(campos[h]);
-    });
-    return { ok: true, acao: 'atualizado', idAgendamento: body.idAgendamento };
+    var rowIndex = -1;
+    if (body.idAgendamento) {
+      var values = sheet.getDataRange().getValues();
+      for (var i = 1; i < values.length; i++) {
+        if (String(values[i][idCol - 1]) === String(body.idAgendamento)) { rowIndex = i + 1; break; }
+      }
+    }
+
+    var campos = {
+      'IdCliente': idCliente,
+      'IdContrato': body.idContrato || '',
+      'IdServico': idServico,
+      'Data Inicio': parseDataISO(dataInicio),
+      'Hora inicio': body.horaInicio || '',
+      'Hora Fim': body.horaFim || '',
+      'TecnicoResponsavel': tecnico,
+      'Status Agendamento': body.statusAgendamento || 'Agendado',
+      'Observacao Comercial': body.observacaoComercial || '',
+      'Quantidade de Modulos': body.quantidadeModulos !== undefined ? body.quantidadeModulos : '',
+      'Modelo Modulos': body.modeloModulos || '',
+      'Quantidade Inversores': body.quantidadeInversores !== undefined ? body.quantidadeInversores : '',
+      'Modelo Inversores': body.modeloInversores || ''
+    };
+
+    if (rowIndex === -1) {
+      var novoId = body.idAgendamento || generateShortId(); // usa o ID que o cliente já gerou (otimista) — só gera aqui se não veio
+      var lastCol = sheet.getLastColumn();
+      var novaLinha = new Array(lastCol).fill('');
+      Object.keys(colIdx).forEach(function (h) {
+        if (h === 'IdAgendamento') novaLinha[colIdx[h] - 1] = novoId;
+        else if (campos[h] !== undefined) novaLinha[colIdx[h] - 1] = campos[h];
+      });
+      sheet.getRange(sheet.getLastRow() + 1, 1, 1, novaLinha.length).setValues([novaLinha]);
+      return { ok: true, acao: 'criado', idAgendamento: novoId };
+    } else {
+      Object.keys(campos).forEach(function (h) {
+        if (!colIdx[h]) return;
+        sheet.getRange(rowIndex, colIdx[h]).setValue(campos[h]);
+      });
+      return { ok: true, acao: 'atualizado', idAgendamento: body.idAgendamento };
+    }
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -2404,6 +2488,9 @@ function actionSalvarAgendamento(body) {
  * sem o agendamento existir).
  */
 function actionExcluirAgendamento(body) {
+  if (!isSolicitanteAdmin(body.solicitanteId)) {
+    return { ok: false, erro: 'Acesso restrito a administradores.' };
+  }
   var idAgendamento = body.idAgendamento;
   if (!idAgendamento) return { ok: false, erro: 'idAgendamento é obrigatório.' };
   var sheet = getOrCreateAgendamentosSheet();
