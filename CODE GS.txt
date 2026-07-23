@@ -2843,7 +2843,7 @@ function actionRegistrarPonto(body) {
   var campos = {
     'IdPonto': novoId, 'Funcionario': funcionario, 'Tipo': tipo,
     'Data e Hora': new Date(), 'Foto Selfie': fotoUrl,
-    'Localizacao': body.localizacao || '', 'Endereço': body.endereco || 'pt-BR'
+    'Localizacao': body.localizacao || '', 'Endereço': body.endereco || ''
   };
   Object.keys(colIdx).forEach(function (h) { if (campos[h] !== undefined) novaLinha[colIdx[h] - 1] = campos[h]; });
   sheet.getRange(sheet.getLastRow() + 1, 1, 1, novaLinha.length).setValues([novaLinha]);
