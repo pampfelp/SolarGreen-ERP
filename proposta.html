@@ -829,7 +829,7 @@ function blkTotal(b){
       return 0; // placeholder; o summary cuida disso
     }
     case 'modulo': return (b.quantidade||0)*(b.valorUnit||0);
-    case 'custo':  { var c=b.custoBase||0,m=(b.margemPct||0)/100; return m>=1?c*100:(m>0?c/(1-m):c); }
+    case 'custo':  { var c=b.custoBase||0,m=Math.min((b.margemPct||0)/100,0.95); return m>0?c/(1-m):c; }
     default:       return b.valorUnit||0;
   }
 }
@@ -909,7 +909,7 @@ function renderBlock(b){
     // Blocos de serviço avulso (fixo / modulo / custo)
     var nome=svc.nome||'Novo serviço',total2=blkTotal(b);
     var badges='';
-    if(b.idServico){ var tc=(svc.tipoCobranca||'').toLowerCase(),ts=(svc.tipoServico||'').toLowerCase(); badges+='<span class="badge '+(tc==='recorrente'?'recorrente':'unitario')+'">'+escH(svc.tipoCobranca||'Unitário')+'</span>'; if(ts)badges+='<span class="badge '+ts+'">'+escH(svc.tipoServico)+'</span>'; }
+    if(b.idServico){ var tc=(svc.tipoCobranca||'').toLowerCase(),ts=(svc.tipoServico||'').toLowerCase(); badges+='<span class="badge '+(tc==='recorrente'?'recorrente':'unitario')+'">'+escH(svc.tipoCobranca||'Unitário')+'</span>'; if(ts)badges+='<span class="badge '+escH(ts)+'">'+escH(svc.tipoServico)+'</span>'; }
     badges+='<span class="badge calc-'+b.calcTipo+'">'+(b.calcTipo==='fixo'?'Valor fixo':b.calcTipo==='modulo'?'Por módulo':'Custo+margem')+'</span>';
     if(b._locked&&b.idServico) badges+='<span class="badge" style="background:#f1f5f9;color:#64748b;letter-spacing:.02em;">&#128274; tipo fixado</span>';
     var sOpts='<option value="">— Selecione —</option>';
@@ -917,8 +917,8 @@ function renderBlock(b){
     var calcHtml='';
     if(b.calcTipo==='fixo') calcHtml='<div class="field"><label>Valor total (R$)</label><input type="number" value="'+(b.valorUnit||0)+'" min="0" step="0.01" onchange="_bc(\''+b.bId+'\',\'valorUnit\',this.value)"></div>';
     else if(b.calcTipo==='modulo') calcHtml='<div class="frow"><div class="field"><label>Quantidade</label><input type="number" value="'+(b.quantidade||1)+'" min="1" step="1" onchange="_bc(\''+b.bId+'\',\'quantidade\',this.value)"></div><div class="field"><label>Valor unitário (R$)</label><input type="number" value="'+(b.valorUnit||0)+'" min="0" step="0.01" onchange="_bc(\''+b.bId+'\',\'valorUnit\',this.value)"></div></div>';
-    else calcHtml='<div class="frow"><div class="field"><label>Custo base (R$)</label><input type="number" value="'+(b.custoBase||0)+'" min="0" step="0.01" onchange="_bc(\''+b.bId+'\',\'custoBase\',this.value)"></div><div class="field"><label>Margem (%)</label><input type="number" value="'+(b.margemPct||30)+'" min="0" max="500" step="1" onchange="_bc(\''+b.bId+'\',\'margemPct\',this.value)"></div></div>';
-    var formula=''; if(b.calcTipo==='modulo')formula=b.quantidade+'×'+fmtMoney(b.valorUnit); else if(b.calcTipo==='custo'){var m2=b.margemPct||0;formula=fmtMoney(b.custoBase)+' ÷ (1−'+m2+'%) = '+fmtMoney(blkTotal(b));} else formula='Valor fixo';
+    else calcHtml='<div class="frow"><div class="field"><label>Custo base (R$)</label><input type="number" value="'+(b.custoBase||0)+'" min="0" step="0.01" onchange="_bc(\''+b.bId+'\',\'custoBase\',this.value)"></div><div class="field"><label>Margem (%)</label><input type="number" value="'+(b.margemPct||30)+'" min="0" max="95" step="1" onchange="_bc(\''+b.bId+'\',\'margemPct\',this.value)"></div></div>';
+    var formula=''; if(b.calcTipo==='modulo')formula=b.quantidade+'×'+fmtMoney(b.valorUnit); else if(b.calcTipo==='custo'){var m2=Math.min(b.margemPct||0,95);formula=fmtMoney(b.custoBase)+' ÷ (1−'+m2+'%) = '+fmtMoney(blkTotal(b));} else formula='Valor fixo';
     // Select de tipo: desabilitado quando serviço tem tipo pré-determinado pela planilha
     var lockedAttr=(b._locked&&b.idServico)?'disabled style="opacity:.55;cursor:not-allowed;background:#f8fafc;"':'';
     var lockedHint=(b._locked&&b.idServico)?'<div style="font-size:10px;color:var(--ink-faint);margin-top:2px;">&#128274; definido pela tabela de serviços</div>':'';
@@ -989,11 +989,17 @@ function updateSummary(){
   // Parcelamento e à vista: desconto de 10% só nos serviços AVULSOS (por
   // módulo/qtd ou custo+margem) e no Plano Anual — itens de Valor Fixo já
   // têm preço fechado e não recebem esse desconto. Deslocamento também fica de fora.
+  // O desconto manual (totalDesc) incide sobre TODO o subtotal, então pra achar
+  // o "à vista" precisamos primeiro tirar a fatia proporcional dele de cada
+  // parte (fixo vs elegível) antes de aplicar o 10% extra só na parte elegível —
+  // senão o desconto manual pode ser descontado inteiro só da parte elegível e
+  // ficar negativo, fazendo o "à vista" dar MAIOR que o total parcelado.
   var maxParc=getMaxParcelas(total);
   var subtotalFixo=subtotalValorFixo();
   var subtotalElegivel=subTotal-subtotalFixo; // tudo que NÃO é valor fixo (nem desconto)
-  var baseDesconto=subtotalElegivel-totalDesc; // desconto manual continua incidindo normalmente
-  var aVista=Math.max(baseDesconto,0)*0.90 + subtotalFixo + desl;
+  var fixoPosDesconto=Math.max(subtotalFixo-(subTotal>0?totalDesc*(subtotalFixo/subTotal):0),0);
+  var elegivelPosDesconto=Math.max(subtotalElegivel-(subTotal>0?totalDesc*(subtotalElegivel/subTotal):0),0);
+  var aVista=elegivelPosDesconto*0.90 + fixoPosDesconto + desl;
   var spEl=document.getElementById('sumParcelas');
   if(total>0){
     spEl.style.display='block';
@@ -1073,8 +1079,11 @@ function printProposal(){
   var subT=subtotalServicos(),totalDesc=totalDescontos(subT),total=subT-totalDesc+desl;
   var subtotalFixoPrint=subtotalValorFixo();
   var subtotalElegivelPrint=subT-subtotalFixoPrint; // Valor Fixo fica de fora do desconto à vista
-  var baseDesconto=subtotalElegivelPrint-totalDesc; // base para o desconto à vista (sem deslocamento)
-  var aVistaPrint=Math.max(baseDesconto,0)*0.90+subtotalFixoPrint+desl; // 10% só sobre serviços avulsos + plano anual
+  // Mesma lógica de updateSummary(): tira a fatia proporcional do desconto manual
+  // de cada parte antes de aplicar o 10% extra, senão "à vista" pode dar > total.
+  var fixoPosDescontoPrint=Math.max(subtotalFixoPrint-(subT>0?totalDesc*(subtotalFixoPrint/subT):0),0);
+  var elegivelPosDescontoPrint=Math.max(subtotalElegivelPrint-(subT>0?totalDesc*(subtotalElegivelPrint/subT):0),0);
+  var aVistaPrint=elegivelPosDescontoPrint*0.90+fixoPosDescontoPrint+desl; // 10% só sobre serviços avulsos + plano anual
   var maxParc=getMaxParcelas(total);
 
   // Perda
