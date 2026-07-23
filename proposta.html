@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>Gerador de Proposta · Solar Green</title>
+<meta name="theme-color" content="#003122">
+<link rel="manifest" href="manifest-proposta.json">
 <link rel="icon" type="image/png" href="favicon_1.png">
 <link rel="icon" type="image/x-icon" href="favicon_1.ico">
 <link rel="apple-touch-icon" href="favicon-180_1.png">
@@ -296,6 +298,18 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 .contract-preview .cp-sign-line{border-top:1px solid #333;width:280px;margin-top:36px;padding-top:4px;font-size:11px;text-align:center;}
 .empty-inline{font-size:11px;color:var(--debit);font-weight:600;}
 .contrato-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}
+
+/* ── Banner de instalação do app (PWA) ── */
+#sg-install-banner{position:fixed;left:14px;right:14px;bottom:14px;max-width:480px;margin:0 auto;background:#003122;color:#fff;padding:14px 16px;border-radius:13px;font-size:13px;z-index:500;box-shadow:0 10px 30px rgba(0,0,0,.35);display:none;align-items:center;gap:12px;}
+#sg-install-banner.show{display:flex;}
+#sg-install-banner .sg-ib-icon{font-size:22px;flex:none;}
+#sg-install-banner .sg-ib-text{flex:1;line-height:1.4;}
+#sg-install-banner .sg-ib-text b{display:block;font-size:13.5px;margin-bottom:2px;}
+#sg-install-banner .sg-ib-actions{display:flex;flex-direction:column;gap:6px;flex:none;}
+#sg-install-banner button{border:none;border-radius:8px;padding:8px 14px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit;}
+#sg-install-banner .sg-ib-instalar{background:#78D800;color:#003122;}
+#sg-install-banner .sg-ib-fechar{background:rgba(255,255,255,.12);color:#fff;}
+@media(max-width:480px){ #sg-install-banner{flex-wrap:wrap;} #sg-install-banner .sg-ib-actions{flex-direction:row;width:100%;} #sg-install-banner .sg-ib-actions button{flex:1;} }
 </style>
 </head>
 <body>
@@ -1748,6 +1762,55 @@ document.getElementById('ctrSyncBtnBottom').addEventListener('click',syncCliente
   if(u&&k)fetchData();
 })();
 
+})();
+</script>
+
+<div id="sg-install-banner">
+  <span class="sg-ib-icon">📲</span>
+  <div class="sg-ib-text"><b>Instalar app</b><span id="sg-ib-msg">Adicione este app à tela inicial do seu celular — abre direto, sem navegador.</span></div>
+  <div class="sg-ib-actions">
+    <button type="button" class="sg-ib-instalar" id="sg-ib-instalar">Instalar</button>
+    <button type="button" class="sg-ib-fechar" id="sg-ib-fechar">Agora não</button>
+  </div>
+</div>
+<script>
+(function(){
+  if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
+  var DISMISS_KEY='sg_install_dismissed_v1';
+  var banner=document.getElementById('sg-install-banner');
+  if(!banner)return;
+  var msgEl=document.getElementById('sg-ib-msg');
+  var deferredPrompt=null;
+
+  function jaInstalado(){ return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true; }
+  function foiDispensado(){ try{ return localStorage.getItem(DISMISS_KEY)==='1'; }catch(e){ return false; } }
+  function mostrar(){ if(jaInstalado()||foiDispensado())return; banner.classList.add('show'); }
+  function esconder(){ banner.classList.remove('show'); }
+
+  document.getElementById('sg-ib-fechar').addEventListener('click',function(){
+    esconder();
+    try{ localStorage.setItem(DISMISS_KEY,'1'); }catch(e){}
+  });
+  document.getElementById('sg-ib-instalar').addEventListener('click',function(){
+    if(deferredPrompt){
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.finally(function(){ deferredPrompt=null; esconder(); });
+    }else{
+      alert('Pra instalar: toque no ícone de compartilhar do navegador e escolha "Adicionar à Tela de Início".');
+    }
+  });
+
+  window.addEventListener('beforeinstallprompt',function(e){
+    e.preventDefault();
+    deferredPrompt=e;
+    mostrar();
+  });
+
+  var isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent)&&!window.MSStream;
+  if(isIOS&&!jaInstalado()&&!foiDispensado()){
+    if(msgEl)msgEl.textContent='No iPhone: toque em Compartilhar (□↑) e depois em "Adicionar à Tela de Início".';
+    setTimeout(mostrar,2500);
+  }
 })();
 </script>
 </body>
