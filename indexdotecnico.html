@@ -883,7 +883,7 @@ var SGAuth=(function(){
   function statusLabelDisplay(status){
     var s=(status||'').trim();
     if(s==='Agendado')return 'Pendente';
-    if(s==='Em Andamento')return 'Aguardando';
+    if(s==='Em Andamento')return 'Em Andamento';
     return s||'Pendente';
   }
   function parseBRDate(str){
@@ -1328,6 +1328,7 @@ var SGAuth=(function(){
       var statusEl=row.querySelector('.field-status');
       var salvarAgora=function(){
         clearTimeout(debounceTimers[idTemplate]);
+        debounceTimers[idTemplate]=null;
         salvarCampoIndividual(idAgendamento,idTemplate,campo.value.trim(),tipo,statusEl);
       };
       campo.addEventListener('input',function(){
@@ -1372,7 +1373,7 @@ var SGAuth=(function(){
                 base64:base64, mimeType:'image/jpeg', nomeArquivo:(file.name||'foto').replace(/\.[^.]+$/,'')+'.jpg'
               }).then(function(resp){
                 if(!resp||!resp.ok){
-                  statusEl.innerHTML=(resp&&resp.erro)||'Falha ao enviar — a foto continua na tela, salva só no aparelho.';
+                  statusEl.innerHTML=escapeHtml((resp&&resp.erro)||'Falha ao enviar — a foto continua na tela, salva só no aparelho.');
                   statusEl.innerHTML+=' <button type="button" class="ph-retry-btn" data-target="'+target+'">Tentar de novo</button>';
                   wireRetryFoto(statusEl,target,tentarEnviar);
                   return;
@@ -2104,16 +2105,7 @@ function renderRoofPanels(){
             <input type="number" step="1" class="custom-mod-input" data-i="${i}" data-k="power" value="${roof.customModule.power ?? ''}">
           </div>
         </div>
-        <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:10px;">
-          <div class="field">
-            <label>Voc do módulo${roof.customModule.power ? ' ('+roof.customModule.power+'W)' : ''} (V)</label>
-            <input type="number" step="0.01" class="custom-mod-input" data-i="${i}" data-k="vocMod" value="${roof.customModule.vocMod ?? ''}">
-          </div>
-          <div class="field">
-            <label>Isc do módulo${roof.customModule.power ? ' ('+roof.customModule.power+'W)' : ''} (A)</label>
-            <input type="number" step="0.01" class="custom-mod-input" data-i="${i}" data-k="iscMod" value="${roof.customModule.iscMod ?? ''}">
-          </div>
-        </div>` : ''}
+        <div class="hint-box" style="margin-top:10px;">Informe o Voc/Isc deste módulo personalizado lá embaixo, na seção "05 · Dimensionamento de strings" — é lá que o cálculo de strings/MPPT realmente usa esses valores.</div>` : ''}
         ${hasFit ? svgDiagram(roof.largura, roof.altura, pack) : '<div class="readout" style="text-align:center;color:var(--text-dim);">Preencha módulo e telhado para ver o encaixe</div>'}
       </div>
       <div>
