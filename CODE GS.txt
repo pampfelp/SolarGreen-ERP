@@ -1,0 +1,2949 @@
+/**
+ * =====================================================================
+ *  API Solar Green — Ponto + Vendas + Funil + Propostas + Autenticação
+ * =====================================================================
+ */
+
+var CONFIG = {
+  ABA_VENDEDORES:   'Vendedores',
+  ABA_PONTO:        'Ponto Eletronico',
+  ABA_ABONOS:       'Abonos',
+  ABA_VENDAS:       'Vendas',
+  ABA_METAS:        'Metas',
+  ABA_METAS_INDIVIDUAIS: 'Metas Individuais',
+  ABA_RELATORIOS:   'Relatórios',
+  ABA_CUSTOS_VENDA: 'Custos da venda',
+  ABA_FUNIL:        'Funil',
+  ABA_CLIENTES:     'Clientes',
+  ABA_SERVICOS:     'Servicos',
+  ABA_FUNIL_LOG:    'FunilLog',
+  ABA_FUNIL_SLA:    'FunilSLA',
+  ABA_PROPOSTAS:    'Propostas',   // ← histórico de propostas geradas
+  ABA_AGENDAMENTOS:            'Agendamentos',
+  ABA_AGENDAMENTOS_RESPOSTAS:  'Agendamentos Respostas',
+  ABA_TEMPLATES:                'Templates',
+  ABA_PLANOS:                   'Planos',
+  ABA_PERMISSOES:                'Permissoes',
+  ABA_CUSTO_RECORRENTE:          'Custo_Recorrente',
+  CHAVE_SECRETA:    '1234'
+};
+
+// ── Autenticação: config própria (NÃO é a mesma chave da API) ─────────
+// Troque este valor por algo só seu. Ele nunca é enviado ao navegador,
+// fica só aqui no servidor — é usado como "tempero" extra no hash da senha.
+var AUTH_PEPPER = 'TROQUE-ESTE-VALOR-SolarGreen-2026';
+
+// Senha padrão temporária para quem ainda não tem senha própria cadastrada.
+// Assim que a pessoa loga com ela, o sistema OBRIGA a criar uma senha nova
+// antes de liberar o acesso — a senha padrão nunca vira a senha definitiva.
+// Troque este valor e avise a equipe sempre que quiser "resetar" o acesso inicial.
+var SENHA_PADRAO = 'SolarGreen@2026';
+
+// =====================================================================
+
+function doGet(e)  { return handleRequest(e); }
+function doPost(e) { return handleRequest(e); }
+
+function handleRequest(e) {
+  try {
+    var params = e.parameter || {};
+    var body   = {};
+    if (e.postData && e.postData.contents) {
+      try { body = JSON.parse(e.postData.contents); } catch (err) { body = {}; }
+    }
+
+    var chave = params.chave || body.chave || '';
+    if (chave !== CONFIG.CHAVE_SECRETA) {
+      return jsonOutput({ ok: false, erro: 'Chave inválida.' });
+    }
+
+    var action = params.action || body.action || '';
+
+    if (action === 'getData')         return jsonOutput(getData());
+    if (action === 'setOverride')     return jsonOutput(setOverride(body));
+    if (action === 'getVendasData')   return jsonOutput(getVendasData());
+    if (action === 'salvarMetaIndividual')  return jsonOutput(actionSalvarMetaIndividual(body));
+    if (action === 'excluirMetaIndividual') return jsonOutput(actionExcluirMetaIndividual(body));
+    if (action === 'salvarVenda')     return jsonOutput(actionSalvarVenda(body));
+    if (action === 'excluirVenda')    return jsonOutput(actionExcluirVenda(body));
+    if (action === 'salvarCustoVenda')  return jsonOutput(actionSalvarCustoVenda(body));
+    if (action === 'excluirCustoVenda') return jsonOutput(actionExcluirCustoVenda(body));
+    if (action === 'getPlanosData')   return jsonOutput(getPlanosData());
+    if (action === 'getCustosVendaData')   return jsonOutput(getCustosVendaData());
+    if (action === 'getCustoRecorrenteData')   return jsonOutput(getCustoRecorrenteData());
+    if (action === 'salvarCustoRecorrente')    return jsonOutput(actionSalvarCustoRecorrente(body));
+    if (action === 'excluirCustoRecorrente')   return jsonOutput(actionExcluirCustoRecorrente(body));
+    if (action === 'getServicosData')   return jsonOutput(getServicosData());
+    if (action === 'salvarServico')     return jsonOutput(actionSalvarServico(body));
+    if (action === 'excluirServico')    return jsonOutput(actionExcluirServico(body));
+    if (action === 'salvarTemplate')    return jsonOutput(actionSalvarTemplate(body));
+    if (action === 'excluirTemplate')   return jsonOutput(actionExcluirTemplate(body));
+    if (action === 'getRelatoriosData') return jsonOutput(getRelatoriosData());
+    if (action === 'salvarRelatorio')   return jsonOutput(actionSalvarRelatorio(body));
+    if (action === 'excluirRelatorio')  return jsonOutput(actionExcluirRelatorio(body));
+    if (action === 'getMetasData')    return jsonOutput(getMetasData());
+    if (action === 'salvarMeta')      return jsonOutput(actionSalvarMeta(body));
+    if (action === 'excluirMeta')     return jsonOutput(actionExcluirMeta(body));
+    if (action === 'salvarPlano')     return jsonOutput(actionSalvarPlano(body));
+    if (action === 'excluirPlano')    return jsonOutput(actionExcluirPlano(body));
+    if (action === 'registrarPonto')     return jsonOutput(actionRegistrarPonto(body));
+    if (action === 'getPontoFuncionario') return jsonOutput(actionGetPontoFuncionario(body));
+    if (action === 'getFunilData')    return jsonOutput(getFunilData());
+    if (action === 'salvarFunil')     return jsonOutput(actionSalvarFunil(body));
+    if (action === 'excluirFunil')    return jsonOutput(actionExcluirFunil(body));
+    if (action === 'saveProposal')    return jsonOutput(saveProposal(body));
+    if (action === 'getProposals')    return jsonOutput(getProposals());
+    if (action === 'deleteProposal')  return jsonOutput(deleteProposal(body));
+    if (action === 'updateCliente')   return jsonOutput(updateCliente(body));
+    if (action === 'criarClienteRapido') return jsonOutput(actionCriarClienteRapido(body));
+    if (action === 'salvarCliente')   return jsonOutput(actionSalvarCliente(body));
+    if (action === 'excluirCliente')  return jsonOutput(actionExcluirCliente(body));
+    if (action === 'getClientesData') return jsonOutput(getClientesData());
+    if (action === 'criarServicoRapido') return jsonOutput(actionCriarServicoRapido(body));
+    if (action === 'diagSheets')      return jsonOutput(diagSheets());
+
+    // ── Autenticação ──
+    if (action === 'login')           return jsonOutput(actionLogin(body));
+    if (action === 'esqueciSenha')    return jsonOutput(actionEsqueciSenha(body));
+    if (action === 'redefinirSenha')  return jsonOutput(actionRedefinirSenha(body));
+    if (action === 'trocarSenha')     return jsonOutput(actionTrocarSenha(body));
+
+    // ── Administração de usuários ──
+    if (action === 'listVendedoresAdmin') return jsonOutput(actionListVendedoresAdmin(body));
+    if (action === 'salvarVendedor')      return jsonOutput(actionSalvarVendedor(body));
+    if (action === 'getPermissoesData')   return jsonOutput(getPermissoesData());
+    if (action === 'salvarPermissoes')    return jsonOutput(actionSalvarPermissoes(body));
+
+    // ── Agendamentos (vendedor cria, técnico executa) ──
+    if (action === 'getAgendamentosData')        return jsonOutput(getAgendamentosData());
+    if (action === 'getRespostasAgendamentosVendedor') return jsonOutput(actionGetRespostasAgendamentosVendedor(body));
+    if (action === 'salvarAgendamento')          return jsonOutput(actionSalvarAgendamento(body));
+    if (action === 'excluirAgendamento')         return jsonOutput(actionExcluirAgendamento(body));
+    if (action === 'getAgendamentosTecnico')     return jsonOutput(actionGetAgendamentosTecnico(body));
+    if (action === 'getRespostasAgendamentos')   return jsonOutput(actionGetRespostasAgendamentos(body));
+    if (action === 'diagnosticarFotos')          return jsonOutput(actionDiagnosticarFotos());
+    if (action === 'atualizarStatusAgendamento') return jsonOutput(actionAtualizarStatusAgendamento(body));
+    if (action === 'salvarRespostasAgendamento') return jsonOutput(actionSalvarRespostasAgendamento(body));
+    if (action === 'uploadFotoResposta')         return jsonOutput(actionUploadFotoResposta(body));
+
+    if (action === 'ping')            return jsonOutput({ ok: true, mensagem: 'Conectado com sucesso.' });
+
+    return jsonOutput({ ok: false, erro: 'Ação desconhecida: ' + action });
+  } catch (err) {
+    return jsonOutput({ ok: false, erro: 'Erro no servidor: ' + err.message });
+  }
+}
+
+function jsonOutput(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ── Helpers de aba ──────────────────────────────────────────────────
+
+function getSheet(name) {
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(name) || findSheetLoose(ss, name);
+  if (!sheet) throw new Error('Aba "' + name + '" não encontrada na planilha.');
+  return sheet;
+}
+
+function getSheetSafe(name) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  return ss.getSheetByName(name) || findSheetLoose(ss, name);
+}
+
+function findSheetLoose(ss, name) {
+  var target = normalizeSheetName(name);
+  var sheets = ss.getSheets();
+  for (var i = 0; i < sheets.length; i++) {
+    if (normalizeSheetName(sheets[i].getName()) === target) return sheets[i];
+  }
+  return null;
+}
+
+function normalizeSheetName(s) {
+  return String(s || '')
+    .trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[_\s]+/g, ' ').trim();
+}
+
+// ── Leitura de planilha ─────────────────────────────────────────────
+
+function sheetToObjects(sheet) {
+  var values = sheet.getDataRange().getValues();
+  if (values.length === 0) return [];
+  var headers = values[0].map(function (h) { return String(h).trim(); });
+  var out = [];
+  for (var i = 1; i < values.length; i++) {
+    var row = values[i];
+    if (row.every(function (c) { return c === '' || c === null; })) continue;
+    var obj = {};
+    for (var j = 0; j < headers.length; j++) {
+      if (!headers[j]) continue;
+      var val = row[j];
+      if (isDateLike(val)) val = formatDateBR(val);
+      obj[headers[j]] = val;
+    }
+    out.push(obj);
+  }
+  return out;
+}
+
+/**
+ * Equivalente ao "cache em memória tipo Redis" nesse ecossistema: o Apps
+ * Script tem um CacheService nativo, compartilhado entre TODAS as
+ * execuções do script (não só a atual), com expiração automática — exatamente
+ * o papel que um Redis cumpriria aqui. Usado só pra abas que são lidas o
+ * tempo todo e mudam pouco (Vendedores, Serviços) — não faz sentido pra
+ * abas que mudam a cada request (Agendamentos, Vendas, Funil).
+ *
+ * Sempre que uma dessas abas for escrita, chame invalidarCache(chave) logo
+ * depois — senão quem ler nos próximos minutos vai ver dado desatualizado.
+ */
+var SG_CACHE_TTL_PADRAO = 300; // 5 minutos — equilíbrio entre "atualizado" e "rápido"
+
+function getSheetObjectsComCache(sheetName, chave, ttlSegundos) {
+  var cache = CacheService.getScriptCache();
+  var cacheado = cache.get(chave);
+  if (cacheado) {
+    try { return JSON.parse(cacheado); } catch (e) { /* cache corrompido — ignora e recarrega da planilha */ }
+  }
+  var sheet = getSheetSafe(sheetName);
+  var dados = sheet ? sheetToObjects(sheet) : [];
+  if (normalizeSheetName(sheetName) === normalizeSheetName(CONFIG.ABA_VENDEDORES)) {
+    dados = sanitizeVendedoresPublico(dados);
+  }
+  try {
+    var json = JSON.stringify(dados);
+    if (json.length < 95000) cache.put(chave, json, ttlSegundos || SG_CACHE_TTL_PADRAO); // CacheService tem limite de ~100KB por chave
+  } catch (e) { /* não é crítico — só não guarda cache dessa vez, continua funcionando normal */ }
+  return dados;
+}
+
+/**
+ * Remove os campos sensíveis de autenticação (hash/salt de senha, token de
+ * redefinição) antes de qualquer vendedor sair pro cliente. Toda leitura de
+ * Vendedores por getSheetObjectsComCache passa por aqui — login/troca de
+ * senha não usam esse caminho, então continuam funcionando normalmente.
+ */
+function sanitizeVendedoresPublico(lista) {
+  var camposOcultos = { SenhaHash: 1, SenhaSalt: 1, ResetToken: 1, ResetTokenExpira: 1 };
+  return (lista || []).map(function (v) {
+    var out = {};
+    Object.keys(v).forEach(function (k) { if (!camposOcultos[k]) out[k] = v[k]; });
+    return out;
+  });
+}
+
+function invalidarCache(chave) {
+  try { CacheService.getScriptCache().remove(chave); } catch (e) { /* não é crítico */ }
+}
+
+function abonosSheetToObjects(sheet) {
+  var values     = sheet.getDataRange().getValues();
+  if (values.length === 0) return [];
+  var headers    = values[0].map(function (h) { return String(h).trim(); });
+  var horaFields = { Entrada: true, Almoco: true, RetornoAlmoco: true, Saida: true };
+  var out = [];
+  for (var i = 1; i < values.length; i++) {
+    var row = values[i];
+    if (row.every(function (c) { return c === '' || c === null; })) continue;
+    var obj = {};
+    for (var j = 0; j < headers.length; j++) {
+      if (!headers[j]) continue;
+      var val = row[j];
+      if      (horaFields[headers[j]]) val = formatHoraSomente(val);
+      else if (isDateLike(val))         val = formatDateBR(val);
+      obj[headers[j]] = val;
+    }
+    out.push(obj);
+  }
+  return out;
+}
+
+function isDateLike(val) {
+  return val instanceof Date ||
+    (val && typeof val.getFullYear === 'function' && typeof val.getMonth === 'function');
+}
+
+function formatDateBR(d) {
+  return String(d.getDate()).padStart(2,'0') + '/' +
+    String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear() + ' ' +
+    String(d.getHours()).padStart(2,'0') + ':' +
+    String(d.getMinutes()).padStart(2,'0') + ':' +
+    String(d.getSeconds()).padStart(2,'0');
+}
+
+function formatHoraSomente(val) {
+  if (val === '' || val === null || val === undefined) return '';
+  if (isDateLike(val)) {
+    return String(val.getHours()).padStart(2,'0') + ':' + String(val.getMinutes()).padStart(2,'0');
+  }
+  var m = String(val).trim().match(/^(\d{1,2}):(\d{2})/);
+  return m ? m[1].padStart(2,'0') + ':' + m[2] : '';
+}
+
+function normalizeDateKey(val) {
+  if (isDateLike(val)) {
+    return val.getFullYear() + '-' +
+      String(val.getMonth()+1).padStart(2,'0') + '-' + String(val.getDate()).padStart(2,'0');
+  }
+  var str = String(val).trim();
+  var iso = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return iso[1] + '-' + iso[2] + '-' + iso[3];
+  var br  = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (br)  return br[3] + '-' + br[2].padStart(2,'0') + '-' + br[1].padStart(2,'0');
+  return null;
+}
+
+// ── Aba Abonos ──────────────────────────────────────────────────────
+
+var ABONOS_HEADERS = ['Funcionario','Data','Abonado','Entrada','Almoco','RetornoAlmoco','Saida'];
+
+function getOrCreateAbonosSheet() {
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(CONFIG.ABA_ABONOS);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG.ABA_ABONOS);
+    sheet.getRange(1,1,1,7).setValues([ABONOS_HEADERS]);
+    sheet.setFrozenRows(1);
+  } else {
+    var first = String(sheet.getRange(1,1).getValue()||'').trim();
+    if (first !== 'Funcionario') {
+      sheet.insertRowBefore(1);
+      sheet.getRange(1,1,1,7).setValues([ABONOS_HEADERS]);
+      sheet.setFrozenRows(1);
+    }
+  }
+  sheet.getRange('B2:B').setNumberFormat('@STRING@');
+  sheet.getRange('D2:G').setNumberFormat('@STRING@');
+  return sheet;
+}
+
+// ── Aba Propostas ───────────────────────────────────────────────────
+
+var PROPOSTAS_HEADERS = [
+  'IdProposta','Data','Numero','IdOportunidade','NomeCliente',
+  'IdVendedor','NomeVendedor','TotalServicos','TotalDeslocamento',
+  'Total','Blocos','Observacoes','Status','LinkProposta'
+];
+
+function getOrCreatePropostasSheet() {
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = getSheetSafe(CONFIG.ABA_PROPOSTAS);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG.ABA_PROPOSTAS);
+    sheet.getRange(1,1,1,PROPOSTAS_HEADERS.length).setValues([PROPOSTAS_HEADERS]);
+    sheet.setFrozenRows(1);
+    // Largura da coluna Blocos (JSON) — deixa bem estreita, só pra não atrapalhar
+    sheet.setColumnWidth(11, 60);
+    // Link clicável
+    sheet.setColumnWidth(14, 300);
+  } else {
+    var first = String(sheet.getRange(1,1).getValue()||'').trim();
+    if (first !== 'IdProposta') {
+      sheet.insertRowBefore(1);
+      sheet.getRange(1,1,1,PROPOSTAS_HEADERS.length).setValues([PROPOSTAS_HEADERS]);
+      sheet.setFrozenRows(1);
+    }
+  }
+  return sheet;
+}
+
+/**
+ * Gera um ID curto tipo "a3f9c21b" (8 caracteres hex)
+ */
+/**
+ * Garante que um valor monetário/numérico vindo do front-end (que sempre
+ * manda no formato americano — ponto decimal, ex: "39.9" — porque vem de
+ * <input type="number">) seja gravado na planilha como NÚMERO de verdade,
+ * nunca como texto. Se ficar como texto, o front-end (que trata qualquer
+ * texto como formato brasileiro, ponto = milhar) lê errado depois —
+ * foi exatamente isso que causou o bug de "39,90" virar "3990".
+ */
+/**
+ * Pega só os dígitos do telefone (ignora hífen, espaço, parênteses, +55…) e
+ * devolve os últimos 8 — usado pra detectar cliente duplicado mesmo quando
+ * o número foi digitado em formatos diferentes. Espelha exatamente a mesma
+ * lógica do front-end (window.SGUtil.ultimos8DigitosTelefone).
+ */
+function paraUltimos8Digitos(tel) {
+  var digitos = String(tel || '').replace(/\D/g, '');
+  return digitos.length >= 8 ? digitos.slice(-8) : null;
+}
+
+function paraNumero(v) {
+  if (v === undefined || v === null || v === '') return '';
+  if (typeof v === 'number') return v;
+  var n = parseFloat(String(v).replace(',', '.'));
+  return isNaN(n) ? '' : n;
+}
+
+function generateShortId() {
+  return Utilities.getUuid().replace(/-/g,'').substring(0,8);
+}
+
+// ── Actions: Ponto ─────────────────────────────────────────────────
+
+function getData() {
+  var vendedores  = getSheetObjectsComCache(CONFIG.ABA_VENDEDORES, 'sh_vendedores');
+  var ponto       = sheetToObjects(getSheet(CONFIG.ABA_PONTO));
+  var abonosSheet = getOrCreateAbonosSheet();
+  var abonosRaw   = abonosSheetToObjects(abonosSheet);
+
+  var overrides = {};
+  abonosRaw.forEach(function (row) {
+    if (!row.Funcionario || !row.Data) return;
+    var dataKey = normalizeDateKey(row.Data);
+    if (!dataKey) return;
+    overrides[String(row.Funcionario) + '|' + dataKey] = {
+      abonado: String(row.Abonado).toUpperCase() === 'TRUE' || row.Abonado === true,
+      entrada: row.Entrada || '', almoco: row.Almoco  || '',
+      retorno: row.RetornoAlmoco || '', saida: row.Saida || ''
+    };
+  });
+
+  return { ok: true, vendedores: vendedores, ponto: ponto, overrides: overrides,
+           atualizadoEm: new Date().toISOString() };
+}
+
+function setOverride(body) {
+  var funcionario = body.funcionario, data = body.data;
+  if (!funcionario || !data) return { ok: false, erro: 'funcionario e data são obrigatórios.' };
+
+  var sheet  = getOrCreateAbonosSheet();
+  var values = sheet.getDataRange().getValues();
+  var rowIdx = -1;
+  for (var i = 1; i < values.length; i++) {
+    if (String(values[i][0]) === String(funcionario) &&
+        normalizeDateKey(values[i][1]) === String(data)) {
+      rowIdx = i + 1; break;
+    }
+  }
+
+  var abonado = !!body.abonado, entrada = body.entrada||'', almoco = body.almoco||'',
+      retorno = body.retorno||'', saida = body.saida||'';
+
+  if (!abonado && !entrada && !almoco && !retorno && !saida) {
+    if (rowIdx !== -1) sheet.deleteRow(rowIdx);
+    return { ok: true, acao: 'removido' };
+  }
+
+  var rowValues = [funcionario, data, abonado, entrada, almoco, retorno, saida];
+  if (rowIdx !== -1) {
+    sheet.getRange(rowIdx,1,1,7).setValues([rowValues]);
+    return { ok: true, acao: 'atualizado' };
+  } else {
+    sheet.appendRow(rowValues);
+    return { ok: true, acao: 'criado' };
+  }
+}
+
+// ── Actions: Vendas ─────────────────────────────────────────────────
+
+function getVendasData() {
+  var vendedores  = getSheetObjectsComCache(CONFIG.ABA_VENDEDORES, 'sh_vendedores');
+  var vendasSheet = getSheetSafe(CONFIG.ABA_VENDAS);
+  var metasSheet  = getSheetSafe(CONFIG.ABA_METAS);
+  var metasIndSheet = getSheetSafe(CONFIG.ABA_METAS_INDIVIDUAIS);
+  var relSheet    = getSheetSafe(CONFIG.ABA_RELATORIOS);
+  var custosSheet = getSheetSafe(CONFIG.ABA_CUSTOS_VENDA);
+  var servSheet   = getSheetSafe(CONFIG.ABA_SERVICOS);
+  var clientSheet = getSheetSafe(CONFIG.ABA_CLIENTES);
+
+  var vendas     = vendasSheet  ? sheetToObjects(vendasSheet)  : [];
+  var metas      = metasSheet   ? sheetToObjects(metasSheet)   : [];
+  var metasIndividuais = metasIndSheet ? sheetToObjects(metasIndSheet) : [];
+  var relatorios = relSheet     ? sheetToObjects(relSheet)     : [];
+  var custosVenda= custosSheet  ? sheetToObjects(custosSheet)  : [];
+  var servicos   = getSheetObjectsComCache(CONFIG.ABA_SERVICOS, 'sh_servicos');
+  var clientes   = clientSheet  ? sheetToObjects(clientSheet)  : [];
+
+  return {
+    ok: true,
+    vendedores: vendedores, vendas: vendas, metas: metas, metasIndividuais: metasIndividuais,
+    relatorios: relatorios, custosVenda: custosVenda, servicos: servicos, clientes: clientes,
+    diagnostico: {
+      vendas:      vendasSheet  ? vendasSheet.getName()  : 'NÃO ENCONTRADA',
+      metas:       metasSheet   ? metasSheet.getName()   : 'NÃO ENCONTRADA',
+      relatorios:  relSheet     ? relSheet.getName()     : 'NÃO ENCONTRADA',
+      custosVenda: custosSheet  ? custosSheet.getName()  : 'NÃO ENCONTRADA',
+      servicos:    servSheet    ? servSheet.getName()    : 'NÃO ENCONTRADA',
+    },
+    atualizadoEm: new Date().toISOString()
+  };
+}
+
+/**
+ * action: salvarVenda — body { idVenda?, idCliente, idServico, idVendedor, dataVenda ('YYYY-MM-DD'), valor }
+ * Cria ou atualiza uma linha na aba Vendas.
+ */
+function actionSalvarVenda(body) {
+  var idCliente = body.idCliente, idServico = body.idServico, idVendedor = body.idVendedor,
+      dataVenda = body.dataVenda, valor = body.valor;
+  if (!idCliente || !idServico || !idVendedor || !dataVenda || valor === undefined || valor === '') {
+    return { ok: false, erro: 'Cliente, serviço, vendedor, data e valor são obrigatórios.' };
+  }
+  var sheet = getSheetSafe(CONFIG.ABA_VENDAS);
+  if (!sheet) return { ok: false, erro: 'Aba Vendas não encontrada.' };
+  var data = body.idVenda ? sheet.getDataRange().getValues() : [getHeaderRow(sheet)];
+  var headers = data.length ? data[0].map(function (h) { return String(h).trim(); }) : ['IdVenda', 'IdCliente', 'IdServico', 'IdVendedor', 'DataVenda', 'Valor'];
+  var colIdx = {}; headers.forEach(function (h, i) { colIdx[h] = i + 1; });
+
+  var rowIndex = -1;
+  if (body.idVenda && colIdx['IdVenda']) {
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][colIdx['IdVenda'] - 1]) === String(body.idVenda)) { rowIndex = i + 1; break; }
+    }
+  }
+
+  var campos = {
+    'IdCliente': idCliente, 'IdServico': idServico, 'IdVendedor': idVendedor,
+    'DataVenda': parseDataISO(dataVenda), 'Valor': paraNumero(valor)
+  };
+
+  var novoId = body.idVenda;
+  if (rowIndex === -1) {
+    novoId = novoId || generateShortId(); // usa o ID que o cliente já gerou (otimista) — só gera aqui se não veio
+    var lastCol = sheet.getLastColumn() || headers.length;
+    var novaLinha = new Array(lastCol).fill('');
+    Object.keys(colIdx).forEach(function (h) {
+      if (h === 'IdVenda') novaLinha[colIdx[h] - 1] = novoId;
+      else if (campos[h] !== undefined) novaLinha[colIdx[h] - 1] = campos[h];
+    });
+    sheet.getRange(sheet.getLastRow() + 1, 1, 1, novaLinha.length).setValues([novaLinha]);
+  } else {
+    Object.keys(campos).forEach(function (h) { if (colIdx[h]) sheet.getRange(rowIndex, colIdx[h]).setValue(campos[h]); });
+  }
+  return { ok: true, idVenda: novoId };
+}
+
+/**
+ * action: excluirVenda — body { idVenda }
+ * Remove a linha da aba Vendas. Os custos vinculados em Custos_da_Venda não
+ * são apagados automaticamente (ficam órfãos, sem efeito prático).
+ */
+function actionExcluirVenda(body) {
+  var idVenda = body.idVenda;
+  if (!idVenda) return { ok: false, erro: 'idVenda é obrigatório.' };
+  var sheet = getSheetSafe(CONFIG.ABA_VENDAS);
+  if (!sheet) return { ok: false, erro: 'Aba Vendas não encontrada.' };
+  var data = sheet.getDataRange().getValues();
+  var idCol = -1, vendedorCol = -1;
+  for (var c = 0; c < data[0].length; c++) {
+    var h = String(data[0][c]).trim();
+    if (h === 'IdVenda') idCol = c;
+    if (h === 'IdVendedor') vendedorCol = c;
+  }
+  if (idCol === -1) return { ok: false, erro: 'Coluna IdVenda não encontrada.' };
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]) === String(idVenda)) {
+      var dono = vendedorCol !== -1 ? String(data[i][vendedorCol]) : null;
+      var ehDono = dono && String(body.solicitanteId) === dono;
+      if (!ehDono && !isSolicitanteAdmin(body.solicitanteId)) {
+        return { ok: false, erro: 'Você só pode excluir as próprias vendas.' };
+      }
+      sheet.deleteRow(i + 1);
+      return { ok: true };
+    }
+  }
+  return { ok: false, erro: 'Venda não encontrada.' };
+}
+
+/**
+ * action: salvarCustoVenda — body { idCusto?, idVenda, descricao, valor, status, data ('YYYY-MM-DD') }
+ * Cria ou atualiza uma linha na aba Custos_da_Venda.
+ */
+function actionSalvarCustoVenda(body) {
+  var idVenda = body.idVenda, valor = body.valor;
+  if (!idVenda || valor === undefined || valor === '') {
+    return { ok: false, erro: 'Venda e valor são obrigatórios.' };
+  }
+  var sheet = getSheetSafe(CONFIG.ABA_CUSTOS_VENDA);
+  if (!sheet) return { ok: false, erro: 'Aba Custos_da_Venda não encontrada.' };
+  var data = body.idCusto ? sheet.getDataRange().getValues() : [getHeaderRow(sheet)];
+  var headers = data.length ? data[0].map(function (h) { return String(h).trim(); }) : ['IdCusto', 'IdVenda', 'Descricao', 'Valor', 'Status', 'Data'];
+  var colIdx = {}; headers.forEach(function (h, i) { colIdx[h] = i + 1; });
+
+  var rowIndex = -1;
+  if (body.idCusto && colIdx['IdCusto']) {
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][colIdx['IdCusto'] - 1]) === String(body.idCusto)) { rowIndex = i + 1; break; }
+    }
+  }
+
+  var campos = {
+    'IdVenda': idVenda, 'Descricao': body.descricao || '', 'Valor': paraNumero(valor),
+    'Status': body.status || 'Aguardando Pagamento', 'Data': body.data ? parseDataISO(body.data) : new Date()
+  };
+
+  var novoId = body.idCusto;
+  if (rowIndex === -1) {
+    novoId = novoId || generateShortId(); // usa o ID que o cliente já gerou (otimista) — só gera aqui se não veio
+    var lastCol = sheet.getLastColumn() || headers.length;
+    var novaLinha = new Array(lastCol).fill('');
+    Object.keys(colIdx).forEach(function (h) {
+      if (h === 'IdCusto') novaLinha[colIdx[h] - 1] = novoId;
+      else if (campos[h] !== undefined) novaLinha[colIdx[h] - 1] = campos[h];
+    });
+    sheet.getRange(sheet.getLastRow() + 1, 1, 1, novaLinha.length).setValues([novaLinha]);
+  } else {
+    Object.keys(campos).forEach(function (h) { if (colIdx[h]) sheet.getRange(rowIndex, colIdx[h]).setValue(campos[h]); });
+  }
+  return { ok: true, idCusto: novoId };
+}
+
+/**
+ * action: excluirCustoVenda — body { idCusto }
+ */
+function actionExcluirCustoVenda(body) {
+  if (!isSolicitanteAdmin(body.solicitanteId)) {
+    return { ok: false, erro: 'Acesso restrito a administradores.' };
+  }
+  var idCusto = body.idCusto;
+  if (!idCusto) return { ok: false, erro: 'idCusto é obrigatório.' };
+  var sheet = getSheetSafe(CONFIG.ABA_CUSTOS_VENDA);
+  if (!sheet) return { ok: false, erro: 'Aba Custos_da_Venda não encontrada.' };
+  var data = sheet.getDataRange().getValues();
+  var idCol = -1;
+  for (var c = 0; c < data[0].length; c++) { if (String(data[0][c]).trim() === 'IdCusto') { idCol = c; break; } }
+  if (idCol === -1) return { ok: false, erro: 'Coluna IdCusto não encontrada.' };
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]) === String(idCusto)) { sheet.deleteRow(i + 1); return { ok: true }; }
+  }
+  return { ok: false, erro: 'Custo não encontrado.' };
+}
+
+/**
+ * Dados da tela de Planos: assinaturas + clientes (pro nome aparecer).
+ */
+// ── Actions: Metas (mês a mês) ─────────────────────────────────────
+
+/**
+ * Dados da tela CRUD de Metas — a meta mensal da empresa, editável mês a mês.
+ */
+function getMetasData() {
+  var sheet = getSheetSafe(CONFIG.ABA_METAS);
+  var metas = sheet ? sheetToObjects(sheet) : [];
+  return { ok: true, metas: metas, atualizadoEm: new Date().toISOString() };
+}
+
+/**
+ * action: salvarMeta — body { idMeta?, ano, mes, valor }
+ * Cria ou atualiza a meta de um mês específico. Se já existir uma meta
+ * pra esse ano+mês (mesmo vindo sem idMeta), atualiza em vez de duplicar.
+ */
+function actionSalvarMeta(body) {
+  var ano = body.ano, mes = body.mes, valor = body.valor;
+  if (!ano || !mes || valor === undefined || valor === '') {
+    return { ok: false, erro: 'Ano, mês e valor são obrigatórios.' };
+  }
+  var sheet = getOrCreateSheetComCabecalho(CONFIG.ABA_METAS, ['IdMeta', 'Ano', 'Mes', 'Valor']);
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function (h) { return String(h).trim(); });
+  var colIdx = {}; headers.forEach(function (h, i) { colIdx[h] = i + 1; });
+
+  var rowIndex = -1;
+  for (var i = 1; i < data.length; i++) {
+    var mesmoId = body.idMeta && String(data[i][colIdx['IdMeta'] - 1]) === String(body.idMeta);
+    var mesmoAnoMes = Number(data[i][colIdx['Ano'] - 1]) === Number(ano) && Number(data[i][colIdx['Mes'] - 1]) === Number(mes);
+    if (mesmoId || mesmoAnoMes) { rowIndex = i + 1; break; }
+  }
+
+  var campos = { 'Ano': ano, 'Mes': mes, 'Valor': paraNumero(valor) };
+  var novoId;
+  if (rowIndex === -1) {
+    novoId = body.idMeta || generateShortId();
+    var lastCol = sheet.getLastColumn();
+    var novaLinha = new Array(lastCol).fill('');
+    Object.keys(colIdx).forEach(function (h) {
+      if (h === 'IdMeta') novaLinha[colIdx[h] - 1] = novoId;
+      else if (campos[h] !== undefined) novaLinha[colIdx[h] - 1] = campos[h];
+    });
+    sheet.getRange(sheet.getLastRow() + 1, 1, 1, novaLinha.length).setValues([novaLinha]);
+  } else {
+    novoId = data[rowIndex - 1][colIdx['IdMeta'] - 1] || body.idMeta || generateShortId();
+    Object.keys(campos).forEach(function (h) { if (colIdx[h]) sheet.getRange(rowIndex, colIdx[h]).setValue(campos[h]); });
+  }
+  return { ok: true, idMeta: novoId };
+}
+
+/**
+ * action: excluirMeta — body { idMeta }
+ */
+function actionExcluirMeta(body) {
+  if (!isSolicitanteAdmin(body.solicitanteId)) {
+    return { ok: false, erro: 'Acesso restrito a administradores.' };
+  }
+  var idMeta = body.idMeta;
+  if (!idMeta) return { ok: false, erro: 'idMeta é obrigatório.' };
+  var sheet = getSheetSafe(CONFIG.ABA_METAS);
+  if (!sheet) return { ok: false, erro: 'Aba Metas não encontrada.' };
+  var data = sheet.getDataRange().getValues();
+  var idCol = -1;
+  for (var c = 0; c < data[0].length; c++) { if (String(data[0][c]).trim() === 'IdMeta') { idCol = c; break; } }
+  if (idCol === -1) return { ok: false, erro: 'Coluna IdMeta não encontrada.' };
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]) === String(idMeta)) { sheet.deleteRow(i + 1); return { ok: true }; }
+  }
+  return { ok: false, erro: 'Meta não encontrada.' };
+}
+
+// ── Actions: Relatórios (números diários do funil, por vendedor) ──────
+
+/**
+ * Dados da tela de Relatórios: os lançamentos diários + vendedores (pro
+ * nome aparecer). O filtro "só os meus" é feito no front-end (mesmo padrão
+ * já usado em Vendas/Funil), não aqui — todo mundo autenticado recebe tudo.
+ */
+function getRelatoriosData() {
+  var sheet = getSheetSafe(CONFIG.ABA_RELATORIOS);
+  var relatorios = sheet ? sheetToObjects(sheet) : [];
+  var vendedores = getSheetObjectsComCache(CONFIG.ABA_VENDEDORES, 'sh_vendedores');
+  return { ok: true, relatorios: relatorios, vendedores: vendedores, atualizadoEm: new Date().toISOString() };
+}
+
+/**
+ * action: salvarRelatorio — body { idRelatorio?, idVendedor, data ('YYYY-MM-DD'),
+ *   novosContatos, conversas, propostas, vendas }
+ * Um vendedor só pode ter UM lançamento por dia — se já existir um relatório
+ * pra esse vendedor+data, atualiza em vez de duplicar (mesmo sem vir com
+ * idRelatorio, o que cobre o caso de "editar o de hoje" direto pela tela).
+ */
+function actionSalvarRelatorio(body) {
+  var idVendedor = body.idVendedor, data = body.data;
+  if (!idVendedor || !data) return { ok: false, erro: 'Vendedor e data são obrigatórios.' };
+
+  var sheet = getOrCreateSheetComCabecalho(CONFIG.ABA_RELATORIOS,
+    ['IdRelatorio', 'IdVendedor', 'Novos Contatos', 'Conversas', 'Propostas Apresentadas', 'Vendas', 'Data']);
+  var sheetData = sheet.getDataRange().getValues();
+  var headers = sheetData[0].map(function (h) { return String(h).trim(); });
+  var colIdx = {}; headers.forEach(function (h, i) { colIdx[h] = i + 1; });
+
+  var dataFormatada = parseDataISO(data);
+  var dataKeyAlvo = data; // 'YYYY-MM-DD'
+
+  var rowIndex = -1;
+  for (var i = 1; i < sheetData.length; i++) {
+    var mesmoId = body.idRelatorio && String(sheetData[i][colIdx['IdRelatorio'] - 1]) === String(body.idRelatorio);
+    var mesmoVendedorData = String(sheetData[i][colIdx['IdVendedor'] - 1]) === String(idVendedor) &&
+      normalizeDateKey(sheetData[i][colIdx['Data'] - 1]) === dataKeyAlvo;
+    if (mesmoId || mesmoVendedorData) { rowIndex = i + 1; break; }
+  }
+
+  var campos = {
+    'IdVendedor': idVendedor,
+    'Novos Contatos': body.novosContatos !== undefined ? body.novosContatos : 0,
+    'Conversas': body.conversas !== undefined ? body.conversas : 0,
+    'Propostas Apresentadas': body.propostas !== undefined ? body.propostas : 0,
+    'Vendas': body.vendas !== undefined ? body.vendas : 0,
+    'Data': dataFormatada
+  };
+
+  var novoId;
+  if (rowIndex === -1) {
+    novoId = body.idRelatorio || generateShortId();
+    var lastCol = sheet.getLastColumn();
+    var novaLinha = new Array(lastCol).fill('');
+    Object.keys(colIdx).forEach(function (h) {
+      if (h === 'IdRelatorio') novaLinha[colIdx[h] - 1] = novoId;
+      else if (campos[h] !== undefined) novaLinha[colIdx[h] - 1] = campos[h];
+    });
+    sheet.getRange(sheet.getLastRow() + 1, 1, 1, novaLinha.length).setValues([novaLinha]);
+  } else {
+    novoId = sheetData[rowIndex - 1][colIdx['IdRelatorio'] - 1] || body.idRelatorio || generateShortId();
+    Object.keys(campos).forEach(function (h) { if (colIdx[h]) sheet.getRange(rowIndex, colIdx[h]).setValue(campos[h]); });
+  }
+  return { ok: true, idRelatorio: novoId };
+}
+
+/**
+ * action: excluirRelatorio — body { solicitanteId, idRelatorio }
+ * Só administradores ou o próprio dono do lançamento podem excluir.
+ */
+function actionExcluirRelatorio(body) {
+  var idRelatorio = body.idRelatorio;
+  if (!idRelatorio) return { ok: false, erro: 'idRelatorio é obrigatório.' };
+  var sheet = getSheetSafe(CONFIG.ABA_RELATORIOS);
+  if (!sheet) return { ok: false, erro: 'Aba Relatórios não encontrada.' };
+  var data = sheet.getDataRange().getValues();
+  var idCol = -1, vendedorCol = -1;
+  for (var c = 0; c < data[0].length; c++) {
+    var h = String(data[0][c]).trim();
+    if (h === 'IdRelatorio') idCol = c;
+    if (h === 'IdVendedor') vendedorCol = c;
+  }
+  if (idCol === -1) return { ok: false, erro: 'Coluna IdRelatorio não encontrada.' };
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]) === String(idRelatorio)) {
+      var dono = vendedorCol !== -1 ? String(data[i][vendedorCol]) : null;
+      var ehDono = dono && String(body.solicitanteId) === dono;
+      if (!ehDono && !isSolicitanteAdmin(body.solicitanteId)) {
+        return { ok: false, erro: 'Você só pode excluir os próprios lançamentos.' };
+      }
+      sheet.deleteRow(i + 1);
+      return { ok: true };
+    }
+  }
+  return { ok: false, erro: 'Relatório não encontrado.' };
+}
+
+// ── Actions: Custos da Venda (tela CRUD standalone) ────────────────
+
+/**
+ * Dados da tela CRUD standalone de Custos da Venda — reaproveita as ações
+ * actionSalvarCustoVenda/actionExcluirCustoVenda que já existem (usadas
+ * hoje dentro do painel de Vendas), só que agora com uma tela própria.
+ */
+function getCustosVendaData() {
+  var custosSheet = getSheetSafe(CONFIG.ABA_CUSTOS_VENDA);
+  var custos = custosSheet ? sheetToObjects(custosSheet) : [];
+  var vendasSheet = getSheetSafe(CONFIG.ABA_VENDAS);
+  var vendas = vendasSheet ? sheetToObjects(vendasSheet) : [];
+  var clientes = sheetToObjects(getSheet(CONFIG.ABA_CLIENTES));
+  var servicos = getSheetObjectsComCache(CONFIG.ABA_SERVICOS, 'sh_servicos');
+  return { ok: true, custos: custos, vendas: vendas, clientes: clientes, servicos: servicos, atualizadoEm: new Date().toISOString() };
+}
+
+// ── Actions: Custo Recorrente ───────────────────────────────────────
+
+function getCustoRecorrenteData() {
+  var sheet = getSheetSafe(CONFIG.ABA_CUSTO_RECORRENTE);
+  var custos = sheet ? sheetToObjects(sheet) : [];
+  return { ok: true, custos: custos, atualizadoEm: new Date().toISOString() };
+}
+
+/**
+ * action: salvarCustoRecorrente — body { idCR?, descricao, diaVencimento, valor, categoria, status }
+ */
+function actionSalvarCustoRecorrente(body) {
+  var descricao = String(body.descricao || '').trim();
+  var valor = body.valor;
+  if (!descricao || valor === undefined || valor === '') {
+    return { ok: false, erro: 'Descrição e valor são obrigatórios.' };
+  }
+  var sheet = getOrCreateSheetComCabecalho(CONFIG.ABA_CUSTO_RECORRENTE, ['IdCR', 'Descricao', 'Dia Vencimento', 'Valor', 'Categoria', 'Status']);
+  var data = body.idCR ? sheet.getDataRange().getValues() : [getHeaderRow(sheet)];
+  var headers = data[0].map(function (h) { return String(h).trim(); });
+  var colIdx = {}; headers.forEach(function (h, i) { colIdx[h] = i + 1; });
+
+  var rowIndex = -1;
+  if (body.idCR && colIdx['IdCR']) {
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][colIdx['IdCR'] - 1]) === String(body.idCR)) { rowIndex = i + 1; break; }
+    }
+  }
+
+  var campos = {
+    'Descricao': descricao,
+    'Dia Vencimento': body.diaVencimento !== undefined ? body.diaVencimento : '',
+    'Valor': paraNumero(valor),
+    'Categoria': body.categoria || '',
+    'Status': body.status || 'Ativo'
+  };
+
+  var novoId = body.idCR;
+  if (rowIndex === -1) {
+    novoId = novoId || generateShortId();
+    var lastCol = sheet.getLastColumn() || headers.length;
+    var novaLinha = new Array(lastCol).fill('');
+    Object.keys(colIdx).forEach(function (h) {
+      if (h === 'IdCR') novaLinha[colIdx[h] - 1] = novoId;
+      else if (campos[h] !== undefined) novaLinha[colIdx[h] - 1] = campos[h];
+    });
+    sheet.getRange(sheet.getLastRow() + 1, 1, 1, novaLinha.length).setValues([novaLinha]);
+  } else {
+    Object.keys(campos).forEach(function (h) { if (colIdx[h]) sheet.getRange(rowIndex, colIdx[h]).setValue(campos[h]); });
+  }
+  return { ok: true, idCR: novoId };
+}
+
+function actionExcluirCustoRecorrente(body) {
+  if (!isSolicitanteAdmin(body.solicitanteId)) {
+    return { ok: false, erro: 'Acesso restrito a administradores.' };
+  }
+  var idCR = body.idCR;
+  if (!idCR) return { ok: false, erro: 'idCR é obrigatório.' };
+  var sheet = getSheetSafe(CONFIG.ABA_CUSTO_RECORRENTE);
+  if (!sheet) return { ok: false, erro: 'Aba Custo_Recorrente não encontrada.' };
+  var data = sheet.getDataRange().getValues();
+  var idCol = -1;
+  for (var c = 0; c < data[0].length; c++) { if (String(data[0][c]).trim() === 'IdCR') { idCol = c; break; } }
+  if (idCol === -1) return { ok: false, erro: 'Coluna IdCR não encontrada.' };
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]) === String(idCR)) { sheet.deleteRow(i + 1); return { ok: true }; }
+  }
+  return { ok: false, erro: 'Custo recorrente não encontrado.' };
+}
+
+// ── Actions: Serviços + Templates (perguntas/campos personalizados) ───
+
+function getServicosData() {
+  var servicos = getSheetObjectsComCache(CONFIG.ABA_SERVICOS, 'sh_servicos');
+  var tplSheet = getSheetSafe(CONFIG.ABA_TEMPLATES);
+  var templates = tplSheet ? sheetToObjects(tplSheet) : [];
+  return { ok: true, servicos: servicos, templates: templates, atualizadoEm: new Date().toISOString() };
+}
+
+/**
+ * action: salvarServico — body { idServico?, nomeServico, tipoCobranca, tipoServico,
+ *   descricao, valor, valorPorModulo }
+ */
+function actionSalvarServico(body) {
+  var nome = String(body.nomeServico || '').trim();
+  if (!nome) return { ok: false, erro: 'Nome do serviço é obrigatório.' };
+  var sheet = getSheetSafe(CONFIG.ABA_SERVICOS);
+  if (!sheet) return { ok: false, erro: 'Aba Servicos não encontrada.' };
+  var data = body.idServico ? sheet.getDataRange().getValues() : [getHeaderRow(sheet)];
+  var headers = data[0].map(function (h) { return String(h).trim(); });
+  var colIdx = {}; headers.forEach(function (h, i) { colIdx[h] = i + 1; });
+
+  var rowIndex = -1;
+  if (body.idServico && colIdx['IdServico']) {
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][colIdx['IdServico'] - 1]) === String(body.idServico)) { rowIndex = i + 1; break; }
+    }
+  }
+
+  var campos = {
+    'Nome Servico': nome,
+    'Tipo Cobranca': body.tipoCobranca || '',
+    'TipoServico': body.tipoServico || '',
+    'Descricao': body.descricao || '',
+    'Valor': paraNumero(body.valor),
+    'ValorPorModulo': paraNumero(body.valorPorModulo)
+  };
+
+  var novoId = body.idServico;
+  if (rowIndex === -1) {
+    novoId = novoId || generateShortId();
+    var lastCol = sheet.getLastColumn() || headers.length;
+    var novaLinha = new Array(lastCol).fill('');
+    Object.keys(colIdx).forEach(function (h) {
+      if (h === 'IdServico') novaLinha[colIdx[h] - 1] = novoId;
+      else if (campos[h] !== undefined) novaLinha[colIdx[h] - 1] = campos[h];
+    });
+    sheet.getRange(sheet.getLastRow() + 1, 1, 1, novaLinha.length).setValues([novaLinha]);
+  } else {
+    Object.keys(campos).forEach(function (h) { if (colIdx[h]) sheet.getRange(rowIndex, colIdx[h]).setValue(campos[h]); });
+  }
+  invalidarCache('sh_servicos');
+  return { ok: true, idServico: novoId };
+}
+
+function actionExcluirServico(body) {
+  if (!isSolicitanteAdmin(body.solicitanteId)) {
+    return { ok: false, erro: 'Acesso restrito a administradores.' };
+  }
+  var idServico = body.idServico;
+  if (!idServico) return { ok: false, erro: 'idServico é obrigatório.' };
+  var sheet = getSheetSafe(CONFIG.ABA_SERVICOS);
+  if (!sheet) return { ok: false, erro: 'Aba Servicos não encontrada.' };
+  var data = sheet.getDataRange().getValues();
+  var idCol = -1;
+  for (var c = 0; c < data[0].length; c++) { if (String(data[0][c]).trim() === 'IdServico') { idCol = c; break; } }
+  if (idCol === -1) return { ok: false, erro: 'Coluna IdServico não encontrada.' };
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]) === String(idServico)) { sheet.deleteRow(i + 1); invalidarCache('sh_servicos'); return { ok: true }; }
+  }
+  return { ok: false, erro: 'Serviço não encontrado.' };
+}
+
+/**
+ * action: salvarTemplate — body { idTemplate?, idServico, ordem, textoPergunta,
+ *   tipoInput, opcoesEnum, obrigatorio }
+ * "Templates" são as perguntas/campos personalizados do checklist que o
+ * técnico preenche em campo pra cada serviço (Foto, Texto, Number, etc).
+ */
+function actionSalvarTemplate(body) {
+  var idServico = body.idServico, textoPergunta = String(body.textoPergunta || '').trim();
+  if (!idServico || !textoPergunta) return { ok: false, erro: 'Serviço e pergunta são obrigatórios.' };
+  var sheet = getOrCreateSheetComCabecalho(CONFIG.ABA_TEMPLATES, ['IdTemplate', 'IdServico', 'Ordem', 'TextoPergunta', 'TipoInput', 'OpcoesEnum', 'Obrigatorio']);
+  var data = body.idTemplate ? sheet.getDataRange().getValues() : [getHeaderRow(sheet)];
+  var headers = data[0].map(function (h) { return String(h).trim(); });
+  var colIdx = {}; headers.forEach(function (h, i) { colIdx[h] = i + 1; });
+
+  var rowIndex = -1;
+  if (body.idTemplate && colIdx['IdTemplate']) {
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][colIdx['IdTemplate'] - 1]) === String(body.idTemplate)) { rowIndex = i + 1; break; }
+    }
+  }
+
+  var campos = {
+    'IdServico': idServico,
+    'Ordem': body.ordem !== undefined ? body.ordem : '',
+    'TextoPergunta': textoPergunta,
+    'TipoInput': body.tipoInput || 'Texto',
+    'OpcoesEnum': body.opcoesEnum || '',
+    'Obrigatorio': !!body.obrigatorio
+  };
+
+  var novoId = body.idTemplate;
+  if (rowIndex === -1) {
+    novoId = novoId || generateShortId();
+    var lastCol = sheet.getLastColumn() || headers.length;
+    var novaLinha = new Array(lastCol).fill('');
+    Object.keys(colIdx).forEach(function (h) {
+      if (h === 'IdTemplate') novaLinha[colIdx[h] - 1] = novoId;
+      else if (campos[h] !== undefined) novaLinha[colIdx[h] - 1] = campos[h];
+    });
+    sheet.getRange(sheet.getLastRow() + 1, 1, 1, novaLinha.length).setValues([novaLinha]);
+  } else {
+    Object.keys(campos).forEach(function (h) { if (colIdx[h]) sheet.getRange(rowIndex, colIdx[h]).setValue(campos[h]); });
+  }
+  return { ok: true, idTemplate: novoId };
+}
+
+function actionExcluirTemplate(body) {
+  if (!isSolicitanteAdmin(body.solicitanteId)) {
+    return { ok: false, erro: 'Acesso restrito a administradores.' };
+  }
+  var idTemplate = body.idTemplate;
+  if (!idTemplate) return { ok: false, erro: 'idTemplate é obrigatório.' };
+  var sheet = getSheetSafe(CONFIG.ABA_TEMPLATES);
+  if (!sheet) return { ok: false, erro: 'Aba Templates não encontrada.' };
+  var data = sheet.getDataRange().getValues();
+  var idCol = -1;
+  for (var c = 0; c < data[0].length; c++) { if (String(data[0][c]).trim() === 'IdTemplate') { idCol = c; break; } }
+  if (idCol === -1) return { ok: false, erro: 'Coluna IdTemplate não encontrada.' };
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]) === String(idTemplate)) { sheet.deleteRow(i + 1); return { ok: true }; }
+  }
+  return { ok: false, erro: 'Pergunta do template não encontrada.' };
+}
+
+function getPlanosData() {
+  var planosSheet = getSheetSafe(CONFIG.ABA_PLANOS);
+  var planos = planosSheet ? sheetToObjects(planosSheet) : [];
+  var clientes = sheetToObjects(getSheet(CONFIG.ABA_CLIENTES));
+  var vendedores = getSheetObjectsComCache(CONFIG.ABA_VENDEDORES, 'sh_vendedores');
+  return { ok: true, planos: planos, clientes: clientes, vendedores: vendedores, atualizadoEm: new Date().toISOString() };
+}
+
+/**
+ * action: salvarPlano — body { idPlano?, idCliente, dataAssinatura, tipoAssinatura,
+ *   valor, diaVencimento, status, monitoramento, vistoriaDiagnostica, limpeza, manutencaoPreventiva }
+ */
+function actionSalvarPlano(body) {
+  var idCliente = body.idCliente, tipoAssinatura = body.tipoAssinatura;
+  if (!idCliente || !tipoAssinatura) {
+    return { ok: false, erro: 'Cliente e tipo de assinatura são obrigatórios.' };
+  }
+
+  // Segunda trava (a primeira já roda no front-end) — o plano depende de
+  // saber acessar a fatura de energia (Equatorial) do titular, que pode ser
+  // uma pessoa diferente de quem assina o contrato.
+  var clientesSheet = getSheetSafe(CONFIG.ABA_CLIENTES);
+  if (clientesSheet) {
+    var clientesData = clientesSheet.getDataRange().getValues();
+    var clientesHeaders = clientesData[0].map(function (h) { return String(h).trim(); });
+    var colIdCliente = clientesHeaders.indexOf('IdCliente');
+    var colCpfEq = clientesHeaders.indexOf('CPFEquatorial');
+    var colDataNascEq = clientesHeaders.indexOf('DataNascimentoEquatorial');
+    if (colIdCliente !== -1 && colCpfEq !== -1 && colDataNascEq !== -1) {
+      for (var k = 1; k < clientesData.length; k++) {
+        if (String(clientesData[k][colIdCliente]) === String(idCliente)) {
+          var temCpfEq = String(clientesData[k][colCpfEq] || '').trim();
+          var temDataNascEq = clientesData[k][colDataNascEq];
+          if (!temCpfEq || !temDataNascEq) {
+            return { ok: false, erro: 'Esse cliente ainda não tem CPF e data de nascimento do titular Equatorial cadastrados — preencha isso no cadastro do cliente antes de criar o plano.' };
+          }
+          break;
+        }
+      }
+    }
+  }
+
+  var sheet = getOrCreateSheetComCabecalho(CONFIG.ABA_PLANOS,
+    ['IdPlano', 'IdCliente', 'DataAssinatura', 'TipoAssinatura', 'Valor', 'DiaVencimento', 'Status', 'Monitoramento', 'VistoriaDiagnostica', 'Limpeza', 'ManutencaoPreventiva']);
+  var data = body.idPlano ? sheet.getDataRange().getValues() : [getHeaderRow(sheet)];
+  var headers = data[0].map(function (h) { return String(h).trim(); });
+  var colIdx = {}; headers.forEach(function (h, i) { colIdx[h] = i + 1; });
+
+  var rowIndex = -1;
+  if (body.idPlano && colIdx['IdPlano']) {
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][colIdx['IdPlano'] - 1]) === String(body.idPlano)) { rowIndex = i + 1; break; }
+    }
+  }
+
+  var campos = {
+    'IdCliente': idCliente,
+    'DataAssinatura': body.dataAssinatura ? parseDataISO(body.dataAssinatura) : '',
+    'TipoAssinatura': tipoAssinatura,
+    'Valor': paraNumero(body.valor),
+    'DiaVencimento': body.diaVencimento ? parseDataISO(body.diaVencimento) : '',
+    'Status': body.status || 'Ativo',
+    'Monitoramento': !!body.monitoramento,
+    'VistoriaDiagnostica': !!body.vistoriaDiagnostica,
+    'Limpeza': !!body.limpeza,
+    'ManutencaoPreventiva': !!body.manutencaoPreventiva
+  };
+
+  var novoId = body.idPlano;
+  if (rowIndex === -1) {
+    novoId = novoId || generateShortId(); // usa o ID que o cliente já gerou (otimista) — só gera aqui se não veio
+    var lastCol = sheet.getLastColumn();
+    var novaLinha = new Array(lastCol).fill('');
+    Object.keys(colIdx).forEach(function (h) {
+      if (h === 'IdPlano') novaLinha[colIdx[h] - 1] = novoId;
+      else if (campos[h] !== undefined) novaLinha[colIdx[h] - 1] = campos[h];
+    });
+    sheet.getRange(sheet.getLastRow() + 1, 1, 1, novaLinha.length).setValues([novaLinha]);
+  } else {
+    Object.keys(campos).forEach(function (h) { if (colIdx[h]) sheet.getRange(rowIndex, colIdx[h]).setValue(campos[h]); });
+  }
+  return { ok: true, idPlano: novoId };
+}
+
+/**
+ * action: excluirPlano — body { idPlano }
+ */
+function actionExcluirPlano(body) {
+  if (!isSolicitanteAdmin(body.solicitanteId)) {
+    return { ok: false, erro: 'Acesso restrito a administradores.' };
+  }
+  var idPlano = body.idPlano;
+  if (!idPlano) return { ok: false, erro: 'idPlano é obrigatório.' };
+  var sheet = getSheetSafe(CONFIG.ABA_PLANOS);
+  if (!sheet) return { ok: false, erro: 'Aba Planos não encontrada.' };
+  var data = sheet.getDataRange().getValues();
+  var idCol = -1;
+  for (var c = 0; c < data[0].length; c++) { if (String(data[0][c]).trim() === 'IdPlano') { idCol = c; break; } }
+  if (idCol === -1) return { ok: false, erro: 'Coluna IdPlano não encontrada.' };
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]) === String(idPlano)) { sheet.deleteRow(i + 1); return { ok: true }; }
+  }
+  return { ok: false, erro: 'Plano não encontrado.' };
+}
+
+/**
+ * Acha a aba pelo nome ou cria com o cabeçalho informado, se não existir.
+ */
+function getOrCreateSheetComCabecalho(nomeAba, cabecalho) {
+  var sheet = getSheetSafe(nomeAba);
+  if (sheet) return sheet;
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  sheet = ss.insertSheet(nomeAba);
+  sheet.getRange(1, 1, 1, cabecalho.length).setValues([cabecalho]);
+  return sheet;
+}
+
+// ── Actions: Funil ──────────────────────────────────────────────────
+
+/**
+ * Dados do Funil: leads, clientes, vendedores, serviços, log e SLA.
+ * Também retorna a aba Servicos para o Gerador de Proposta.
+ */
+function getFunilData() {
+  var vendedores = getSheetObjectsComCache(CONFIG.ABA_VENDEDORES, 'sh_vendedores');
+
+  var funilSheet   = getSheetSafe(CONFIG.ABA_FUNIL);
+  var clientSheet  = getSheetSafe(CONFIG.ABA_CLIENTES);
+  var logSheet     = getSheetSafe(CONFIG.ABA_FUNIL_LOG);
+  var slaSheet     = getSheetSafe(CONFIG.ABA_FUNIL_SLA);
+  var servSheet    = getSheetSafe(CONFIG.ABA_SERVICOS);
+
+  var funil    = funilSheet  ? sheetToObjects(funilSheet)  : [];
+  var clientes = clientSheet ? sheetToObjects(clientSheet) : [];
+  var funilLog = logSheet    ? sheetToObjects(logSheet)    : [];
+  var funilSLA = slaSheet    ? sheetToObjects(slaSheet)    : [];
+  var servicos = getSheetObjectsComCache(CONFIG.ABA_SERVICOS, 'sh_servicos');
+
+  return {
+    ok: true,
+    vendedores: vendedores,
+    funil:      funil,
+    clientes:   clientes,
+    funilLog:   funilLog,
+    funilSLA:   funilSLA,
+    servicos:   servicos,
+    atualizadoEm: new Date().toISOString()
+  };
+}
+
+/**
+ * action: salvarFunil — body { idOportunidade?, idCliente, idVendedor, idServico?,
+ *   etapa, observacoes?, valorEstimado?, motivoPerda? }
+ * Cria ou atualiza um lead do Funil. Se a etapa mudou (ou é lead novo), registra
+ * a transição na aba FunilLog — é isso que alimenta o cálculo de "dias na
+ * etapa" e a cor de SLA na tela, então precisa ficar consistente com a UI.
+ */
+function actionSalvarFunil(body) {
+  var idCliente = body.idCliente, idVendedor = body.idVendedor, etapa = body.etapa;
+  if (!idCliente || !idVendedor || !etapa) {
+    return { ok: false, erro: 'Cliente, vendedor e etapa são obrigatórios.' };
+  }
+
+  var sheet = getSheetSafe(CONFIG.ABA_FUNIL);
+  if (!sheet) return { ok: false, erro: 'Aba Funil não encontrada.' };
+  var data = body.idOportunidade ? sheet.getDataRange().getValues() : [getHeaderRow(sheet)];
+  var headers = data[0].map(function (h) { return String(h).trim(); });
+  var colIdx = {}; headers.forEach(function (h, i) { colIdx[h] = i + 1; });
+
+  var idCol = colIdx['IdOportunidade'];
+  if (!idCol) return { ok: false, erro: 'Coluna IdOportunidade não encontrada na aba Funil.' };
+
+  var rowIndex = -1, etapaAnterior = null;
+  if (body.idOportunidade) {
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][idCol - 1]) === String(body.idOportunidade)) {
+        rowIndex = i + 1;
+        etapaAnterior = colIdx['Etapa'] ? String(data[i][colIdx['Etapa'] - 1] || '').trim() : null;
+        break;
+      }
+    }
+  }
+
+  var agora = new Date();
+  var campos = {
+    'IdCliente': idCliente,
+    'IdVendedor': idVendedor,
+    'IdServico': body.idServico || '',
+    'Etapa': etapa,
+    'Observacoes': body.observacoes || '',
+    'Valor Estimado': body.valorEstimado !== undefined ? body.valorEstimado : '',
+    'Motivo Perda': body.motivoPerda || ''
+  };
+
+  var novoId = body.idOportunidade;
+  if (rowIndex === -1) {
+    novoId = novoId || generateShortId(); // usa o ID que o cliente já gerou (otimista) — só gera aqui se não veio
+    var lastCol = sheet.getLastColumn();
+    var novaLinha = new Array(lastCol).fill('');
+    Object.keys(colIdx).forEach(function (h) {
+      if (h === 'IdOportunidade') novaLinha[colIdx[h] - 1] = novoId;
+      else if (h === 'Data Criacao') novaLinha[colIdx[h] - 1] = agora;
+      else if (campos[h] !== undefined) novaLinha[colIdx[h] - 1] = campos[h];
+    });
+    sheet.getRange(sheet.getLastRow() + 1, 1, 1, novaLinha.length).setValues([novaLinha]);
+  } else {
+    Object.keys(campos).forEach(function (h) {
+      if (colIdx[h]) sheet.getRange(rowIndex, colIdx[h]).setValue(campos[h]);
+    });
+  }
+
+  if (etapaAnterior === null || etapaAnterior !== etapa) {
+    registrarFunilLog(novoId, etapaAnterior || '', etapa, agora);
+  }
+
+  return { ok: true, idOportunidade: novoId };
+}
+
+/**
+ * Lê só a LINHA DE CABEÇALHO de uma aba, sem trazer os dados inteiros —
+ * muito mais rápido que getDataRange() em abas grandes (Clientes, Ponto,
+ * FunilLog, etc.), usado sempre que só precisamos saber em que coluna cada
+ * campo está, não os dados já existentes.
+ */
+function getHeaderRow(sheet) {
+  var lastCol = sheet.getLastColumn();
+  if (lastCol === 0) return [];
+  return sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) { return String(h).trim(); });
+}
+
+function registrarFunilLog(idOportunidade, etapaAnterior, etapaNova, quando) {
+  var logSheet = getSheetSafe(CONFIG.ABA_FUNIL_LOG);
+  if (!logSheet) return;
+  var headers = getHeaderRow(logSheet);
+  var linha = headers.map(function (h) {
+    if (h === 'IdOportunidade') return idOportunidade;
+    if (h === 'EtapaAnterior') return etapaAnterior;
+    if (h === 'EtapaNova') return etapaNova;
+    if (h === 'Datahora' || h === 'DataHora') return quando;
+    return '';
+  });
+  logSheet.getRange(logSheet.getLastRow() + 1, 1, 1, linha.length).setValues([linha]);
+}
+
+/**
+ * action: excluirFunil — body { idOportunidade }
+ * Remove a linha do lead da aba Funil. Não apaga o histórico em FunilLog
+ * (fica como registro, não afeta nada já que o lead não existe mais na lista).
+ */
+function actionExcluirFunil(body) {
+  var idOportunidade = body.idOportunidade;
+  if (!idOportunidade) return { ok: false, erro: 'idOportunidade é obrigatório.' };
+  var sheet = getSheetSafe(CONFIG.ABA_FUNIL);
+  if (!sheet) return { ok: false, erro: 'Aba Funil não encontrada.' };
+  var data = sheet.getDataRange().getValues();
+  var idCol = -1, vendedorCol = -1;
+  for (var c = 0; c < data[0].length; c++) {
+    var h = String(data[0][c]).trim();
+    if (h === 'IdOportunidade') idCol = c;
+    if (h === 'IdVendedor') vendedorCol = c;
+  }
+  if (idCol === -1) return { ok: false, erro: 'Coluna IdOportunidade não encontrada.' };
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]) === String(idOportunidade)) {
+      var dono = vendedorCol !== -1 ? String(data[i][vendedorCol]) : null;
+      var ehDono = dono && String(body.solicitanteId) === dono;
+      if (!ehDono && !isSolicitanteAdmin(body.solicitanteId)) {
+        return { ok: false, erro: 'Você só pode excluir os próprios leads.' };
+      }
+      sheet.deleteRow(i + 1);
+      return { ok: true };
+    }
+  }
+  return { ok: false, erro: 'Lead não encontrado.' };
+}
+
+/**
+ * action: salvarMetaIndividual — body { idVendedor, ano, mes, valorMeta }
+ * Sobrepõe, só pra esse vendedor e esse mês, a meta padrão (que normalmente
+ * é a meta da empresa dividida igualmente entre os vendedores ativos). Se já
+ * existir uma sobreposição pra esse vendedor+mês, atualiza; senão, cria.
+ */
+function actionSalvarMetaIndividual(body) {
+  var idVendedor = body.idVendedor, ano = body.ano, mes = body.mes, valorMeta = body.valorMeta;
+  if (!idVendedor || !ano || !mes || valorMeta === undefined || valorMeta === '') {
+    return { ok: false, erro: 'Vendedor, ano, mês e valor da meta são obrigatórios.' };
+  }
+  var sheet = getOrCreateSheetComCabecalho(CONFIG.ABA_METAS_INDIVIDUAIS,
+    ['IdMetaIndividual', 'IdVendedor', 'Ano', 'Mes', 'ValorMeta']);
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function (h) { return String(h).trim(); });
+  var colIdx = {}; headers.forEach(function (h, i) { colIdx[h] = i + 1; });
+
+  var rowIndex = -1;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][colIdx['IdVendedor'] - 1]) === String(idVendedor) &&
+        Number(data[i][colIdx['Ano'] - 1]) === Number(ano) &&
+        Number(data[i][colIdx['Mes'] - 1]) === Number(mes)) { rowIndex = i + 1; break; }
+  }
+
+  var campos = { 'IdVendedor': idVendedor, 'Ano': ano, 'Mes': mes, 'ValorMeta': paraNumero(valorMeta) };
+  var novoId;
+  if (rowIndex === -1) {
+    novoId = novoId || generateShortId(); // usa o ID que o cliente já gerou (otimista) — só gera aqui se não veio
+    var lastCol = sheet.getLastColumn();
+    var novaLinha = new Array(lastCol).fill('');
+    Object.keys(colIdx).forEach(function (h) {
+      if (h === 'IdMetaIndividual') novaLinha[colIdx[h] - 1] = novoId;
+      else if (campos[h] !== undefined) novaLinha[colIdx[h] - 1] = campos[h];
+    });
+    sheet.getRange(sheet.getLastRow() + 1, 1, 1, novaLinha.length).setValues([novaLinha]);
+  } else {
+    novoId = data[rowIndex - 1][colIdx['IdMetaIndividual'] - 1];
+    Object.keys(campos).forEach(function (h) { if (colIdx[h]) sheet.getRange(rowIndex, colIdx[h]).setValue(campos[h]); });
+  }
+  return { ok: true, idMetaIndividual: novoId };
+}
+
+/**
+ * action: excluirMetaIndividual — body { idVendedor, ano, mes }
+ * Remove a sobreposição — o vendedor volta a usar a meta padrão (dividida
+ * igualmente entre os ativos) pra esse mês.
+ */
+function actionExcluirMetaIndividual(body) {
+  var idVendedor = body.idVendedor, ano = body.ano, mes = body.mes;
+  if (!idVendedor || !ano || !mes) return { ok: false, erro: 'Vendedor, ano e mês são obrigatórios.' };
+  var sheet = getSheetSafe(CONFIG.ABA_METAS_INDIVIDUAIS);
+  if (!sheet) return { ok: true }; // nada pra remover
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function (h) { return String(h).trim(); });
+  var colIdx = {}; headers.forEach(function (h, i) { colIdx[h] = i + 1; });
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][colIdx['IdVendedor'] - 1]) === String(idVendedor) &&
+        Number(data[i][colIdx['Ano'] - 1]) === Number(ano) &&
+        Number(data[i][colIdx['Mes'] - 1]) === Number(mes)) {
+      sheet.deleteRow(i + 1);
+      return { ok: true };
+    }
+  }
+  return { ok: true }; // já não existia, tudo bem
+}
+
+/**
+ * action: criarServicoRapido — body { nomeServico, tipoServico? }
+ * Cadastro rápido de serviço, usado direto dos formulários de Lead/Venda/
+ * Agendamento quando o serviço que a pessoa precisa ainda não existe na
+ * lista. tipoServico é opcional — sem ele, o serviço fica de fora do filtro
+ * "Campo" usado na tela de Agendamentos, mas continua utilizável em Vendas/Funil.
+ */
+function actionCriarServicoRapido(body) {
+  var nomeServico = String(body.nomeServico || '').trim();
+  if (!nomeServico) return { ok: false, erro: 'Nome do serviço é obrigatório.' };
+
+  var sheet = getSheetSafe(CONFIG.ABA_SERVICOS);
+  if (!sheet) return { ok: false, erro: 'Aba Servicos não encontrada.' };
+  var headers = getHeaderRow(sheet);
+  var colIdx = {}; headers.forEach(function (h, i) { colIdx[h] = i + 1; });
+  if (!colIdx['IdServico']) return { ok: false, erro: 'Coluna IdServico não encontrada.' };
+
+  var novoId = body.idServico || generateShortId(); // usa o ID que o cliente já gerou (otimista) — só gera aqui se não veio
+  var lastCol = sheet.getLastColumn();
+  var novaLinha = new Array(lastCol).fill('');
+  var nomeCol = colIdx['Nome Servico'] || colIdx['Nome'];
+  if (nomeCol) novaLinha[nomeCol - 1] = nomeServico;
+  if (body.tipoServico && colIdx['TipoServico']) novaLinha[colIdx['TipoServico'] - 1] = body.tipoServico;
+  novaLinha[colIdx['IdServico'] - 1] = novoId;
+
+  sheet.getRange(sheet.getLastRow() + 1, 1, 1, novaLinha.length).setValues([novaLinha]);
+  invalidarCache('sh_servicos');
+  return { ok: true, idServico: novoId, nomeServico: nomeServico };
+}
+
+// ── Actions: Clientes ────────────────────────────────────────────────
+
+/**
+ * action: salvarCliente — body { idCliente?, nome, tipoPessoa, cpfCnpj?, telefone,
+ *   email?, endereco?, statusCliente?, vendedorResponsavel? }
+ * Cria (sem idCliente EXISTENTE) ou atualiza (com idCliente já existente na
+ * planilha) um cliente com TODOS os campos da aba Clientes. Usado tanto pela
+ * tela CRUD de Clientes quanto pelo cadastro rápido dentro do Funil.
+ *
+ * IMPORTANTE: o navegador SEMPRE manda um idCliente (gerado na hora, pra
+ * deixar a tela otimista/instantânea) — inclusive quando é um cliente NOVO.
+ * Por isso a decisão create-vs-update aqui é baseada em ACHAR ou NÃO a linha
+ * com esse ID na planilha, nunca em "o campo veio preenchido ou não".
+ */
+function actionSalvarCliente(body) {
+  var nome = String(body.nome || '').trim();
+  var telefone = String(body.telefone || '').trim();
+  var tipoPessoa = String(body.tipoPessoa || '').trim();
+  if (!nome || !telefone) return { ok: false, erro: 'Nome e telefone são obrigatórios.' };
+  if (!tipoPessoa) return { ok: false, erro: 'Tipo de pessoa (Física/Jurídica) é obrigatório.' };
+
+  var sheet = getSheetSafe(CONFIG.ABA_CLIENTES);
+  if (!sheet) return { ok: false, erro: 'Aba Clientes não encontrada.' };
+  var headers = getHeaderRow(sheet);
+  var colIdx = {}; headers.forEach(function (h, i) { colIdx[h] = i + 1; });
+  if (!colIdx['IdCliente']) return { ok: false, erro: 'Coluna IdCliente não encontrada.' };
+
+  var campos = {};
+  var nomeCol = colIdx['Nome Razao Social'] || colIdx['Nome'];
+  if (nomeCol) campos[nomeCol] = nome;
+  if (colIdx['Tipo Pessoa']) campos[colIdx['Tipo Pessoa']] = tipoPessoa;
+  if (colIdx['CPF ou CNPJ'] && body.cpfCnpj !== undefined) campos[colIdx['CPF ou CNPJ']] = body.cpfCnpj;
+  if (colIdx['Telefone']) campos[colIdx['Telefone']] = telefone;
+  if (colIdx['Email'] && body.email !== undefined) campos[colIdx['Email']] = body.email;
+  if (colIdx['Endereco'] && body.endereco !== undefined) campos[colIdx['Endereco']] = body.endereco;
+  if (colIdx['Status Cliente'] && body.statusCliente) campos[colIdx['Status Cliente']] = body.statusCliente;
+  if (colIdx['Vendedor Responsavel'] && body.vendedorResponsavel !== undefined) campos[colIdx['Vendedor Responsavel']] = body.vendedorResponsavel;
+  if (colIdx['CPFEquatorial'] && body.cpfEquatorial !== undefined) campos[colIdx['CPFEquatorial']] = body.cpfEquatorial;
+  if (colIdx['DataNascimentoEquatorial'] && body.dataNascimentoEquatorial) campos[colIdx['DataNascimentoEquatorial']] = parseDataISO(body.dataNascimentoEquatorial);
+
+  // Procura a linha pelo ID recebido — SEM decidir create/update ainda.
+  var rowIndex = -1;
+  var data = sheet.getDataRange().getValues(); // sempre lê tudo — precisa pra achar a linha E pra checar telefone duplicado
+  if (body.idCliente) {
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][colIdx['IdCliente'] - 1]) === String(body.idCliente)) { rowIndex = i + 1; break; }
+    }
+  }
+
+  // Só checa duplicidade em CRIAÇÃO de cliente novo (rowIndex===-1), e só
+  // bloqueia se o endereço vier em branco — se a pessoa preencheu um
+  // endereço, presume-se que ela já conferiu/sabe que é um contato
+  // diferente. O front-end já faz essa mesma checagem antes de chamar essa
+  // ação (pra dar feedback na hora); isso aqui é só uma segunda trava, caso
+  // dois vendedores cadastrem quase ao mesmo tempo.
+  if (rowIndex === -1 && !body.confirmarClienteDiferente) {
+    var enderecoNovoVazio = !String(body.endereco || '').trim();
+    if (enderecoNovoVazio && colIdx['Telefone']) {
+      var alvo8 = paraUltimos8Digitos(telefone);
+      if (alvo8) {
+        for (var j = 1; j < data.length; j++) {
+          if (paraUltimos8Digitos(data[j][colIdx['Telefone'] - 1]) === alvo8) {
+            return { ok: false, erro: 'Já existe um contato cadastrado para esse número', duplicidadeTelefone: true };
+          }
+        }
+      }
+    }
+  }
+
+  if (rowIndex !== -1) {
+    // Achou a linha — é edição de um cliente que já existe.
+    Object.keys(campos).forEach(function (col) { sheet.getRange(rowIndex, Number(col)).setValue(campos[col]); });
+    return { ok: true, idCliente: body.idCliente };
+  }
+
+  // Não achou (ou não veio ID nenhum) — cria uma linha nova, usando o ID que
+  // o navegador já gerou (otimista); só gera um novo aqui se por algum
+  // motivo não tiver vindo nenhum.
+  var novoId = body.idCliente || generateShortId();
+  var lastCol = sheet.getLastColumn();
+  var novaLinha = new Array(lastCol).fill('');
+  Object.keys(campos).forEach(function (col) { novaLinha[Number(col) - 1] = campos[col]; });
+  novaLinha[colIdx['IdCliente'] - 1] = novoId;
+  sheet.getRange(sheet.getLastRow() + 1, 1, 1, novaLinha.length).setValues([novaLinha]);
+  return { ok: true, idCliente: novoId, nome: nome, telefone: telefone };
+}
+
+/**
+ * action: excluirCliente — body { idCliente }
+ */
+function actionExcluirCliente(body) {
+  var idCliente = body.idCliente;
+  if (!idCliente) return { ok: false, erro: 'idCliente é obrigatório.' };
+  var sheet = getSheetSafe(CONFIG.ABA_CLIENTES);
+  if (!sheet) return { ok: false, erro: 'Aba Clientes não encontrada.' };
+  var data = sheet.getDataRange().getValues();
+  var idCol = -1;
+  for (var c = 0; c < data[0].length; c++) { if (String(data[0][c]).trim() === 'IdCliente') { idCol = c; break; } }
+  if (idCol === -1) return { ok: false, erro: 'Coluna IdCliente não encontrada.' };
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]) === String(idCliente)) { sheet.deleteRow(i + 1); return { ok: true }; }
+  }
+  return { ok: false, erro: 'Cliente não encontrado.' };
+}
+
+/**
+ * Dados da tela CRUD de Clientes.
+ */
+function getClientesData() {
+  var clientes = sheetToObjects(getSheet(CONFIG.ABA_CLIENTES));
+  var vendedores = getSheetObjectsComCache(CONFIG.ABA_VENDEDORES, 'sh_vendedores');
+  return { ok: true, clientes: clientes, vendedores: vendedores, atualizadoEm: new Date().toISOString() };
+}
+
+/**
+ * action: criarClienteRapido — body { nome, telefone, endereco?, vendedorResponsavel? }
+ * Cadastro rápido de cliente, usado direto do formulário de Lead/Agendamento
+ * (só nome e telefone são obrigatórios aqui — o endereço continua sendo
+ * exigido depois, na hora de criar um agendamento, não no cadastro em si).
+ * MANTIDO por compatibilidade — o front-end atual usa 'salvarCliente'.
+ */
+function actionCriarClienteRapido(body) {
+  var nome = String(body.nome || '').trim();
+  var telefone = String(body.telefone || '').trim();
+  if (!nome || !telefone) return { ok: false, erro: 'Nome e telefone são obrigatórios.' };
+
+  var sheet = getSheetSafe(CONFIG.ABA_CLIENTES);
+  if (!sheet) return { ok: false, erro: 'Aba Clientes não encontrada.' };
+  var headers = getHeaderRow(sheet);
+  var colIdx = {}; headers.forEach(function (h, i) { colIdx[h] = i + 1; });
+  if (!colIdx['IdCliente']) return { ok: false, erro: 'Coluna IdCliente não encontrada na aba Clientes.' };
+
+  var novoId = body.idCliente || generateShortId(); // usa o ID que o cliente já gerou (otimista) — só gera aqui se não veio
+  var lastCol = sheet.getLastColumn();
+  var novaLinha = new Array(lastCol).fill('');
+  var nomeCol = colIdx['Nome Razao Social'] || colIdx['Nome'];
+  if (nomeCol) novaLinha[nomeCol - 1] = nome;
+  if (colIdx['Telefone']) novaLinha[colIdx['Telefone'] - 1] = telefone;
+  if (body.endereco && colIdx['Endereco']) novaLinha[colIdx['Endereco'] - 1] = body.endereco;
+  if (body.vendedorResponsavel && colIdx['Vendedor Responsavel']) novaLinha[colIdx['Vendedor Responsavel'] - 1] = body.vendedorResponsavel;
+  novaLinha[colIdx['IdCliente'] - 1] = novoId;
+
+  sheet.getRange(sheet.getLastRow() + 1, 1, 1, novaLinha.length).setValues([novaLinha]);
+  return { ok: true, idCliente: novoId, nome: nome, telefone: telefone };
+}
+
+/**
+ * Atualiza campos cadastrais de um cliente existente na aba Clientes,
+ * localizando a linha pelo IdCliente (coluna A).
+ * Só sobrescreve os campos que vierem definidos no body (nome/cpf/endereco),
+ * preservando os demais valores da linha (Telefone, Email, Status, etc).
+ */
+function updateCliente(body) {
+  var idCliente = body.idCliente;
+  if (!idCliente) return { ok: false, erro: 'idCliente é obrigatório.' };
+
+  var sheet = getSheetSafe(CONFIG.ABA_CLIENTES);
+  if (!sheet) return { ok: false, erro: 'Aba Clientes não encontrada.' };
+
+  var data = sheet.getDataRange().getValues();
+  if (data.length === 0) return { ok: false, erro: 'Aba Clientes está vazia.' };
+
+  var headers = data[0].map(function (h) { return String(h).trim(); });
+  var colIdx  = {};
+  headers.forEach(function (h, i) { colIdx[h] = i; });
+
+  var idCol = colIdx['IdCliente'];
+  if (idCol === undefined) return { ok: false, erro: 'Coluna IdCliente não encontrada na aba Clientes.' };
+
+  var rowIdx = -1;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]) === String(idCliente)) { rowIdx = i + 1; break; }
+  }
+  if (rowIdx === -1) return { ok: false, erro: 'Cliente não encontrado (IdCliente ' + idCliente + ').' };
+
+  var vendCol = colIdx['Vendedor Responsavel'];
+  var dono = vendCol !== undefined ? String(data[rowIdx - 1][vendCol]) : null;
+  var ehDono = dono && String(body.solicitanteId) === dono;
+  if (!ehDono && !isSolicitanteAdmin(body.solicitanteId)) {
+    return { ok: false, erro: 'Você só pode editar os próprios clientes.' };
+  }
+
+  var nomeCol = colIdx['Nome Razao Social'] !== undefined ? colIdx['Nome Razao Social'] : colIdx['Nome'];
+  var cpfCol  = colIdx['CPF ou CNPJ']       !== undefined ? colIdx['CPF ou CNPJ']       : colIdx['CPF'];
+  var endCol  = colIdx['Endereco'];
+
+  if (body.nome !== undefined && body.nome !== null && nomeCol !== undefined) {
+    sheet.getRange(rowIdx, nomeCol + 1).setValue(body.nome);
+  }
+  if (body.cpf !== undefined && body.cpf !== null && cpfCol !== undefined) {
+    sheet.getRange(rowIdx, cpfCol + 1).setValue(body.cpf);
+  }
+  if (body.endereco !== undefined && body.endereco !== null && endCol !== undefined) {
+    sheet.getRange(rowIdx, endCol + 1).setValue(body.endereco);
+  }
+
+  return {
+    ok: true, acao: 'atualizado', idCliente: idCliente,
+    nome: body.nome, cpf: body.cpf, endereco: body.endereco
+  };
+}
+
+// ── Actions: Propostas ──────────────────────────────────────────────
+
+function saveProposal(body) {
+  var sheet  = getOrCreatePropostasSheet();
+  var values = sheet.getDataRange().getValues();
+
+  var rowIdx = -1;
+  var propostaId = body.id || generateShortId();
+  if (body.id) {
+    for (var i = 1; i < values.length; i++) {
+      if (String(values[i][0]) === String(body.id)) {
+        rowIdx = i + 1; break;
+      }
+    }
+  }
+
+  var baseUrl  = (body.baseUrl || 'https://pampfelp.github.io/relatorio-ponto/proposta.html').replace(/\/$/, '');
+  var linkProposta = baseUrl + '?id=' + propostaId;
+
+  var rowData = [
+    propostaId,
+    body.data         || formatDateBR(new Date()),
+    body.numero       || '',
+    body.idOportunidade || '',
+    body.nomeCliente  || '',
+    body.idVendedor   || '',
+    body.nomeVendedor || '',
+    parseFloat(body.totalServicos)      || 0,
+    parseFloat(body.totalDeslocamento)  || 0,
+    parseFloat(body.total)              || 0,
+    JSON.stringify(body.blocos || []),
+    body.observacoes  || '',
+    body.status       || 'Rascunho',
+    linkProposta
+  ];
+
+  if (rowIdx !== -1) {
+    sheet.getRange(rowIdx, 1, 1, rowData.length).setValues([rowData]);
+    return { ok: true, acao: 'atualizado', id: propostaId, link: linkProposta };
+  } else {
+    sheet.appendRow(rowData);
+    var lastRow = sheet.getLastRow();
+    var linkCol = 14; // coluna N = LinkProposta
+    // Aspas duplicadas neutralizam qualquer tentativa de "fechar" a string da fórmula
+    // via baseUrl (que vem do cliente) e injetar outra coisa dentro do HYPERLINK().
+    sheet.getRange(lastRow, linkCol).setFormula('=HYPERLINK("' + linkProposta.replace(/"/g, '""') + '","Ver proposta")');
+    return { ok: true, acao: 'criado', id: propostaId, link: linkProposta };
+  }
+}
+
+function getProposals(id) {
+  var sheet = getSheetSafe(CONFIG.ABA_PROPOSTAS);
+  if (!sheet) return { ok: true, propostas: [] };
+  var objs = sheetToObjects(sheet);
+  if (id) {
+    var found = objs.find(function(p){ return p.IdProposta === id; });
+    return { ok: true, proposta: found || null };
+  }
+  var lista = objs.map(function(p){
+    return {
+      IdProposta:       p.IdProposta,
+      Data:             p.Data,
+      Numero:           p.Numero,
+      IdOportunidade:   p.IdOportunidade,
+      NomeCliente:      p.NomeCliente,
+      NomeVendedor:     p.NomeVendedor,
+      Total:            p.Total,
+      Status:           p.Status,
+      LinkProposta:     p.LinkProposta
+    };
+  });
+  return { ok: true, propostas: lista };
+}
+
+function deleteProposal(body) {
+  var id = body.id;
+  if (!id) return { ok: false, erro: 'ID obrigatório.' };
+  var sheet  = getSheetSafe(CONFIG.ABA_PROPOSTAS);
+  if (!sheet) return { ok: false, erro: 'Aba Propostas não encontrada.' };
+  var values = sheet.getDataRange().getValues();
+  for (var i = 1; i < values.length; i++) {
+    if (String(values[i][0]) === String(id)) {
+      var dono = String(values[i][5] || ''); // coluna F = IdVendedor (mesma ordem gravada por saveProposal)
+      var ehDono = dono && String(body.solicitanteId) === dono;
+      if (!ehDono && !isSolicitanteAdmin(body.solicitanteId)) {
+        return { ok: false, erro: 'Você só pode excluir as próprias propostas.' };
+      }
+      sheet.deleteRow(i + 1);
+      return { ok: true, acao: 'deletado' };
+    }
+  }
+  return { ok: false, erro: 'Proposta não encontrada.' };
+}
+
+// =====================================================================
+// ── AUTENTICAÇÃO ──────────────────────────────────────────────────────
+// =====================================================================
+
+// Colunas de autenticação que devem existir na aba Vendedores.
+// São criadas automaticamente (no fim da planilha) na primeira vez que
+// alguém tenta logar, pedir reset, etc — sem apagar nada que já existe.
+var AUTH_COLUNAS = ['SenhaHash', 'SenhaSalt', 'ResetToken', 'ResetTokenExpira'];
+
+// Funções (valores da coluna "Tipo") que têm acesso total ao sistema —
+// veem todo mundo em Ponto/Vendas/Funil e podem administrar a aba Usuários.
+// Mantenha esta lista em sincronia com SG_ADMIN_ROLES no index.html.
+var ADMIN_ROLES = ['admin', 'administrador', 'ceo', 'gestor', 'gerente'];
+
+/**
+ * Confere se o IdVendedor informado corresponde a alguém com função administrativa.
+ * Usado para proteger as ações de gerenciamento de usuários.
+ */
+function isSolicitanteAdmin(solicitanteId) {
+  if (!solicitanteId) return false;
+  var ctx = ensureVendedoresAuthColumns();
+  var sheet = ctx.sheet, colIdx = ctx.colIdx;
+  var idCol = colIdx['IdVendedor'], tipoCol = colIdx['Tipo'];
+  if (!idCol || !tipoCol) return false;
+
+  var values = sheet.getDataRange().getValues();
+  for (var i = 1; i < values.length; i++) {
+    if (String(values[i][idCol - 1]) === String(solicitanteId)) {
+      var tipo = String(values[i][tipoCol - 1] || '').trim().toLowerCase();
+      return ADMIN_ROLES.indexOf(tipo) !== -1;
+    }
+  }
+  return false;
+}
+
+/**
+ * Garante que a aba Vendedores tem as colunas de autenticação.
+ * Retorna {sheet, colIdx} onde colIdx é um mapa NomeDaColuna -> número da coluna (1-based).
+ */
+function ensureVendedoresAuthColumns() {
+  var sheet = getSheet(CONFIG.ABA_VENDEDORES);
+  var lastCol = Math.max(sheet.getLastColumn(), 1);
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) { return String(h).trim(); });
+
+  var faltando = AUTH_COLUNAS.filter(function (h) { return headers.indexOf(h) === -1; });
+  if (faltando.length) {
+    sheet.getRange(1, lastCol + 1, 1, faltando.length).setValues([faltando]);
+  }
+
+  var novoLastCol = sheet.getLastColumn();
+  headers = sheet.getRange(1, 1, 1, novoLastCol).getValues()[0].map(function (h) { return String(h).trim(); });
+  var colIdx = {};
+  headers.forEach(function (h, i) { if (h) colIdx[h] = i + 1; }); // 1-based
+
+  return { sheet: sheet, colIdx: colIdx };
+}
+
+function sha256Hex(str) {
+  var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, str, Utilities.Charset.UTF_8);
+  return bytes.map(function (b) {
+    b = (b < 0) ? b + 256 : b;
+    return (b < 16 ? '0' : '') + b.toString(16);
+  }).join('');
+}
+
+function gerarSalt() {
+  return Utilities.getUuid().replace(/-/g, '');
+}
+
+function hashSenha(senha, salt) {
+  return sha256Hex(AUTH_PEPPER + '|' + salt + '|' + senha);
+}
+
+function gerarTokenNumerico() {
+  return String(Math.floor(100000 + Math.random() * 900000)); // 6 dígitos
+}
+
+/**
+ * Localiza a linha do vendedor pelo e-mail (case-insensitive).
+ * Retorna null se não encontrado, ou { rowIndex, values, colIdx, sheet }.
+ */
+function findVendedorRowByEmail(email) {
+  var ctx = ensureVendedoresAuthColumns();
+  var sheet = ctx.sheet, colIdx = ctx.colIdx;
+  var emailCol = colIdx['Email'];
+  if (!emailCol) return null;
+
+  var values = sheet.getDataRange().getValues();
+  var alvo = String(email || '').trim().toLowerCase();
+  if (!alvo) return null;
+
+  for (var i = 1; i < values.length; i++) {
+    if (String(values[i][emailCol - 1] || '').trim().toLowerCase() === alvo) {
+      return { rowIndex: i + 1, values: values[i], colIdx: colIdx, sheet: sheet };
+    }
+  }
+  return null;
+}
+
+/**
+ * action: login — body { email, senha }
+ */
+function actionLogin(body) {
+  var email = body.email, senha = body.senha;
+  if (!email || !senha) return { ok: false, erro: 'Informe e-mail e senha.' };
+
+  var found = findVendedorRowByEmail(email);
+  if (!found) return { ok: false, erro: 'E-mail não encontrado.' };
+
+  var colIdx = found.colIdx, row = found.values;
+
+  var statusCol = colIdx['Status'];
+  if (statusCol && String(row[statusCol - 1] || '').trim().toLowerCase() === 'inativo') {
+    return { ok: false, erro: 'Usuário inativo. Fale com o administrador.' };
+  }
+
+  var hashCol = colIdx['SenhaHash'], saltCol = colIdx['SenhaSalt'];
+  var hashArmazenado = String(row[hashCol - 1] || '');
+  var salt = String(row[saltCol - 1] || '');
+
+  var usuario = {
+    idVendedor: row[colIdx['IdVendedor'] - 1],
+    nome:       row[colIdx['Nome'] - 1],
+    email:      row[colIdx['Email'] - 1],
+    tipo:       colIdx['Tipo'] ? row[colIdx['Tipo'] - 1] : ''
+  };
+
+  if (!hashArmazenado) {
+    // Ainda não tem senha própria: só entra com a senha padrão, e é
+    // obrigado a trocar por uma senha só dele antes de acessar o sistema.
+    if (senha !== SENHA_PADRAO) {
+      return {
+        ok: false, erro: 'SEM_SENHA',
+        mensagem: 'Você ainda não tem uma senha própria. Use a senha padrão informada pela empresa para o primeiro acesso.'
+      };
+    }
+    return { ok: true, usuario: usuario, precisaTrocarSenha: true };
+  }
+
+  if (hashSenha(senha, salt) !== hashArmazenado) {
+    return { ok: false, erro: 'Senha incorreta.' };
+  }
+
+  return { ok: true, usuario: usuario };
+}
+
+/**
+ * action: esqueciSenha — body { email }
+ * Gera um código de 6 dígitos, salva na planilha com validade de 30 min
+ * e envia por e-mail via MailApp (usa a conta Google dona do Apps Script).
+ * Sempre responde ok:true (não revela se o e-mail existe, por segurança).
+ */
+function actionEsqueciSenha(body) {
+  var email = body.email;
+  if (!email) return { ok: false, erro: 'Informe o e-mail.' };
+
+  var found = findVendedorRowByEmail(email);
+  if (!found) return { ok: true }; // não revela se o e-mail existe
+
+  var colIdx = found.colIdx, sheet = found.sheet, rowIndex = found.rowIndex;
+  var token  = gerarTokenNumerico();
+  var expira = new Date(Date.now() + 30 * 60 * 1000); // 30 minutos
+
+  sheet.getRange(rowIndex, colIdx['ResetToken']).setValue(token);
+  sheet.getRange(rowIndex, colIdx['ResetTokenExpira']).setValue(expira);
+
+  var nome = found.values[colIdx['Nome'] - 1] || '';
+
+  try {
+    MailApp.sendEmail({
+      to: email,
+      subject: 'Solar Green · Código para redefinir sua senha',
+      body:
+        'Olá ' + nome + ',\n\n' +
+        'Recebemos um pedido para redefinir a sua senha no sistema Solar Green.\n' +
+        'Seu código de verificação é: ' + token + '\n\n' +
+        'Esse código expira em 30 minutos. Se você não solicitou isso, pode ignorar este e-mail.\n\n' +
+        '— Solar Green Suporte'
+    });
+  } catch (err) {
+    return { ok: false, erro: 'Não foi possível enviar o e-mail: ' + err.message };
+  }
+
+  return { ok: true };
+}
+
+/**
+ * action: redefinirSenha — body { email, token, novaSenha }
+ * Usado no fluxo "esqueci minha senha" (não exige senha atual).
+ */
+function actionRedefinirSenha(body) {
+  var email = body.email, token = body.token, novaSenha = body.novaSenha;
+  if (!email || !token || !novaSenha) return { ok: false, erro: 'Preencha todos os campos.' };
+  if (String(novaSenha).length < 6) return { ok: false, erro: 'A senha deve ter pelo menos 6 caracteres.' };
+
+  var found = findVendedorRowByEmail(email);
+  if (!found) return { ok: false, erro: 'E-mail não encontrado.' };
+
+  var colIdx = found.colIdx, sheet = found.sheet, rowIndex = found.rowIndex, row = found.values;
+
+  var tokenArmazenado = String(row[colIdx['ResetToken'] - 1] || '');
+  var expiraVal = row[colIdx['ResetTokenExpira'] - 1];
+
+  if (!tokenArmazenado || tokenArmazenado !== String(token).trim()) {
+    return { ok: false, erro: 'Código inválido.' };
+  }
+
+  var expiraDate = (expiraVal instanceof Date) ? expiraVal : new Date(expiraVal);
+  if (!expiraDate || isNaN(expiraDate.getTime()) || expiraDate.getTime() < Date.now()) {
+    return { ok: false, erro: 'Código expirado. Solicite um novo.' };
+  }
+
+  var novoSalt = gerarSalt();
+  var novoHash = hashSenha(novaSenha, novoSalt);
+
+  sheet.getRange(rowIndex, colIdx['SenhaHash']).setValue(novoHash);
+  sheet.getRange(rowIndex, colIdx['SenhaSalt']).setValue(novoSalt);
+  sheet.getRange(rowIndex, colIdx['ResetToken']).setValue('');
+  sheet.getRange(rowIndex, colIdx['ResetTokenExpira']).setValue('');
+
+  return { ok: true };
+}
+
+/**
+ * action: trocarSenha — body { idVendedor, senhaAtual, novaSenha }
+ * Usado quando o usuário já está logado e quer trocar a própria senha
+ * (não precisa de e-mail nem de token).
+ */
+function actionTrocarSenha(body) {
+  var idVendedor = body.idVendedor, senhaAtual = body.senhaAtual, novaSenha = body.novaSenha;
+  if (!idVendedor || !senhaAtual || !novaSenha) return { ok: false, erro: 'Preencha todos os campos.' };
+  if (String(novaSenha).length < 6) return { ok: false, erro: 'A nova senha deve ter pelo menos 6 caracteres.' };
+
+  var ctx = ensureVendedoresAuthColumns();
+  var sheet = ctx.sheet, colIdx = ctx.colIdx;
+  var values = sheet.getDataRange().getValues();
+  var idCol = colIdx['IdVendedor'];
+
+  var rowIndex = -1, row = null;
+  for (var i = 1; i < values.length; i++) {
+    if (String(values[i][idCol - 1]) === String(idVendedor)) { rowIndex = i + 1; row = values[i]; break; }
+  }
+  if (rowIndex === -1) return { ok: false, erro: 'Usuário não encontrado.' };
+
+  var hashArmazenado = String(row[colIdx['SenhaHash'] - 1] || '');
+  var salt = String(row[colIdx['SenhaSalt'] - 1] || '');
+
+  if (hashArmazenado && hashSenha(senhaAtual, salt) !== hashArmazenado) {
+    return { ok: false, erro: 'Senha atual incorreta.' };
+  }
+
+  var novoSalt = gerarSalt();
+  var novoHash = hashSenha(novaSenha, novoSalt);
+  sheet.getRange(rowIndex, colIdx['SenhaHash']).setValue(novoHash);
+  sheet.getRange(rowIndex, colIdx['SenhaSalt']).setValue(novoSalt);
+
+  return { ok: true };
+}
+
+// ── Actions: Administração de Usuários (Vendedores) ───────────────────
+
+/**
+ * action: listVendedoresAdmin — body { solicitanteId }
+ * Retorna a lista completa de vendedores (sem os campos sensíveis de senha),
+ * só pra quem tem função administrativa.
+ */
+function actionListVendedoresAdmin(body) {
+  if (!isSolicitanteAdmin(body.solicitanteId)) {
+    return { ok: false, erro: 'Acesso restrito a administradores.' };
+  }
+
+  var ctx = ensureVendedoresAuthColumns();
+  var sheet = ctx.sheet, colIdx = ctx.colIdx;
+  var camposOcultos = { SenhaHash: 1, SenhaSalt: 1, ResetToken: 1, ResetTokenExpira: 1 };
+  var headers = Object.keys(colIdx);
+
+  var values = sheet.getDataRange().getValues();
+  var lista = [];
+  for (var i = 1; i < values.length; i++) {
+    var row = values[i];
+    if (row.every(function (c) { return c === '' || c === null; })) continue;
+    var obj = {};
+    headers.forEach(function (h) {
+      if (camposOcultos[h]) return;
+      var val = row[colIdx[h] - 1];
+      if (isDateLike(val)) val = formatDateBR(val);
+      obj[h] = val;
+    });
+    lista.push(obj);
+  }
+  return { ok: true, vendedores: lista };
+}
+
+/**
+ * action: salvarVendedor — body { solicitanteId, idVendedor?, nome, email, telefone?, tipo?, status? }
+ * Se idVendedor vier preenchido, atualiza a linha existente; senão, cria um vendedor novo.
+ * Nunca mexe nas colunas de senha — isso só acontece por login/trocarSenha/redefinirSenha.
+ */
+function actionSalvarVendedor(body) {
+  if (!isSolicitanteAdmin(body.solicitanteId)) {
+    return { ok: false, erro: 'Acesso restrito a administradores.' };
+  }
+
+  var nome = (body.nome || '').trim(), email = (body.email || '').trim();
+  if (!nome || !email) return { ok: false, erro: 'Nome e e-mail são obrigatórios.' };
+
+  var ctx = ensureVendedoresAuthColumns();
+  var sheet = ctx.sheet, colIdx = ctx.colIdx;
+  var idCol = colIdx['IdVendedor'];
+
+  // Se for edição, confere se o novo e-mail já não pertence a OUTRO vendedor.
+  var values = sheet.getDataRange().getValues();
+  var emailCol = colIdx['Email'];
+  for (var k = 1; k < values.length; k++) {
+    var mesmoEmail = emailCol && String(values[k][emailCol - 1] || '').trim().toLowerCase() === email.toLowerCase();
+    var linhaDiferente = !body.idVendedor || String(values[k][idCol - 1]) !== String(body.idVendedor);
+    if (mesmoEmail && linhaDiferente) {
+      return { ok: false, erro: 'Já existe outro usuário com esse e-mail.' };
+    }
+  }
+
+  var rowIndex = -1;
+  if (body.idVendedor) {
+    for (var i = 1; i < values.length; i++) {
+      if (String(values[i][idCol - 1]) === String(body.idVendedor)) { rowIndex = i + 1; break; }
+    }
+  }
+
+  var campos = {
+    'Nome': nome,
+    'Email': email
+  };
+  if (body.telefone !== undefined) campos['Telefone'] = body.telefone;
+  if (body.tipo     !== undefined) campos['Tipo']     = body.tipo;
+  if (body.status   !== undefined) campos['Status']   = body.status;
+
+  if (rowIndex === -1) {
+    var novoId = body.idVendedor || generateShortId(); // usa o ID que o cliente já gerou (otimista) — só gera aqui se não veio
+    var lastCol = sheet.getLastColumn();
+    var novaLinha = new Array(lastCol).fill('');
+    Object.keys(colIdx).forEach(function (h) {
+      if (h === 'IdVendedor') novaLinha[colIdx[h] - 1] = novoId;
+      else if (campos[h] !== undefined) novaLinha[colIdx[h] - 1] = campos[h];
+    });
+    sheet.getRange(sheet.getLastRow() + 1, 1, 1, novaLinha.length).setValues([novaLinha]);
+    invalidarCache('sh_vendedores');
+    return { ok: true, acao: 'criado', idVendedor: novoId };
+  } else {
+    Object.keys(campos).forEach(function (h) {
+      if (!colIdx[h]) return;
+      sheet.getRange(rowIndex, colIdx[h]).setValue(campos[h]);
+    });
+    invalidarCache('sh_vendedores');
+    return { ok: true, acao: 'atualizado', idVendedor: body.idVendedor };
+  }
+}
+
+// ── Actions: Matriz de Permissões (quais cargos veem quais telas) ─────
+
+/**
+ * Telas configuráveis pela matriz. "Usuários" e "Permissões" NUNCA aparecem
+ * aqui — são sempre exclusivas de quem tem função administrativa, não
+ * importa o que a matriz diga (senão dava pra um vendedor se autopromover).
+ */
+var TELAS_CONFIGURAVEIS = [
+  { chave: 'dashboard',     label: 'Dashboard' },
+  { chave: 'ponto',         label: 'Ponto Eletrônico' },
+  { chave: 'vendas',        label: 'Vendas' },
+  { chave: 'funil',         label: 'Funil' },
+  { chave: 'clientes',      label: 'Clientes' },
+  { chave: 'agendamentos',  label: 'Agendamentos' },
+  { chave: 'planos',        label: 'Planos' },
+  { chave: 'relatorios',    label: 'Relatórios' },
+  { chave: 'custosvenda',   label: 'Custos da Venda' },
+  { chave: 'servicos',      label: 'Serviços' }
+];
+
+/**
+ * action: getPermissoesData — QUALQUER sessão autenticada pode chamar (não
+ * só admin), porque cada pessoa logada precisa saber o que o PRÓPRIO cargo
+ * pode ver, pra montar o menu certo. Não expõe nada sensível — só "cargo X
+ * pode ver tela Y" — nenhum dado de cliente/venda/senha passa por aqui.
+ */
+function getPermissoesData() {
+  var permissoes = getSheetObjectsComCache(CONFIG.ABA_PERMISSOES, 'sh_permissoes');
+  var vendedores = getSheetObjectsComCache(CONFIG.ABA_VENDEDORES, 'sh_vendedores');
+  var tiposEncontrados = {};
+  vendedores.forEach(function (v) {
+    var tipo = String(v.Tipo || '').trim();
+    if (tipo && ADMIN_ROLES.indexOf(tipo.toLowerCase()) === -1) tiposEncontrados[tipo] = true;
+  });
+  return {
+    ok: true,
+    telas: TELAS_CONFIGURAVEIS,
+    tipos: Object.keys(tiposEncontrados).sort(),
+    permissoes: permissoes.map(function (p) {
+      return { tipo: p.Tipo, tela: p.Tela, permitido: isObrigatorioGS(p.Permitido) };
+    })
+  };
+}
+
+/**
+ * action: salvarPermissoes — body { solicitanteId, permissoes: [{tipo,tela,permitido}] }
+ * Só administradores. Substitui TODA a aba pelo conjunto enviado — é uma
+ * matriz pequena (cargos x telas), então regravar tudo de uma vez é mais
+ * simples e seguro do que sincronizar linha por linha.
+ *
+ * Se não existir nenhuma linha pra um par cargo+tela, o padrão (aplicado no
+ * front-end) é PERMITIR — assim, telas novas que a gente adicionar no
+ * futuro continuam visíveis pra todo mundo até você decidir restringir,
+ * em vez de sumirem sozinhas sem aviso.
+ */
+function actionSalvarPermissoes(body) {
+  if (!isSolicitanteAdmin(body.solicitanteId)) {
+    return { ok: false, erro: 'Acesso restrito a administradores.' };
+  }
+  var lista = body.permissoes || [];
+  var sheet = getOrCreateSheetComCabecalho(CONFIG.ABA_PERMISSOES, ['Tipo', 'Tela', 'Permitido']);
+  var lastRow = sheet.getLastRow();
+  if (lastRow > 1) sheet.getRange(2, 1, lastRow - 1, 3).clearContent();
+  if (lista.length) {
+    var linhas = lista.map(function (p) { return [p.tipo, p.tela, !!p.permitido]; });
+    sheet.getRange(2, 1, linhas.length, 3).setValues(linhas);
+  }
+  invalidarCache('sh_permissoes');
+  return { ok: true };
+}
+
+// =====================================================================
+// ── AGENDAMENTOS (vendedor agenda, técnico executa) ───────────────────
+// =====================================================================
+
+var AGENDAMENTOS_HEADERS = [
+  'IdAgendamento','IdCliente','IdContrato','IdServico','Data Inicio','Hora inicio','Hora Fim',
+  'TecnicoResponsavel','Status Agendamento','Observacao Comercial',
+  'Quantidade de Modulos','Modelo Modulos','Quantidade Inversores','Modelo Inversores',
+  'DataRelatorio','PDFrelatorio'
+];
+
+var AGENDAMENTOS_RESPOSTAS_HEADERS = ['IdResposta','IdAgendamento','IdTemplate','RespostaTexto','RespostaFoto','RespostaQuantidade'];
+
+function getOrCreateAgendamentosSheet() {
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = getSheetSafe(CONFIG.ABA_AGENDAMENTOS);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG.ABA_AGENDAMENTOS);
+    sheet.getRange(1, 1, 1, AGENDAMENTOS_HEADERS.length).setValues([AGENDAMENTOS_HEADERS]);
+    sheet.setFrozenRows(1);
+  }
+  // Hora inicio / Hora Fim como texto, pra não virar Date/hora serializada pelo Sheets.
+  sheet.getRange('F2:G').setNumberFormat('@STRING@');
+  return sheet;
+}
+
+function getOrCreateAgendamentosRespostasSheet() {
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = getSheetSafe(CONFIG.ABA_AGENDAMENTOS_RESPOSTAS);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG.ABA_AGENDAMENTOS_RESPOSTAS);
+    sheet.getRange(1, 1, 1, AGENDAMENTOS_RESPOSTAS_HEADERS.length).setValues([AGENDAMENTOS_RESPOSTAS_HEADERS]);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function agendamentosColIdx(sheet) {
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function (h) { return String(h).trim(); });
+  var colIdx = {};
+  headers.forEach(function (h, i) { if (h) colIdx[h] = i + 1; });
+  return colIdx;
+}
+
+// Pasta de dados do app no Drive — é onde o AppSheet realmente guarda as fotos
+// (caminho completo: Meu Drive / appsheet / data / CRMResolve-360750226 / <pasta da tabela> / <arquivo>).
+// Os caminhos salvos na planilha só têm a parte final (ex: "Agendamentos Respostas_Images/xxx.png"),
+// relativa a essa pasta — por isso a busca direta pelo nome nem sempre achava o arquivo certo.
+var APPSHEET_PASTA_APP = 'CRMResolve-360750226';
+
+function encontrarPastaPorNome(nome, pastaBase) {
+  var it = pastaBase ? pastaBase.getFoldersByName(nome) : DriveApp.getFoldersByName(nome);
+  return it.hasNext() ? it.next() : null;
+}
+
+/**
+ * As fotos respondidas pelo AppSheet (antes do sistema novo) foram salvas como
+ * um CAMINHO relativo dentro do Drive (ex: "Agendamentos Respostas_Images/xxx.png"),
+ * relativo à pasta de dados do próprio app — não uma URL. Essa função resolve isso:
+ * procura o arquivo primeiro dentro da pasta do app, depois em qualquer pasta com
+ * esse nome, e por último em todo o Drive; gera o link público e REGRAVA a célula
+ * com a URL — assim isso só roda uma vez por foto antiga.
+ */
+function resolverEMigrarFotoLegada(sheet, colIdx, rowIndex, valorAtual) {
+  if (!valorAtual) return valorAtual;
+  var valor = String(valorAtual).trim();
+
+  // Link antigo no formato "uc?id=..." — troca pro formato "thumbnail?id=..." que
+  // carrega direto como imagem com mais confiabilidade (e regrava a célula).
+  var mUc = valor.match(/drive\.google\.com\/uc\?id=([\w-]+)/);
+  if (mUc) {
+    try {
+      var arquivoAntigo = DriveApp.getFileById(mUc[1]);
+      arquivoAntigo.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (e) {
+      // se não conseguir nem achar o arquivo pelo ID, segue o baile — só troca o formato do link mesmo
+    }
+    var urlNova = 'https://drive.google.com/thumbnail?id=' + mUc[1] + '&sz=w2000';
+    if (colIdx['RespostaFoto']) sheet.getRange(rowIndex, colIdx['RespostaFoto']).setValue(urlNova);
+    return urlNova;
+  }
+
+  if (/^https?:\/\//.test(valor)) return valor; // já é uma URL válida (outro formato conhecido)
+
+  try {
+    var partes = valor.split('/');
+    var nomeArquivo = partes.pop();
+    var nomePasta = partes.length ? partes.join('/') : null; // ex: "Agendamentos Respostas_Images"
+
+    var arquivo = null;
+
+    // 1) Dentro da pasta de dados do app (onde o AppSheet realmente guarda as fotos)
+    var pastaApp = encontrarPastaPorNome(APPSHEET_PASTA_APP);
+    if (pastaApp) {
+      var pastaAlvo = nomePasta ? encontrarPastaPorNome(nomePasta, pastaApp) : pastaApp;
+      if (pastaAlvo) {
+        var it1 = pastaAlvo.getFilesByName(nomeArquivo);
+        if (it1.hasNext()) arquivo = it1.next();
+      }
+    }
+
+    // 2) Qualquer pasta com esse nome, em qualquer lugar do Drive
+    if (!arquivo && nomePasta) {
+      var pasta2 = encontrarPastaPorNome(nomePasta);
+      if (pasta2) {
+        var it2 = pasta2.getFilesByName(nomeArquivo);
+        if (it2.hasNext()) arquivo = it2.next();
+      }
+    }
+
+    // 3) Último recurso: procura o arquivo pelo nome em todo o Drive
+    if (!arquivo) {
+      var it3 = DriveApp.getFilesByName(nomeArquivo);
+      if (it3.hasNext()) arquivo = it3.next();
+    }
+
+    if (!arquivo) return valor; // não achou de jeito nenhum — mantém como estava
+
+    try { arquivo.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) {}
+    var url = 'https://drive.google.com/thumbnail?id=' + arquivo.getId() + '&sz=w2000';
+    if (colIdx['RespostaFoto']) sheet.getRange(rowIndex, colIdx['RespostaFoto']).setValue(url);
+    return url;
+  } catch (err) {
+    return valor; // se der qualquer erro na busca, não trava a tela — só não migra essa foto agora
+  }
+}
+
+/**
+ * Lê a aba Agendamentos Respostas migrando de passagem qualquer foto antiga
+ * (caminho relativo do AppSheet) para uma URL de verdade.
+ */
+function lerAgendamentosRespostasComMigracao(filtroIdsAgendamentos) {
+  var LIMITE_RESOLUCOES_POR_CHAMADA = 40; // já é por página (10 agendamentos), não a aba inteira — pode ser mais generoso
+  var sheet = getOrCreateAgendamentosRespostasSheet();
+  var values = sheet.getDataRange().getValues();
+  if (values.length < 2) return [];
+  var headers = values[0].map(function (h) { return String(h).trim(); });
+  var colIdx = {};
+  headers.forEach(function (h, i) { if (h) colIdx[h] = i + 1; });
+  var idAgCol = colIdx['IdAgendamento'];
+
+  var out = [];
+  var resolucoesFeitas = 0;
+  for (var i = 1; i < values.length; i++) {
+    var row = values[i];
+    if (row.every(function (c) { return c === '' || c === null; })) continue;
+    if (filtroIdsAgendamentos && idAgCol && !filtroIdsAgendamentos[row[idAgCol - 1]]) continue;
+    var obj = {};
+    headers.forEach(function (h, j) { if (h) obj[h] = row[j]; });
+    var fotoAtual = colIdx['RespostaFoto'] ? String(obj['RespostaFoto'] || '') : '';
+    var precisaMigrar = fotoAtual && !/^https?:\/\//.test(fotoAtual);
+    var linkAntigoUc = fotoAtual && /drive\.google\.com\/uc\?id=/.test(fotoAtual);
+    if (precisaMigrar || linkAntigoUc) {
+      // Link "uc?id=" é só troca de formato (rápido, não conta na cota); caminho
+      // relativo antigo do AppSheet precisa procurar no Drive (mais lento, tem cota).
+      if (linkAntigoUc || resolucoesFeitas < LIMITE_RESOLUCOES_POR_CHAMADA) {
+        if (precisaMigrar) resolucoesFeitas++;
+        obj['RespostaFoto'] = resolverEMigrarFotoLegada(sheet, colIdx, i + 1, obj['RespostaFoto']);
+      }
+      // senão: deixa o caminho antigo como está por agora — o front-end mostra o aviso de
+      // "link não encontrado" e essa foto é resolvida numa próxima vez que a tela recarregar.
+    }
+    out.push(obj);
+  }
+  return out;
+}
+
+function parseDataISO(s) {
+  var m = String(s || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return null;
+  return new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+}
+
+function findAgendamentoRowById(id) {
+  if (!id) return null;
+  var sheet  = getOrCreateAgendamentosSheet();
+  var colIdx = agendamentosColIdx(sheet);
+  var idCol  = colIdx['IdAgendamento'];
+  if (!idCol) return null;
+  var values = sheet.getDataRange().getValues();
+  for (var i = 1; i < values.length; i++) {
+    if (String(values[i][idCol - 1]) === String(id)) {
+      return { sheet: sheet, colIdx: colIdx, rowIndex: i + 1, values: values[i] };
+    }
+  }
+  return null;
+}
+
+/**
+ * Um solicitante pode mexer num agendamento se for administrador
+ * OU se for o técnico responsável por aquele agendamento específico.
+ */
+function isTecnicoOuAdmin(solicitanteId, idAgendamento) {
+  if (!solicitanteId) return false;
+  if (isSolicitanteAdmin(solicitanteId)) return true;
+  var found = findAgendamentoRowById(idAgendamento);
+  if (!found) return false;
+  var tecnicoCol = found.colIdx['TecnicoResponsavel'];
+  if (!tecnicoCol) return false;
+  return String(found.values[tecnicoCol - 1]) === String(solicitanteId);
+}
+
+// ── Actions: tela do vendedor (criar/editar agendamentos) ─────────────
+
+function getAgendamentosData() {
+  var agendamentos = sheetToObjects(getOrCreateAgendamentosSheet());
+  var clientes      = sheetToObjects(getSheet(CONFIG.ABA_CLIENTES));
+  var vendedores     = getSheetObjectsComCache(CONFIG.ABA_VENDEDORES, 'sh_vendedores');
+  var servSheet      = getSheetSafe(CONFIG.ABA_SERVICOS);
+  var servicos        = getSheetObjectsComCache(CONFIG.ABA_SERVICOS, 'sh_servicos');
+  var tplSheet         = getSheetSafe(CONFIG.ABA_TEMPLATES);
+  var templates         = tplSheet ? sheetToObjects(tplSheet) : [];
+  // Sem "respostas" aqui de propósito — isso é pesado (mexe no Drive) e agora
+  // só é buscado sob demanda, quando alguém abre um agendamento específico
+  // (action getRespostasAgendamentosVendedor), igual já funciona no app do técnico.
+
+  return {
+    ok: true, agendamentos: agendamentos, clientes: clientes,
+    vendedores: vendedores, servicos: servicos, templates: templates,
+    atualizadoEm: new Date().toISOString()
+  };
+}
+
+/**
+ * action: getRespostasAgendamentosVendedor — body { idsAgendamentos:[...] }
+ * Igual a getRespostasAgendamentos, mas sem restringir a "só o técnico daquele
+ * agendamento" — a tela de Agendamentos do vendedor já é aberta pra qualquer
+ * vendedor autenticado ver a agenda inteira da empresa (mesmo padrão que
+ * getAgendamentosData sempre teve), então aqui só exige estar logado.
+ */
+function actionGetRespostasAgendamentosVendedor(body) {
+  var ids = body.idsAgendamentos || [];
+  if (!ids.length) return { ok: true, respostas: [] };
+  var idsMap = {};
+  ids.forEach(function (id) { idsMap[id] = true; });
+  var respostas = lerAgendamentosRespostasComMigracao(idsMap);
+  return { ok: true, respostas: respostas };
+}
+
+function minutosDeHoraGS(hhmm) {
+  var m = String(hhmm || '').match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+}
+
+function normalizarTextoGS(s) {
+  return String(s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function formatarDataBRGS(iso) {
+  var m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? (m[3] + '/' + m[2] + '/' + m[1]) : String(iso || '');
+}
+
+/**
+ * action: salvarAgendamento — body { idAgendamento?, idCliente, idContrato?, idServico,
+ *   dataInicio ('YYYY-MM-DD'), horaInicio, horaFim, tecnicoResponsavel, statusAgendamento?,
+ *   observacaoComercial?, quantidadeModulos?, modeloModulos?, quantidadeInversores?, modeloInversores? }
+ * Criado por vendedor/admin — não exige que o solicitante seja o técnico.
+ *
+ * Réplica no servidor das mesmas regras da tela (que por sua vez replicam as
+ * regras que já existiam no AppSheet): cliente precisa ter endereço, hora fim
+ * > hora início, e sem conflito de horário pro mesmo técnico no mesmo dia.
+ * Isso garante que ninguém consiga burlar a validação chamando a API direto.
+ */
+function actionSalvarAgendamento(body) {
+  var idCliente = body.idCliente, idServico = body.idServico,
+      dataInicio = body.dataInicio, tecnico = body.tecnicoResponsavel;
+  if (!idCliente || !idServico || !dataInicio || !tecnico) {
+    return { ok: false, erro: 'Cliente, serviço, data de início e técnico responsável são obrigatórios.' };
+  }
+  if (!body.horaInicio || !body.horaFim) {
+    return { ok: false, erro: 'Escolha o horário de início e fim.' };
+  }
+
+  // Regra 1: cliente precisa ter endereço cadastrado antes de agendar.
+  var clientes = sheetToObjects(getSheet(CONFIG.ABA_CLIENTES));
+  var clienteObj = clientes.filter(function (c) { return String(c.IdCliente) === String(idCliente); })[0];
+  if (!clienteObj || !String((clienteObj.Endereco || clienteObj['Endereço']) || '').trim()) {
+    return { ok: false, erro: '⚠️ Este cliente não possui endereço cadastrado. Atualize o cadastro do cliente antes de realizar o agendamento.' };
+  }
+
+  // Regra 2: hora fim tem que ser maior que hora início.
+  var minIni = minutosDeHoraGS(body.horaInicio), minFim = minutosDeHoraGS(body.horaFim);
+  if (minIni === null || minFim === null || minFim <= minIni) {
+    return { ok: false, erro: 'O horário fim deve ser maior que o início.' };
+  }
+
+  // Regra 3: sem conflito de horário pro mesmo técnico no mesmo dia (cancelados não contam).
+  // O check + a gravação ficam dentro de um LockService: sem isso, duas requisições
+  // simultâneas podem ler a planilha ANTES de qualquer uma escrever, nenhuma vê o
+  // agendamento da outra, e as duas passam no check — dois agendamentos conflitantes
+  // seriam salvos com sucesso ao mesmo tempo (é exatamente esse buraco que o
+  // comentário da função já dizia que não devia existir).
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+  } catch (e) {
+    return { ok: false, erro: 'Sistema ocupado, tente novamente em alguns segundos.' };
+  }
+  try {
+    var todosAgendamentos = sheetToObjects(getOrCreateAgendamentosSheet());
+    var conflito = todosAgendamentos.filter(function (a) {
+      if (body.idAgendamento && String(a.IdAgendamento) === String(body.idAgendamento)) return false;
+      if (String(a.TecnicoResponsavel) !== String(tecnico)) return false;
+      if (normalizarTextoGS(a['Status Agendamento']) === 'cancelado') return false;
+      if (normalizeDateKey(a['Data Inicio']) !== dataInicio) return false;
+      var aIni = minutosDeHoraGS(a['Hora inicio']), aFim = minutosDeHoraGS(a['Hora Fim']);
+      if (aIni === null || aFim === null) return false;
+      return aIni < minFim && aFim > minIni;
+    })[0];
+    if (conflito) {
+      var vendedores = getSheetObjectsComCache(CONFIG.ABA_VENDEDORES, 'sh_vendedores');
+      var tecnicoObj = vendedores.filter(function (v) { return String(v.IdVendedor) === String(tecnico); })[0];
+      var nomeTecnico = tecnicoObj ? tecnicoObj.Nome : tecnico;
+      return { ok: false, erro: 'Conflito! O técnico ' + nomeTecnico + ' já possui agendamento neste horário no dia ' + formatarDataBRGS(dataInicio) + '.' };
+    }
+
+    var sheet  = getOrCreateAgendamentosSheet();
+    var colIdx = agendamentosColIdx(sheet);
+    var idCol  = colIdx['IdAgendamento'];
+
+    var rowIndex = -1;
+    if (body.idAgendamento) {
+      var values = sheet.getDataRange().getValues();
+      for (var i = 1; i < values.length; i++) {
+        if (String(values[i][idCol - 1]) === String(body.idAgendamento)) { rowIndex = i + 1; break; }
+      }
+    }
+
+    var campos = {
+      'IdCliente': idCliente,
+      'IdContrato': body.idContrato || '',
+      'IdServico': idServico,
+      'Data Inicio': parseDataISO(dataInicio),
+      'Hora inicio': body.horaInicio || '',
+      'Hora Fim': body.horaFim || '',
+      'TecnicoResponsavel': tecnico,
+      'Status Agendamento': body.statusAgendamento || 'Agendado',
+      'Observacao Comercial': body.observacaoComercial || '',
+      'Quantidade de Modulos': body.quantidadeModulos !== undefined ? body.quantidadeModulos : '',
+      'Modelo Modulos': body.modeloModulos || '',
+      'Quantidade Inversores': body.quantidadeInversores !== undefined ? body.quantidadeInversores : '',
+      'Modelo Inversores': body.modeloInversores || ''
+    };
+
+    if (rowIndex === -1) {
+      var novoId = body.idAgendamento || generateShortId(); // usa o ID que o cliente já gerou (otimista) — só gera aqui se não veio
+      var lastCol = sheet.getLastColumn();
+      var novaLinha = new Array(lastCol).fill('');
+      Object.keys(colIdx).forEach(function (h) {
+        if (h === 'IdAgendamento') novaLinha[colIdx[h] - 1] = novoId;
+        else if (campos[h] !== undefined) novaLinha[colIdx[h] - 1] = campos[h];
+      });
+      sheet.getRange(sheet.getLastRow() + 1, 1, 1, novaLinha.length).setValues([novaLinha]);
+      return { ok: true, acao: 'criado', idAgendamento: novoId };
+    } else {
+      Object.keys(campos).forEach(function (h) {
+        if (!colIdx[h]) return;
+        sheet.getRange(rowIndex, colIdx[h]).setValue(campos[h]);
+      });
+      return { ok: true, acao: 'atualizado', idAgendamento: body.idAgendamento };
+    }
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * action: excluirAgendamento — body { idAgendamento }
+ * Remove a linha do agendamento da aba Agendamentos. As respostas já
+ * preenchidas pelo técnico (aba Agendamentos Respostas) não são apagadas —
+ * ficam órfãs, mas isso não afeta nada (não são exibidas em lugar nenhum
+ * sem o agendamento existir).
+ */
+function actionExcluirAgendamento(body) {
+  if (!isSolicitanteAdmin(body.solicitanteId)) {
+    return { ok: false, erro: 'Acesso restrito a administradores.' };
+  }
+  var idAgendamento = body.idAgendamento;
+  if (!idAgendamento) return { ok: false, erro: 'idAgendamento é obrigatório.' };
+  var sheet = getOrCreateAgendamentosSheet();
+  var colIdx = agendamentosColIdx(sheet);
+  var idCol = colIdx['IdAgendamento'];
+  if (!idCol) return { ok: false, erro: 'Coluna IdAgendamento não encontrada.' };
+  var values = sheet.getDataRange().getValues();
+  for (var i = 1; i < values.length; i++) {
+    if (String(values[i][idCol - 1]) === String(idAgendamento)) {
+      sheet.deleteRow(i + 1);
+      return { ok: true };
+    }
+  }
+  return { ok: false, erro: 'Agendamento não encontrado.' };
+}
+
+// ── Actions: app do técnico ────────────────────────────────────────────
+
+/**
+ * action: getAgendamentosTecnico — body { solicitanteId }
+ * Retorna só os dados leves (agendamentos, clientes, vendedores, serviços,
+ * templates) — SEM respostas. É rápido porque não toca no Drive nem na aba
+ * de respostas (3500+ linhas). As respostas de cada página são buscadas à
+ * parte, sob demanda, pela action getRespostasAgendamentos.
+ */
+function actionGetAgendamentosTecnico(body) {
+  var solicitanteId = body.solicitanteId;
+  if (!solicitanteId) return { ok: false, erro: 'Não autenticado.' };
+
+  var todos = sheetToObjects(getOrCreateAgendamentosSheet());
+  var admin = isSolicitanteAdmin(solicitanteId);
+  var meus = admin ? todos : todos.filter(function (a) {
+    return String(a.TecnicoResponsavel) === String(solicitanteId);
+  });
+
+  var clientes    = sheetToObjects(getSheet(CONFIG.ABA_CLIENTES));
+  var vendedores  = getSheetObjectsComCache(CONFIG.ABA_VENDEDORES, 'sh_vendedores');
+  var servSheet   = getSheetSafe(CONFIG.ABA_SERVICOS);
+  var servicos    = getSheetObjectsComCache(CONFIG.ABA_SERVICOS, 'sh_servicos');
+  var tplSheet    = getSheetSafe(CONFIG.ABA_TEMPLATES);
+  var templates   = tplSheet ? sheetToObjects(tplSheet) : [];
+
+  return {
+    ok: true, agendamentos: meus, clientes: clientes, vendedores: vendedores,
+    servicos: servicos, templates: templates,
+    atualizadoEm: new Date().toISOString()
+  };
+}
+
+/**
+ * action: getRespostasAgendamentos — body { solicitanteId, idsAgendamentos:[...] }
+ * Busca as respostas SÓ dos agendamentos pedidos (ex: os 10 da página atual).
+ * É essa filtragem por ID que evita varrer/migrar a aba inteira a cada carregamento.
+ */
+function actionGetRespostasAgendamentos(body) {
+  var solicitanteId = body.solicitanteId;
+  var ids = body.idsAgendamentos || [];
+  if (!solicitanteId || !ids.length) return { ok: true, respostas: [] };
+
+  var admin = isSolicitanteAdmin(solicitanteId);
+  var idsPermitidos = {};
+  ids.forEach(function (id) {
+    if (admin || isTecnicoOuAdmin(solicitanteId, id)) idsPermitidos[id] = true;
+  });
+  if (!Object.keys(idsPermitidos).length) return { ok: true, respostas: [] };
+
+  var respostas = lerAgendamentosRespostasComMigracao(idsPermitidos);
+  return { ok: true, respostas: respostas };
+}
+
+/**
+ * Rode isso MANUALMENTE pelo editor (▶ Executar, selecionando
+ * "testarDiagnosticoFotos") pra ver no "Registro de execução" exatamente
+ * onde a busca/envio de fotos está falhando, passo a passo.
+ */
+function testarDiagnosticoFotos() {
+  var resultado = actionDiagnosticarFotos();
+  Logger.log(JSON.stringify(resultado, null, 2));
+  return resultado;
+}
+
+/**
+ * action: diagnosticarFotos — sem parâmetros.
+ * Testa, passo a passo, cada parte do fluxo de fotos (achar a pasta do app,
+ * resolver até 3 fotos antigas de exemplo, criar/compartilhar/apagar um
+ * arquivo de teste na pasta de fotos novas) e devolve um relatório detalhado
+ * de cada etapa — pra diagnosticar sem precisar ficar adivinhando.
+ */
+function actionDiagnosticarFotos() {
+  var testes = [];
+
+  try {
+    var pastaApp = encontrarPastaPorNome(APPSHEET_PASTA_APP);
+    testes.push({ passo: 'Achar pasta "' + APPSHEET_PASTA_APP + '" no Drive', ok: !!pastaApp, detalhe: pastaApp ? ('encontrada, id=' + pastaApp.getId()) : 'NÃO encontrada' });
+  } catch (e) {
+    testes.push({ passo: 'Achar pasta "' + APPSHEET_PASTA_APP + '" no Drive', ok: false, detalhe: 'ERRO: ' + e.message });
+  }
+
+  try {
+    var sheet = getOrCreateAgendamentosRespostasSheet();
+    var values = sheet.getDataRange().getValues();
+    var headers = values[0].map(function (h) { return String(h).trim(); });
+    var colIdx = {};
+    headers.forEach(function (h, i) { colIdx[h] = i + 1; });
+
+    var exemplos = [];
+    for (var i = 1; i < values.length && exemplos.length < 3; i++) {
+      var v = colIdx['RespostaFoto'] ? values[i][colIdx['RespostaFoto'] - 1] : '';
+      if (v && !/^https?:\/\//.test(String(v))) exemplos.push({ linha: i + 1, valor: String(v) });
+    }
+    if (!exemplos.length) {
+      testes.push({ passo: 'Procurar fotos antigas de exemplo pra testar', ok: true, detalhe: 'Nenhuma foto pendente de migração encontrada (ou já foram todas migradas).' });
+    }
+    exemplos.forEach(function (ex) {
+      try {
+        var resolvida = resolverEMigrarFotoLegada(sheet, colIdx, ex.linha, ex.valor);
+        testes.push({ passo: 'Resolver "' + ex.valor + '"', ok: /^https?:\/\//.test(resolvida), detalhe: resolvida });
+      } catch (e) {
+        testes.push({ passo: 'Resolver "' + ex.valor + '"', ok: false, detalhe: 'ERRO: ' + e.message });
+      }
+    });
+  } catch (e) {
+    testes.push({ passo: 'Ler aba Agendamentos Respostas', ok: false, detalhe: 'ERRO: ' + e.message });
+  }
+
+  try {
+    var pastaFotos = getOrCreatePastaFotosAgendamentos();
+    var arquivoTeste = pastaFotos.createFile(Utilities.newBlob('teste de diagnóstico', 'text/plain', 'teste_diagnostico.txt'));
+    arquivoTeste.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    arquivoTeste.setTrashed(true);
+    testes.push({ passo: 'Criar + compartilhar + apagar arquivo de teste (fluxo de upload novo)', ok: true, detalhe: 'OK' });
+  } catch (e) {
+    testes.push({ passo: 'Criar + compartilhar + apagar arquivo de teste (fluxo de upload novo)', ok: false, detalhe: 'ERRO: ' + e.message });
+  }
+
+  var tudoOk = testes.every(function (t) { return t.ok; });
+  return { ok: true, tudoOk: tudoOk, testes: testes };
+}
+
+/**
+ * action: atualizarStatusAgendamento — body { solicitanteId, idAgendamento, status }
+ * Usado pelo técnico pra marcar "Em Andamento" / "Concluído" / "Cancelado".
+ */
+function actionAtualizarStatusAgendamento(body) {
+  var idAgendamento = body.idAgendamento, status = body.status;
+  if (!idAgendamento || !status) return { ok: false, erro: 'Dados incompletos.' };
+  if (!isTecnicoOuAdmin(body.solicitanteId, idAgendamento)) {
+    return { ok: false, erro: 'Sem permissão para essa ordem de serviço.' };
+  }
+
+  var found = findAgendamentoRowById(idAgendamento);
+  if (!found) return { ok: false, erro: 'Agendamento não encontrado.' };
+
+  found.sheet.getRange(found.rowIndex, found.colIdx['Status Agendamento']).setValue(status);
+
+  var statusNorm = String(status).trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (statusNorm === 'concluido' && found.colIdx['DataRelatorio']) {
+    found.sheet.getRange(found.rowIndex, found.colIdx['DataRelatorio']).setValue(new Date());
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Cria ou atualiza a resposta de um campo do template pra um agendamento
+ * (upsert por IdAgendamento + IdTemplate). "campo" é qual coluna recebe o
+ * valor: 'RespostaTexto', 'RespostaFoto' ou 'RespostaQuantidade' — são as
+ * 3 colunas reais da aba (a mesma linha de resposta usa só uma delas).
+ */
+function salvarOuAtualizarResposta(idAgendamento, idTemplate, campo, valor) {
+  var sheet  = getOrCreateAgendamentosRespostasSheet();
+  var values = sheet.getDataRange().getValues();
+  var headers = values.length ? values[0].map(function (h) { return String(h).trim(); }) : AGENDAMENTOS_RESPOSTAS_HEADERS.slice();
+  var colIdx = {};
+  headers.forEach(function (h, i) { colIdx[h] = i + 1; });
+  if (!colIdx[campo]) return; // coluna não existe nessa planilha — não faz nada, evita erro
+
+  var idAgCol = colIdx['IdAgendamento'], idTplCol = colIdx['IdTemplate'];
+  for (var i = 1; i < values.length; i++) {
+    if (String(values[i][idAgCol - 1]) === String(idAgendamento) &&
+        String(values[i][idTplCol - 1]) === String(idTemplate)) {
+      sheet.getRange(i + 1, colIdx[campo]).setValue(valor);
+      return;
+    }
+  }
+
+  var novaLinha = new Array(headers.length).fill('');
+  if (colIdx['IdResposta']) novaLinha[colIdx['IdResposta'] - 1] = generateShortId();
+  novaLinha[idAgCol - 1]    = idAgendamento;
+  novaLinha[idTplCol - 1]   = idTemplate;
+  novaLinha[colIdx[campo] - 1] = valor;
+  sheet.getRange(sheet.getLastRow() + 1, 1, 1, novaLinha.length).setValues([novaLinha]);
+}
+
+/**
+ * action: salvarRespostasAgendamento — body { solicitanteId, idAgendamento, respostas:[{idTemplate,resposta}] }
+ * Salva em lote as respostas de texto/número/sim-ou-não/lista do formulário
+ * (fotos vão por uploadFotoResposta, que já salva sozinho).
+ */
+function actionSalvarRespostasAgendamento(body) {
+  var idAgendamento = body.idAgendamento, respostas = body.respostas || [];
+  if (!idAgendamento) return { ok: false, erro: 'idAgendamento é obrigatório.' };
+  if (!isTecnicoOuAdmin(body.solicitanteId, idAgendamento)) {
+    return { ok: false, erro: 'Sem permissão para essa ordem de serviço.' };
+  }
+
+  var tplSheet = getSheetSafe(CONFIG.ABA_TEMPLATES);
+  var templates = tplSheet ? sheetToObjects(tplSheet) : [];
+  var tplById = {};
+  templates.forEach(function (t) { if (t.IdTemplate) tplById[t.IdTemplate] = t; });
+
+  respostas.forEach(function (r) {
+    if (!r.idTemplate) return;
+    var tpl = tplById[r.idTemplate];
+    var tipo = tpl ? String(tpl.TipoInput || '').trim() : 'Texto';
+    var campo = (tipo === 'Number') ? 'RespostaQuantidade' : 'RespostaTexto';
+    var valor = (r.resposta === undefined || r.resposta === null) ? '' : r.resposta;
+    salvarOuAtualizarResposta(idAgendamento, r.idTemplate, campo, valor);
+  });
+
+  var novoStatus = atualizarStatusAutomatico(idAgendamento, templates);
+  return { ok: true, novoStatus: novoStatus };
+}
+
+/**
+ * Roda depois de qualquer resposta salva (texto/número/lista OU foto).
+ * Regra: se ainda está "Agendado" e já tem pelo menos uma resposta -> "Em Andamento".
+ * Se TODAS as perguntas obrigatórias do serviço atual já têm resposta -> "Concluído".
+ * Nunca mexe em agendamento já Cancelado ou já Concluído (decisão manual é respeitada),
+ * e nunca trava o formulário — só atualiza o status na planilha.
+ */
+/**
+ * A coluna "Obrigatorio" da aba Templates é uma caixa de seleção (checkbox)
+ * do Sheets — o Apps Script lê isso como BOOLEANO true/false, não como o
+ * texto "VERDADEIRO"/"FALSO" que aparece na planilha. Essa função reconhece
+ * os dois formatos.
+ */
+function isObrigatorioGS(valor) {
+  if (valor === true) return true;
+  if (valor === false || valor === undefined || valor === null || valor === '') return false;
+  var s = String(valor).trim().toUpperCase();
+  return s === 'VERDADEIRO' || s === 'TRUE' || s === 'SIM' || s === '1';
+}
+
+function atualizarStatusAutomatico(idAgendamento, templatesCache) {
+  var found = findAgendamentoRowById(idAgendamento);
+  if (!found) return null;
+
+  var statusCol = found.colIdx['Status Agendamento'];
+  var statusAtual = statusCol ? String(found.values[statusCol - 1] || '').trim() : '';
+  var statusNorm = statusAtual.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (statusNorm === 'cancelado' || statusNorm === 'concluido') return null; // não mexe
+
+  var idServico = found.values[found.colIdx['IdServico'] - 1];
+  var templates = templatesCache;
+  if (!templates) {
+    var tplSheet = getSheetSafe(CONFIG.ABA_TEMPLATES);
+    templates = tplSheet ? sheetToObjects(tplSheet) : [];
+  }
+  var obrigatorios = templates.filter(function (t) {
+    return String(t.IdServico) === String(idServico) && isObrigatorioGS(t.Obrigatorio);
+  });
+
+  var todasRespostas = sheetToObjects(getOrCreateAgendamentosRespostasSheet())
+    .filter(function (r) { return String(r.IdAgendamento) === String(idAgendamento); });
+  var respostaPorTemplate = {};
+  todasRespostas.forEach(function (r) { respostaPorTemplate[r.IdTemplate] = r; });
+
+  function temValor(r) {
+    return !!(r && (String(r.RespostaTexto || '').trim() || String(r.RespostaFoto || '').trim() || String(r.RespostaQuantidade || '').trim()));
+  }
+
+  var todosObrigatoriosRespondidos = obrigatorios.length > 0 && obrigatorios.every(function (t) {
+    return temValor(respostaPorTemplate[t.IdTemplate]);
+  });
+  var temAlgumaResposta = todasRespostas.some(temValor);
+
+  var novoStatus = null;
+  if (todosObrigatoriosRespondidos) {
+    novoStatus = 'Concluído';
+  } else if (temAlgumaResposta && statusNorm === 'agendado') {
+    novoStatus = 'Em Andamento';
+  }
+
+  if (novoStatus && novoStatus !== statusAtual) {
+    found.sheet.getRange(found.rowIndex, statusCol).setValue(novoStatus);
+    var statusNovoNorm = novoStatus.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (statusNovoNorm === 'concluido' && found.colIdx['DataRelatorio']) {
+      found.sheet.getRange(found.rowIndex, found.colIdx['DataRelatorio']).setValue(new Date());
+    }
+    return novoStatus;
+  }
+  return null;
+}
+
+function getOrCreatePastaFotosAgendamentos() {
+  var nomePasta = 'Solar Green - Fotos de Agendamentos';
+  var it = DriveApp.getFoldersByName(nomePasta);
+  if (it.hasNext()) return it.next();
+  return DriveApp.createFolder(nomePasta);
+}
+
+function getOrCreatePastaFotosPonto() {
+  var nomePasta = 'Solar Green - Fotos de Ponto';
+  var it = DriveApp.getFoldersByName(nomePasta);
+  if (it.hasNext()) return it.next();
+  return DriveApp.createFolder(nomePasta);
+}
+
+/**
+ * action: registrarPonto — body { solicitanteId, tipo, base64?, mimeType?, localizacao?, endereco? }
+ * Usado pela tela de autoatendimento (Pontoeletronico.html) — o próprio
+ * funcionário bate o ponto por ali. Tipo: "Entrada" | "Almoço" | "Retorno
+ * Almoço" | "Saída". A selfie é opcional (algum funcionário pode não ter
+ * câmera disponível), mas quando vem, sobe pro Drive igual às fotos de
+ * agendamento.
+ */
+function actionRegistrarPonto(body) {
+  var funcionario = body.solicitanteId, tipo = body.tipo;
+  if (!funcionario || !tipo) return { ok: false, erro: 'Funcionário e tipo são obrigatórios.' };
+
+  var vendedores = getSheetObjectsComCache(CONFIG.ABA_VENDEDORES, 'sh_vendedores');
+  var pessoa = vendedores.filter(function (v) { return String(v.IdVendedor) === String(funcionario); })[0];
+  if (!pessoa) return { ok: false, erro: 'Funcionário não encontrado.' };
+
+  var fotoUrl = '';
+  if (body.base64) {
+    try {
+      var bytes = Utilities.base64Decode(body.base64);
+      var blob = Utilities.newBlob(bytes, body.mimeType || 'image/jpeg', (body.nomeArquivo || 'selfie') + '.jpg');
+      var pasta = getOrCreatePastaFotosPonto();
+      var arquivo = pasta.createFile(blob);
+      arquivo.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      fotoUrl = 'https://drive.google.com/thumbnail?id=' + arquivo.getId() + '&sz=w2000';
+    } catch (e) {
+      // se a foto falhar, ainda assim registra o ponto sem foto — melhor
+      // bater o ponto sem selfie do que não bater ponto nenhum.
+    }
+  }
+
+  var sheet = getOrCreateSheetComCabecalho(CONFIG.ABA_PONTO,
+    ['IdPonto', 'Funcionario', 'Tipo', 'Data e Hora', 'Foto Selfie', 'Localizacao', 'Endereço']);
+  var headers = getHeaderRow(sheet);
+  var colIdx = {}; headers.forEach(function (h, i) { colIdx[h] = i + 1; });
+
+  var novoId = body.idPonto || generateShortId(); // usa o ID que o cliente já gerou (otimista) — só gera aqui se não veio
+  var lastCol = sheet.getLastColumn();
+  var novaLinha = new Array(lastCol).fill('');
+  var campos = {
+    'IdPonto': novoId, 'Funcionario': funcionario, 'Tipo': tipo,
+    'Data e Hora': new Date(), 'Foto Selfie': fotoUrl,
+    'Localizacao': body.localizacao || '', 'Endereço': body.endereco || ''
+  };
+  Object.keys(colIdx).forEach(function (h) { if (campos[h] !== undefined) novaLinha[colIdx[h] - 1] = campos[h]; });
+  sheet.getRange(sheet.getLastRow() + 1, 1, 1, novaLinha.length).setValues([novaLinha]);
+
+  return { ok: true, idPonto: novoId, nome: pessoa.Nome || '', fotoUrl: fotoUrl };
+}
+
+/**
+ * action: getPontoFuncionario — body { solicitanteId }
+ * Devolve os registros de ponto do PRÓPRIO funcionário no dia de hoje (pra
+ * tela de autoatendimento mostrar "você já bateu: Entrada às 08:02" etc.)
+ * — não devolve a planilha inteira, só o necessário pra essa pessoa hoje.
+ */
+function actionGetPontoFuncionario(body) {
+  var funcionario = body.solicitanteId;
+  if (!funcionario) return { ok: false, erro: 'solicitanteId é obrigatório.' };
+
+  var vendedores = getSheetObjectsComCache(CONFIG.ABA_VENDEDORES, 'sh_vendedores');
+  var pessoa = vendedores.filter(function (v) { return String(v.IdVendedor) === String(funcionario); })[0];
+  if (!pessoa) return { ok: false, erro: 'Funcionário não encontrado.' };
+
+  var sheet = getSheetSafe(CONFIG.ABA_PONTO);
+  var todos = sheet ? sheetToObjects(sheet) : [];
+  var doFuncionario = todos.filter(function (p) { return String(p.Funcionario) === String(funcionario); });
+
+  var apenasHoje = body.apenasHoje !== false; // por padrão só hoje (tela principal); false = histórico completo
+  if (apenasHoje) {
+    var hojeStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'America/Belem', 'dd/MM/yyyy');
+    doFuncionario = doFuncionario.filter(function (p) { return String(p['Data e Hora'] || '').indexOf(hojeStr) === 0; });
+  }
+  return { ok: true, nome: pessoa.Nome || '', registros: doFuncionario };
+}
+
+/**
+ * action: uploadFotoResposta — body { solicitanteId, idAgendamento, idTemplate, base64, mimeType?, nomeArquivo? }
+ * Salva a foto no Google Drive (pasta "Solar Green - Fotos de Agendamentos"),
+ * torna o link visualizável, e já grava a URL como resposta daquele campo.
+ */
+function actionUploadFotoResposta(body) {
+  var idAgendamento = body.idAgendamento, idTemplate = body.idTemplate, base64 = body.base64;
+  if (!idAgendamento || !idTemplate || !base64) return { ok: false, erro: 'Dados incompletos.' };
+  if (!isTecnicoOuAdmin(body.solicitanteId, idAgendamento)) {
+    return { ok: false, erro: 'Sem permissão para essa ordem de serviço.' };
+  }
+
+  try {
+    var mimeType   = body.mimeType || 'image/jpeg';
+    var nomeArquivo = body.nomeArquivo || (idAgendamento + '_' + idTemplate + '.jpg');
+    var bytes = Utilities.base64Decode(base64);
+    var blob  = Utilities.newBlob(bytes, mimeType, nomeArquivo);
+    var pasta = getOrCreatePastaFotosAgendamentos();
+    var arquivo = pasta.createFile(blob);
+    arquivo.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    var url = 'https://drive.google.com/thumbnail?id=' + arquivo.getId() + '&sz=w2000';
+    salvarOuAtualizarResposta(idAgendamento, idTemplate, 'RespostaFoto', url);
+    var novoStatus = atualizarStatusAutomatico(idAgendamento);
+    return { ok: true, url: url, novoStatus: novoStatus };
+  } catch (err) {
+    return { ok: false, erro: 'Falha ao enviar a foto: ' + err.message };
+  }
+}
+
+// ── Diagnóstico ─────────────────────────────────────────────────────
+
+// ── Autorização manual (rode 1x pelo editor, veja instruções no chat) ──
+
+/**
+ * Rode MANUALMENTE uma vez pelo editor (▶ Executar). O Apps Script só pede a
+ * permissão de uma operação quando ela é realmente executada — por isso essa
+ * função não só LÊ o Drive, mas também CRIA uma pasta/arquivo de teste e muda
+ * o compartilhamento dele, pra garantir que a permissão de ESCRITA (a que
+ * faltava) também seja pedida e concedida de uma vez. A pasta de teste é
+ * apagada (lixeira) no final — não fica lixo no seu Drive.
+ */
+function autorizarPermissoes() {
+  DriveApp.getRootFolder();
+
+  var pastaTeste = DriveApp.createFolder('SolarGreen_TesteAutorizacao_TEMP');
+  var arquivoTeste = pastaTeste.createFile('teste.txt', 'teste de permissão', MimeType.PLAIN_TEXT);
+  arquivoTeste.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  pastaTeste.setTrashed(true);
+
+  MailApp.getRemainingDailyQuota();
+  return 'Permissões OK (leitura, escrita e compartilhamento no Drive + Mail).';
+}
+
+function diagSheets() {
+  var ss        = SpreadsheetApp.getActiveSpreadsheet();
+  var todasAbas = ss.getSheets().map(function (s) { return s.getName(); });
+  var esperadas = [
+    CONFIG.ABA_VENDEDORES, CONFIG.ABA_PONTO, CONFIG.ABA_ABONOS,
+    CONFIG.ABA_VENDAS, CONFIG.ABA_METAS, CONFIG.ABA_RELATORIOS,
+    CONFIG.ABA_CUSTOS_VENDA, CONFIG.ABA_FUNIL, CONFIG.ABA_CLIENTES,
+    CONFIG.ABA_SERVICOS, CONFIG.ABA_FUNIL_LOG, CONFIG.ABA_FUNIL_SLA,
+    CONFIG.ABA_PROPOSTAS, CONFIG.ABA_AGENDAMENTOS, CONFIG.ABA_AGENDAMENTOS_RESPOSTAS,
+    CONFIG.ABA_TEMPLATES
+  ];
+  var resultado = esperadas.map(function (nome) {
+    var achada = getSheetSafe(nome);
+    return { esperada: nome, encontrada: achada ? achada.getName() : null, ok: !!achada };
+  });
+  return { ok: true, todasAsAbasDaPlanilha: todasAbas, checagem: resultado };
+}

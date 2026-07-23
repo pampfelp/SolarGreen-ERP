@@ -1,0 +1,19 @@
+{
+  "id": "/dimensionamento_solar.html",
+  "name": "Solar Green · Dimensionamento",
+  "short_name": "SG Dimension.",
+  "description": "Calculadora de dimensionamento de sistemas solares Solar Green.",
+  "start_url": "./dimensionamento_solar.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F2F7F2",
+  "theme_color": "#003122",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
