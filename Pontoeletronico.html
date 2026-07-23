@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#003122">
+<title>Solar Green · Ponto Eletrônico</title>
+<link rel="icon" type="image/png" href="favicon_1.png">
+<link rel="icon" type="image/x-icon" href="favicon_1.ico">
+<link rel="apple-touch-icon" href="favicon-180_1.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F2F7F2; --panel:#FFFFFF; --sidebar-bg:#003122; --accent:#78D800; --accent-deep:#5aaa00;
+    --ink:#1E1E1E; --ink-soft:#4a4a4a; --ink-faint:#8a978a; --line:#dde8dd; --debit:#dc2626; --warn:#d97706;
+    --unbounded:'Unbounded',sans-serif; --sans:'Inter',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:100vh;}
+  .hidden{display:none!important;}
+  button{font-family:var(--sans);cursor:pointer;}
+  input{font-family:var(--sans);}
+
+  /* ── Login (mesmo padrão do app do técnico) ── */
+  #login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--sidebar-bg);}
+  .login-card{background:#fff;border-radius:20px;padding:32px 26px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.35);}
+  .login-brand{text-align:center;margin-bottom:24px;}
+  .sg-solar{font-family:var(--unbounded);font-weight:900;font-size:22px;color:var(--sidebar-bg);}
+  .sg-green{color:var(--accent-deep);}
+  .sg-sub{font-size:12px;color:var(--ink-faint);margin-top:4px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;}
+  .lstep{display:none;}
+  .lstep.active{display:block;}
+  .lstep h2{font-family:var(--unbounded);font-size:18px;margin-bottom:6px;}
+  .lstep-sub{font-size:12.5px;color:var(--ink-faint);margin-bottom:18px;line-height:1.4;}
+  .lstep label{display:block;font-size:12px;font-weight:700;color:var(--ink-soft);margin:12px 0 6px;}
+  .lstep input{width:100%;font-size:14px;padding:12px 13px;border:1px solid var(--line);border-radius:10px;background:#fbfdfb;color:var(--ink);}
+  .lstep input:focus{outline:none;border-color:var(--accent);}
+  .btn-primary{width:100%;background:var(--sidebar-bg);color:#fff;border:none;border-radius:11px;padding:13px;font-size:14px;font-weight:700;margin-top:18px;}
+  .btn-primary:disabled{opacity:.6;}
+  .link-row{text-align:center;margin-top:14px;}
+  .link-btn{background:none;border:none;color:var(--accent-deep);font-size:12.5px;font-weight:700;}
+  .msg{font-size:12.5px;padding:10px 12px;border-radius:9px;margin-bottom:6px;display:none;}
+  .msg.show{display:block;}
+  .msg.error{background:#fdecea;color:#c0392b;}
+  .msg.success{background:#eef9d6;color:var(--accent-deep);}
+
+  /* ── App ── */
+  #app{display:none;min-height:100vh;flex-direction:column;}
+  .topbar{background:var(--sidebar-bg);color:#fff;padding:16px 16px calc(16px + env(safe-area-inset-top)) 16px;position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;}
+  .topbar .brand{font-family:var(--unbounded);font-weight:900;font-size:15px;}
+  .topbar .brand .g{color:var(--accent);}
+  .topbar .who{font-size:11px;color:rgba(255,255,255,.65);margin-top:2px;}
+  .icon-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:9px;width:38px;height:38px;font-size:16px;display:flex;align-items:center;justify-content:center;}
+
+  .wrap{flex:1;padding:20px 16px 40px;max-width:520px;margin:0 auto;width:100%;}
+  .clock-card{background:var(--panel);border-radius:16px;padding:22px 20px;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.05);margin-bottom:18px;}
+  .clock-now{font-family:var(--unbounded);font-size:34px;font-weight:900;color:var(--sidebar-bg);}
+  .clock-date{font-size:12.5px;color:var(--ink-faint);margin-top:4px;text-transform:capitalize;}
+
+  .tipos-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;}
+  .tipo-btn{background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:18px 10px;text-align:center;font-weight:700;font-size:13px;color:var(--ink);display:flex;flex-direction:column;align-items:center;gap:6px;}
+  .tipo-btn .ico{font-size:22px;}
+  .tipo-btn.selected{border-color:var(--accent);background:#f4fbe8;color:var(--accent-deep);}
+  .tipo-btn.registrado{opacity:.55;}
+  .tipo-btn .hora{font-size:10.5px;color:var(--ink-faint);font-weight:600;}
+
+  .photo-box{background:var(--panel);border:1.5px dashed var(--line);border-radius:14px;padding:16px;text-align:center;margin-bottom:14px;}
+  .photo-box img{max-width:100%;max-height:220px;border-radius:10px;display:block;margin:0 auto 10px;object-fit:cover;}
+  .photo-btn-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+  .ph-btn{display:inline-block;background:#fff;border:1px solid var(--line);border-radius:9px;padding:10px 16px;font-size:12.5px;font-weight:700;color:var(--ink-soft);}
+  input[type=file]{display:none;}
+
+  .loc-status{font-size:11.5px;color:var(--ink-faint);text-align:center;margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:6px;}
+  .loc-status.ok{color:var(--accent-deep);}
+  .loc-status.error{color:var(--debit);}
+
+  .btn-confirmar{width:100%;background:var(--sidebar-bg);color:#fff;border:none;border-radius:13px;padding:16px;font-size:15px;font-weight:700;}
+  .btn-confirmar:disabled{opacity:.45;cursor:not-allowed;}
+
+  .hist-title{font-size:11.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;margin:22px 0 10px;}
+  .hist-item{background:var(--panel);border-radius:11px;padding:10px 14px;display:flex;align-items:center;gap:12px;margin-bottom:8px;font-size:13px;}
+  .hist-item .hist-info{flex:1;}
+  .hist-foto{width:42px;height:42px;border-radius:9px;object-fit:cover;flex:none;cursor:pointer;}
+  .hist-foto-vazia{display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--ink-faint);font-size:16px;cursor:default;}
+  .hist-item .tipo{font-weight:700;}
+  .hist-item .hora{color:var(--ink-faint);font-size:12px;}
+
+  .toast{position:fixed;left:14px;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));max-width:480px;margin:0 auto;background:var(--sidebar-bg);color:#fff;padding:13px 16px;border-radius:11px;font-size:13px;z-index:100;box-shadow:0 10px 30px rgba(0,0,0,.3);opacity:0;transition:opacity .2s;text-align:center;}
+  .toast.show{opacity:1;}
+  .toast.error{background:var(--debit);}
+
+  #screen-historico{display:none;position:fixed;inset:0;background:var(--bg);z-index:50;flex-direction:column;}
+  #screen-historico.active{display:flex;}
+  #screen-historico .topbar{gap:10px;}
+  #screen-historico .icon-btn{background:rgba(255,255,255,.08);}
+  .hist-day-label{font-size:11px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.04em;margin:16px 0 8px;}
+  .hist-day-label:first-child{margin-top:0;}
+  .paginacao{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;padding:4px 2px;}
+  .paginacao button{flex:none;background:#fff;border:1px solid var(--line);border-radius:9px;padding:9px 14px;font-size:12.5px;font-weight:700;color:var(--ink-soft);}
+  .paginacao button:disabled{opacity:.4;}
+  .paginacao .pg-info{font-size:12px;color:var(--ink-faint);font-weight:600;}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="sg-solar">SOLAR <span class="sg-green">GREEN</span></div>
+      <div class="sg-sub">Ponto Eletrônico</div>
+    </div>
+
+    <div class="lstep active" id="step-login">
+      <h2>Entrar</h2>
+      <div class="lstep-sub">Use o e-mail cadastrado na equipe.</div>
+      <div class="msg" id="msg-login"></div>
+      <label>E-mail</label>
+      <input type="email" id="in-email" autocomplete="username" placeholder="voce@solargreen.com.br">
+      <label>Senha</label>
+      <input type="password" id="in-senha" autocomplete="current-password" placeholder="••••••••">
+      <button class="btn-primary" id="btn-login">Entrar</button>
+      <div class="link-row"><button class="link-btn" id="go-esqueci">Esqueci minha senha</button></div>
+    </div>
+
+    <div class="lstep" id="step-esqueci">
+      <h2>Esqueci minha senha</h2>
+      <div class="lstep-sub">Vamos enviar um código de 6 dígitos para o seu e-mail cadastrado.</div>
+      <div class="msg" id="msg-esqueci"></div>
+      <label>E-mail</label>
+      <input type="email" id="in-esqueci-email" autocomplete="username" placeholder="voce@solargreen.com.br">
+      <button class="btn-primary" id="btn-esqueci">Enviar código</button>
+      <div class="link-row"><button class="link-btn" id="back-login-1">Voltar para o login</button></div>
+    </div>
+
+    <div class="lstep" id="step-redefinir">
+      <h2>Criar nova senha</h2>
+      <div class="lstep-sub">Confira seu e-mail e digite o código recebido.</div>
+      <div class="msg" id="msg-redefinir"></div>
+      <label>Código recebido por e-mail</label>
+      <input type="text" id="in-token" inputmode="numeric" maxlength="6" placeholder="000000">
+      <label>Nova senha</label>
+      <input type="password" id="in-senha1" autocomplete="new-password" placeholder="mínimo 6 caracteres">
+      <label>Confirmar nova senha</label>
+      <input type="password" id="in-senha2" autocomplete="new-password" placeholder="repita a senha">
+      <button class="btn-primary" id="btn-redefinir">Salvar nova senha</button>
+      <div class="link-row"><button class="link-btn" id="back-login-2">Voltar para o login</button></div>
+    </div>
+
+    <div class="lstep" id="step-primeiro">
+      <h2>Crie sua senha</h2>
+      <div class="lstep-sub">Este é seu primeiro acesso. Antes de continuar, crie uma senha só sua.</div>
+      <div class="msg" id="msg-primeiro"></div>
+      <label>Nova senha</label>
+      <input type="password" id="in-primeiro1" autocomplete="new-password" placeholder="mínimo 6 caracteres">
+      <label>Confirmar nova senha</label>
+      <input type="password" id="in-primeiro2" autocomplete="new-password" placeholder="repita a senha">
+      <button class="btn-primary" id="btn-primeiro">Salvar e entrar</button>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <div>
+      <div class="brand">SOLAR <span class="g">GREEN</span></div>
+      <div class="who" id="topbar-nome">—</div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="icon-btn" id="btn-historico" title="Meu histórico completo">🕘</button>
+      <button class="icon-btn" id="btn-logout" title="Sair">⎋</button>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="clock-card">
+      <div class="clock-now" id="relogio">--:--:--</div>
+      <div class="clock-date" id="dataHoje">—</div>
+    </div>
+
+    <div class="tipos-grid" id="tiposGrid"></div>
+
+    <div class="photo-box" id="photoBox">
+      <div id="photoPreviewWrap"></div>
+      <div class="photo-btn-row">
+        <label class="ph-btn" for="input-cam">📷 Tirar selfie</label>
+        <label class="ph-btn" for="input-gal">🖼 Galeria</label>
+      </div>
+      <input type="file" accept="image/*" capture="user" id="input-cam">
+      <input type="file" accept="image/*" id="input-gal">
+      <div style="font-size:11px;color:var(--ink-faint);margin-top:8px;">A selfie é opcional, mas ajuda a confirmar o registro.</div>
+    </div>
+
+    <div class="loc-status" id="locStatus">📍 Obtendo localização…</div>
+
+    <button class="btn-confirmar" id="btnConfirmar" disabled>Selecione o tipo de ponto</button>
+
+    <div class="hist-title">Seus registros de hoje</div>
+    <div id="histLista"><div style="font-size:12.5px;color:var(--ink-faint);">Nenhum registro ainda hoje.</div></div>
+  </div>
+</div>
+
+<div id="screen-historico">
+  <div class="topbar">
+    <button class="icon-btn" id="btn-fecharHistorico">←</button>
+    <div class="brand" style="flex:1;text-align:center;">Meu histórico</div>
+    <div style="width:38px;"></div>
+  </div>
+  <div class="wrap" id="histCompletoWrap">
+    <div id="histCompletoLista"><div style="font-size:12.5px;color:var(--ink-faint);text-align:center;padding:30px 0;">Carregando…</div></div>
+    <div id="histPaginacao" class="paginacao"></div>
+  </div>
+</div>
+
+<script>
+// ════ AUTENTICAÇÃO (mesmo esquema do app do técnico) ════
+var SGAuth=(function(){
+  var DEFAULT_API_URL='https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA34xrlLTVUUNhKBIlguJT3ectH7Yus-VW1n41GcCclc5q_Yj0Di2O7g/exec';
+  var DEFAULT_API_KEY='1234';
+  var SESSION_KEY='sg_auth_session';
+  var PENDING_KEY='sg_pending_reset';
+
+  function apiUrl(){ return DEFAULT_API_URL; }
+  function apiKey(){ return DEFAULT_API_KEY; }
+
+  function apiCall(action,payload){
+    var body=Object.assign({action:action,chave:apiKey()},payload||{});
+    return fetch(apiUrl(),{method:'POST',cache:'no-store',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)}).then(function(r){return r.json();});
+  }
+
+  function getSession(){
+    try{
+      var raw=localStorage.getItem(SESSION_KEY);
+      if(!raw)return null;
+      var s=JSON.parse(raw);
+      if(!s||!s.expiresAt||Date.now()>s.expiresAt){ localStorage.removeItem(SESSION_KEY); return null; }
+      return s;
+    }catch(e){ return null; }
+  }
+  function setSession(usuario){
+    var s={idVendedor:usuario.IdVendedor||usuario.idVendedor,nome:usuario.Nome||usuario.nome,email:usuario.Email||usuario.email,tipo:usuario.Tipo||usuario.tipo,expiresAt:Date.now()+14*60*60*1000};
+    localStorage.setItem(SESSION_KEY,JSON.stringify(s));
+    return s;
+  }
+  function clearSession(){ localStorage.removeItem(SESSION_KEY); }
+
+  return {apiCall:apiCall,getSession:getSession,setSession:setSession,clearSession:clearSession,PENDING_KEY:PENDING_KEY};
+})();
+
+(function(){
+  function showMsg(elId,texto,tipo){
+    var el=document.getElementById(elId);
+    el.className='msg show'+(tipo?' '+tipo:'');
+    el.textContent=texto||'';
+  }
+  function goStep(id){
+    document.querySelectorAll('.lstep').forEach(function(s){s.classList.remove('active');});
+    document.getElementById(id).classList.add('active');
+  }
+
+  document.getElementById('btn-login').addEventListener('click',function(){
+    var email=document.getElementById('in-email').value.trim();
+    var senha=document.getElementById('in-senha').value;
+    if(!email||!senha){ showMsg('msg-login','Preencha e-mail e senha.','error'); return; }
+    var btn=document.getElementById('btn-login');
+    btn.disabled=true; btn.textContent='Entrando…';
+    SGAuth.apiCall('login',{email:email,senha:senha}).then(function(resp){
+      btn.disabled=false; btn.textContent='Entrar';
+      if(!resp||!resp.ok){ showMsg('msg-login',(resp&&resp.erro)||'E-mail ou senha inválidos.','error'); return; }
+      if(resp.precisaTrocarSenha){
+        sessionStorage.setItem(SGAuth.PENDING_KEY,JSON.stringify(resp.usuario));
+        goStep('step-primeiro');
+        return;
+      }
+      SGAuth.setSession(resp.usuario);
+      iniciarApp();
+    }).catch(function(err){ btn.disabled=false; btn.textContent='Entrar'; showMsg('msg-login','Erro de conexão: '+err.message,'error'); });
+  });
+
+  document.getElementById('go-esqueci').addEventListener('click',function(){ goStep('step-esqueci'); });
+  document.getElementById('back-login-1').addEventListener('click',function(){ goStep('step-login'); });
+  document.getElementById('back-login-2').addEventListener('click',function(){ goStep('step-login'); });
+
+  document.getElementById('btn-esqueci').addEventListener('click',function(){
+    var email=document.getElementById('in-esqueci-email').value.trim();
+    if(!email){ showMsg('msg-esqueci','Digite seu e-mail.','error'); return; }
+    var btn=document.getElementById('btn-esqueci');
+    btn.disabled=true; btn.textContent='Enviando…';
+    SGAuth.apiCall('esqueciSenha',{email:email}).then(function(resp){
+      btn.disabled=false; btn.textContent='Enviar código';
+      if(!resp||!resp.ok){ showMsg('msg-esqueci',(resp&&resp.erro)||'Não foi possível enviar o código.','error'); return; }
+      sessionStorage.setItem('sg_reset_email',email);
+      showMsg('msg-redefinir','Código enviado! Confira seu e-mail.','success');
+      goStep('step-redefinir');
+    }).catch(function(err){ btn.disabled=false; btn.textContent='Enviar código'; showMsg('msg-esqueci','Erro de conexão: '+err.message,'error'); });
+  });
+
+  document.getElementById('btn-redefinir').addEventListener('click',function(){
+    var email=sessionStorage.getItem('sg_reset_email')||'';
+    var token=document.getElementById('in-token').value.trim();
+    var s1=document.getElementById('in-senha1').value, s2=document.getElementById('in-senha2').value;
+    if(!token||!s1||!s2){ showMsg('msg-redefinir','Preencha todos os campos.','error'); return; }
+    if(s1!==s2){ showMsg('msg-redefinir','As senhas não coincidem.','error'); return; }
+    if(s1.length<6){ showMsg('msg-redefinir','A senha precisa ter pelo menos 6 caracteres.','error'); return; }
+    var btn=document.getElementById('btn-redefinir');
+    btn.disabled=true; btn.textContent='Salvando…';
+    SGAuth.apiCall('redefinirSenha',{email:email,token:token,novaSenha:s1}).then(function(resp){
+      btn.disabled=false; btn.textContent='Salvar nova senha';
+      if(!resp||!resp.ok){ showMsg('msg-redefinir',(resp&&resp.erro)||'Código inválido ou expirado.','error'); return; }
+      showMsg('msg-login','Senha alterada! Faça login com a nova senha.','success');
+      goStep('step-login');
+    }).catch(function(err){ btn.disabled=false; btn.textContent='Salvar nova senha'; showMsg('msg-redefinir','Erro de conexão: '+err.message,'error'); });
+  });
+
+  document.getElementById('btn-primeiro').addEventListener('click',function(){
+    var pendente=JSON.parse(sessionStorage.getItem(SGAuth.PENDING_KEY)||'null');
+    if(!pendente){ goStep('step-login'); return; }
+    var s1=document.getElementById('in-primeiro1').value, s2=document.getElementById('in-primeiro2').value;
+    if(!s1||!s2){ showMsg('msg-primeiro','Preencha os dois campos.','error'); return; }
+    if(s1!==s2){ showMsg('msg-primeiro','As senhas não coincidem.','error'); return; }
+    if(s1.length<6){ showMsg('msg-primeiro','A senha precisa ter pelo menos 6 caracteres.','error'); return; }
+    var btn=document.getElementById('btn-primeiro');
+    btn.disabled=true; btn.textContent='Salvando…';
+    SGAuth.apiCall('trocarSenha',{idVendedor:pendente.IdVendedor||pendente.idVendedor,novaSenha:s1}).then(function(resp){
+      btn.disabled=false; btn.textContent='Salvar e entrar';
+      if(!resp||!resp.ok){ showMsg('msg-primeiro',(resp&&resp.erro)||'Não foi possível salvar a senha.','error'); return; }
+      sessionStorage.removeItem(SGAuth.PENDING_KEY);
+      SGAuth.setSession(pendente);
+      iniciarApp();
+    }).catch(function(err){ btn.disabled=false; btn.textContent='Salvar e entrar'; showMsg('msg-primeiro','Erro de conexão: '+err.message,'error'); });
+  });
+
+  document.getElementById('btn-logout').addEventListener('click',function(){
+    SGAuth.clearSession();
+    location.reload();
+  });
+
+  function iniciarApp(){
+    var session=SGAuth.getSession();
+    if(!session)return;
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app').style.display='flex';
+    document.getElementById('topbar-nome').textContent=session.nome+' · '+(session.tipo||'');
+    window.PontoApp.init(session);
+  }
+
+  var sessaoJaLogada=SGAuth.getSession();
+  if(sessaoJaLogada)iniciarApp();
+})();
+
+// ════ APP: BATER PONTO ════
+window.PontoApp=(function(){
+  var session=null;
+  var TIPOS=[
+    {tipo:'Entrada',ico:'🌅'},
+    {tipo:'Almoço',ico:'🍽️'},
+    {tipo:'Retorno Almoço',ico:'↩️'},
+    {tipo:'Saída',ico:'🌙'}
+  ];
+  var tipoSelecionado=null;
+  var registrosHoje=[];
+  var localizacaoAtual='';
+  var fotoBase64=null, fotoMime='image/jpeg';
+
+  function apiCall(action,payload){
+    payload=payload||{};
+    payload.solicitanteId=session.idVendedor;
+    return SGAuth.apiCall(action,payload);
+  }
+
+  function showToast(texto,erro){
+    var el=document.getElementById('toast');
+    if(!el){
+      el=document.createElement('div'); el.id='toast'; el.className='toast';
+      document.body.appendChild(el);
+    }
+    el.className='toast show'+(erro?' error':'');
+    el.textContent=texto;
+    clearTimeout(el._t);
+    el._t=setTimeout(function(){ el.classList.remove('show'); },3000);
+  }
+
+  function atualizarRelogio(){
+    var d=new Date();
+    document.getElementById('relogio').textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');
+    document.getElementById('dataHoje').textContent=d.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});
+  }
+
+  function obterLocalizacao(){
+    var el=document.getElementById('locStatus');
+    el.className='loc-status'; el.innerHTML='📍 Obtendo localização…';
+    localizacaoAtual='';
+    atualizarBotaoConfirmar();
+    if(!navigator.geolocation){
+      el.className='loc-status error'; el.innerHTML='📍 Seu navegador não suporta localização — não é possível bater o ponto por aqui.';
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(function(pos){
+      localizacaoAtual=pos.coords.latitude.toFixed(6)+', '+pos.coords.longitude.toFixed(6);
+      el.className='loc-status ok'; el.textContent='📍 Localização capturada.';
+      atualizarBotaoConfirmar();
+    },function(err){
+      var motivo='Verifique se o GPS do celular está ligado e se você permitiu o acesso à localização para este site.';
+      if(err&&err.code===1)motivo='Você negou o acesso à localização — permita nas configurações do site/navegador pra continuar.';
+      else if(err&&err.code===3)motivo='Demorou demais pra responder — tente de novo num local com sinal melhor.';
+      el.className='loc-status error';
+      el.innerHTML='📍 Não foi possível obter a localização. '+motivo+' <button type="button" id="btnRetryLoc" style="background:none;border:none;color:var(--debit);font-weight:700;text-decoration:underline;cursor:pointer;font-size:11.5px;padding:0;">Tentar novamente</button>';
+      var retryBtn=document.getElementById('btnRetryLoc');
+      if(retryBtn)retryBtn.addEventListener('click',obterLocalizacao);
+      atualizarBotaoConfirmar();
+    },{timeout:12000,maximumAge:60000});
+  }
+
+  function renderTipos(){
+    var grid=document.getElementById('tiposGrid');
+    grid.innerHTML=TIPOS.map(function(t){
+      var jaFeito=registrosHoje.some(function(r){return r.Tipo===t.tipo;});
+      var horaFeito=jaFeito?horaDoRegistro(t.tipo):'';
+      return '<button type="button" class="tipo-btn'+(t.tipo===tipoSelecionado?' selected':'')+(jaFeito?' registrado':'')+'" data-tipo="'+t.tipo+'">'+
+        '<span class="ico">'+t.ico+'</span>'+
+        '<span>'+t.tipo+'</span>'+
+        (jaFeito?'<span class="hora">já batido às '+horaFeito+'</span>':'')+
+      '</button>';
+    }).join('');
+    grid.querySelectorAll('.tipo-btn').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        tipoSelecionado=btn.getAttribute('data-tipo');
+        renderTipos();
+        atualizarBotaoConfirmar();
+      });
+    });
+  }
+
+  function horaDoRegistro(tipo){
+    var r=registrosHoje.filter(function(x){return x.Tipo===tipo;})[0];
+    if(!r)return '';
+    var m=String(r['Data e Hora']||'').match(/(\d{1,2}):(\d{2})/);
+    return m?(m[1].padStart(2,'0')+':'+m[2]):'';
+  }
+
+  function atualizarBotaoConfirmar(){
+    var btn=document.getElementById('btnConfirmar');
+    if(!localizacaoAtual){ btn.disabled=true; btn.textContent='Aguardando localização…'; return; }
+    if(!tipoSelecionado){ btn.disabled=true; btn.textContent='Selecione o tipo de ponto'; return; }
+    btn.disabled=false;
+    btn.textContent='Confirmar '+tipoSelecionado;
+  }
+
+  function renderHistorico(){
+    var el=document.getElementById('histLista');
+    if(!registrosHoje.length){
+      el.innerHTML='<div style="font-size:12.5px;color:var(--ink-faint);">Nenhum registro ainda hoje.</div>';
+      return;
+    }
+    var ordenados=registrosHoje.slice().sort(function(a,b){return String(a['Data e Hora']).localeCompare(String(b['Data e Hora']));});
+    el.innerHTML=ordenados.map(function(r){
+      var m=String(r['Data e Hora']||'').match(/(\d{1,2}):(\d{2})/);
+      var hora=m?(m[1].padStart(2,'0')+':'+m[2]):'—';
+      var foto=r['Foto Selfie'];
+      var temFoto=foto&&/^https?:\/\//.test(foto);
+      return '<div class="hist-item">'+
+        (temFoto?'<img src="'+foto+'" alt="selfie" class="hist-foto" data-full="'+foto+'">':'<div class="hist-foto hist-foto-vazia">—</div>')+
+        '<div class="hist-info"><span class="tipo">'+r.Tipo+'</span></div>'+
+        '<span class="hora">'+hora+'</span>'+
+      '</div>';
+    }).join('');
+    el.querySelectorAll('.hist-foto[data-full]').forEach(function(img){
+      img.addEventListener('click',function(){ window.open(img.getAttribute('data-full'),'_blank'); });
+    });
+  }
+
+  function comprimirImagem(file,maxDim,qualidade){
+    return new Promise(function(resolve,reject){
+      var img=new Image();
+      var url=URL.createObjectURL(file);
+      img.onload=function(){
+        URL.revokeObjectURL(url);
+        var w=img.width,h=img.height;
+        if(w>h&&w>maxDim){ h=Math.round(h*maxDim/w); w=maxDim; }
+        else if(h>=w&&h>maxDim){ w=Math.round(w*maxDim/h); h=maxDim; }
+        var canvas=document.createElement('canvas');
+        canvas.width=w; canvas.height=h;
+        var ctx=canvas.getContext('2d');
+        ctx.drawImage(img,0,0,w,h);
+        canvas.toBlob(function(blob){
+          if(!blob){ reject(new Error('Não foi possível comprimir a imagem.')); return; }
+          resolve(blob);
+        },'image/jpeg',qualidade);
+      };
+      img.onerror=function(){ URL.revokeObjectURL(url); reject(new Error('Não foi possível ler o arquivo de imagem.')); };
+      img.src=url;
+    });
+  }
+
+  function wirePhotoInputs(){
+    ['input-cam','input-gal'].forEach(function(id){
+      document.getElementById(id).addEventListener('change',function(){
+        var input=document.getElementById(id);
+        var file=input.files&&input.files[0];
+        if(!file)return;
+        comprimirImagem(file,1280,0.75).then(function(blob){
+          var reader=new FileReader();
+          reader.onload=function(){
+            fotoBase64=reader.result.split(',')[1];
+            fotoMime='image/jpeg';
+            document.getElementById('photoPreviewWrap').innerHTML='<img src="'+reader.result+'" alt="selfie">';
+          };
+          reader.readAsDataURL(blob);
+        }).catch(function(err){ showToast('Erro ao preparar a foto: '+err.message,true); });
+      });
+    });
+  }
+
+  function confirmarPonto(){
+    if(!tipoSelecionado)return;
+    if(!localizacaoAtual){ showToast('Precisa da localização pra bater o ponto — toque em "Tentar novamente" acima.',true); return; }
+    var btn=document.getElementById('btnConfirmar');
+    btn.disabled=true; btn.textContent='Registrando…';
+    apiCall('registrarPonto',{
+      tipo:tipoSelecionado,
+      base64:fotoBase64||undefined,
+      mimeType:fotoMime,
+      localizacao:localizacaoAtual,
+      endereco:navigator.language||'pt-BR'
+    }).then(function(resp){
+      if(!resp||!resp.ok){
+        btn.disabled=false; atualizarBotaoConfirmar();
+        showToast((resp&&resp.erro)||'Não foi possível registrar o ponto.',true);
+        return;
+      }
+      showToast(tipoSelecionado+' registrado com sucesso ✓');
+      registrosHoje.push({Tipo:tipoSelecionado,'Data e Hora':new Date().toLocaleString('pt-BR'),'Foto Selfie':resp.fotoUrl||''});
+      historicoCompleto=null; // invalida o cache do histórico completo — próxima abertura busca de novo
+      tipoSelecionado=null;
+      fotoBase64=null;
+      document.getElementById('photoPreviewWrap').innerHTML='';
+      renderTipos();
+      renderHistorico();
+      atualizarBotaoConfirmar();
+    }).catch(function(err){
+      btn.disabled=false; atualizarBotaoConfirmar();
+      showToast('Erro de conexão: '+err.message,true);
+    });
+  }
+
+  function carregarRegistrosHoje(){
+    apiCall('getPontoFuncionario',{}).then(function(resp){
+      if(!resp||!resp.ok)return;
+      registrosHoje=resp.registros||[];
+      renderTipos();
+      renderHistorico();
+    });
+  }
+
+  var historicoCompleto=null; // null = ainda não buscou; carrega uma vez só e pagina localmente
+  var histPagina=1, HIST_POR_PAGINA=10;
+
+  function abrirHistoricoCompleto(){
+    document.getElementById('screen-historico').classList.add('active');
+    if(historicoCompleto===null){
+      document.getElementById('histCompletoLista').innerHTML='<div style="font-size:12.5px;color:var(--ink-faint);text-align:center;padding:30px 0;">Carregando…</div>';
+      apiCall('getPontoFuncionario',{apenasHoje:false}).then(function(resp){
+        if(!resp||!resp.ok){
+          document.getElementById('histCompletoLista').innerHTML='<div style="font-size:12.5px;color:var(--debit);text-align:center;padding:30px 0;">'+((resp&&resp.erro)||'Não foi possível carregar o histórico.')+'</div>';
+          return;
+        }
+        historicoCompleto=(resp.registros||[]).slice().sort(function(a,b){return String(b['Data e Hora']).localeCompare(String(a['Data e Hora']));});
+        renderHistoricoCompleto();
+      }).catch(function(err){
+        document.getElementById('histCompletoLista').innerHTML='<div style="font-size:12.5px;color:var(--debit);text-align:center;padding:30px 0;">Erro de conexão: '+err.message+'</div>';
+      });
+    }else{
+      renderHistoricoCompleto();
+    }
+  }
+  function fecharHistoricoCompleto(){ document.getElementById('screen-historico').classList.remove('active'); }
+
+  function renderPaginacaoHistorico(totalPaginas){
+    var el=document.getElementById('histPaginacao');
+    if(totalPaginas<=1){ el.innerHTML=''; return; }
+    el.innerHTML='<button type="button" id="hist-pgAnterior" '+(histPagina<=1?'disabled':'')+'>‹ Anterior</button>'+
+      '<span class="pg-info">Página '+histPagina+' de '+totalPaginas+'</span>'+
+      '<button type="button" id="hist-pgProxima" '+(histPagina>=totalPaginas?'disabled':'')+'>Próxima ›</button>';
+    var a=document.getElementById('hist-pgAnterior'); if(a)a.addEventListener('click',function(){ if(histPagina>1){ histPagina--; renderHistoricoCompleto(); } });
+    var p=document.getElementById('hist-pgProxima'); if(p)p.addEventListener('click',function(){ if(histPagina<totalPaginas){ histPagina++; renderHistoricoCompleto(); } });
+  }
+
+  function renderHistoricoCompleto(){
+    var lista=historicoCompleto||[];
+    var el=document.getElementById('histCompletoLista');
+    if(!lista.length){
+      el.innerHTML='<div style="font-size:12.5px;color:var(--ink-faint);text-align:center;padding:30px 0;">Nenhum registro de ponto encontrado ainda.</div>';
+      renderPaginacaoHistorico(0);
+      return;
+    }
+    var totalPaginas=Math.max(1,Math.ceil(lista.length/HIST_POR_PAGINA));
+    if(histPagina>totalPaginas)histPagina=totalPaginas;
+    if(histPagina<1)histPagina=1;
+    var inicio=(histPagina-1)*HIST_POR_PAGINA;
+    var pagina=lista.slice(inicio,inicio+HIST_POR_PAGINA);
+
+    var diaAtual=null, html='';
+    pagina.forEach(function(r){
+      var dataStr=String(r['Data e Hora']||'').split(' ')[0]||'—';
+      if(dataStr!==diaAtual){ html+='<div class="hist-day-label">'+dataStr+'</div>'; diaAtual=dataStr; }
+      var m=String(r['Data e Hora']||'').match(/(\d{1,2}):(\d{2})/);
+      var hora=m?(m[1].padStart(2,'0')+':'+m[2]):'—';
+      var foto=r['Foto Selfie'];
+      var temFoto=foto&&/^https?:\/\//.test(foto);
+      html+='<div class="hist-item">'+
+        (temFoto?'<img src="'+foto+'" alt="selfie" class="hist-foto" data-full="'+foto+'">':'<div class="hist-foto hist-foto-vazia">—</div>')+
+        '<div class="hist-info"><span class="tipo">'+r.Tipo+'</span></div>'+
+        '<span class="hora">'+hora+'</span>'+
+      '</div>';
+    });
+    el.innerHTML=html;
+    el.querySelectorAll('.hist-foto[data-full]').forEach(function(img){
+      img.addEventListener('click',function(){ window.open(img.getAttribute('data-full'),'_blank'); });
+    });
+    renderPaginacaoHistorico(totalPaginas);
+  }
+
+  function init(s){
+    session=s;
+    atualizarRelogio();
+    setInterval(atualizarRelogio,1000);
+    obterLocalizacao();
+    wirePhotoInputs();
+    document.getElementById('btnConfirmar').addEventListener('click',confirmarPonto);
+    document.getElementById('btn-historico').addEventListener('click',abrirHistoricoCompleto);
+    document.getElementById('btn-fecharHistorico').addEventListener('click',fecharHistoricoCompleto);
+    renderTipos();
+    carregarRegistrosHoje();
+  }
+
+  return {init:init};
+})();
+</script>
+</body>
+</html>
