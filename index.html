@@ -3681,6 +3681,19 @@
   function nomeClienteVenda(id){var c=clientesMap[id];return c?(c['Nome Razao Social']||c.Nome||id):id;}
   function fmtDateBRVendas(d){ return d?(String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()):'—'; }
 
+  /**
+   * Chamado pelo módulo de Clientes quando um cliente é salvo em outro
+   * lugar, pra manter o cache local em dia e a tabela de Vendas redesenhada
+   * na hora — sem isso, um nome corrigido em Clientes só aparecia aqui depois
+   * de recarregar a tela inteira.
+   */
+  function atualizarClienteCache(clienteObj){
+    if(!clienteObj||!clienteObj.IdCliente)return;
+    clientesMap[clienteObj.IdCliente]=clienteObj;
+    render();
+  }
+  window.vendasApp={atualizarClienteCache:atualizarClienteCache};
+
   function renderVendasPaginacao(totalPaginas){
     var el=document.getElementById('v-vendasPaginacao');
     if(!el)return;
@@ -5309,6 +5322,9 @@
     // se o painel de contato/endereço do lead tiver esse cliente aberto na hora, atualiza na tela também
     var fdCliente=document.getElementById('fd-cliente');
     if(fdCliente&&fdCliente.value===clienteObj.IdCliente&&typeof renderInfoClienteFunil==='function')renderInfoClienteFunil();
+    // redesenha a lista/kanban na hora — sem isso, o nome só aparecia certo
+    // depois de recarregar a tela inteira, mesmo já tendo o dado certo em memória.
+    if(_initialized)render();
   }
 
   window.funilApp={init:init,atualizarClienteCache:atualizarClienteCache};
@@ -6170,6 +6186,7 @@
     if(!clienteObj||!clienteObj.IdCliente)return;
     clientesMap[clienteObj.IdCliente]=clienteObj;
     if(document.getElementById('ag-idCliente')&&document.getElementById('ag-idCliente').value===clienteObj.IdCliente&&typeof validarCliente==='function')validarCliente();
+    if(_initialized)render();
   }
 
   window.agendamentosApp={init:init,atualizarClienteCache:atualizarClienteCache};
@@ -6194,14 +6211,18 @@
   /**
    * Cada tela guarda sua própria cópia dos clientes (carregada só quando a
    * tela é visitada), então salvar um cliente aqui não atualiza sozinho o
-   * que o Funil/Agendamentos/Planos têm em memória. Isso importa agora que
-   * dá pra abrir esse formulário POR CIMA de outra tela (pra corrigir um
-   * cadastro incompleto) — sem isso, ao voltar e tentar salvar de novo lá,
-   * o sistema ainda acharia que falta informação. Por isso avisa os outros
-   * módulos, se eles já tiverem sido carregados nessa sessão.
+   * que Funil/Agendamentos/Planos/Vendas/Custos da Venda têm em memória —
+   * cada uma tinha sua própria "foto" dos clientes, tirada em momentos
+   * diferentes, e nada avisava as outras quando uma mudava. Por isso essa
+   * função avisa todos os módulos que já tiverem sido carregados nessa
+   * sessão: cada um recebe o registro atualizado (atualizarClienteCache),
+   * corrige o próprio mapa em memória E redesenha a lista/painel que estiver
+   * na tela AGORA — não só na próxima vez que a pessoa visitar aquela aba.
+   * É isso que faz um nome corrigido em Clientes aparecer na hora em
+   * qualquer outra tela já aberta, sem precisar recarregar a página.
    */
   function propagarAtualizacaoCliente(clienteObj){
-    [window.funilApp,window.agendamentosApp,window.planosApp].forEach(function(app){
+    [window.funilApp,window.agendamentosApp,window.planosApp,window.vendasApp,window.custosVendaApp].forEach(function(app){
       if(app&&app.atualizarClienteCache)app.atualizarClienteCache(clienteObj);
     });
   }
@@ -6971,6 +6992,17 @@
 
   function nomeCliente(id){ var c=clientesMap[id]; return c?(c['Nome Razao Social']||c.Nome||id):'—'; }
   function nomeServico(id){ var s=servicosMap[id]; return s?(s['Nome Servico']||id):'—'; }
+
+  /**
+   * Chamado pelo módulo de Clientes quando um cliente é salvo em outro
+   * lugar, pra manter o cache local em dia e a lista redesenhada na hora.
+   */
+  function atualizarClienteCache(clienteObj){
+    if(!clienteObj||!clienteObj.IdCliente)return;
+    clientesMap[clienteObj.IdCliente]=clienteObj;
+    if(_initialized)render();
+  }
+
   function vendaPorId(idVenda){ return vendas.filter(function(v){return String(v.IdVenda)===String(idVenda);})[0]; }
   function labelDaVenda(idVenda){
     var v=vendaPorId(idVenda);
@@ -7305,7 +7337,7 @@
     carregar();
   }
 
-  window.custosVendaApp={init:init};
+  window.custosVendaApp={init:init,atualizarClienteCache:atualizarClienteCache};
 })();
 
 
@@ -8562,6 +8594,7 @@
   function atualizarClienteCache(clienteObj){
     if(!clienteObj||!clienteObj.IdCliente)return;
     clientesMap[clienteObj.IdCliente]=clienteObj;
+    if(_initialized)render();
   }
 
   window.planosApp={init:init,atualizarClienteCache:atualizarClienteCache};
