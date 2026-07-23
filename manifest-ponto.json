@@ -1,0 +1,19 @@
+{
+  "id": "/Pontoeletronico.html",
+  "name": "Solar Green · Ponto Eletrônico",
+  "short_name": "SG Ponto",
+  "description": "Registro de ponto eletrônico dos funcionários Solar Green.",
+  "start_url": "./Pontoeletronico.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F2F7F2",
+  "theme_color": "#003122",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
