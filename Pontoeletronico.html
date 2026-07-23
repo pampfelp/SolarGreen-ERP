@@ -250,107 +250,6 @@ var SGAuth=(function(){
   return {apiCall:apiCall,getSession:getSession,setSession:setSession,clearSession:clearSession,PENDING_KEY:PENDING_KEY};
 })();
 
-(function(){
-  function showMsg(elId,texto,tipo){
-    var el=document.getElementById(elId);
-    el.className='msg show'+(tipo?' '+tipo:'');
-    el.textContent=texto||'';
-  }
-  function goStep(id){
-    document.querySelectorAll('.lstep').forEach(function(s){s.classList.remove('active');});
-    document.getElementById(id).classList.add('active');
-  }
-
-  document.getElementById('btn-login').addEventListener('click',function(){
-    var email=document.getElementById('in-email').value.trim();
-    var senha=document.getElementById('in-senha').value;
-    if(!email||!senha){ showMsg('msg-login','Preencha e-mail e senha.','error'); return; }
-    var btn=document.getElementById('btn-login');
-    btn.disabled=true; btn.textContent='Entrando…';
-    SGAuth.apiCall('login',{email:email,senha:senha}).then(function(resp){
-      btn.disabled=false; btn.textContent='Entrar';
-      if(!resp||!resp.ok){ showMsg('msg-login',(resp&&resp.erro)||'E-mail ou senha inválidos.','error'); return; }
-      if(resp.precisaTrocarSenha){
-        sessionStorage.setItem(SGAuth.PENDING_KEY,JSON.stringify(resp.usuario));
-        goStep('step-primeiro');
-        return;
-      }
-      SGAuth.setSession(resp.usuario);
-      iniciarApp();
-    }).catch(function(err){ btn.disabled=false; btn.textContent='Entrar'; showMsg('msg-login','Erro de conexão: '+err.message,'error'); });
-  });
-
-  document.getElementById('go-esqueci').addEventListener('click',function(){ goStep('step-esqueci'); });
-  document.getElementById('back-login-1').addEventListener('click',function(){ goStep('step-login'); });
-  document.getElementById('back-login-2').addEventListener('click',function(){ goStep('step-login'); });
-
-  document.getElementById('btn-esqueci').addEventListener('click',function(){
-    var email=document.getElementById('in-esqueci-email').value.trim();
-    if(!email){ showMsg('msg-esqueci','Digite seu e-mail.','error'); return; }
-    var btn=document.getElementById('btn-esqueci');
-    btn.disabled=true; btn.textContent='Enviando…';
-    SGAuth.apiCall('esqueciSenha',{email:email}).then(function(resp){
-      btn.disabled=false; btn.textContent='Enviar código';
-      if(!resp||!resp.ok){ showMsg('msg-esqueci',(resp&&resp.erro)||'Não foi possível enviar o código.','error'); return; }
-      sessionStorage.setItem('sg_reset_email',email);
-      showMsg('msg-redefinir','Código enviado! Confira seu e-mail.','success');
-      goStep('step-redefinir');
-    }).catch(function(err){ btn.disabled=false; btn.textContent='Enviar código'; showMsg('msg-esqueci','Erro de conexão: '+err.message,'error'); });
-  });
-
-  document.getElementById('btn-redefinir').addEventListener('click',function(){
-    var email=sessionStorage.getItem('sg_reset_email')||'';
-    var token=document.getElementById('in-token').value.trim();
-    var s1=document.getElementById('in-senha1').value, s2=document.getElementById('in-senha2').value;
-    if(!token||!s1||!s2){ showMsg('msg-redefinir','Preencha todos os campos.','error'); return; }
-    if(s1!==s2){ showMsg('msg-redefinir','As senhas não coincidem.','error'); return; }
-    if(s1.length<6){ showMsg('msg-redefinir','A senha precisa ter pelo menos 6 caracteres.','error'); return; }
-    var btn=document.getElementById('btn-redefinir');
-    btn.disabled=true; btn.textContent='Salvando…';
-    SGAuth.apiCall('redefinirSenha',{email:email,token:token,novaSenha:s1}).then(function(resp){
-      btn.disabled=false; btn.textContent='Salvar nova senha';
-      if(!resp||!resp.ok){ showMsg('msg-redefinir',(resp&&resp.erro)||'Código inválido ou expirado.','error'); return; }
-      showMsg('msg-login','Senha alterada! Faça login com a nova senha.','success');
-      goStep('step-login');
-    }).catch(function(err){ btn.disabled=false; btn.textContent='Salvar nova senha'; showMsg('msg-redefinir','Erro de conexão: '+err.message,'error'); });
-  });
-
-  document.getElementById('btn-primeiro').addEventListener('click',function(){
-    var pendente=JSON.parse(sessionStorage.getItem(SGAuth.PENDING_KEY)||'null');
-    if(!pendente){ goStep('step-login'); return; }
-    var s1=document.getElementById('in-primeiro1').value, s2=document.getElementById('in-primeiro2').value;
-    if(!s1||!s2){ showMsg('msg-primeiro','Preencha os dois campos.','error'); return; }
-    if(s1!==s2){ showMsg('msg-primeiro','As senhas não coincidem.','error'); return; }
-    if(s1.length<6){ showMsg('msg-primeiro','A senha precisa ter pelo menos 6 caracteres.','error'); return; }
-    var btn=document.getElementById('btn-primeiro');
-    btn.disabled=true; btn.textContent='Salvando…';
-    SGAuth.apiCall('trocarSenha',{idVendedor:pendente.IdVendedor||pendente.idVendedor,novaSenha:s1}).then(function(resp){
-      btn.disabled=false; btn.textContent='Salvar e entrar';
-      if(!resp||!resp.ok){ showMsg('msg-primeiro',(resp&&resp.erro)||'Não foi possível salvar a senha.','error'); return; }
-      sessionStorage.removeItem(SGAuth.PENDING_KEY);
-      SGAuth.setSession(pendente);
-      iniciarApp();
-    }).catch(function(err){ btn.disabled=false; btn.textContent='Salvar e entrar'; showMsg('msg-primeiro','Erro de conexão: '+err.message,'error'); });
-  });
-
-  document.getElementById('btn-logout').addEventListener('click',function(){
-    SGAuth.clearSession();
-    location.reload();
-  });
-
-  function iniciarApp(){
-    var session=SGAuth.getSession();
-    if(!session)return;
-    document.getElementById('login-screen').style.display='none';
-    document.getElementById('app').style.display='flex';
-    document.getElementById('topbar-nome').textContent=session.nome+' · '+(session.tipo||'');
-    window.PontoApp.init(session);
-  }
-
-  var sessaoJaLogada=SGAuth.getSession();
-  if(sessaoJaLogada)iniciarApp();
-})();
-
 // ════ APP: BATER PONTO ════
 window.PontoApp=(function(){
   var session=null;
@@ -636,6 +535,107 @@ window.PontoApp=(function(){
   }
 
   return {init:init};
+})();
+
+(function(){
+  function showMsg(elId,texto,tipo){
+    var el=document.getElementById(elId);
+    el.className='msg show'+(tipo?' '+tipo:'');
+    el.textContent=texto||'';
+  }
+  function goStep(id){
+    document.querySelectorAll('.lstep').forEach(function(s){s.classList.remove('active');});
+    document.getElementById(id).classList.add('active');
+  }
+
+  document.getElementById('btn-login').addEventListener('click',function(){
+    var email=document.getElementById('in-email').value.trim();
+    var senha=document.getElementById('in-senha').value;
+    if(!email||!senha){ showMsg('msg-login','Preencha e-mail e senha.','error'); return; }
+    var btn=document.getElementById('btn-login');
+    btn.disabled=true; btn.textContent='Entrando…';
+    SGAuth.apiCall('login',{email:email,senha:senha}).then(function(resp){
+      btn.disabled=false; btn.textContent='Entrar';
+      if(!resp||!resp.ok){ showMsg('msg-login',(resp&&resp.erro)||'E-mail ou senha inválidos.','error'); return; }
+      if(resp.precisaTrocarSenha){
+        sessionStorage.setItem(SGAuth.PENDING_KEY,JSON.stringify(resp.usuario));
+        goStep('step-primeiro');
+        return;
+      }
+      SGAuth.setSession(resp.usuario);
+      iniciarApp();
+    }).catch(function(err){ btn.disabled=false; btn.textContent='Entrar'; showMsg('msg-login','Erro de conexão: '+err.message,'error'); });
+  });
+
+  document.getElementById('go-esqueci').addEventListener('click',function(){ goStep('step-esqueci'); });
+  document.getElementById('back-login-1').addEventListener('click',function(){ goStep('step-login'); });
+  document.getElementById('back-login-2').addEventListener('click',function(){ goStep('step-login'); });
+
+  document.getElementById('btn-esqueci').addEventListener('click',function(){
+    var email=document.getElementById('in-esqueci-email').value.trim();
+    if(!email){ showMsg('msg-esqueci','Digite seu e-mail.','error'); return; }
+    var btn=document.getElementById('btn-esqueci');
+    btn.disabled=true; btn.textContent='Enviando…';
+    SGAuth.apiCall('esqueciSenha',{email:email}).then(function(resp){
+      btn.disabled=false; btn.textContent='Enviar código';
+      if(!resp||!resp.ok){ showMsg('msg-esqueci',(resp&&resp.erro)||'Não foi possível enviar o código.','error'); return; }
+      sessionStorage.setItem('sg_reset_email',email);
+      showMsg('msg-redefinir','Código enviado! Confira seu e-mail.','success');
+      goStep('step-redefinir');
+    }).catch(function(err){ btn.disabled=false; btn.textContent='Enviar código'; showMsg('msg-esqueci','Erro de conexão: '+err.message,'error'); });
+  });
+
+  document.getElementById('btn-redefinir').addEventListener('click',function(){
+    var email=sessionStorage.getItem('sg_reset_email')||'';
+    var token=document.getElementById('in-token').value.trim();
+    var s1=document.getElementById('in-senha1').value, s2=document.getElementById('in-senha2').value;
+    if(!token||!s1||!s2){ showMsg('msg-redefinir','Preencha todos os campos.','error'); return; }
+    if(s1!==s2){ showMsg('msg-redefinir','As senhas não coincidem.','error'); return; }
+    if(s1.length<6){ showMsg('msg-redefinir','A senha precisa ter pelo menos 6 caracteres.','error'); return; }
+    var btn=document.getElementById('btn-redefinir');
+    btn.disabled=true; btn.textContent='Salvando…';
+    SGAuth.apiCall('redefinirSenha',{email:email,token:token,novaSenha:s1}).then(function(resp){
+      btn.disabled=false; btn.textContent='Salvar nova senha';
+      if(!resp||!resp.ok){ showMsg('msg-redefinir',(resp&&resp.erro)||'Código inválido ou expirado.','error'); return; }
+      showMsg('msg-login','Senha alterada! Faça login com a nova senha.','success');
+      goStep('step-login');
+    }).catch(function(err){ btn.disabled=false; btn.textContent='Salvar nova senha'; showMsg('msg-redefinir','Erro de conexão: '+err.message,'error'); });
+  });
+
+  document.getElementById('btn-primeiro').addEventListener('click',function(){
+    var pendente=JSON.parse(sessionStorage.getItem(SGAuth.PENDING_KEY)||'null');
+    if(!pendente){ goStep('step-login'); return; }
+    var s1=document.getElementById('in-primeiro1').value, s2=document.getElementById('in-primeiro2').value;
+    if(!s1||!s2){ showMsg('msg-primeiro','Preencha os dois campos.','error'); return; }
+    if(s1!==s2){ showMsg('msg-primeiro','As senhas não coincidem.','error'); return; }
+    if(s1.length<6){ showMsg('msg-primeiro','A senha precisa ter pelo menos 6 caracteres.','error'); return; }
+    var btn=document.getElementById('btn-primeiro');
+    btn.disabled=true; btn.textContent='Salvando…';
+    SGAuth.apiCall('trocarSenha',{idVendedor:pendente.IdVendedor||pendente.idVendedor,novaSenha:s1}).then(function(resp){
+      btn.disabled=false; btn.textContent='Salvar e entrar';
+      if(!resp||!resp.ok){ showMsg('msg-primeiro',(resp&&resp.erro)||'Não foi possível salvar a senha.','error'); return; }
+      sessionStorage.removeItem(SGAuth.PENDING_KEY);
+      SGAuth.setSession(pendente);
+      iniciarApp();
+    }).catch(function(err){ btn.disabled=false; btn.textContent='Salvar e entrar'; showMsg('msg-primeiro','Erro de conexão: '+err.message,'error'); });
+  });
+
+  document.getElementById('btn-logout').addEventListener('click',function(){
+    SGAuth.clearSession();
+    location.reload();
+  });
+
+  function iniciarApp(){
+    var session=SGAuth.getSession();
+    if(!session)return;
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app').style.display='flex';
+    document.getElementById('topbar-nome').textContent=session.nome+' · '+(session.tipo||'');
+    window.PontoApp.init(session);
+  }
+
+  var sessaoJaLogada=SGAuth.getSession();
+  if(sessaoJaLogada)iniciarApp();
 })();
 </script>
 </body>
