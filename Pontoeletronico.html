@@ -523,8 +523,7 @@ window.PontoApp=(function(){
       tipo:tipoSelecionado,
       base64:fotoBase64||undefined,
       mimeType:fotoMime,
-      localizacao:localizacaoAtual,
-      endereco:navigator.language||'pt-BR'
+      localizacao:localizacaoAtual
     }).then(function(resp){
       if(!resp||!resp.ok){
         btn.disabled=false; atualizarBotaoConfirmar();

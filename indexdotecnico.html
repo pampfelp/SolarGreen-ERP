@@ -883,7 +883,7 @@ var SGAuth=(function(){
   function statusLabelDisplay(status){
     var s=(status||'').trim();
     if(s==='Agendado')return 'Pendente';
-    if(s==='Em Andamento')return 'Aguardando';
+    if(s==='Em Andamento')return 'Em Andamento';
     return s||'Pendente';
   }
   function parseBRDate(str){
@@ -1328,6 +1328,7 @@ var SGAuth=(function(){
       var statusEl=row.querySelector('.field-status');
       var salvarAgora=function(){
         clearTimeout(debounceTimers[idTemplate]);
+        debounceTimers[idTemplate]=null;
         salvarCampoIndividual(idAgendamento,idTemplate,campo.value.trim(),tipo,statusEl);
       };
       campo.addEventListener('input',function(){
@@ -1372,7 +1373,7 @@ var SGAuth=(function(){
                 base64:base64, mimeType:'image/jpeg', nomeArquivo:(file.name||'foto').replace(/\.[^.]+$/,'')+'.jpg'
               }).then(function(resp){
                 if(!resp||!resp.ok){
-                  statusEl.innerHTML=(resp&&resp.erro)||'Falha ao enviar — a foto continua na tela, salva só no aparelho.';
+                  statusEl.innerHTML=escapeHtml((resp&&resp.erro)||'Falha ao enviar — a foto continua na tela, salva só no aparelho.');
                   statusEl.innerHTML+=' <button type="button" class="ph-retry-btn" data-target="'+target+'">Tentar de novo</button>';
                   wireRetryFoto(statusEl,target,tentarEnviar);
                   return;
@@ -1878,7 +1879,7 @@ function fitCount(total, mod){
 
 // Packs a rectangle using ONE fixed orientation (main grid + recursively
 // packed leftover L-strips), returning the full total for that orientation.
-function packOriented(largura, altura, modH, modW, orientation, x, y, depth){
+function packOriented(largura, altura, modH, modW, orientation, x, y, depth, forceOrientation){
   const rows = orientation==='retrato' ? fitCount(altura, modH) : fitCount(altura, modW);
   const perRow = orientation==='retrato' ? fitCount(largura, modW) : fitCount(largura, modH);
   const alongRow = orientation==='retrato' ? modW : modH;
@@ -1890,8 +1891,15 @@ function packOriented(largura, altura, modH, modW, orientation, x, y, depth){
   const block = { x, y, w:usedW, h:usedH, rows, perRow, alongRow, alongCol,
                    orientation, total:mainTotal, isMain: depth===0 };
 
-  const bottom = packRoof(largura, altura-usedH, modH, modW, null, x, y+usedH, depth+1);
-  const side   = packRoof(largura-usedW, usedH, modH, modW, null, x+usedW, y, depth+1);
+  // Propaga o forceOrientation ORIGINAL (não o "orientation" que é só a tentativa
+  // atual) pro preenchimento da área residual: se o usuário travou o telhado em
+  // "Retrato", a sobra tem que continuar só em "Retrato" também — senão o telhado
+  // ganhava módulos em "Paisagem" escondidos na sobra, contrariando a escolha
+  // explícita. No modo automático (forceOrientation null) isso preserva o
+  // comportamento de sempre: cada sobra continua livre pra explorar as duas
+  // orientações e maximizar o total, como o comentário do packRoof já descrevia.
+  const bottom = packRoof(largura, altura-usedH, modH, modW, forceOrientation, x, y+usedH, depth+1);
+  const side   = packRoof(largura-usedW, usedH, modH, modW, forceOrientation, x+usedW, y, depth+1);
 
   return {
     total: mainTotal + bottom.total + side.total,
@@ -1911,10 +1919,10 @@ function packRoof(largura, altura, modH, modW, forceOrientation, x, y, depth){
     return { total:0, rows:0, blocks:[] };
   }
   if(forceOrientation === 'retrato' || forceOrientation === 'paisagem'){
-    return packOriented(largura, altura, modH, modW, forceOrientation, x, y, depth);
+    return packOriented(largura, altura, modH, modW, forceOrientation, x, y, depth, forceOrientation);
   }
-  const pRetrato = packOriented(largura, altura, modH, modW, 'retrato', x, y, depth);
-  const pPaisagem = packOriented(largura, altura, modH, modW, 'paisagem', x, y, depth);
+  const pRetrato = packOriented(largura, altura, modH, modW, 'retrato', x, y, depth, null);
+  const pPaisagem = packOriented(largura, altura, modH, modW, 'paisagem', x, y, depth, null);
   if(pRetrato.total === 0 && pPaisagem.total === 0) return { total:0, rows:0, blocks:[] };
   if(pRetrato.total !== pPaisagem.total) return pRetrato.total > pPaisagem.total ? pRetrato : pPaisagem;
   return pRetrato.rows <= pPaisagem.rows ? pRetrato : pPaisagem;
@@ -2104,16 +2112,7 @@ function renderRoofPanels(){
             <input type="number" step="1" class="custom-mod-input" data-i="${i}" data-k="power" value="${roof.customModule.power ?? ''}">
           </div>
         </div>
-        <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:10px;">
-          <div class="field">
-            <label>Voc do módulo${roof.customModule.power ? ' ('+roof.customModule.power+'W)' : ''} (V)</label>
-            <input type="number" step="0.01" class="custom-mod-input" data-i="${i}" data-k="vocMod" value="${roof.customModule.vocMod ?? ''}">
-          </div>
-          <div class="field">
-            <label>Isc do módulo${roof.customModule.power ? ' ('+roof.customModule.power+'W)' : ''} (A)</label>
-            <input type="number" step="0.01" class="custom-mod-input" data-i="${i}" data-k="iscMod" value="${roof.customModule.iscMod ?? ''}">
-          </div>
-        </div>` : ''}
+        <div class="hint-box" style="margin-top:10px;">Informe o Voc/Isc deste módulo personalizado lá embaixo, na seção "05 · Dimensionamento de strings" — é lá que o cálculo de strings/MPPT realmente usa esses valores.</div>` : ''}
         ${hasFit ? svgDiagram(roof.largura, roof.altura, pack) : '<div class="readout" style="text-align:center;color:var(--text-dim);">Preencha módulo e telhado para ver o encaixe</div>'}
       </div>
       <div>
@@ -2384,7 +2383,7 @@ function computeStringPlan(){
     } else if(!globalVoc || !globalIsc){
       error = 'Informe o Voc e o Isc do módulo padrão.';
     }
-    return { ready:true, error, groupResults:[], totalMpptsUsed:0, mpptsAvailable:numMppts, mpptsLeftover:numMppts, sumStringVoltage:0, startupV, layouts:all, roofColorSlices:{} };
+    return { ready:true, error, groupResults:[], totalMpptsUsed:0, mpptsAvailable:numMppts, mpptsLeftover:numMppts, minStringVoltage:0, startupV, layouts:all, roofColorSlices:{} };
   }
 
   // sort: by facing order, then by descending power (nicer grouping in the UI)
@@ -2473,15 +2472,20 @@ function computeStringPlan(){
     });
   });
 
+  // A tensão de partida do inversor é conferida por MPPT (strings de um mesmo
+  // MPPT ficam em paralelo, então a tensão não soma entre elas) — o pior caso
+  // do sistema é a string com MENOS módulos, então comparamos a tensão MÍNIMA
+  // encontrada com a tensão de partida, não a soma de todas as strings do
+  // sistema inteiro (que nunca corresponde a nenhuma grandeza elétrica real).
   const allStringVoltages = [];
   groupResults.forEach(g=> g.mppts.forEach(m=> m.strings.forEach(s=> allStringVoltages.push(s.voltage))));
-  const sumStringVoltage = allStringVoltages.reduce((a,b)=>a+b,0);
-  const startupOk = startupV ? sumStringVoltage >= startupV : null;
+  const minStringVoltage = allStringVoltages.length ? Math.min(...allStringVoltages) : 0;
+  const startupOk = startupV ? (allStringVoltages.length>0 && minStringVoltage >= startupV) : null;
 
   return {
     ready:true, mpptMaxIsc, missingSpecRoofs,
     groupResults, totalMpptsUsed: mpptCounter, mpptsAvailable:numMppts, mpptsLeftover:mpptsLeft,
-    sumStringVoltage, startupV, startupOk, layouts:all, roofColorSlices
+    minStringVoltage, startupV, startupOk, layouts:all, roofColorSlices
   };
 }
 
@@ -2548,7 +2552,7 @@ function renderStringPlan(){
 
   let html = `<div class="totals-grid" style="margin-bottom:16px;">
     <div class="stat"><div class="label">MPPTs usadas</div><div class="val">${plan.totalMpptsUsed}<small> / ${plan.mpptsAvailable}</small></div></div>
-    <div class="stat"><div class="label">Tensão somada das strings</div><div class="val">${fmt(plan.sumStringVoltage,1)}<small> V</small></div></div>
+    <div class="stat"><div class="label">Menor tensão de string</div><div class="val">${fmt(plan.minStringVoltage,1)}<small> V</small></div></div>
   </div>`;
 
   if(plan.error){
@@ -2558,8 +2562,8 @@ function renderStringPlan(){
   if(plan.startupV){
     const cls = plan.startupOk ? 'ok' : 'warn';
     html += `<div class="status ${cls}">${plan.startupOk
-      ? `Tensão somada das strings (${fmt(plan.sumStringVoltage,1)} V) atinge a tensão de partida do inversor (${fmt(plan.startupV,0)} V).`
-      : `Tensão somada das strings (${fmt(plan.sumStringVoltage,1)} V) fica abaixo da tensão de partida do inversor (${fmt(plan.startupV,0)} V) — o inversor pode não ligar.`}</div>`;
+      ? `A string mais fraca do sistema (${fmt(plan.minStringVoltage,1)} V) atinge a tensão de partida do inversor (${fmt(plan.startupV,0)} V).`
+      : `A string mais fraca do sistema (${fmt(plan.minStringVoltage,1)} V) fica abaixo da tensão de partida do inversor (${fmt(plan.startupV,0)} V) — o inversor pode não ligar.`}</div>`;
   }
 
   if(plan.mpptsLeftover < 0 || plan.groupResults.some(g=>g.noMppts)){
