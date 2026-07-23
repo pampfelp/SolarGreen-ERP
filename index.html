@@ -227,6 +227,7 @@
 
   /* ── Edit modal ── */
   .modal-overlay{position:fixed;inset:0;background:rgba(30,30,30,0.5);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;}
+  .hidden{display:none;}
   .modal-overlay.hidden{display:none;}
   .modal-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);max-width:420px;width:100%;padding:26px 28px;box-shadow:0 20px 60px rgba(0,0,0,0.5);max-height:90vh;overflow-y:auto;}
   .modal-card h3{font-family:var(--unbounded);font-size:16px;font-weight:700;margin-bottom:2px;color:var(--ink);}
@@ -262,6 +263,8 @@
   .uform-field input,.uform-field select{width:100%;font-family:var(--sans);font-size:13px;border:1px solid var(--line);border-radius:7px;padding:9px 12px;background:#fff;color:var(--ink);}
   .uform-field input:focus,.uform-field select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent);}
   .uform-msg{font-size:12px;border-radius:7px;padding:9px 11px;margin-bottom:14px;}
+  .sg-msg-fix{cursor:pointer;text-decoration:underline;text-underline-offset:2px;}
+  .sg-msg-fix:hover{opacity:.8;}
   .uform-msg.error{display:block;background:#fdecea;color:#c0392b;}
   .uform-msg.success{display:block;background:var(--accent-soft);color:#2c6e00;}
   .uform-msg:empty{display:none;}
@@ -4853,6 +4856,8 @@
     document.getElementById('cr-msg').textContent='';
     document.getElementById('cr-avisoDuplicado').classList.add('hidden');
     document.getElementById('cr-avisoDuplicadoDetalhe').textContent='';
+    document.getElementById('cr-avisoDuplicadoDetalhe').className='';
+    document.getElementById('cr-avisoDuplicadoDetalhe').onclick=null;
     document.getElementById('cr-confirmarDiferente').checked=false;
     document.getElementById('cr-titularSim').checked=false;
     document.getElementById('cr-titularNao').checked=false;
@@ -4874,6 +4879,38 @@
   function fecharClienteRapido(){
     document.getElementById('clienteRapidoDetalhe').classList.remove('active');
   }
+  /**
+   * Mesma ideia do módulo Clientes: verifica ao digitar, não só ao salvar —
+   * a caixinha só fica visível enquanto o problema realmente existir.
+   */
+  function verificarDuplicidadeClienteRapido(){
+    var caixa=document.getElementById('cr-avisoDuplicado');
+    var detalheEl=document.getElementById('cr-avisoDuplicadoDetalhe');
+    var telefone=document.getElementById('cr-telefone').value.trim();
+    var endereco=document.getElementById('cr-endereco').value.trim();
+    var confirmado=document.getElementById('cr-confirmarDiferente').checked;
+
+    function esconder(){
+      caixa.classList.add('hidden');
+      detalheEl.textContent=''; detalheEl.className=''; detalheEl.onclick=null;
+    }
+
+    if(!telefone||endereco||confirmado){ esconder(); return null; }
+
+    var listaClientes=Object.keys(clientesMap).map(function(id){return clientesMap[id];});
+    var duplicado=window.SGUtil.encontrarClienteMesmoTelefone(telefone,listaClientes,null);
+    if(!duplicado){ esconder(); return null; }
+
+    var nomeDuplicado=duplicado['Nome Razao Social']||duplicado.Nome||'(sem nome)';
+    caixa.classList.remove('hidden');
+    detalheEl.className='sg-msg-fix';
+    detalheEl.innerHTML='Encontrado: "'+escapeHtml(nomeDuplicado)+'" — telefone '+escapeHtml(duplicado.Telefone||'—')+' (mesmos 8 últimos dígitos). <strong>Clique aqui pra abrir esse cliente.</strong>';
+    detalheEl.onclick=function(){
+      if(window.clientesApp&&window.clientesApp.abrirEdicao)window.clientesApp.abrirEdicao(duplicado.IdCliente);
+    };
+    return duplicado;
+  }
+
   function salvarClienteRapido(){
     var nome=document.getElementById('cr-nome').value.trim();
     var tipoPessoa=document.getElementById('cr-tipoPessoa').value;
@@ -4894,12 +4931,8 @@
     // passar se a pessoa confirmar explicitamente que é um cliente diferente.
     var confirmado=document.getElementById('cr-confirmarDiferente').checked;
     if(!endereco&&!confirmado){
-      var listaClientes=Object.keys(clientesMap).map(function(id){return clientesMap[id];});
-      var duplicado=window.SGUtil.encontrarClienteMesmoTelefone(telefone,listaClientes,null);
+      var duplicado=verificarDuplicidadeClienteRapido();
       if(duplicado){
-        var nomeDuplicado=duplicado['Nome Razao Social']||duplicado.Nome||'(sem nome)';
-        document.getElementById('cr-avisoDuplicado').classList.remove('hidden');
-        document.getElementById('cr-avisoDuplicadoDetalhe').textContent='Encontrado: "'+nomeDuplicado+'" — telefone '+(duplicado.Telefone||'—')+' (mesmos 8 últimos dígitos)';
         msgEl.className='uform-msg error'; msgEl.textContent='Já existe um contato cadastrado para esse número';
         return;
       }
@@ -5252,6 +5285,9 @@
     document.getElementById('cr-cpfCnpj').addEventListener('input',function(){
       if(document.getElementById('cr-titularSim').checked)document.getElementById('cr-cpfEquatorial').value=this.value;
     });
+    document.getElementById('cr-telefone').addEventListener('input',verificarDuplicidadeClienteRapido);
+    document.getElementById('cr-endereco').addEventListener('input',verificarDuplicidadeClienteRapido);
+    document.getElementById('cr-confirmarDiferente').addEventListener('change',verificarDuplicidadeClienteRapido);
     document.getElementById('adBackdrop').addEventListener('click',function(){
       // se o cadastro rápido de cliente estiver aberto por cima, fecha só ele
       // (o lead continua aberto por baixo); senão, fecha o painel do lead.
@@ -5262,7 +5298,20 @@
     fetchData(true);
   }
 
-  window.funilApp={init:init};
+  /**
+   * Chamado por outros módulos (hoje só Clientes) quando um cliente é salvo
+   * em outro lugar, pra manter o cache local em dia sem precisar recarregar
+   * a tela inteira.
+   */
+  function atualizarClienteCache(clienteObj){
+    if(!clienteObj||!clienteObj.IdCliente)return;
+    clientesMap[clienteObj.IdCliente]=clienteObj;
+    // se o painel de contato/endereço do lead tiver esse cliente aberto na hora, atualiza na tela também
+    var fdCliente=document.getElementById('fd-cliente');
+    if(fdCliente&&fdCliente.value===clienteObj.IdCliente&&typeof renderInfoClienteFunil==='function')renderInfoClienteFunil();
+  }
+
+  window.funilApp={init:init,atualizarClienteCache:atualizarClienteCache};
 
 })();
 
@@ -5886,13 +5935,16 @@
    */
   function validarCliente(){
     var msgEl=document.getElementById('ag-clienteWarn');
-    msgEl.className='uform-msg'; msgEl.textContent='';
+    msgEl.className='uform-msg'; msgEl.textContent=''; msgEl.onclick=null;
     var idCliente=document.getElementById('ag-idCliente').value;
     if(!idCliente)return true;
     var cliente=clientesMap[idCliente];
     if(cliente&&!enderecoDoCliente(cliente)){
-      msgEl.className='uform-msg error';
-      msgEl.textContent='⚠️ Este cliente não possui endereço cadastrado. Atualize o cadastro do cliente antes de realizar o agendamento.';
+      msgEl.className='uform-msg error sg-msg-fix';
+      msgEl.innerHTML='⚠️ Este cliente não possui endereço cadastrado — <strong>clique aqui pra atualizar o cadastro do cliente</strong>.';
+      msgEl.onclick=function(){
+        if(window.clientesApp&&window.clientesApp.abrirEdicao)window.clientesApp.abrirEdicao(idCliente);
+      };
       return false;
     }
     return true;
@@ -6109,7 +6161,18 @@
     carregar();
   }
 
-  window.agendamentosApp={init:init};
+  /**
+   * Chamado por outros módulos (hoje só Clientes) quando um cliente é salvo
+   * em outro lugar, pra manter o cache local em dia sem precisar recarregar
+   * a tela inteira — inclusive pra revalidar o aviso de endereço na hora.
+   */
+  function atualizarClienteCache(clienteObj){
+    if(!clienteObj||!clienteObj.IdCliente)return;
+    clientesMap[clienteObj.IdCliente]=clienteObj;
+    if(document.getElementById('ag-idCliente')&&document.getElementById('ag-idCliente').value===clienteObj.IdCliente&&typeof validarCliente==='function')validarCliente();
+  }
+
+  window.agendamentosApp={init:init,atualizarClienteCache:atualizarClienteCache};
 })();
 
 
@@ -6127,6 +6190,21 @@
   function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
   function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
   function nomeVendedor(id){ var v=vendedoresMap[id]; return v?v.Nome:'—'; }
+
+  /**
+   * Cada tela guarda sua própria cópia dos clientes (carregada só quando a
+   * tela é visitada), então salvar um cliente aqui não atualiza sozinho o
+   * que o Funil/Agendamentos/Planos têm em memória. Isso importa agora que
+   * dá pra abrir esse formulário POR CIMA de outra tela (pra corrigir um
+   * cadastro incompleto) — sem isso, ao voltar e tentar salvar de novo lá,
+   * o sistema ainda acharia que falta informação. Por isso avisa os outros
+   * módulos, se eles já tiverem sido carregados nessa sessão.
+   */
+  function propagarAtualizacaoCliente(clienteObj){
+    [window.funilApp,window.agendamentosApp,window.planosApp].forEach(function(app){
+      if(app&&app.atualizarClienteCache)app.atualizarClienteCache(clienteObj);
+    });
+  }
 
   function sortClientesRows(lista){
     var col=sortState.col,dir=sortState.dir,mult=dir==='asc'?1:-1;
@@ -6282,6 +6360,8 @@
     document.getElementById('cm-msg').textContent='';
     document.getElementById('cm-avisoDuplicado').classList.add('hidden');
     document.getElementById('cm-avisoDuplicadoDetalhe').textContent='';
+    document.getElementById('cm-avisoDuplicadoDetalhe').className='';
+    document.getElementById('cm-avisoDuplicadoDetalhe').onclick=null;
     document.getElementById('cm-confirmarDiferente').checked=false;
 
     var cpfEq=c?(c.CPFEquatorial||''):'';
@@ -6304,7 +6384,43 @@
     wireComboVendedor(idVend&&vendedoresMap[idVend]?{id:idVend,label:vendedoresMap[idVend].Nome}:null);
     document.getElementById('clienteModal').classList.remove('hidden');
   }
-  function fecharModalCliente(){ document.getElementById('clienteModal').classList.add('hidden'); editandoId=null; }
+  function fecharModalCliente(){ document.getElementById('clienteModal').classList.add('hidden'); document.getElementById('clienteModal').style.zIndex=''; editandoId=null; }
+
+  /**
+   * Verifica se o telefone digitado bate com outro cliente já cadastrado, e
+   * mostra/esconde a caixinha de aviso na hora — não só quando clica em
+   * Salvar. Assim a caixinha só fica visível enquanto o problema realmente
+   * existir; ao preencher endereço, marcar a confirmação, trocar o telefone
+   * ou abrir o formulário de novo, ela some sozinha.
+   */
+  function verificarDuplicidadeCliente(){
+    var caixa=document.getElementById('cm-avisoDuplicado');
+    var detalheEl=document.getElementById('cm-avisoDuplicadoDetalhe');
+    var telefone=document.getElementById('cm-telefone').value.trim();
+    var endereco=document.getElementById('cm-endereco').value.trim();
+    var confirmado=document.getElementById('cm-confirmarDiferente').checked;
+
+    function esconder(){
+      caixa.classList.add('hidden');
+      detalheEl.textContent=''; detalheEl.className=''; detalheEl.onclick=null;
+    }
+
+    // Só faz sentido checar em cadastro NOVO (editar um cliente que já
+    // existe nunca vai "bater" com ele mesmo); e só enquanto o telefone
+    // estiver preenchido, sem endereço e sem confirmação manual.
+    if(editandoId||!telefone||endereco||confirmado){ esconder(); return null; }
+
+    var duplicado=window.SGUtil.encontrarClienteMesmoTelefone(telefone,clientes,editandoId);
+    if(!duplicado){ esconder(); return null; }
+
+    var nomeDuplicado=duplicado['Nome Razao Social']||duplicado.Nome||'(sem nome)';
+    caixa.classList.remove('hidden');
+    detalheEl.className='sg-msg-fix';
+    detalheEl.innerHTML='Encontrado: "'+escapeHtml(nomeDuplicado)+'" — telefone '+escapeHtml(duplicado.Telefone||'—')+' (mesmos 8 últimos dígitos). <strong>Clique aqui pra abrir esse cliente.</strong>';
+    var idDuplicado=duplicado.IdCliente;
+    detalheEl.onclick=function(){ abrirModalCliente(idDuplicado); };
+    return duplicado;
+  }
 
   function salvarCliente(){
     var nome=document.getElementById('cm-nome').value.trim();
@@ -6329,11 +6445,8 @@
     // segurança já exclui o próprio ID da busca de qualquer forma).
     var confirmado=document.getElementById('cm-confirmarDiferente').checked;
     if(ehNovo&&!endereco&&!confirmado){
-      var duplicado=window.SGUtil.encontrarClienteMesmoTelefone(telefone,clientes,editandoId);
+      var duplicado=verificarDuplicidadeCliente();
       if(duplicado){
-        var nomeDuplicado=duplicado['Nome Razao Social']||duplicado.Nome||'(sem nome)';
-        document.getElementById('cm-avisoDuplicado').classList.remove('hidden');
-        document.getElementById('cm-avisoDuplicadoDetalhe').textContent='Encontrado: "'+nomeDuplicado+'" — telefone '+(duplicado.Telefone||'—')+' (mesmos 8 últimos dígitos)';
         msgEl.className='uform-msg error'; msgEl.textContent='Já existe um contato cadastrado para esse número';
         return;
       }
@@ -6354,6 +6467,7 @@
     if(indice===-1)clientes.push(registroNovo);
     else clientes[indice]=registroNovo;
     _epoca.marcar();
+    propagarAtualizacaoCliente(registroNovo);
 
     fecharModalCliente();
     render();
@@ -6455,6 +6569,9 @@
     document.getElementById('cm-titularNao').addEventListener('change',sincronizarTitularEquatorial);
     document.getElementById('cm-cpfCnpj').addEventListener('input',function(){ if(document.getElementById('cm-titularSim').checked)sincronizarTitularEquatorial(); });
     document.getElementById('cm-excluirBtn').addEventListener('click',excluirCliente);
+    document.getElementById('cm-telefone').addEventListener('input',verificarDuplicidadeCliente);
+    document.getElementById('cm-endereco').addEventListener('input',verificarDuplicidadeCliente);
+    document.getElementById('cm-confirmarDiferente').addEventListener('change',verificarDuplicidadeCliente);
     document.getElementById('clienteModal').addEventListener('click',function(e){ if(e.target.id==='clienteModal')fecharModalCliente(); });
     document.getElementById('cl-buscaFiltro').addEventListener('input',function(){ buscaFiltro=this.value; paginaAtual=1; render(); });
     document.querySelectorAll('#view-clientes th.sortable').forEach(function(th){
@@ -6468,7 +6585,37 @@
     carregar();
   }
 
-  window.clientesApp={init:init};
+  /**
+   * Permite que OUTRAS telas mandem abrir a edição de um cliente específico
+   * aqui (ex: clicar num aviso de erro no Funil/Agendamentos/Planos que
+   * aponta pra um cadastro de cliente incompleto). Abre o modal de cliente
+   * POR CIMA da tela/formulário atual — não troca de aba, não fecha nada
+   * que já estava aberto, então quem tava editando algo em outro lugar não
+   * perde o que já tinha preenchido. Como os dados desse módulo só carregam
+   * quando a tela é visitada, garante que o carregamento comece (init() é
+   * seguro de chamar de novo — ele só roda uma vez) e espera a lista de
+   * clientes ficar disponível antes de abrir (até ~4,5s).
+   */
+  function abrirEdicaoExterna(idCliente){
+    if(window.clientesApp)window.clientesApp.init(); // garante que os dados comecem a carregar, mesmo sem visitar a aba
+    function tentar(){
+      if(clientes&&clientes.some(function(c){return String(c.IdCliente)===String(idCliente);})){
+        abrirModalCliente(idCliente);
+        // fica por cima de qualquer outro modal/painel que já estivesse aberto na tela de origem
+        document.getElementById('clienteModal').style.zIndex='250';
+        return true;
+      }
+      return false;
+    }
+    if(tentar())return;
+    var tentativas=0;
+    var iv=setInterval(function(){
+      tentativas++;
+      if(tentar()||tentativas>30)clearInterval(iv);
+    },150);
+  }
+
+  window.clientesApp={init:init,abrirEdicao:abrirEdicaoExterna};
 })();
 
 
@@ -8236,6 +8383,8 @@
     document.getElementById('pm-manutencao').checked=p?isMarcado(p.ManutencaoPreventiva):false;
     document.getElementById('pm-excluirBtn').style.display=p?'block':'none';
     document.getElementById('pm-msg').textContent='';
+    document.getElementById('pm-msg').className='uform-msg';
+    document.getElementById('pm-msg').onclick=null;
     document.getElementById('planoModal').classList.remove('hidden');
   }
   function fecharModalPlano(){ document.getElementById('planoModal').classList.add('hidden'); editandoId=null; }
@@ -8243,7 +8392,7 @@
   function salvarPlano(){
     var idCliente=document.getElementById('pm-cliente').value;
     var tipo=document.getElementById('pm-tipo').value;
-    if(!idCliente||!tipo){ var m=document.getElementById('pm-msg'); m.className='uform-msg error'; m.textContent='Cliente e tipo de assinatura são obrigatórios.'; return; }
+    if(!idCliente||!tipo){ var m=document.getElementById('pm-msg'); m.className='uform-msg error'; m.textContent='Cliente e tipo de assinatura são obrigatórios.'; m.onclick=null; return; }
 
     // O plano depende de saber acessar a fatura de energia (Equatorial) do
     // titular — que pode ser uma pessoa diferente de quem assina o contrato.
@@ -8253,8 +8402,11 @@
     var dataNascEqOk=clienteDoPlano&&String(clienteDoPlano.DataNascimentoEquatorial||'').trim();
     if(!cpfEqOk||!dataNascEqOk){
       var m2=document.getElementById('pm-msg');
-      m2.className='uform-msg error';
-      m2.textContent='Esse cliente ainda não tem CPF e data de nascimento do titular Equatorial cadastrados — preencha isso no cadastro do cliente antes de criar o plano.';
+      m2.className='uform-msg error sg-msg-fix';
+      m2.innerHTML='Esse cliente ainda não tem CPF e data de nascimento do titular Equatorial cadastrados — <strong>clique aqui pra preencher no cadastro do cliente</strong>.';
+      m2.onclick=function(){
+        if(window.clientesApp&&window.clientesApp.abrirEdicao)window.clientesApp.abrirEdicao(idCliente);
+      };
       return;
     }
 
@@ -8402,7 +8554,17 @@
     carregar();
   }
 
-  window.planosApp={init:init};
+  /**
+   * Chamado por outros módulos (hoje só Clientes) quando um cliente é salvo
+   * em outro lugar, pra manter o cache local em dia sem precisar recarregar
+   * a tela inteira.
+   */
+  function atualizarClienteCache(clienteObj){
+    if(!clienteObj||!clienteObj.IdCliente)return;
+    clientesMap[clienteObj.IdCliente]=clienteObj;
+  }
+
+  window.planosApp={init:init,atualizarClienteCache:atualizarClienteCache};
 })();
 
 
