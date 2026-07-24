@@ -4134,7 +4134,7 @@
     wireCustoItemClick(vendaAtual);
     window.SGToast.mostrar('Custo excluído.');
 
-    apiCall('excluirCustoVenda',{idCusto:idCusto}).then(function(resp){
+    apiCall('excluirCustoVenda',{idCusto:idCusto,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
       if(!resp||!resp.ok){
         if(window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
         if(registroAnterior)custosVendaRecords.push(registroAnterior);
@@ -4166,7 +4166,7 @@
     render();
     window.SGToast.mostrar('Venda excluída.');
 
-    apiCall('excluirVenda',{idVenda:idVenda}).then(function(resp){
+    apiCall('excluirVenda',{idVenda:idVenda,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
       if(!resp||!resp.ok){
         if(window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
         vendasRecords.push(registroAnterior); _epoca.marcar(); render();
@@ -5112,7 +5112,7 @@
     render();
     mostrarToastFunil('Lead excluído.');
 
-    apiCall('excluirFunil',{idOportunidade:id}).then(function(resp){
+    apiCall('excluirFunil',{idOportunidade:id,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
       if(!resp||!resp.ok){
         if(window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return; // já não existia — exclusão continua válida
         funilRecords.push(registroAnterior); _epoca.marcar(); render();
@@ -7265,7 +7265,7 @@
     render();
     (window.SGToast?window.SGToast.mostrar:function(t){})('Custo excluído.');
 
-    apiCall('excluirCustoVenda',{idCusto:idAlvo}).then(function(resp){
+    apiCall('excluirCustoVenda',{idCusto:idAlvo,solicitanteId:meuId()}).then(function(resp){
       if(!resp||!resp.ok){
         if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
         if(registroAnterior)custos.push(registroAnterior);
@@ -7580,7 +7580,7 @@
     render();
     (window.SGToast?window.SGToast.mostrar:function(t){})('Custo recorrente excluído.');
 
-    apiCall('excluirCustoRecorrente',{idCR:idAlvo}).then(function(resp){
+    apiCall('excluirCustoRecorrente',{idCR:idAlvo,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
       if(!resp||!resp.ok){
         if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
         if(registroAnterior)custos.push(registroAnterior);
@@ -7800,7 +7800,7 @@
     renderPerguntas();
     render();
 
-    apiCall('excluirTemplate',{idTemplate:idTpl}).then(function(resp){
+    apiCall('excluirTemplate',{idTemplate:idTpl,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
       if(!resp||!resp.ok){
         if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
         if(registroAnterior)templates.push(registroAnterior);
@@ -7945,7 +7945,7 @@
     render();
     (window.SGToast?window.SGToast.mostrar:function(t){})('Serviço excluído.');
 
-    apiCall('excluirServico',{idServico:idAlvo}).then(function(resp){
+    apiCall('excluirServico',{idServico:idAlvo,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
       if(!resp||!resp.ok){
         if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
         if(registroAnterior)servicos.push(registroAnterior);
@@ -8168,7 +8168,7 @@
     render();
     (window.SGToast?window.SGToast.mostrar:function(t){})('Meta excluída.');
 
-    apiCall('excluirMeta',{idMeta:idAlvo}).then(function(resp){
+    apiCall('excluirMeta',{idMeta:idAlvo,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
       if(!resp||!resp.ok){
         if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
         if(registroAnterior)metas.push(registroAnterior);
@@ -8526,7 +8526,7 @@
     render();
     mostrarToastPlanos('Plano excluído.');
 
-    apiCall('excluirPlano',{idPlano:idPlano}).then(function(resp){
+    apiCall('excluirPlano',{idPlano:idPlano,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
       if(!resp||!resp.ok){
         if(window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
         if(registroAnterior)planos.push(registroAnterior);
