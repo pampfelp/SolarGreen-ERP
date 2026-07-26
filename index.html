@@ -345,9 +345,10 @@
   .kanban-col-head .kc-nome{font-family:var(--unbounded);font-size:12px;font-weight:700;color:var(--ink);}
   .kanban-col-head .kc-sub{font-size:11px;color:var(--ink-faint);margin-top:2px;}
   .kanban-col-body{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px;}
-  .kanban-card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:11px 12px;cursor:grab;transition:box-shadow .12s,border-color .12s,opacity .12s;}
+  .kanban-card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:11px 12px;cursor:grab;transition:box-shadow .12s,border-color .12s,opacity .12s;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
   .kanban-card:active{cursor:grabbing;}
   .kanban-card.kcard-dragging{opacity:.35;}
+  .kcard-ghost{position:fixed;top:0;left:0;pointer-events:none;z-index:400;opacity:.95;box-shadow:0 14px 32px rgba(0,49,34,.3);transform:rotate(1deg);}
   .kanban-col.kanban-col-dragover{border-color:var(--accent);background:rgba(120,216,0,.08);}
   .kanban-col.kanban-col-dragover .kanban-col-body{outline:2px dashed var(--accent);outline-offset:-4px;border-radius:8px;}
   .kanban-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.08);border-color:var(--accent);}
@@ -4600,7 +4601,7 @@
       var esmaecido=(etapaAtiva!=='__all__'&&etapaAtiva!==etapa)?'opacity:.4;':'';
       var cardsHtml=lista.length?lista.map(function(r){
         var slaHtml='<span class="sla-cell sla-'+r.slaColor+'"><span class="sla-dot"></span>'+r.diasNaEtapa+'d</span>';
-        return '<div class="kanban-card" draggable="true" data-id="'+escapeHtml(r.id)+'">'+
+        return '<div class="kanban-card" data-id="'+escapeHtml(r.id)+'">'+
           '<div class="kcard-nome">'+escapeHtml(nomeClienteFor(r.idCliente))+'</div>'+
           '<div class="kcard-vend">'+escapeHtml(nomeFor(r.idVendedor))+'</div>'+
           '<div class="kcard-foot"><span class="kcard-valor">'+fmtMoney(r.valor)+'</span>'+slaHtml+'</div>'+
@@ -4612,23 +4613,114 @@
       '</div>';
     }).join('');
     wrap.querySelectorAll('.kanban-card').forEach(function(card){
-      card.addEventListener('click',function(){ if(card.classList.contains('kcard-dragging'))return; abrirVisualizacaoLead(card.getAttribute('data-id')); });
-      card.addEventListener('dragstart',function(e){
-        e.dataTransfer.setData('text/plain',card.getAttribute('data-id'));
-        e.dataTransfer.effectAllowed='move';
-        setTimeout(function(){ card.classList.add('kcard-dragging'); },0);
-      });
-      card.addEventListener('dragend',function(){ card.classList.remove('kcard-dragging'); });
+      card.addEventListener('click',function(){ if(Date.now()-ultimoDragKanbanTerminouEm<300)return; abrirVisualizacaoLead(card.getAttribute('data-id')); });
     });
-    wrap.querySelectorAll('.kanban-col-body').forEach(function(coluna){
-      coluna.addEventListener('dragover',function(e){ e.preventDefault(); e.dataTransfer.dropEffect='move'; coluna.closest('.kanban-col').classList.add('kanban-col-dragover'); });
-      coluna.addEventListener('dragleave',function(){ coluna.closest('.kanban-col').classList.remove('kanban-col-dragover'); });
-      coluna.addEventListener('drop',function(e){
-        e.preventDefault();
-        coluna.closest('.kanban-col').classList.remove('kanban-col-dragover');
-        var idLead=e.dataTransfer.getData('text/plain');
-        var novaEtapa=coluna.getAttribute('data-etapa');
-        if(idLead&&novaEtapa)moverLeadParaEtapa(idLead,novaEtapa);
+    ativarDragDropKanban();
+  }
+
+  /**
+   * Drag-and-drop do Kanban por Pointer Events — funciona com mouse, toque
+   * e caneta igual (o "draggable" nativo do HTML5 nunca dispara em toque no
+   * iOS/Android, então arrastar um card não fazia nada no celular). Move o
+   * card seguindo o dedo/cursor com um "ghost" flutuante, destaca a coluna
+   * embaixo do ponteiro, e rola o kanban horizontalmente sozinho quando o
+   * card chega perto da borda — sem isso não dava pra soltar numa coluna
+   * fora da tela sem arrastar em duas etapas.
+   */
+  var arrastarKanbanEstado=null;
+  var dragDropKanbanGlobalPronto=false;
+  var ultimoDragKanbanTerminouEm=0;
+  var AUTOSCROLL_KANBAN_ZONA=56;
+  var AUTOSCROLL_KANBAN_VEL_MAX=16;
+  var autoScrollKanbanRAF=null,autoScrollKanbanWrap=null,autoScrollKanbanDir=0,autoScrollKanbanVel=0;
+
+  function destacarColunaKanbanSobPonto(x,y){
+    var elUnder=document.elementFromPoint(x,y);
+    var col=elUnder?elUnder.closest('.kanban-col'):null;
+    document.querySelectorAll('.kanban-col.kanban-col-dragover').forEach(function(c){ if(c!==col)c.classList.remove('kanban-col-dragover'); });
+    if(col)col.classList.add('kanban-col-dragover');
+    return col;
+  }
+  function pararAutoScrollKanban(){
+    autoScrollKanbanDir=0;
+    if(autoScrollKanbanRAF){ cancelAnimationFrame(autoScrollKanbanRAF); autoScrollKanbanRAF=null; }
+  }
+  function passoAutoScrollKanban(){
+    if(!autoScrollKanbanDir||!arrastarKanbanEstado||!arrastarKanbanEstado.dragging){ autoScrollKanbanRAF=null; return; }
+    autoScrollKanbanWrap.scrollLeft+=autoScrollKanbanDir*autoScrollKanbanVel;
+    destacarColunaKanbanSobPonto(arrastarKanbanEstado.lastClientX,arrastarKanbanEstado.lastClientY);
+    autoScrollKanbanRAF=requestAnimationFrame(passoAutoScrollKanban);
+  }
+  function atualizarAutoScrollKanban(clientX){
+    var wrapEl=document.getElementById('f-kanbanWrap');
+    if(!wrapEl){ pararAutoScrollKanban(); return; }
+    var rect=wrapEl.getBoundingClientRect();
+    var distEsquerda=clientX-rect.left,distDireita=rect.right-clientX;
+    var dir=0,vel=0;
+    if(distEsquerda<AUTOSCROLL_KANBAN_ZONA&&wrapEl.scrollLeft>0){
+      dir=-1; vel=AUTOSCROLL_KANBAN_VEL_MAX*(1-Math.max(distEsquerda,0)/AUTOSCROLL_KANBAN_ZONA);
+    }else if(distDireita<AUTOSCROLL_KANBAN_ZONA&&wrapEl.scrollLeft<wrapEl.scrollWidth-wrapEl.clientWidth-1){
+      dir=1; vel=AUTOSCROLL_KANBAN_VEL_MAX*(1-Math.max(distDireita,0)/AUTOSCROLL_KANBAN_ZONA);
+    }
+    autoScrollKanbanWrap=wrapEl; autoScrollKanbanDir=dir; autoScrollKanbanVel=Math.max(vel,3);
+    if(dir===0){ pararAutoScrollKanban(); return; }
+    if(!autoScrollKanbanRAF)autoScrollKanbanRAF=requestAnimationFrame(passoAutoScrollKanban);
+  }
+  function onDragKanbanPointerMove(e){
+    var estado=arrastarKanbanEstado;
+    if(!estado||estado.pointerId!==e.pointerId)return;
+    var dx=e.clientX-estado.startX,dy=e.clientY-estado.startY;
+    if(!estado.dragging){
+      if(Math.abs(dx)<8&&Math.abs(dy)<8)return;
+      estado.dragging=true;
+      estado.card.classList.add('kcard-dragging');
+      try{ estado.card.setPointerCapture(estado.pointerId); }catch(err){}
+      estado.ghost=estado.card.cloneNode(true);
+      estado.ghost.classList.add('kcard-ghost');
+      estado.ghost.style.width=estado.width+'px';
+      document.body.appendChild(estado.ghost);
+    }
+    e.preventDefault();
+    estado.lastClientX=e.clientX; estado.lastClientY=e.clientY;
+    estado.ghost.style.left=(e.clientX-estado.offsetX)+'px';
+    estado.ghost.style.top=(e.clientY-estado.offsetY)+'px';
+    destacarColunaKanbanSobPonto(e.clientX,e.clientY);
+    atualizarAutoScrollKanban(e.clientX);
+  }
+  function onDragKanbanPointerUp(e){
+    var estado=arrastarKanbanEstado;
+    if(!estado||estado.pointerId!==e.pointerId)return;
+    arrastarKanbanEstado=null;
+    pararAutoScrollKanban();
+    if(!estado.dragging)return;
+    var elUnder=document.elementFromPoint(e.clientX,e.clientY);
+    var colFinal=elUnder?elUnder.closest('.kanban-col'):null;
+    document.querySelectorAll('.kanban-col.kanban-col-dragover').forEach(function(c){ c.classList.remove('kanban-col-dragover'); });
+    estado.card.classList.remove('kcard-dragging');
+    ultimoDragKanbanTerminouEm=Date.now();
+    if(estado.ghost&&estado.ghost.parentNode)estado.ghost.parentNode.removeChild(estado.ghost);
+    if(colFinal){
+      var novaEtapa=colFinal.getAttribute('data-etapa');
+      if(novaEtapa)moverLeadParaEtapa(estado.id,novaEtapa);
+    }
+  }
+  function ativarDragDropKanban(){
+    if(!dragDropKanbanGlobalPronto){
+      dragDropKanbanGlobalPronto=true;
+      document.addEventListener('pointermove',onDragKanbanPointerMove,{passive:false});
+      document.addEventListener('pointerup',onDragKanbanPointerUp);
+      document.addEventListener('pointercancel',onDragKanbanPointerUp);
+    }
+    document.querySelectorAll('#f-kanbanWrap .kanban-card').forEach(function(card){
+      card.addEventListener('pointerdown',function(e){
+        if(e.pointerType==='mouse'&&e.button!==0)return;
+        var rect=card.getBoundingClientRect();
+        arrastarKanbanEstado={
+          card:card,id:card.getAttribute('data-id'),pointerId:e.pointerId,
+          startX:e.clientX,startY:e.clientY,
+          offsetX:e.clientX-rect.left,offsetY:e.clientY-rect.top,
+          width:rect.width,dragging:false,ghost:null
+        };
       });
     });
   }
