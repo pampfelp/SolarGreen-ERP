@@ -80,6 +80,14 @@
   @media(max-width:760px){.sidebar .user-chip{display:none;}}
 
   /* ── Sidebar ── */
+  /* ── Barra mobile + gaveta lateral (hambúrguer) ── */
+  .mobile-topbar{display:none;}
+  .mobile-topbar-brand .sg-solar{font-family:var(--unbounded);font-weight:900;font-size:14px;color:#fff;letter-spacing:.02em;}
+  .mobile-topbar-brand .sg-green{color:var(--accent);}
+  .hamburger{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;width:36px;height:36px;border-radius:9px;font-size:16px;cursor:pointer;flex:none;display:flex;align-items:center;justify-content:center;}
+  .sidebar-backdrop{position:fixed;inset:0;background:rgba(0,20,10,.5);z-index:125;display:none;}
+  .sidebar-backdrop.active{display:block;}
+
   .sidebar{
     width:var(--sidebar-w);flex:none;background:var(--sidebar-bg);min-height:100vh;
     display:flex;flex-direction:column;padding:28px 0;
@@ -135,9 +143,9 @@
 
   /* ── Filter bar ── */
   .filters{
-    display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;
+    display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;
     background:var(--panel);border:1px solid var(--line);
-    border-radius:var(--radius);padding:16px 20px;margin-bottom:28px;
+    border-radius:var(--radius);padding:14px 18px;margin-bottom:20px;
   }
   .field{display:flex;flex-direction:column;gap:5px;}
   .field label{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-faint);font-weight:600;}
@@ -161,8 +169,8 @@
   .empty p{font-size:14px;max-width:380px;margin:6px auto 0;line-height:1.7;}
 
   /* ── KPIs ── */
-  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:28px;}
-  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;position:relative;overflow:hidden;}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px;}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;position:relative;overflow:hidden;}
   .ag-status-kpis{margin-top:10px;}
   .ag-kpi-pill{cursor:pointer;transition:border-color .12s,box-shadow .12s;padding:14px 16px;}
   .ag-kpi-pill:hover{border-color:var(--accent);}
@@ -340,21 +348,25 @@
   .view-toggle-btn.active{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08);}
 
   .kanban-wrap{display:flex;gap:14px;overflow-x:auto;padding-bottom:10px;}
-  .kanban-col{flex:none;width:270px;background:var(--bg);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;max-height:72vh;}
+  .kanban-col{flex:none;width:270px;background:#eef5ea;border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;max-height:72vh;}
   .kanban-col-head{padding:12px 14px;border-bottom:1px solid var(--line);flex:none;}
+  .kanban-col-head .kc-top{display:flex;align-items:center;gap:7px;}
+  .kanban-col-head .kc-dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--accent-deep);}
   .kanban-col-head .kc-nome{font-family:var(--unbounded);font-size:12px;font-weight:700;color:var(--ink);}
-  .kanban-col-head .kc-sub{font-size:11px;color:var(--ink-faint);margin-top:2px;}
-  .kanban-col-body{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px;}
-  .kanban-card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:11px 12px;cursor:grab;transition:box-shadow .12s,border-color .12s,opacity .12s;}
+  .kanban-col-head .kc-sub{font-size:11px;color:var(--ink-faint);margin-top:4px;}
+  .kanban-col-body{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:9px;}
+  .kanban-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 13px;cursor:grab;transition:box-shadow .12s,border-color .12s,opacity .12s;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+  @media(max-width:900px){ .kanban-col{width:240px;} }
   .kanban-card:active{cursor:grabbing;}
   .kanban-card.kcard-dragging{opacity:.35;}
+  .kcard-ghost{position:fixed;top:0;left:0;pointer-events:none;z-index:400;opacity:.95;box-shadow:0 14px 32px rgba(0,49,34,.3);transform:rotate(1deg);}
   .kanban-col.kanban-col-dragover{border-color:var(--accent);background:rgba(120,216,0,.08);}
   .kanban-col.kanban-col-dragover .kanban-col-body{outline:2px dashed var(--accent);outline-offset:-4px;border-radius:8px;}
   .kanban-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.08);border-color:var(--accent);}
   .kanban-card .kcard-nome{font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:4px;}
   .kanban-card .kcard-vend{font-size:11px;color:var(--ink-faint);margin-bottom:6px;}
   .kanban-card .kcard-foot{display:flex;justify-content:space-between;align-items:center;gap:6px;}
-  .kanban-card .kcard-valor{font-size:12px;font-weight:700;color:var(--accent-deep);}
+  .kanban-card .kcard-valor{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent-deep);}
   .kanban-col-empty{padding:20px 10px;text-align:center;color:var(--ink-faint);font-size:11.5px;}
   .paginacao{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding:4px 2px;}
   .paginacao button{flex:none;background:#fff;border:1px solid var(--line);border-radius:9px;padding:9px 14px;font-size:12.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;}
@@ -414,11 +426,11 @@
   .sidebar-toggle .ico{ width:20px;text-align:center;flex:none;font-size:14px; }
 
   /* ── View switching ── */
-  .view{ display:none; }
+  .view{ display:none; min-width:0; flex:1; }
   .view.active{ display:block; }
 
   /* ── Estilos exclusivos da view Vendas ── */
-  .section-head{display:flex;align-items:baseline;justify-content:space-between;margin:38px 0 16px;}
+  .section-head{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;row-gap:8px;margin:24px 0 16px;}
   .section-head h2{font-family:var(--unbounded);font-size:16px;font-weight:700;color:var(--ink);letter-spacing:-.01em;}
   .section-head h2 span{color:#003122;}
   .section-head .hint{font-size:11.5px;color:var(--ink-faint);}
@@ -480,18 +492,23 @@
   .stage-filter-group{ display:flex; flex-direction:column; gap:5px; }
   .stage-filter-group label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:600; }
   .stage-pills{ display:flex; gap:6px; flex-wrap:wrap; }
-  .stage-pill{font-size:12px;border:1px solid var(--line);background:#fff;border-radius:20px;padding:5px 13px;cursor:pointer;color:var(--ink-soft);transition:all .12s;white-space:nowrap;}
+  .stage-pill{font-size:11.5px;border:1px solid var(--line);background:#fff;border-radius:20px;padding:4px 11px;cursor:pointer;color:var(--ink-soft);transition:all .12s;white-space:nowrap;}
   .stage-pill:hover{border-color:var(--accent);color:var(--accent-deep);}
   .stage-pill.active{background:var(--accent);color:#003122;border-color:var(--accent);font-weight:700;}
   .stage-pill.stage-won.active{background:#003122;color:#78D800;border-color:#003122;}
   .stage-pill.stage-lost.active{background:var(--debit);color:#fff;border-color:var(--debit);}
   .stage-divider{font-size:10px;color:var(--ink-faint);align-self:center;padding:0 2px;}
 
+  /* ── Piloto de redesign do Funil: overrides isolados, não afetam outras telas ── */
+  #view-funil .filters{padding:14px 18px;gap:14px;margin-bottom:20px;}
+  #view-funil .section-head{margin:24px 0 16px;}
+  #view-funil .connect-btn{border-radius:9px;padding:11px 18px;}
+
   /* ── KPIs do funil ── */
-  .funil-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px;}
-  .funil-kpi{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;position:relative;overflow:hidden;}
+  .funil-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:20px;}
+  .funil-kpi{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;position:relative;overflow:hidden;}
   .funil-kpi .tag{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-faint);font-weight:600;}
-  .funil-kpi .num{font-family:var(--unbounded);font-size:24px;font-weight:700;margin-top:8px;color:var(--ink);}
+  .funil-kpi .num{font-family:var(--unbounded);font-size:22px;font-weight:700;margin-top:8px;color:var(--ink);}
   .funil-kpi .sub{font-size:11.5px;color:var(--ink-soft);margin-top:4px;}
   .funil-kpi .bar{position:absolute;left:0;bottom:0;height:3px;width:100%;background:var(--line);}
   .funil-kpi.accent .bar{background:var(--accent);}
@@ -501,7 +518,7 @@
   .funil-kpi.lost .bar{background:var(--debit);}
 
   /* ── Gráfico de colunas ── */
-  .chart-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;margin-bottom:28px;}
+  .chart-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;margin-bottom:20px;}
   .chart-card .chart-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px;}
   .chart-card .chart-title{font-family:var(--unbounded);font-size:14px;font-weight:700;color:var(--ink);}
   .chart-card .chart-sub{font-size:11.5px;color:var(--ink-faint);}
@@ -572,30 +589,27 @@
   }
 
   /* ══════════════════════════════════════════════════════════════
-     MOBILE (≤760px) — sidebar vira barra horizontal fixa no topo,
-     grids colapsam pra 1–2 colunas, tabelas largas viram scroll
-     horizontal em vez de quebrar/empilhar. Mesmo espírito do
-     breakpoint único usado no proposta.html.
+     MOBILE (≤760px) — barra hambúrguer no topo abre o menu como
+     gaveta lateral (desliza da esquerda, com fundo escurecido atrás),
+     em vez de espremer o menu numa barra horizontal. Grids colapsam
+     pra 1–2 colunas, tabelas largas viram scroll horizontal em vez
+     de quebrar/empilhar. Mesmo espírito do breakpoint único usado
+     no proposta.html.
      ══════════════════════════════════════════════════════════════ */
   @media(max-width:760px){
     body{flex-direction:column;}
 
-    /* ── Sidebar → barra horizontal ── */
+    /* ── Barra mobile fixa no topo ── */
+    .mobile-topbar{display:flex;align-items:center;gap:12px;background:var(--sidebar-bg);padding:13px 16px;position:sticky;top:0;z-index:120;width:100%;}
+
+    /* ── Sidebar → gaveta lateral, fora da tela até abrir ── */
     .sidebar{
-      width:100%!important;min-height:auto;position:sticky;top:0;z-index:50;
-      flex-direction:row;align-items:center;padding:10px 12px;gap:10px;
-      overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap;
+      position:fixed;left:0;top:0;height:100vh;width:260px;max-width:82vw;
+      transform:translateX(-100%);transition:transform .2s ease;z-index:130;
+      min-height:0;
     }
-    .sidebar.collapsed{width:100%!important;}
-    .sidebar .brandmark{
-      padding:0 12px 0 0;margin-bottom:0;border-bottom:none;
-      border-right:1px solid rgba(255,255,255,.12);flex:none;max-width:none;
-    }
-    .sidebar .brandmark .sg-sub{display:none;}
-    .sidebar nav{flex-direction:row;padding:0;gap:4px;flex:none;}
-    .sidebar a{padding:8px 12px;white-space:nowrap;}
-    .sidebar a .nav-label{max-width:none;opacity:1;}
-    .sidebar .foot{display:none;}
+    .sidebar.mobile-open{transform:translateX(0);}
+    .sidebar.collapsed{width:260px!important;}
     .sidebar-toggle{display:none;}
 
     /* ── Conteúdo principal ── */
@@ -753,6 +767,12 @@
     </div>
   </div>
 </div>
+
+<div class="mobile-topbar">
+  <button class="hamburger" id="btn-abrir-menu" aria-label="Abrir menu">☰</button>
+  <div class="mobile-topbar-brand"><span class="sg-solar">SOLAR <span class="sg-green">GREEN</span></span></div>
+</div>
+<div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
 <aside class="sidebar">
   <div class="brandmark">
@@ -2192,8 +2212,19 @@
   function apiKey(){ return (localStorage.getItem('ponto_api_key')||'').trim()||DEFAULT_API_KEY; }
 
   function authCall(action,payload){
-    var body=Object.assign({action:action,chave:apiKey()},payload||{});
-    return fetch(apiUrl(),{method:'POST',body:JSON.stringify(body)}).then(function(r){return r.json();});
+    // Injeta solicitanteId automaticamente a partir de window.SG_SESSION —
+    // a MESMA fonte que isAdmin()/filterByOwner()/SGUtil.meuId() já usam
+    // (setada uma vez no script de trava no topo do <body>, a partir do
+    // localStorage). Antes cada módulo precisava lembrar de mandar isso
+    // manualmente em toda chamada, e boa parte esquecia (foi assim que o
+    // bug do solicitanteId faltando apareceu em 9 lugares diferentes).
+    // "auto" entra ANTES do payload no Object.assign, então quem já manda
+    // solicitanteId própria (chamadas já corrigidas manualmente) continua
+    // funcionando igual.
+    var s=window.SG_SESSION;
+    var auto=(s&&s.idVendedor)?{solicitanteId:s.idVendedor}:{};
+    var body=Object.assign({action:action,chave:apiKey()},auto,payload||{});
+    return fetch(apiUrl(),{method:'POST',cache:'no-store',body:JSON.stringify(body)}).then(function(r){return r.json();});
   }
 
   function getSession(){
@@ -2375,7 +2406,42 @@
         if(window.SGUtil.ultimos8DigitosTelefone(c.Telefone)===alvo)return c;
       }
       return null;
-    }
+    },
+
+    /**
+     * Formatters/parsers compartilhados — antes cada um dos ~14 módulos da
+     * tela tinha sua PRÓPRIA cópia dessas mesmas funções (é por isso que o
+     * bug do solicitanteId conseguiu se esconder em 9 lugares diferentes).
+     * Migração módulo a módulo: ver plano em .claude/plans — cada módulo
+     * troca sua cópia local por SGUtil.* e apaga a própria, um de cada vez.
+     */
+    escapeHtml:function(s){ var d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; },
+    // Convenção de sinal do módulo Vendas ("-R$ 1.234,56") — corrige de propósito
+    // o bug do Funil, cuja cópia local faz Math.abs() e perde o sinal negativo.
+    fmtMoney:function(n){
+      var v;
+      if(typeof n==='string'){ v = n.indexOf(',')!==-1 ? parseFloat(n.replace(/\./g,'').replace(',','.'))||0 : parseFloat(n)||0; }
+      else v = parseFloat(n)||0;
+      var sinal = v<0?'-':'';
+      return sinal+'R$ '+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+    },
+    parseBRDate:function(str){
+      if(!str)return null; str=String(str).trim();
+      var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if(m)return new Date(+m[3],+m[2]-1,+m[1]);
+      var d=new Date(str.substring(0,10)); return isNaN(d)?null:d;
+    },
+    parseBRNumber:function(v){
+      if(v===''||v===null||v===undefined)return 0;
+      if(typeof v==='number')return v;
+      var s=String(v).trim().replace(/R\$\s?/g,'');
+      if(s.indexOf(',')!==-1)s=s.replace(/\./g,'').replace(',','.');
+      var n=parseFloat(s); return isNaN(n)?0:n;
+    },
+    dateKey:function(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); },
+    fmtDateBR:function(d){ return d?(String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()):'—'; },
+    meuId:function(){ return window.SG_SESSION&&window.SG_SESSION.idVendedor; },
+    souAdmin:function(){ return !!(window.SGAuth&&window.SGAuth.isAdmin()); }
   };
 
   // Cache de "quem pode ver o quê" — carregado uma vez por sessão (uma
@@ -2686,13 +2752,13 @@
   var chartAnchorDay=null;
 
   function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
-  function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
-  function fmtMoney(n){ n=parseFloat(n)||0; return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-  function parseBRDate(str){ if(!str)return null; str=String(str).trim(); var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m)return new Date(+m[3],+m[2]-1,+m[1]); var d=new Date(str.substring(0,10)); return isNaN(d)?null:d; }
+  function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
+  function fmtMoney(n){ return window.SGUtil.fmtMoney(n); }
+  function parseBRDate(str){ return window.SGUtil.parseBRDate(str); }
   function parseISOSimples(iso){ var p=iso.split('-'); return new Date(+p[0],+p[1]-1,+p[2]); }
-  function parseBRNumber(v){ if(v===''||v===null||v===undefined)return 0; if(typeof v==='number')return v; var s=String(v).trim().replace(/R\$\s?/g,''); if(s.indexOf(',')!==-1)s=s.replace(/\./g,'').replace(',','.'); var n=parseFloat(s); return isNaN(n)?0:n; }
-  function dateKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-  function fmtDateBR(d){ return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear(); }
+  function parseBRNumber(v){ return window.SGUtil.parseBRNumber(v); }
+  function dateKey(d){ return window.SGUtil.dateKey(d); }
+  function fmtDateBR(d){ return window.SGUtil.fmtDateBR(d); }
   function fmtDateBRDoISO(iso){ var p=iso.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
   function nomeVendedor(id){ var v=vendedoresMap[id]; return v?(v.Nome||id):'—'; }
   function nomeServico(id){ var s=servicosMap[id]; return s?(s['Nome Servico']||id):'—'; }
@@ -3066,11 +3132,13 @@
   function setApiCreds(u,k){ localStorage.setItem(API_URL_KEY,u.trim()); localStorage.setItem(API_KEY_KEY,k.trim()); }
   function hasApiCreds(){ return !!getApiUrl()&&!!getApiKey(); }
 
-  function apiCall(action,extra){
-    var url=getApiUrl(),key=getApiKey();
-    var body=Object.assign({action:action,chave:key},extra||{});
-    return fetch(url,{method:'POST',cache:'no-store',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)}).then(function(r){return r.json();});
-  }
+  // Delega pra SGAuth.apiCall — que lê os MESMOS localStorage keys
+  // (ponto_api_url/ponto_api_key) que getApiUrl()/getApiKey() acima, então
+  // o comportamento é idêntico, só sem reimplementar o fetch aqui. Ganha de
+  // graça a injeção automática de solicitanteId (Fase A) e cache:'no-store'.
+  // getApiUrl/getApiKey/hasApiCreds continuam existindo — hasApiCreds() é
+  // usado antes de chamar apiCall pra decidir se tenta salvar ou não.
+  function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
 
   function setSyncPill(state,text){
     var pill=document.getElementById('p-syncPill'),pt=document.getElementById('p-syncPillText');
@@ -3125,7 +3193,7 @@
 
   function parseDateTime(str){ if(!str)return null; str=str.toString().trim(); var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/); if(m)return new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]),parseInt(m[4]),parseInt(m[5]),m[6]?parseInt(m[6]):0); var d=new Date(str); if(!isNaN(d.getTime()))return d; return null; }
 
-  function dateKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  function dateKey(d){ return window.SGUtil.dateKey(d); }
 
   function processPonto(rows){ var hi=findHeaderRowIndex(rows,['Funcionario','Tipo']); if(hi===-1)hi=0; var objs=rowsToObjects(rows,hi); var recs=[]; objs.forEach(function(o){var dt=parseDateTime(o['Data e Hora']||o['Data']||''); if(!dt)return; recs.push({funcionario:o['Funcionario']||o['Colaborador']||'',tipo:(o['Tipo']||'').trim(),dt:dt,dateKey:dateKey(dt)});}); return recs; }
 
@@ -3235,7 +3303,7 @@
     });
   }
 
-  function escapeHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+  function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
 
   function render(){
     var filtered=getFiltered(),colab=document.getElementById('selColaborador').value,showingAll=colab==='__all__';
@@ -3427,15 +3495,19 @@
   function getApiKey(){return(localStorage.getItem(API_KEY_KEY)||'').trim()||DEFAULT_API_KEY;}
   function setApiCreds(u,k){localStorage.setItem(API_URL_KEY,u.trim());localStorage.setItem(API_KEY_KEY,k.trim());}
   function hasApiCreds(){return !!getApiUrl()&&!!getApiKey();}
-  function apiCall(action,extra){var body=Object.assign({action:action,chave:getApiKey()},extra||{});return fetch(getApiUrl(),{method:'POST',cache:'no-store',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)}).then(function(r){return r.json();});}
+  // Delega pra SGAuth.apiCall (mesmos localStorage keys) — ganha
+  // solicitanteId automático (Fase A), a causa raiz do bug original nesse
+  // módulo. getApiUrl/getApiKey/hasApiCreds continuam — hasApiCreds() é
+  // usado em fetchFromApi() pra decidir se tenta buscar antes de chamar.
+  function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
   function setSyncPill(state,text){var pill=document.getElementById('v-syncPill'),pt=document.getElementById('v-syncPillText');if(!pill)return;pill.style.display='flex';pill.classList.remove('saving','error');if(state==='saving')pill.classList.add('saving');if(state==='error')pill.classList.add('error');pt.textContent=text;}
   function setUpdateClock(){var d=new Date();document.getElementById('v-lastUpdate').textContent='Atualizado em '+d.toLocaleDateString('pt-BR')+' às '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
   setUpdateClock();
-  function parseBRNumber(val){if(val===''||val===null||val===undefined)return 0;if(typeof val==='number')return val;var str=String(val).trim().replace(/R\$\s?/g,'').trim();if(str.indexOf(',')!==-1)str=str.replace(/\./g,'').replace(',','.');var n=parseFloat(str);return isNaN(n)?0:n;}
-  function parseBRDate(str){if(!str)return null;str=str.toString().trim();var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);if(m)return new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]));var d=new Date(str);if(!isNaN(d.getTime()))return d;return null;}
-  function dateKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-  function fmtMoney(n){var sign=n<0?'-':'';return sign+'R$ '+Math.abs(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
-  function escapeHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+  function parseBRNumber(val){ return window.SGUtil.parseBRNumber(val); }
+  function parseBRDate(str){ return window.SGUtil.parseBRDate(str); }
+  function dateKey(d){ return window.SGUtil.dateKey(d); }
+  function fmtMoney(n){ return window.SGUtil.fmtMoney(n); }
+  function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
   function isDiaUtil(d){var dow=d.getDay();return dow!==0&&dow!==6;}
   function countDiasUteis(start,end){var count=0,cursor=new Date(start.getTime());while(cursor<=end){if(isDiaUtil(cursor))count++;cursor.setDate(cursor.getDate()+1);}return count;}
   function isVendedorAtivo(v){return(v.Tipo||'').trim()==='Vendedor'&&(v.Status||'').trim()==='Ativo';}
@@ -4134,7 +4206,7 @@
     wireCustoItemClick(vendaAtual);
     window.SGToast.mostrar('Custo excluído.');
 
-    apiCall('excluirCustoVenda',{idCusto:idCusto}).then(function(resp){
+    apiCall('excluirCustoVenda',{idCusto:idCusto,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
       if(!resp||!resp.ok){
         if(window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
         if(registroAnterior)custosVendaRecords.push(registroAnterior);
@@ -4166,7 +4238,7 @@
     render();
     window.SGToast.mostrar('Venda excluída.');
 
-    apiCall('excluirVenda',{idVenda:idVenda}).then(function(resp){
+    apiCall('excluirVenda',{idVenda:idVenda,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
       if(!resp||!resp.ok){
         if(window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
         vendasRecords.push(registroAnterior); _epoca.marcar(); render();
@@ -4290,20 +4362,16 @@
   function getApiUrl(){ return (localStorage.getItem(API_URL_KEY)||'').trim()||DEFAULT_API_URL; }
   function getApiKey(){ return (localStorage.getItem(API_KEY_KEY)||'').trim()||DEFAULT_API_KEY; }
 
-  function apiCall(action,extra){
-    var body=Object.assign({action:action,chave:getApiKey()},extra||{});
-    return fetch(getApiUrl(),{method:'POST',cache:'no-store',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)}).then(function(r){return r.json();});
-  }
+  // Delega pra SGAuth.apiCall (mesmos localStorage keys que getApiUrl/getApiKey
+  // acima) — ganha injeção automática de solicitanteId (Fase A), que era
+  // exatamente o que faltava nas chamadas deste módulo.
+  function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
 
-  function fmtMoney(n){ return 'R$ '+Math.abs(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  // Corrige de propósito um bug real: a versão antiga fazia Math.abs(n) sem
+  // devolver o sinal, então valor negativo aparecia como positivo na tela.
+  function fmtMoney(n){ return window.SGUtil.fmtMoney(n); }
 
-  function parseBRDate(str){
-    if(!str)return null; str=str.toString().trim();
-    var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-    if(m)return new Date(+m[3],+m[2]-1,+m[1]);
-    var d=new Date(str.substring(0,10));
-    return isNaN(d)?null:d;
-  }
+  function parseBRDate(str){ return window.SGUtil.parseBRDate(str); }
 
   // parseia data E hora para comparar logs corretamente
   function parseBRDateTime(str){
@@ -4315,9 +4383,9 @@
     var d=new Date(str); return isNaN(d)?null:d;
   }
 
-  function dateKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-  function fmtDateBR(d){ return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear(); }
-  function escapeHtml(s){ var d=document.createElement('div');d.textContent=s||'';return d.innerHTML; }
+  function dateKey(d){ return window.SGUtil.dateKey(d); }
+  function fmtDateBR(d){ return window.SGUtil.fmtDateBR(d); }
+  function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
   function nomeFor(id){ if(!id)return'—'; var v=vendedoresMap[id]||vendedoresTodosMap[id];return(v&&(v.Nome||v.nome))||String(id).slice(0,8); }
   function nomeClienteFor(id){ if(!id)return'—';var c=clientesMap[id];return(c&&(c['Nome Razao Social']||c.Nome))||id.slice(0,8); }
   function telefoneClienteFor(id){ if(!id)return''; var c=clientesMap[id]; return c?(c.Telefone||''):''; }
@@ -4552,35 +4620,127 @@
       var esmaecido=(etapaAtiva!=='__all__'&&etapaAtiva!==etapa)?'opacity:.4;':'';
       var cardsHtml=lista.length?lista.map(function(r){
         var slaHtml='<span class="sla-cell sla-'+r.slaColor+'"><span class="sla-dot"></span>'+r.diasNaEtapa+'d</span>';
-        return '<div class="kanban-card" draggable="true" data-id="'+escapeHtml(r.id)+'">'+
+        return '<div class="kanban-card" data-id="'+escapeHtml(r.id)+'">'+
           '<div class="kcard-nome">'+escapeHtml(nomeClienteFor(r.idCliente))+'</div>'+
           '<div class="kcard-vend">'+escapeHtml(nomeFor(r.idVendedor))+'</div>'+
           '<div class="kcard-foot"><span class="kcard-valor">'+fmtMoney(r.valor)+'</span>'+slaHtml+'</div>'+
         '</div>';
       }).join(''):'<div class="kanban-col-empty">Nenhum lead aqui.</div>';
+      var corDot=etapa==='Ganho'?'#78D800':(etapa==='Perdido'?'var(--debit)':'var(--accent-deep)');
       return '<div class="kanban-col" data-etapa="'+escapeHtml(etapa)+'" style="'+esmaecido+'">'+
-        '<div class="kanban-col-head"><div class="kc-nome">'+escapeHtml(etapa)+'</div><div class="kc-sub">'+lista.length+' lead(s) · '+fmtMoney(valorTotal)+'</div></div>'+
+        '<div class="kanban-col-head"><div class="kc-top"><span class="kc-dot" style="background:'+corDot+'"></span><div class="kc-nome">'+escapeHtml(etapa)+'</div></div><div class="kc-sub">'+lista.length+' lead(s) · '+fmtMoney(valorTotal)+'</div></div>'+
         '<div class="kanban-col-body" data-etapa="'+escapeHtml(etapa)+'">'+cardsHtml+'</div>'+
       '</div>';
     }).join('');
     wrap.querySelectorAll('.kanban-card').forEach(function(card){
-      card.addEventListener('click',function(){ if(card.classList.contains('kcard-dragging'))return; abrirVisualizacaoLead(card.getAttribute('data-id')); });
-      card.addEventListener('dragstart',function(e){
-        e.dataTransfer.setData('text/plain',card.getAttribute('data-id'));
-        e.dataTransfer.effectAllowed='move';
-        setTimeout(function(){ card.classList.add('kcard-dragging'); },0);
-      });
-      card.addEventListener('dragend',function(){ card.classList.remove('kcard-dragging'); });
+      card.addEventListener('click',function(){ if(Date.now()-ultimoDragKanbanTerminouEm<300)return; abrirVisualizacaoLead(card.getAttribute('data-id')); });
     });
-    wrap.querySelectorAll('.kanban-col-body').forEach(function(coluna){
-      coluna.addEventListener('dragover',function(e){ e.preventDefault(); e.dataTransfer.dropEffect='move'; coluna.closest('.kanban-col').classList.add('kanban-col-dragover'); });
-      coluna.addEventListener('dragleave',function(){ coluna.closest('.kanban-col').classList.remove('kanban-col-dragover'); });
-      coluna.addEventListener('drop',function(e){
-        e.preventDefault();
-        coluna.closest('.kanban-col').classList.remove('kanban-col-dragover');
-        var idLead=e.dataTransfer.getData('text/plain');
-        var novaEtapa=coluna.getAttribute('data-etapa');
-        if(idLead&&novaEtapa)moverLeadParaEtapa(idLead,novaEtapa);
+    ativarDragDropKanban();
+  }
+
+  /**
+   * Drag-and-drop do Kanban por Pointer Events — funciona com mouse, toque
+   * e caneta igual (o "draggable" nativo do HTML5 nunca dispara em toque no
+   * iOS/Android, então arrastar um card não fazia nada no celular). Move o
+   * card seguindo o dedo/cursor com um "ghost" flutuante, destaca a coluna
+   * embaixo do ponteiro, e rola o kanban horizontalmente sozinho quando o
+   * card chega perto da borda — sem isso não dava pra soltar numa coluna
+   * fora da tela sem arrastar em duas etapas.
+   */
+  var arrastarKanbanEstado=null;
+  var dragDropKanbanGlobalPronto=false;
+  var ultimoDragKanbanTerminouEm=0;
+  var AUTOSCROLL_KANBAN_ZONA=56;
+  var AUTOSCROLL_KANBAN_VEL_MAX=16;
+  var autoScrollKanbanRAF=null,autoScrollKanbanWrap=null,autoScrollKanbanDir=0,autoScrollKanbanVel=0;
+
+  function destacarColunaKanbanSobPonto(x,y){
+    var elUnder=document.elementFromPoint(x,y);
+    var col=elUnder?elUnder.closest('.kanban-col'):null;
+    document.querySelectorAll('.kanban-col.kanban-col-dragover').forEach(function(c){ if(c!==col)c.classList.remove('kanban-col-dragover'); });
+    if(col)col.classList.add('kanban-col-dragover');
+    return col;
+  }
+  function pararAutoScrollKanban(){
+    autoScrollKanbanDir=0;
+    if(autoScrollKanbanRAF){ cancelAnimationFrame(autoScrollKanbanRAF); autoScrollKanbanRAF=null; }
+  }
+  function passoAutoScrollKanban(){
+    if(!autoScrollKanbanDir||!arrastarKanbanEstado||!arrastarKanbanEstado.dragging){ autoScrollKanbanRAF=null; return; }
+    autoScrollKanbanWrap.scrollLeft+=autoScrollKanbanDir*autoScrollKanbanVel;
+    destacarColunaKanbanSobPonto(arrastarKanbanEstado.lastClientX,arrastarKanbanEstado.lastClientY);
+    autoScrollKanbanRAF=requestAnimationFrame(passoAutoScrollKanban);
+  }
+  function atualizarAutoScrollKanban(clientX){
+    var wrapEl=document.getElementById('f-kanbanWrap');
+    if(!wrapEl){ pararAutoScrollKanban(); return; }
+    var rect=wrapEl.getBoundingClientRect();
+    var distEsquerda=clientX-rect.left,distDireita=rect.right-clientX;
+    var dir=0,vel=0;
+    if(distEsquerda<AUTOSCROLL_KANBAN_ZONA&&wrapEl.scrollLeft>0){
+      dir=-1; vel=AUTOSCROLL_KANBAN_VEL_MAX*(1-Math.max(distEsquerda,0)/AUTOSCROLL_KANBAN_ZONA);
+    }else if(distDireita<AUTOSCROLL_KANBAN_ZONA&&wrapEl.scrollLeft<wrapEl.scrollWidth-wrapEl.clientWidth-1){
+      dir=1; vel=AUTOSCROLL_KANBAN_VEL_MAX*(1-Math.max(distDireita,0)/AUTOSCROLL_KANBAN_ZONA);
+    }
+    autoScrollKanbanWrap=wrapEl; autoScrollKanbanDir=dir; autoScrollKanbanVel=Math.max(vel,3);
+    if(dir===0){ pararAutoScrollKanban(); return; }
+    if(!autoScrollKanbanRAF)autoScrollKanbanRAF=requestAnimationFrame(passoAutoScrollKanban);
+  }
+  function onDragKanbanPointerMove(e){
+    var estado=arrastarKanbanEstado;
+    if(!estado||estado.pointerId!==e.pointerId)return;
+    var dx=e.clientX-estado.startX,dy=e.clientY-estado.startY;
+    if(!estado.dragging){
+      if(Math.abs(dx)<8&&Math.abs(dy)<8)return;
+      estado.dragging=true;
+      estado.card.classList.add('kcard-dragging');
+      try{ estado.card.setPointerCapture(estado.pointerId); }catch(err){}
+      estado.ghost=estado.card.cloneNode(true);
+      estado.ghost.classList.add('kcard-ghost');
+      estado.ghost.style.width=estado.width+'px';
+      document.body.appendChild(estado.ghost);
+    }
+    e.preventDefault();
+    estado.lastClientX=e.clientX; estado.lastClientY=e.clientY;
+    estado.ghost.style.left=(e.clientX-estado.offsetX)+'px';
+    estado.ghost.style.top=(e.clientY-estado.offsetY)+'px';
+    destacarColunaKanbanSobPonto(e.clientX,e.clientY);
+    atualizarAutoScrollKanban(e.clientX);
+  }
+  function onDragKanbanPointerUp(e){
+    var estado=arrastarKanbanEstado;
+    if(!estado||estado.pointerId!==e.pointerId)return;
+    arrastarKanbanEstado=null;
+    pararAutoScrollKanban();
+    if(!estado.dragging)return;
+    var elUnder=document.elementFromPoint(e.clientX,e.clientY);
+    var colFinal=elUnder?elUnder.closest('.kanban-col'):null;
+    document.querySelectorAll('.kanban-col.kanban-col-dragover').forEach(function(c){ c.classList.remove('kanban-col-dragover'); });
+    estado.card.classList.remove('kcard-dragging');
+    ultimoDragKanbanTerminouEm=Date.now();
+    if(estado.ghost&&estado.ghost.parentNode)estado.ghost.parentNode.removeChild(estado.ghost);
+    if(colFinal){
+      var novaEtapa=colFinal.getAttribute('data-etapa');
+      if(novaEtapa)moverLeadParaEtapa(estado.id,novaEtapa);
+    }
+  }
+  function ativarDragDropKanban(){
+    if(!dragDropKanbanGlobalPronto){
+      dragDropKanbanGlobalPronto=true;
+      document.addEventListener('pointermove',onDragKanbanPointerMove,{passive:false});
+      document.addEventListener('pointerup',onDragKanbanPointerUp);
+      document.addEventListener('pointercancel',onDragKanbanPointerUp);
+    }
+    document.querySelectorAll('#f-kanbanWrap .kanban-card').forEach(function(card){
+      card.addEventListener('pointerdown',function(e){
+        if(e.pointerType==='mouse'&&e.button!==0)return;
+        var rect=card.getBoundingClientRect();
+        arrastarKanbanEstado={
+          card:card,id:card.getAttribute('data-id'),pointerId:e.pointerId,
+          startX:e.clientX,startY:e.clientY,
+          offsetX:e.clientX-rect.left,offsetY:e.clientY-rect.top,
+          width:rect.width,dragging:false,ghost:null
+        };
       });
     });
   }
@@ -5112,7 +5272,7 @@
     render();
     mostrarToastFunil('Lead excluído.');
 
-    apiCall('excluirFunil',{idOportunidade:id}).then(function(resp){
+    apiCall('excluirFunil',{idOportunidade:id,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
       if(!resp||!resp.ok){
         if(window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return; // já não existia — exclusão continua válida
         funilRecords.push(registroAnterior); _epoca.marcar(); render();
@@ -5359,15 +5519,15 @@
   var agendamentoAtual=null;
 
   function apiCall(action,payload){ return window.SGAuth.apiCall(action,payload); }
-  function meuId(){ return window.SG_SESSION&&window.SG_SESSION.idVendedor; }
-  function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+  function meuId(){ return window.SGUtil.meuId(); }
+  function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
   function parseBRDateTime(str){
     if(!str)return null; str=String(str).trim();
     var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
     if(m)return new Date(parseInt(m[3],10),parseInt(m[2],10)-1,parseInt(m[1],10));
     var d=new Date(str); return isNaN(d.getTime())?null:d;
   }
-  function dateKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function dateKey(d){ return window.SGUtil.dateKey(d); }
   function statusSlug(s){return (s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'-');}
 
   function showMsg(texto,tipo){
@@ -6219,7 +6379,7 @@
   var APP_VERSION='2026-07-16-1';
 
   function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
-  function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+  function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
   function nomeVendedor(id){ var v=vendedoresMap[id]; return v?v.Nome:'—'; }
 
   /**
@@ -6335,8 +6495,8 @@
     });
   }
 
-  function parseBRDateCl(str){ if(!str)return null; str=String(str).trim(); var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m)return new Date(+m[3],+m[2]-1,+m[1]); var d=new Date(str.substring(0,10)); return isNaN(d)?null:d; }
-  function dateKeyDoISOCl(d){ return d?(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')):''; }
+  function parseBRDateCl(str){ return window.SGUtil.parseBRDate(str); }
+  function dateKeyDoISOCl(d){ return window.SGUtil.dateKey(d); }
 
   /** Enquanto "Sim" estiver marcado, o CPF Equatorial acompanha o CPF do
    *  cliente ao vivo — se a pessoa mudar de ideia e marcar "Não", libera
@@ -6666,14 +6826,14 @@
   var APP_VERSION='2026-07-16-1';
 
   function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
-  function meuId(){ return window.SG_SESSION&&window.SG_SESSION.idVendedor; }
-  function souAdmin(){ return window.SGAuth&&window.SGAuth.isAdmin(); }
-  function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+  function meuId(){ return window.SGUtil.meuId(); }
+  function souAdmin(){ return window.SGUtil.souAdmin(); }
+  function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
   function nomeVendedor(id){ var v=vendedoresMap[id]; return v?(v.Nome||id):id; }
-  function dateKeyHoje(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-  function parseBRDate(str){ if(!str)return null; str=String(str).trim(); var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m)return new Date(+m[3],+m[2]-1,+m[1]); var d=new Date(str.substring(0,10)); return isNaN(d)?null:d; }
-  function dateKeyFromDate(d){ return d?(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')):''; }
-  function fmtDateBRRl(d){ return d?(String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()):'—'; }
+  function dateKeyHoje(){ return window.SGUtil.dateKey(new Date()); }
+  function parseBRDate(str){ return window.SGUtil.parseBRDate(str); }
+  function dateKeyFromDate(d){ return window.SGUtil.dateKey(d); }
+  function fmtDateBRRl(d){ return window.SGUtil.fmtDateBR(d); }
 
   function sortRelatoriosRows(lista){
     var col=sortState.col,dir=sortState.dir,mult=dir==='asc'?1:-1;
@@ -6787,17 +6947,16 @@
       var atual=sel.value||meuId();
       sel.innerHTML=Object.keys(vendedoresMap).map(function(id){return vendedoresMap[id];})
         .sort(function(a,b){return (a.Nome||'').localeCompare(b.Nome||'','pt-BR');})
-        .map(function(v){return '<option value="'+escapeHtmlRl(v.IdVendedor)+'">'+escapeHtmlRl(v.Nome)+'</option>';}).join('');
+        .map(function(v){return '<option value="'+escapeHtml(v.IdVendedor)+'">'+escapeHtml(v.Nome)+'</option>';}).join('');
       if([...sel.options].some(function(o){return o.value===atual;}))sel.value=atual;
       else sel.value=meuId();
     }else{
       // não-admin só pode lançar o próprio relatório — trava no próprio nome
-      sel.innerHTML='<option value="'+escapeHtmlRl(meuId())+'">'+escapeHtmlRl(nomeVendedor(meuId()))+' (você)</option>';
+      sel.innerHTML='<option value="'+escapeHtml(meuId())+'">'+escapeHtml(nomeVendedor(meuId()))+' (você)</option>';
       sel.value=meuId();
       sel.disabled=true;
     }
   }
-  function escapeHtmlRl(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
 
   function preencherFormularioDeHoje(){
     editandoId=null;
@@ -6996,12 +7155,12 @@
   var APP_VERSION='2026-07-16-1';
 
   function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
-  function meuId(){ return window.SG_SESSION&&window.SG_SESSION.idVendedor; }
-  function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
-  function fmtMoney(n){ if(typeof n==='string'){ n=n.indexOf(',')!==-1?parseFloat(n.replace(/\./g,'').replace(',','.'))||0:parseFloat(n)||0; } else n=parseFloat(n)||0; return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-  function parseBRDate(str){ if(!str)return null; str=String(str).trim(); var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m)return new Date(+m[3],+m[2]-1,+m[1]); var d=new Date(str.substring(0,10)); return isNaN(d)?null:d; }
-  function dateKeyFromDate(d){ return d?(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')):''; }
-  function fmtDateBRcv(d){ return d?(String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()):'—'; }
+  function meuId(){ return window.SGUtil.meuId(); }
+  function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
+  function fmtMoney(n){ return window.SGUtil.fmtMoney(n); }
+  function parseBRDate(str){ return window.SGUtil.parseBRDate(str); }
+  function dateKeyFromDate(d){ return window.SGUtil.dateKey(d); }
+  function fmtDateBRcv(d){ return window.SGUtil.fmtDateBR(d); }
   function normalizaBuscaCv(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
 
   function nomeCliente(id){ var c=clientesMap[id]; return c?(c['Nome Razao Social']||c.Nome||id):'—'; }
@@ -7265,7 +7424,7 @@
     render();
     (window.SGToast?window.SGToast.mostrar:function(t){})('Custo excluído.');
 
-    apiCall('excluirCustoVenda',{idCusto:idAlvo}).then(function(resp){
+    apiCall('excluirCustoVenda',{idCusto:idAlvo,solicitanteId:meuId()}).then(function(resp){
       if(!resp||!resp.ok){
         if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
         if(registroAnterior)custos.push(registroAnterior);
@@ -7366,8 +7525,8 @@
   var _epoca=window.SGEpoca.criar();
 
   function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
-  function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
-  function fmtMoney(n){ if(typeof n==='string'){ n=n.indexOf(',')!==-1?parseFloat(n.replace(/\./g,'').replace(',','.'))||0:parseFloat(n)||0; } else n=parseFloat(n)||0; return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
+  function fmtMoney(n){ return window.SGUtil.fmtMoney(n); }
   function normalizaBuscaCr(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
   function textoBuscavelCr(c){ return normalizaBuscaCr([c.Descricao,c.Categoria,c.Status,c['Dia Vencimento']].join(' | ')); }
 
@@ -7580,7 +7739,7 @@
     render();
     (window.SGToast?window.SGToast.mostrar:function(t){})('Custo recorrente excluído.');
 
-    apiCall('excluirCustoRecorrente',{idCR:idAlvo}).then(function(resp){
+    apiCall('excluirCustoRecorrente',{idCR:idAlvo,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
       if(!resp||!resp.ok){
         if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
         if(registroAnterior)custos.push(registroAnterior);
@@ -7676,8 +7835,9 @@
   var TIPOS_INPUT=['Texto','Number','Foto','Lista','Sim/Nao'];
 
   function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
-  function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
-  function fmtMoney(n){ if(n===undefined||n===null||n==='')return '—'; if(typeof n==='string')n=(n.indexOf(',')!==-1?parseFloat(n.replace(/\./g,'').replace(',','.')):parseFloat(n))||0; else n=parseFloat(n)||0; return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
+  // Guarda o '—' pra vazio (só esse módulo faz isso) antes de delegar pro formatter compartilhado.
+  function fmtMoney(n){ if(n===undefined||n===null||n==='')return '—'; return window.SGUtil.fmtMoney(n); }
   function normalizaBuscaSv(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
   function isObrigatorioSv(v){ if(v===true)return true; if(v===false||v===undefined||v===null||v==='')return false; var s=String(v).trim().toUpperCase(); return s==='VERDADEIRO'||s==='TRUE'||s==='SIM'||s==='1'; }
   function templatesDoServico(idServico){ return templates.filter(function(t){return String(t.IdServico)===String(idServico);}).sort(function(a,b){return (parseInt(a.Ordem,10)||0)-(parseInt(b.Ordem,10)||0);}); }
@@ -7800,7 +7960,7 @@
     renderPerguntas();
     render();
 
-    apiCall('excluirTemplate',{idTemplate:idTpl}).then(function(resp){
+    apiCall('excluirTemplate',{idTemplate:idTpl,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
       if(!resp||!resp.ok){
         if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
         if(registroAnterior)templates.push(registroAnterior);
@@ -7945,7 +8105,7 @@
     render();
     (window.SGToast?window.SGToast.mostrar:function(t){})('Serviço excluído.');
 
-    apiCall('excluirServico',{idServico:idAlvo}).then(function(resp){
+    apiCall('excluirServico',{idServico:idAlvo,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
       if(!resp||!resp.ok){
         if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
         if(registroAnterior)servicos.push(registroAnterior);
@@ -8029,8 +8189,8 @@
   var NOMES_MESES=['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
   function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
-  function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
-  function fmtMoney(n){ if(typeof n==='string'){ n=n.indexOf(',')!==-1?parseFloat(n.replace(/\./g,'').replace(',','.'))||0:parseFloat(n)||0; } else n=parseFloat(n)||0; return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
+  function fmtMoney(n){ return window.SGUtil.fmtMoney(n); }
 
   function sortMetasRows(lista){
     var col=sortState.col,dir=sortState.dir,mult=dir==='asc'?1:-1;
@@ -8168,7 +8328,7 @@
     render();
     (window.SGToast?window.SGToast.mostrar:function(t){})('Meta excluída.');
 
-    apiCall('excluirMeta',{idMeta:idAlvo}).then(function(resp){
+    apiCall('excluirMeta',{idMeta:idAlvo,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
       if(!resp||!resp.ok){
         if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
         if(registroAnterior)metas.push(registroAnterior);
@@ -8250,16 +8410,16 @@
   var APP_VERSION='2026-07-16-1';
 
   function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
-  function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+  function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
   function isMarcado(v){ if(v===true)return true; if(v===false||v===undefined||v===null||v==='')return false; var s=String(v).trim().toUpperCase(); return s==='VERDADEIRO'||s==='TRUE'||s==='SIM'||s==='1'; }
   function normalizaTextoPl(s){ return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
   function nomeCliente(id){ var c=clientesMap[id]; return c?(c['Nome Razao Social']||c.Nome||id):id; }
   function idVendedorDoCliente(idCliente){ var c=clientesMap[idCliente]; return c?(c['Vendedor Responsavel']||''):''; }
   function nomeVendedorDoCliente(idCliente){ var idV=idVendedorDoCliente(idCliente); var v=vendedoresMap[idV]; return v?(v.Nome||idV):(idV?idV:'—'); }
-  function fmtMoney(n){ if(typeof n==='string'){ n=n.indexOf(',')!==-1?parseFloat(n.replace(/\./g,'').replace(',','.'))||0:parseFloat(n)||0; } else n=parseFloat(n)||0; return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-  function parseBRDate(str){ if(!str)return null; str=String(str).trim(); var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m)return new Date(+m[3],+m[2]-1,+m[1]); var d=new Date(str.substring(0,10)); return isNaN(d)?null:d; }
-  function fmtDateBR(d){ return d?(String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()):'—'; }
-  function dateKeyFromDate(d){ return d?(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')):''; }
+  function fmtMoney(n){ return window.SGUtil.fmtMoney(n); }
+  function parseBRDate(str){ return window.SGUtil.parseBRDate(str); }
+  function fmtDateBR(d){ return window.SGUtil.fmtDateBR(d); }
+  function dateKeyFromDate(d){ return window.SGUtil.dateKey(d); }
 
   function renderPaginacao(totalPaginas){
     var el=document.getElementById('pl-paginacao');
@@ -8526,7 +8686,7 @@
     render();
     mostrarToastPlanos('Plano excluído.');
 
-    apiCall('excluirPlano',{idPlano:idPlano}).then(function(resp){
+    apiCall('excluirPlano',{idPlano:idPlano,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
       if(!resp||!resp.ok){
         if(window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
         if(registroAnterior)planos.push(registroAnterior);
@@ -8623,7 +8783,7 @@
   var editandoId=null; // null = criando novo
 
   function apiCall(action,payload){ return window.SGAuth.apiCall(action,payload); }
-  function meuId(){ return window.SG_SESSION&&window.SG_SESSION.idVendedor; }
+  function meuId(){ return window.SGUtil.meuId(); }
 
   function showMsg(texto,tipo){
     var el=document.getElementById('u-modalMsg');
@@ -8631,7 +8791,7 @@
     el.textContent=texto||'';
   }
 
-  function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+  function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
 
   function render(){
     var tbody=document.getElementById('u-tbody');
@@ -8767,7 +8927,7 @@
   var telas=[], tipos=[], permissoesMap={}; // chave: tipo+'|'+tela -> true/false
 
   function apiCall(action,payload){ return window.SGAuth.apiCall(action,payload); }
-  function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+  function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
   function chave(tipo,telaChave){ return tipo+'|'+telaChave; }
 
   function permitido(tipo,telaChave){
@@ -8914,7 +9074,22 @@
   function apply(collapsed,animate){if(!animate){sidebar.style.transition='none';requestAnimationFrame(function(){sidebar.style.transition='';});}sidebar.classList.toggle('collapsed',collapsed);ico.textContent=collapsed?'▶':'◀';btn.title=collapsed?'Expandir menu':'Recolher menu';}
   apply(localStorage.getItem(KEY)==='1',false);
   btn.addEventListener('click',function(){var c=!sidebar.classList.contains('collapsed');apply(c,true);localStorage.setItem(KEY,c?'1':'0');});
-  // Em telas ≤760px a sidebar vira barra horizontal fixa (ver CSS) e o botão de recolher fica oculto — não é necessário nesse layout.
+  // Em telas ≤760px a sidebar vira gaveta lateral (ver CSS) e o botão de recolher fica oculto — não é necessário nesse layout.
+})();
+
+// ── Menu mobile: hambúrguer abre a sidebar como gaveta, com fundo escurecido atrás ──
+(function(){
+  var sidebarEl=document.querySelector('.sidebar');
+  var btnAbrir=document.getElementById('btn-abrir-menu');
+  var backdrop=document.getElementById('sidebar-backdrop');
+  if(!sidebarEl||!btnAbrir||!backdrop)return;
+  function abrirMenuMobile(){ sidebarEl.classList.add('mobile-open'); backdrop.classList.add('active'); }
+  function fecharMenuMobile(){ sidebarEl.classList.remove('mobile-open'); backdrop.classList.remove('active'); }
+  btnAbrir.addEventListener('click',abrirMenuMobile);
+  backdrop.addEventListener('click',fecharMenuMobile);
+  // Tocar em qualquer item do menu já fecha a gaveta — senão a pessoa troca de
+  // tela e o menu continua aberto por cima, tampando o conteúdo.
+  sidebarEl.querySelectorAll('nav a').forEach(function(a){ a.addEventListener('click',fecharMenuMobile); });
 })();
 </script>
 
