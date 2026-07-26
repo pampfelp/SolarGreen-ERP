@@ -8075,8 +8075,8 @@
   var NOMES_MESES=['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
   function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
-  function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
-  function fmtMoney(n){ if(typeof n==='string'){ n=n.indexOf(',')!==-1?parseFloat(n.replace(/\./g,'').replace(',','.'))||0:parseFloat(n)||0; } else n=parseFloat(n)||0; return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
+  function fmtMoney(n){ return window.SGUtil.fmtMoney(n); }
 
   function sortMetasRows(lista){
     var col=sortState.col,dir=sortState.dir,mult=dir==='asc'?1:-1;
@@ -8296,16 +8296,16 @@
   var APP_VERSION='2026-07-16-1';
 
   function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
-  function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+  function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
   function isMarcado(v){ if(v===true)return true; if(v===false||v===undefined||v===null||v==='')return false; var s=String(v).trim().toUpperCase(); return s==='VERDADEIRO'||s==='TRUE'||s==='SIM'||s==='1'; }
   function normalizaTextoPl(s){ return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
   function nomeCliente(id){ var c=clientesMap[id]; return c?(c['Nome Razao Social']||c.Nome||id):id; }
   function idVendedorDoCliente(idCliente){ var c=clientesMap[idCliente]; return c?(c['Vendedor Responsavel']||''):''; }
   function nomeVendedorDoCliente(idCliente){ var idV=idVendedorDoCliente(idCliente); var v=vendedoresMap[idV]; return v?(v.Nome||idV):(idV?idV:'—'); }
-  function fmtMoney(n){ if(typeof n==='string'){ n=n.indexOf(',')!==-1?parseFloat(n.replace(/\./g,'').replace(',','.'))||0:parseFloat(n)||0; } else n=parseFloat(n)||0; return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-  function parseBRDate(str){ if(!str)return null; str=String(str).trim(); var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m)return new Date(+m[3],+m[2]-1,+m[1]); var d=new Date(str.substring(0,10)); return isNaN(d)?null:d; }
-  function fmtDateBR(d){ return d?(String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()):'—'; }
-  function dateKeyFromDate(d){ return d?(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')):''; }
+  function fmtMoney(n){ return window.SGUtil.fmtMoney(n); }
+  function parseBRDate(str){ return window.SGUtil.parseBRDate(str); }
+  function fmtDateBR(d){ return window.SGUtil.fmtDateBR(d); }
+  function dateKeyFromDate(d){ return window.SGUtil.dateKey(d); }
 
   function renderPaginacao(totalPaginas){
     var el=document.getElementById('pl-paginacao');
@@ -8669,7 +8669,7 @@
   var editandoId=null; // null = criando novo
 
   function apiCall(action,payload){ return window.SGAuth.apiCall(action,payload); }
-  function meuId(){ return window.SG_SESSION&&window.SG_SESSION.idVendedor; }
+  function meuId(){ return window.SGUtil.meuId(); }
 
   function showMsg(texto,tipo){
     var el=document.getElementById('u-modalMsg');
@@ -8677,7 +8677,7 @@
     el.textContent=texto||'';
   }
 
-  function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+  function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
 
   function render(){
     var tbody=document.getElementById('u-tbody');
@@ -8813,7 +8813,7 @@
   var telas=[], tipos=[], permissoesMap={}; // chave: tipo+'|'+tela -> true/false
 
   function apiCall(action,payload){ return window.SGAuth.apiCall(action,payload); }
-  function escapeHtml(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+  function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
   function chave(tipo,telaChave){ return tipo+'|'+telaChave; }
 
   function permitido(tipo,telaChave){
