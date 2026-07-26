@@ -2375,7 +2375,42 @@
         if(window.SGUtil.ultimos8DigitosTelefone(c.Telefone)===alvo)return c;
       }
       return null;
-    }
+    },
+
+    /**
+     * Formatters/parsers compartilhados — antes cada um dos ~14 módulos da
+     * tela tinha sua PRÓPRIA cópia dessas mesmas funções (é por isso que o
+     * bug do solicitanteId conseguiu se esconder em 9 lugares diferentes).
+     * Migração módulo a módulo: ver plano em .claude/plans — cada módulo
+     * troca sua cópia local por SGUtil.* e apaga a própria, um de cada vez.
+     */
+    escapeHtml:function(s){ var d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; },
+    // Convenção de sinal do módulo Vendas ("-R$ 1.234,56") — corrige de propósito
+    // o bug do Funil, cuja cópia local faz Math.abs() e perde o sinal negativo.
+    fmtMoney:function(n){
+      var v;
+      if(typeof n==='string'){ v = n.indexOf(',')!==-1 ? parseFloat(n.replace(/\./g,'').replace(',','.'))||0 : parseFloat(n)||0; }
+      else v = parseFloat(n)||0;
+      var sinal = v<0?'-':'';
+      return sinal+'R$ '+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+    },
+    parseBRDate:function(str){
+      if(!str)return null; str=String(str).trim();
+      var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if(m)return new Date(+m[3],+m[2]-1,+m[1]);
+      var d=new Date(str.substring(0,10)); return isNaN(d)?null:d;
+    },
+    parseBRNumber:function(v){
+      if(v===''||v===null||v===undefined)return 0;
+      if(typeof v==='number')return v;
+      var s=String(v).trim().replace(/R\$\s?/g,'');
+      if(s.indexOf(',')!==-1)s=s.replace(/\./g,'').replace(',','.');
+      var n=parseFloat(s); return isNaN(n)?0:n;
+    },
+    dateKey:function(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); },
+    fmtDateBR:function(d){ return d?(String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()):'—'; },
+    meuId:function(){ return window.SG_SESSION&&window.SG_SESSION.idVendedor; },
+    souAdmin:function(){ return !!(window.SGAuth&&window.SGAuth.isAdmin()); }
   };
 
   // Cache de "quem pode ver o quê" — carregado uma vez por sessão (uma
