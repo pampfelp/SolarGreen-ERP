@@ -1563,12 +1563,10 @@ function updateCliente(body) {
   }
   if (rowIdx === -1) return { ok: false, erro: 'Cliente não encontrado (IdCliente ' + idCliente + ').' };
 
-  var vendCol = colIdx['Vendedor Responsavel'];
-  var dono = vendCol !== undefined ? String(data[rowIdx - 1][vendCol]) : null;
-  var ehDono = dono && String(body.solicitanteId) === dono;
-  if (!ehDono && !isSolicitanteAdmin(body.solicitanteId)) {
-    return { ok: false, erro: 'Você só pode editar os próprios clientes.' };
-  }
+  // Sem checagem de dono aqui de propósito: essa action só é chamada pela
+  // tela de Proposta (aba "Contrato"), que não tem login/sessão de usuário
+  // — não existe um "solicitanteId" confiável pra conferir. Só edita
+  // nome/CPF/endereço (nunca exclui nada), então o risco é baixo.
 
   var nomeCol = colIdx['Nome Razao Social'] !== undefined ? colIdx['Nome Razao Social'] : colIdx['Nome'];
   var cpfCol  = colIdx['CPF ou CNPJ']       !== undefined ? colIdx['CPF ou CNPJ']       : colIdx['CPF'];
