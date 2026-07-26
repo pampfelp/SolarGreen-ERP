@@ -3475,15 +3475,19 @@
   function getApiKey(){return(localStorage.getItem(API_KEY_KEY)||'').trim()||DEFAULT_API_KEY;}
   function setApiCreds(u,k){localStorage.setItem(API_URL_KEY,u.trim());localStorage.setItem(API_KEY_KEY,k.trim());}
   function hasApiCreds(){return !!getApiUrl()&&!!getApiKey();}
-  function apiCall(action,extra){var body=Object.assign({action:action,chave:getApiKey()},extra||{});return fetch(getApiUrl(),{method:'POST',cache:'no-store',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)}).then(function(r){return r.json();});}
+  // Delega pra SGAuth.apiCall (mesmos localStorage keys) — ganha
+  // solicitanteId automático (Fase A), a causa raiz do bug original nesse
+  // módulo. getApiUrl/getApiKey/hasApiCreds continuam — hasApiCreds() é
+  // usado em fetchFromApi() pra decidir se tenta buscar antes de chamar.
+  function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
   function setSyncPill(state,text){var pill=document.getElementById('v-syncPill'),pt=document.getElementById('v-syncPillText');if(!pill)return;pill.style.display='flex';pill.classList.remove('saving','error');if(state==='saving')pill.classList.add('saving');if(state==='error')pill.classList.add('error');pt.textContent=text;}
   function setUpdateClock(){var d=new Date();document.getElementById('v-lastUpdate').textContent='Atualizado em '+d.toLocaleDateString('pt-BR')+' às '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
   setUpdateClock();
-  function parseBRNumber(val){if(val===''||val===null||val===undefined)return 0;if(typeof val==='number')return val;var str=String(val).trim().replace(/R\$\s?/g,'').trim();if(str.indexOf(',')!==-1)str=str.replace(/\./g,'').replace(',','.');var n=parseFloat(str);return isNaN(n)?0:n;}
-  function parseBRDate(str){if(!str)return null;str=str.toString().trim();var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);if(m)return new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]));var d=new Date(str);if(!isNaN(d.getTime()))return d;return null;}
-  function dateKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-  function fmtMoney(n){var sign=n<0?'-':'';return sign+'R$ '+Math.abs(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
-  function escapeHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+  function parseBRNumber(val){ return window.SGUtil.parseBRNumber(val); }
+  function parseBRDate(str){ return window.SGUtil.parseBRDate(str); }
+  function dateKey(d){ return window.SGUtil.dateKey(d); }
+  function fmtMoney(n){ return window.SGUtil.fmtMoney(n); }
+  function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
   function isDiaUtil(d){var dow=d.getDay();return dow!==0&&dow!==6;}
   function countDiasUteis(start,end){var count=0,cursor=new Date(start.getTime());while(cursor<=end){if(isDiaUtil(cursor))count++;cursor.setDate(cursor.getDate()+1);}return count;}
   function isVendedorAtivo(v){return(v.Tipo||'').trim()==='Vendedor'&&(v.Status||'').trim()==='Ativo';}
