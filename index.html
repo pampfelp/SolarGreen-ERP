@@ -3112,11 +3112,13 @@
   function setApiCreds(u,k){ localStorage.setItem(API_URL_KEY,u.trim()); localStorage.setItem(API_KEY_KEY,k.trim()); }
   function hasApiCreds(){ return !!getApiUrl()&&!!getApiKey(); }
 
-  function apiCall(action,extra){
-    var url=getApiUrl(),key=getApiKey();
-    var body=Object.assign({action:action,chave:key},extra||{});
-    return fetch(url,{method:'POST',cache:'no-store',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)}).then(function(r){return r.json();});
-  }
+  // Delega pra SGAuth.apiCall — que lê os MESMOS localStorage keys
+  // (ponto_api_url/ponto_api_key) que getApiUrl()/getApiKey() acima, então
+  // o comportamento é idêntico, só sem reimplementar o fetch aqui. Ganha de
+  // graça a injeção automática de solicitanteId (Fase A) e cache:'no-store'.
+  // getApiUrl/getApiKey/hasApiCreds continuam existindo — hasApiCreds() é
+  // usado antes de chamar apiCall pra decidir se tenta salvar ou não.
+  function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
 
   function setSyncPill(state,text){
     var pill=document.getElementById('p-syncPill'),pt=document.getElementById('p-syncPillText');
@@ -3171,7 +3173,7 @@
 
   function parseDateTime(str){ if(!str)return null; str=str.toString().trim(); var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/); if(m)return new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]),parseInt(m[4]),parseInt(m[5]),m[6]?parseInt(m[6]):0); var d=new Date(str); if(!isNaN(d.getTime()))return d; return null; }
 
-  function dateKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  function dateKey(d){ return window.SGUtil.dateKey(d); }
 
   function processPonto(rows){ var hi=findHeaderRowIndex(rows,['Funcionario','Tipo']); if(hi===-1)hi=0; var objs=rowsToObjects(rows,hi); var recs=[]; objs.forEach(function(o){var dt=parseDateTime(o['Data e Hora']||o['Data']||''); if(!dt)return; recs.push({funcionario:o['Funcionario']||o['Colaborador']||'',tipo:(o['Tipo']||'').trim(),dt:dt,dateKey:dateKey(dt)});}); return recs; }
 
@@ -3281,7 +3283,7 @@
     });
   }
 
-  function escapeHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+  function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
 
   function render(){
     var filtered=getFiltered(),colab=document.getElementById('selColaborador').value,showingAll=colab==='__all__';
@@ -4336,20 +4338,16 @@
   function getApiUrl(){ return (localStorage.getItem(API_URL_KEY)||'').trim()||DEFAULT_API_URL; }
   function getApiKey(){ return (localStorage.getItem(API_KEY_KEY)||'').trim()||DEFAULT_API_KEY; }
 
-  function apiCall(action,extra){
-    var body=Object.assign({action:action,chave:getApiKey()},extra||{});
-    return fetch(getApiUrl(),{method:'POST',cache:'no-store',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)}).then(function(r){return r.json();});
-  }
+  // Delega pra SGAuth.apiCall (mesmos localStorage keys que getApiUrl/getApiKey
+  // acima) — ganha injeção automática de solicitanteId (Fase A), que era
+  // exatamente o que faltava nas chamadas deste módulo.
+  function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
 
-  function fmtMoney(n){ return 'R$ '+Math.abs(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  // Corrige de propósito um bug real: a versão antiga fazia Math.abs(n) sem
+  // devolver o sinal, então valor negativo aparecia como positivo na tela.
+  function fmtMoney(n){ return window.SGUtil.fmtMoney(n); }
 
-  function parseBRDate(str){
-    if(!str)return null; str=str.toString().trim();
-    var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-    if(m)return new Date(+m[3],+m[2]-1,+m[1]);
-    var d=new Date(str.substring(0,10));
-    return isNaN(d)?null:d;
-  }
+  function parseBRDate(str){ return window.SGUtil.parseBRDate(str); }
 
   // parseia data E hora para comparar logs corretamente
   function parseBRDateTime(str){
@@ -4361,9 +4359,9 @@
     var d=new Date(str); return isNaN(d)?null:d;
   }
 
-  function dateKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-  function fmtDateBR(d){ return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear(); }
-  function escapeHtml(s){ var d=document.createElement('div');d.textContent=s||'';return d.innerHTML; }
+  function dateKey(d){ return window.SGUtil.dateKey(d); }
+  function fmtDateBR(d){ return window.SGUtil.fmtDateBR(d); }
+  function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
   function nomeFor(id){ if(!id)return'—'; var v=vendedoresMap[id]||vendedoresTodosMap[id];return(v&&(v.Nome||v.nome))||String(id).slice(0,8); }
   function nomeClienteFor(id){ if(!id)return'—';var c=clientesMap[id];return(c&&(c['Nome Razao Social']||c.Nome))||id.slice(0,8); }
   function telefoneClienteFor(id){ if(!id)return''; var c=clientesMap[id]; return c?(c.Telefone||''):''; }
