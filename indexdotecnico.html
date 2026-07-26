@@ -411,17 +411,6 @@
 </head>
 <body>
 
-<script>
-(function(){
-  try{
-    var raw=localStorage.getItem('sg_auth_session');
-    var session=raw?JSON.parse(raw):null;
-    var valido=session&&session.idVendedor&&session.expiresAt&&Date.now()<session.expiresAt;
-    if(valido){ window.SG_SESSION=session; }
-  }catch(e){}
-})();
-</script>
-
 <div id="login-screen">
   <div class="login-card">
     <div class="login-brand">
@@ -1976,6 +1965,10 @@ function fmt(n, d){
   return n.toLocaleString('pt-BR', {minimumFractionDigits:d||0, maximumFractionDigits:d||0});
 }
 
+// A escapeHtml da tela de OS (linha ~887) vive numa IIFE diferente desta —
+// não é visível aqui, por isso essa tela precisa da própria cópia.
+function escapeHtml(s){ var d = document.createElement('div'); d.textContent = s==null ? '' : String(s); return d.innerHTML; }
+
 function getModuleDims(){
   const h = num(document.getElementById('modH').value);
   const w = num(document.getElementById('modW').value);
@@ -2832,7 +2825,7 @@ renderStringPlan();
       '<h1>SOLAR GREEN <span>SUPORTE</span></h1>'+
       '<div class="doc-sub">Projeto Elétrico Fotovoltaico &middot; Memorial Técnico de Dimensionamento</div>'+
       '<div class="doc-meta">Gerado em '+new Date().toLocaleDateString('pt-BR')+' às '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+
-        (session.nome?' &middot; Responsável técnico: '+session.nome:'')+'</div>'+
+        (session.nome?' &middot; Responsável técnico: '+escapeHtml(session.nome):'')+'</div>'+
     '</header>'+
 
     '<section>'+
