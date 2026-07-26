@@ -103,7 +103,8 @@
     display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;
     color:rgba(255,255,255,0.65);text-decoration:none;font-size:13px;font-weight:500;transition:background .12s,color .12s;
   }
-  .sidebar a .ico{font-size:15px;width:20px;text-align:center;flex:none;}
+  .sidebar a .ico{width:19px;height:19px;flex:none;display:flex;align-items:center;justify-content:center;}
+  .sidebar a .ico svg{width:100%;height:100%;}
   .sidebar a:hover{background:rgba(255,255,255,0.10);color:#fff;}
   .sidebar a.active{background:var(--accent);color:#003122;font-weight:700;}
   .sidebar a.active .ico{color:#003122;}
@@ -113,7 +114,7 @@
   .app{flex:1;min-width:0;margin:0;padding:36px 40px 100px;}
 
   /* ── Header ── */
-  header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;border-bottom:2px solid #003122;padding-bottom:20px;margin-bottom:32px;}
+  header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;border-bottom:2px solid #003122;padding-bottom:18px;margin-bottom:26px;}
   .brand{display:flex;align-items:baseline;gap:14px;}
   h1{font-family:var(--unbounded);font-weight:900;font-size:24px;color:var(--ink);letter-spacing:-.01em;line-height:1.2;}
   h1 span{color:#003122;}
@@ -389,7 +390,7 @@
   .connect-field label{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-faint);font-weight:600;}
   .connect-field input{font-family:var(--sans);font-size:13px;border:1px solid var(--line);border-radius:7px;padding:9px 12px;width:100%;background:#fff;color:var(--ink);}
   .connect-field input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent);}
-  .connect-btn{background:var(--accent);color:#003122;border:none;border-radius:8px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:var(--unbounded);}
+  .connect-btn{background:var(--accent);color:#003122;border:none;border-radius:9px;padding:11px 18px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:var(--unbounded);}
   .connect-btn:hover{background:var(--accent-deep);}
   .connect-btn:disabled{opacity:.45;cursor:default;}
   .connect-status{font-size:12px;margin-top:10px;display:flex;align-items:center;gap:7px;color:var(--ink-soft);}
@@ -498,11 +499,6 @@
   .stage-pill.stage-won.active{background:#003122;color:#78D800;border-color:#003122;}
   .stage-pill.stage-lost.active{background:var(--debit);color:#fff;border-color:var(--debit);}
   .stage-divider{font-size:10px;color:var(--ink-faint);align-self:center;padding:0 2px;}
-
-  /* ── Piloto de redesign do Funil: overrides isolados, não afetam outras telas ── */
-  #view-funil .filters{padding:14px 18px;gap:14px;margin-bottom:20px;}
-  #view-funil .section-head{margin:24px 0 16px;}
-  #view-funil .connect-btn{border-radius:9px;padding:11px 18px;}
 
   /* ── KPIs do funil ── */
   .funil-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:20px;}
@@ -781,20 +777,20 @@
     <div class="sg-sub">Suporte · Painéis</div>
   </div>
   <nav>
-    <a href="#" id="nav-dashboard"><span class="ico">📊</span><span class="nav-label"> Dashboard</span></a>
-    <a href="#" id="nav-ponto"><span class="ico">⏱</span><span class="nav-label"> Ponto Eletrônico</span></a>
-    <a href="#" id="nav-vendas"><span class="ico">◆</span><span class="nav-label"> Vendas</span></a>
-    <a href="#" id="nav-funil"><span class="ico">◈</span><span class="nav-label"> Funil</span></a>
-    <a href="#" id="nav-relatorios"><span class="ico">📝</span><span class="nav-label"> Relatórios</span></a>
-    <a href="#" id="nav-custosvenda"><span class="ico">💸</span><span class="nav-label"> Custos da Venda</span></a>
-    <a href="#" id="nav-custorecorrente" style="display:none;"><span class="ico">🔁</span><span class="nav-label"> Custos Recorrentes</span></a>
-    <a href="#" id="nav-servicos"><span class="ico">🛠</span><span class="nav-label"> Serviços</span></a>
-    <a href="#" id="nav-clientes"><span class="ico">👤</span><span class="nav-label"> Clientes</span></a>
-    <a href="#" id="nav-agendamentos"><span class="ico">🛠</span><span class="nav-label"> Agendamentos</span></a>
-    <a href="#" id="nav-planos"><span class="ico">📋</span><span class="nav-label"> Planos</span></a>
-    <a href="#" id="nav-metas" style="display:none;"><span class="ico">🎯</span><span class="nav-label"> Metas</span></a>
-    <a href="#" id="nav-usuarios" style="display:none;"><span class="ico">⚙</span><span class="nav-label"> Usuários</span></a>
-    <a href="#" id="nav-permissoes" style="display:none;"><span class="ico">🔐</span><span class="nav-label"> Permissões</span></a>
+    <a href="#" id="nav-dashboard"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><span class="nav-label"> Dashboard</span></a>
+    <a href="#" id="nav-ponto"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></span><span class="nav-label"> Ponto Eletrônico</span></a>
+    <a href="#" id="nav-vendas"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 7-8"/><path d="M15 7h5v5"/></svg></span><span class="nav-label"> Vendas</span></a>
+    <a href="#" id="nav-funil"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16l-6 8v6l-4 2v-8L4 4z"/></svg></span><span class="nav-label"> Funil</span></a>
+    <a href="#" id="nav-relatorios"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l4 4v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v4h4"/><path d="M9 13h6M9 17h6M9 9h2"/></svg></span><span class="nav-label"> Relatórios</span></a>
+    <a href="#" id="nav-custosvenda"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-2.5-1.5L13 21l-2.5-1.5L8 21l-2-1.5V3z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span><span class="nav-label"> Custos da Venda</span></a>
+    <a href="#" id="nav-custorecorrente" style="display:none;"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></span><span class="nav-label"> Custos Recorrentes</span></a>
+    <a href="#" id="nav-servicos"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.8 2.8-2-2z"/></svg></span><span class="nav-label"> Serviços</span></a>
+    <a href="#" id="nav-clientes"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1"/><circle cx="10" cy="8" r="3.2"/><path d="M20.5 20v-1a3.8 3.8 0 0 0-2.7-3.6"/><path d="M15 4.2a3.2 3.2 0 0 1 0 6.2"/></svg></span><span class="nav-label"> Clientes</span></a>
+    <a href="#" id="nav-agendamentos"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span><span class="nav-label"> Agendamentos</span></a>
+    <a href="#" id="nav-planos"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3.5h6a1 1 0 0 1 1 1V6H8V4.5a1 1 0 0 1 1-1z"/><path d="M9 11h6M9 15h6"/></svg></span><span class="nav-label"> Planos</span></a>
+    <a href="#" id="nav-metas" style="display:none;"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg></span><span class="nav-label"> Metas</span></a>
+    <a href="#" id="nav-usuarios" style="display:none;"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20v-1a8 8 0 0 1 16 0v1"/></svg></span><span class="nav-label"> Usuários</span></a>
+    <a href="#" id="nav-permissoes" style="display:none;"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg></span><span class="nav-label"> Permissões</span></a>
   </nav>
   <div class="user-chip" id="sg-user-chip">
     <div class="u-name" id="sg-user-name">—</div>
