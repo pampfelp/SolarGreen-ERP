@@ -2192,8 +2192,19 @@
   function apiKey(){ return (localStorage.getItem('ponto_api_key')||'').trim()||DEFAULT_API_KEY; }
 
   function authCall(action,payload){
-    var body=Object.assign({action:action,chave:apiKey()},payload||{});
-    return fetch(apiUrl(),{method:'POST',body:JSON.stringify(body)}).then(function(r){return r.json();});
+    // Injeta solicitanteId automaticamente a partir de window.SG_SESSION —
+    // a MESMA fonte que isAdmin()/filterByOwner()/SGUtil.meuId() já usam
+    // (setada uma vez no script de trava no topo do <body>, a partir do
+    // localStorage). Antes cada módulo precisava lembrar de mandar isso
+    // manualmente em toda chamada, e boa parte esquecia (foi assim que o
+    // bug do solicitanteId faltando apareceu em 9 lugares diferentes).
+    // "auto" entra ANTES do payload no Object.assign, então quem já manda
+    // solicitanteId própria (chamadas já corrigidas manualmente) continua
+    // funcionando igual.
+    var s=window.SG_SESSION;
+    var auto=(s&&s.idVendedor)?{solicitanteId:s.idVendedor}:{};
+    var body=Object.assign({action:action,chave:apiKey()},auto,payload||{});
+    return fetch(apiUrl(),{method:'POST',cache:'no-store',body:JSON.stringify(body)}).then(function(r){return r.json();});
   }
 
   function getSession(){
