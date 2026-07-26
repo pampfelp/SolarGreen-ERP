@@ -9,9 +9,9 @@
 <title>Solar Green · Painéis</title>
 <meta name="theme-color" content="#003122">
 <link rel="manifest" href="manifest-admin.json">
-<link rel="icon" type="image/png" href="favicon_1.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
 <link rel="icon" type="image/x-icon" href="favicon_1.ico">
-<link rel="apple-touch-icon" href="favicon-180_1.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -356,7 +356,7 @@
   .kanban-col-head .kc-nome{font-family:var(--unbounded);font-size:12px;font-weight:700;color:var(--ink);}
   .kanban-col-head .kc-sub{font-size:11px;color:var(--ink-faint);margin-top:4px;}
   .kanban-col-body{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:9px;}
-  .kanban-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 13px;cursor:grab;transition:box-shadow .12s,border-color .12s,opacity .12s;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+  .kanban-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 13px;cursor:grab;transition:box-shadow .12s,border-color .12s,opacity .12s;touch-action:pan-y;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
   @media(max-width:900px){ .kanban-col{width:240px;} }
   .kanban-card:active{cursor:grabbing;}
   .kanban-card.kcard-dragging{opacity:.35;}
@@ -4644,6 +4644,9 @@
    * fora da tela sem arrastar em duas etapas.
    */
   var arrastarKanbanEstado=null;
+  var esperaLongPressKanban=null;
+  var LONG_PRESS_KANBAN_MS=380;
+  var LONG_PRESS_KANBAN_TOLERANCIA=10;
   var dragDropKanbanGlobalPronto=false;
   var ultimoDragKanbanTerminouEm=0;
   var AUTOSCROLL_KANBAN_ZONA=56;
@@ -4682,11 +4685,46 @@
     if(dir===0){ pararAutoScrollKanban(); return; }
     if(!autoScrollKanbanRAF)autoScrollKanbanRAF=requestAnimationFrame(passoAutoScrollKanban);
   }
+  function cancelarEsperaLongPressKanban(){
+    if(esperaLongPressKanban){
+      clearTimeout(esperaLongPressKanban.timer);
+      esperaLongPressKanban=null;
+    }
+  }
+  function iniciarArrasteKanban(card,id,pointerId,clientX,clientY,offsetX,offsetY,width){
+    arrastarKanbanEstado={
+      card:card,id:id,pointerId:pointerId,
+      startX:clientX,startY:clientY,
+      offsetX:offsetX,offsetY:offsetY,
+      width:width,dragging:true,ghost:null,
+      lastClientX:clientX,lastClientY:clientY
+    };
+    var estado=arrastarKanbanEstado;
+    estado.card.classList.add('kcard-dragging');
+    try{ estado.card.setPointerCapture(pointerId); }catch(err){}
+    estado.ghost=estado.card.cloneNode(true);
+    estado.ghost.classList.add('kcard-ghost');
+    estado.ghost.style.width=estado.width+'px';
+    document.body.appendChild(estado.ghost);
+    estado.ghost.style.left=(clientX-offsetX)+'px';
+    estado.ghost.style.top=(clientY-offsetY)+'px';
+    destacarColunaKanbanSobPonto(clientX,clientY);
+  }
   function onDragKanbanPointerMove(e){
+    /* Enquanto o toque ainda está no período de "pressionar e segurar" (antes do
+       arraste começar de fato), qualquer movimento é intenção de rolar a coluna,
+       não de arrastar — cancela a espera e deixa o navegador rolar normalmente. */
+    if(esperaLongPressKanban&&esperaLongPressKanban.pointerId===e.pointerId){
+      var dxE=e.clientX-esperaLongPressKanban.startX,dyE=e.clientY-esperaLongPressKanban.startY;
+      if(Math.abs(dxE)>LONG_PRESS_KANBAN_TOLERANCIA||Math.abs(dyE)>LONG_PRESS_KANBAN_TOLERANCIA)cancelarEsperaLongPressKanban();
+      return;
+    }
     var estado=arrastarKanbanEstado;
     if(!estado||estado.pointerId!==e.pointerId)return;
-    var dx=e.clientX-estado.startX,dy=e.clientY-estado.startY;
     if(!estado.dragging){
+      /* Só acontece com mouse: sem ambiguidade com rolagem, arrasta ao mover
+         sem precisar segurar (o toque já vira arraste antes de chegar aqui). */
+      var dx=e.clientX-estado.startX,dy=e.clientY-estado.startY;
       if(Math.abs(dx)<8&&Math.abs(dy)<8)return;
       estado.dragging=true;
       estado.card.classList.add('kcard-dragging');
@@ -4704,6 +4742,7 @@
     atualizarAutoScrollKanban(e.clientX);
   }
   function onDragKanbanPointerUp(e){
+    if(esperaLongPressKanban&&esperaLongPressKanban.pointerId===e.pointerId)cancelarEsperaLongPressKanban();
     var estado=arrastarKanbanEstado;
     if(!estado||estado.pointerId!==e.pointerId)return;
     arrastarKanbanEstado=null;
@@ -4731,11 +4770,29 @@
       card.addEventListener('pointerdown',function(e){
         if(e.pointerType==='mouse'&&e.button!==0)return;
         var rect=card.getBoundingClientRect();
-        arrastarKanbanEstado={
-          card:card,id:card.getAttribute('data-id'),pointerId:e.pointerId,
-          startX:e.clientX,startY:e.clientY,
-          offsetX:e.clientX-rect.left,offsetY:e.clientY-rect.top,
-          width:rect.width,dragging:false,ghost:null
+        var id=card.getAttribute('data-id');
+        var offsetX=e.clientX-rect.left,offsetY=e.clientY-rect.top;
+
+        if(e.pointerType==='mouse'){
+          arrastarKanbanEstado={
+            card:card,id:id,pointerId:e.pointerId,
+            startX:e.clientX,startY:e.clientY,
+            offsetX:offsetX,offsetY:offsetY,
+            width:rect.width,dragging:false,ghost:null
+          };
+          return;
+        }
+
+        /* Toque/caneta: só inicia o arraste depois de pressionar e segurar —
+           assim um toque rápido continua rolando a coluna verticalmente. */
+        cancelarEsperaLongPressKanban();
+        var pointerId=e.pointerId,clientX=e.clientX,clientY=e.clientY;
+        esperaLongPressKanban={
+          pointerId:pointerId,startX:clientX,startY:clientY,
+          timer:setTimeout(function(){
+            esperaLongPressKanban=null;
+            iniciarArrasteKanban(card,id,pointerId,clientX,clientY,offsetX,offsetY,rect.width);
+          },LONG_PRESS_KANBAN_MS)
         };
       });
     });
