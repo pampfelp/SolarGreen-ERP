@@ -80,6 +80,14 @@
   @media(max-width:760px){.sidebar .user-chip{display:none;}}
 
   /* ── Sidebar ── */
+  /* ── Barra mobile + gaveta lateral (hambúrguer) ── */
+  .mobile-topbar{display:none;}
+  .mobile-topbar-brand .sg-solar{font-family:var(--unbounded);font-weight:900;font-size:14px;color:#fff;letter-spacing:.02em;}
+  .mobile-topbar-brand .sg-green{color:var(--accent);}
+  .hamburger{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;width:36px;height:36px;border-radius:9px;font-size:16px;cursor:pointer;flex:none;display:flex;align-items:center;justify-content:center;}
+  .sidebar-backdrop{position:fixed;inset:0;background:rgba(0,20,10,.5);z-index:125;display:none;}
+  .sidebar-backdrop.active{display:block;}
+
   .sidebar{
     width:var(--sidebar-w);flex:none;background:var(--sidebar-bg);min-height:100vh;
     display:flex;flex-direction:column;padding:28px 0;
@@ -573,30 +581,27 @@
   }
 
   /* ══════════════════════════════════════════════════════════════
-     MOBILE (≤760px) — sidebar vira barra horizontal fixa no topo,
-     grids colapsam pra 1–2 colunas, tabelas largas viram scroll
-     horizontal em vez de quebrar/empilhar. Mesmo espírito do
-     breakpoint único usado no proposta.html.
+     MOBILE (≤760px) — barra hambúrguer no topo abre o menu como
+     gaveta lateral (desliza da esquerda, com fundo escurecido atrás),
+     em vez de espremer o menu numa barra horizontal. Grids colapsam
+     pra 1–2 colunas, tabelas largas viram scroll horizontal em vez
+     de quebrar/empilhar. Mesmo espírito do breakpoint único usado
+     no proposta.html.
      ══════════════════════════════════════════════════════════════ */
   @media(max-width:760px){
     body{flex-direction:column;}
 
-    /* ── Sidebar → barra horizontal ── */
+    /* ── Barra mobile fixa no topo ── */
+    .mobile-topbar{display:flex;align-items:center;gap:12px;background:var(--sidebar-bg);padding:13px 16px;position:sticky;top:0;z-index:120;width:100%;}
+
+    /* ── Sidebar → gaveta lateral, fora da tela até abrir ── */
     .sidebar{
-      width:100%!important;min-height:auto;position:sticky;top:0;z-index:50;
-      flex-direction:row;align-items:center;padding:10px 12px;gap:10px;
-      overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap;
+      position:fixed;left:0;top:0;height:100vh;width:260px;max-width:82vw;
+      transform:translateX(-100%);transition:transform .2s ease;z-index:130;
+      min-height:0;
     }
-    .sidebar.collapsed{width:100%!important;}
-    .sidebar .brandmark{
-      padding:0 12px 0 0;margin-bottom:0;border-bottom:none;
-      border-right:1px solid rgba(255,255,255,.12);flex:none;max-width:none;
-    }
-    .sidebar .brandmark .sg-sub{display:none;}
-    .sidebar nav{flex-direction:row;padding:0;gap:4px;flex:none;}
-    .sidebar a{padding:8px 12px;white-space:nowrap;}
-    .sidebar a .nav-label{max-width:none;opacity:1;}
-    .sidebar .foot{display:none;}
+    .sidebar.mobile-open{transform:translateX(0);}
+    .sidebar.collapsed{width:260px!important;}
     .sidebar-toggle{display:none;}
 
     /* ── Conteúdo principal ── */
@@ -754,6 +759,12 @@
     </div>
   </div>
 </div>
+
+<div class="mobile-topbar">
+  <button class="hamburger" id="btn-abrir-menu" aria-label="Abrir menu">☰</button>
+  <div class="mobile-topbar-brand"><span class="sg-solar">SOLAR <span class="sg-green">GREEN</span></span></div>
+</div>
+<div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
 <aside class="sidebar">
   <div class="brandmark">
@@ -9054,7 +9065,22 @@
   function apply(collapsed,animate){if(!animate){sidebar.style.transition='none';requestAnimationFrame(function(){sidebar.style.transition='';});}sidebar.classList.toggle('collapsed',collapsed);ico.textContent=collapsed?'▶':'◀';btn.title=collapsed?'Expandir menu':'Recolher menu';}
   apply(localStorage.getItem(KEY)==='1',false);
   btn.addEventListener('click',function(){var c=!sidebar.classList.contains('collapsed');apply(c,true);localStorage.setItem(KEY,c?'1':'0');});
-  // Em telas ≤760px a sidebar vira barra horizontal fixa (ver CSS) e o botão de recolher fica oculto — não é necessário nesse layout.
+  // Em telas ≤760px a sidebar vira gaveta lateral (ver CSS) e o botão de recolher fica oculto — não é necessário nesse layout.
+})();
+
+// ── Menu mobile: hambúrguer abre a sidebar como gaveta, com fundo escurecido atrás ──
+(function(){
+  var sidebarEl=document.querySelector('.sidebar');
+  var btnAbrir=document.getElementById('btn-abrir-menu');
+  var backdrop=document.getElementById('sidebar-backdrop');
+  if(!sidebarEl||!btnAbrir||!backdrop)return;
+  function abrirMenuMobile(){ sidebarEl.classList.add('mobile-open'); backdrop.classList.add('active'); }
+  function fecharMenuMobile(){ sidebarEl.classList.remove('mobile-open'); backdrop.classList.remove('active'); }
+  btnAbrir.addEventListener('click',abrirMenuMobile);
+  backdrop.addEventListener('click',fecharMenuMobile);
+  // Tocar em qualquer item do menu já fecha a gaveta — senão a pessoa troca de
+  // tela e o menu continua aberto por cima, tampando o conteúdo.
+  sidebarEl.querySelectorAll('nav a').forEach(function(a){ a.addEventListener('click',fecharMenuMobile); });
 })();
 </script>
 
