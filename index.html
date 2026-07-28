@@ -9,9 +9,9 @@
 <title>Solar Green · Painéis</title>
 <meta name="theme-color" content="#003122">
 <link rel="manifest" href="manifest-admin.json">
-<link rel="icon" type="image/png" href="favicon_1.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
 <link rel="icon" type="image/x-icon" href="favicon_1.ico">
-<link rel="apple-touch-icon" href="favicon-180_1.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -356,7 +356,7 @@
   .kanban-col-head .kc-nome{font-family:var(--unbounded);font-size:12px;font-weight:700;color:var(--ink);}
   .kanban-col-head .kc-sub{font-size:11px;color:var(--ink-faint);margin-top:4px;}
   .kanban-col-body{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:9px;}
-  .kanban-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 13px;cursor:grab;transition:box-shadow .12s,border-color .12s,opacity .12s;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+  .kanban-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 13px;cursor:grab;transition:box-shadow .12s,border-color .12s,opacity .12s;touch-action:pan-y;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
   @media(max-width:900px){ .kanban-col{width:240px;} }
   .kanban-card:active{cursor:grabbing;}
   .kanban-card.kcard-dragging{opacity:.35;}
@@ -1436,6 +1436,19 @@
     <div class="modal-actions">
       <button class="reset-btn" id="ag-cancelBtn">Cancelar</button>
       <button class="connect-btn" id="ag-salvarBtn">Salvar agendamento</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="motivoCancelamentoModal">
+  <div class="modal-card" style="max-width:400px;">
+    <h3>Motivo do cancelamento</h3>
+    <div class="lstep-sub" style="font-size:12.5px;color:var(--ink-faint);margin-bottom:14px;">Obrigatório pra marcar o agendamento como cancelado.</div>
+    <div class="uform-field"><label>Motivo</label><textarea id="mc-motivo" rows="3" style="width:100%;font-family:var(--sans);font-size:13px;border:1px solid var(--line);border-radius:7px;padding:9px 12px;background:#fff;color:var(--ink);resize:vertical;"></textarea></div>
+    <div class="uform-msg" id="mc-msg"></div>
+    <div class="modal-actions">
+      <button class="reset-btn" id="mc-cancelarBtn">Cancelar</button>
+      <button class="connect-btn" id="mc-confirmarBtn">Confirmar cancelamento</button>
     </div>
   </div>
 </div>
@@ -4644,6 +4657,9 @@
    * fora da tela sem arrastar em duas etapas.
    */
   var arrastarKanbanEstado=null;
+  var esperaLongPressKanban=null;
+  var LONG_PRESS_KANBAN_MS=380;
+  var LONG_PRESS_KANBAN_TOLERANCIA=10;
   var dragDropKanbanGlobalPronto=false;
   var ultimoDragKanbanTerminouEm=0;
   var AUTOSCROLL_KANBAN_ZONA=56;
@@ -4682,11 +4698,46 @@
     if(dir===0){ pararAutoScrollKanban(); return; }
     if(!autoScrollKanbanRAF)autoScrollKanbanRAF=requestAnimationFrame(passoAutoScrollKanban);
   }
+  function cancelarEsperaLongPressKanban(){
+    if(esperaLongPressKanban){
+      clearTimeout(esperaLongPressKanban.timer);
+      esperaLongPressKanban=null;
+    }
+  }
+  function iniciarArrasteKanban(card,id,pointerId,clientX,clientY,offsetX,offsetY,width){
+    arrastarKanbanEstado={
+      card:card,id:id,pointerId:pointerId,
+      startX:clientX,startY:clientY,
+      offsetX:offsetX,offsetY:offsetY,
+      width:width,dragging:true,ghost:null,
+      lastClientX:clientX,lastClientY:clientY
+    };
+    var estado=arrastarKanbanEstado;
+    estado.card.classList.add('kcard-dragging');
+    try{ estado.card.setPointerCapture(pointerId); }catch(err){}
+    estado.ghost=estado.card.cloneNode(true);
+    estado.ghost.classList.add('kcard-ghost');
+    estado.ghost.style.width=estado.width+'px';
+    document.body.appendChild(estado.ghost);
+    estado.ghost.style.left=(clientX-offsetX)+'px';
+    estado.ghost.style.top=(clientY-offsetY)+'px';
+    destacarColunaKanbanSobPonto(clientX,clientY);
+  }
   function onDragKanbanPointerMove(e){
+    /* Enquanto o toque ainda está no período de "pressionar e segurar" (antes do
+       arraste começar de fato), qualquer movimento é intenção de rolar a coluna,
+       não de arrastar — cancela a espera e deixa o navegador rolar normalmente. */
+    if(esperaLongPressKanban&&esperaLongPressKanban.pointerId===e.pointerId){
+      var dxE=e.clientX-esperaLongPressKanban.startX,dyE=e.clientY-esperaLongPressKanban.startY;
+      if(Math.abs(dxE)>LONG_PRESS_KANBAN_TOLERANCIA||Math.abs(dyE)>LONG_PRESS_KANBAN_TOLERANCIA)cancelarEsperaLongPressKanban();
+      return;
+    }
     var estado=arrastarKanbanEstado;
     if(!estado||estado.pointerId!==e.pointerId)return;
-    var dx=e.clientX-estado.startX,dy=e.clientY-estado.startY;
     if(!estado.dragging){
+      /* Só acontece com mouse: sem ambiguidade com rolagem, arrasta ao mover
+         sem precisar segurar (o toque já vira arraste antes de chegar aqui). */
+      var dx=e.clientX-estado.startX,dy=e.clientY-estado.startY;
       if(Math.abs(dx)<8&&Math.abs(dy)<8)return;
       estado.dragging=true;
       estado.card.classList.add('kcard-dragging');
@@ -4704,6 +4755,7 @@
     atualizarAutoScrollKanban(e.clientX);
   }
   function onDragKanbanPointerUp(e){
+    if(esperaLongPressKanban&&esperaLongPressKanban.pointerId===e.pointerId)cancelarEsperaLongPressKanban();
     var estado=arrastarKanbanEstado;
     if(!estado||estado.pointerId!==e.pointerId)return;
     arrastarKanbanEstado=null;
@@ -4731,11 +4783,29 @@
       card.addEventListener('pointerdown',function(e){
         if(e.pointerType==='mouse'&&e.button!==0)return;
         var rect=card.getBoundingClientRect();
-        arrastarKanbanEstado={
-          card:card,id:card.getAttribute('data-id'),pointerId:e.pointerId,
-          startX:e.clientX,startY:e.clientY,
-          offsetX:e.clientX-rect.left,offsetY:e.clientY-rect.top,
-          width:rect.width,dragging:false,ghost:null
+        var id=card.getAttribute('data-id');
+        var offsetX=e.clientX-rect.left,offsetY=e.clientY-rect.top;
+
+        if(e.pointerType==='mouse'){
+          arrastarKanbanEstado={
+            card:card,id:id,pointerId:e.pointerId,
+            startX:e.clientX,startY:e.clientY,
+            offsetX:offsetX,offsetY:offsetY,
+            width:rect.width,dragging:false,ghost:null
+          };
+          return;
+        }
+
+        /* Toque/caneta: só inicia o arraste depois de pressionar e segurar —
+           assim um toque rápido continua rolando a coluna verticalmente. */
+        cancelarEsperaLongPressKanban();
+        var pointerId=e.pointerId,clientX=e.clientX,clientY=e.clientY;
+        esperaLongPressKanban={
+          pointerId:pointerId,startX:clientX,startY:clientY,
+          timer:setTimeout(function(){
+            esperaLongPressKanban=null;
+            iniciarArrasteKanban(card,id,pointerId,clientX,clientY,offsetX,offsetY,rect.width);
+          },LONG_PRESS_KANBAN_MS)
         };
       });
     });
@@ -5585,19 +5655,51 @@
   }
 
   /**
-   * Atualização "otimista": muda a linha da tabela e o painel na hora, sem
-   * esperar o servidor — se der erro, desfaz e avisa.
+   * Diálogo de "Motivo do cancelamento" — reaproveitado tanto pelo troca-status
+   * rápido do painel de detalhe quanto pelo modal de edição do agendamento.
+   * Resolve com o texto do motivo, ou com null se o usuário cancelou o diálogo
+   * (nesse caso quem chamou não deve prosseguir com o cancelamento).
    */
-  function salvarStatusOtimista(a,novoStatus,btn){
+  var mcResolve=null;
+  function pedirMotivoCancelamento(motivoInicial){
+    return new Promise(function(resolve){
+      mcResolve=resolve;
+      document.getElementById('mc-motivo').value=motivoInicial||'';
+      document.getElementById('mc-msg').textContent='';
+      document.getElementById('motivoCancelamentoModal').classList.remove('hidden');
+      document.getElementById('mc-motivo').focus();
+    });
+  }
+  function fecharModalMotivoCancelamento(resultado){
+    document.getElementById('motivoCancelamentoModal').classList.add('hidden');
+    if(mcResolve){ var r=mcResolve; mcResolve=null; r(resultado); }
+  }
+  document.getElementById('mc-cancelarBtn').addEventListener('click',function(){ fecharModalMotivoCancelamento(null); });
+  document.getElementById('mc-confirmarBtn').addEventListener('click',function(){
+    var v=document.getElementById('mc-motivo').value.trim();
+    if(!v){ document.getElementById('mc-msg').textContent='Informe o motivo do cancelamento.'; return; }
+    fecharModalMotivoCancelamento(v);
+  });
+  document.getElementById('motivoCancelamentoModal').addEventListener('click',function(e){ if(e.target.id==='motivoCancelamentoModal')fecharModalMotivoCancelamento(null); });
+
+  /**
+   * Atualização "otimista": muda a linha da tabela e o painel na hora, sem
+   * esperar o servidor — se der erro, desfaz e avisa. Se o novo status for
+   * "Cancelado", exige motivoCancelamento (o chamador já deve ter aberto o
+   * diálogo antes de chegar aqui).
+   */
+  function salvarStatusOtimista(a,novoStatus,btn,motivoCancelamento){
     var statusAnterior=a['Status Agendamento'];
+    var motivoAnterior=a['Motivo Cancelamento'];
     a['Status Agendamento']=novoStatus;
+    a['Motivo Cancelamento']=novoStatus==='Cancelado'?(motivoCancelamento||''):'';
     render();
     if(agendamentoAtual&&agendamentoAtual.IdAgendamento===a.IdAgendamento)atualizarPainelStatus(a);
     if(btn)btn.disabled=true;
-    apiCall('atualizarStatusAgendamento',{solicitanteId:meuId(),idAgendamento:a.IdAgendamento,status:novoStatus}).then(function(resp){
+    apiCall('atualizarStatusAgendamento',{solicitanteId:meuId(),idAgendamento:a.IdAgendamento,status:novoStatus,motivoCancelamento:motivoCancelamento||''}).then(function(resp){
       if(btn)btn.disabled=false;
       if(!resp||!resp.ok){
-        a['Status Agendamento']=statusAnterior; render();
+        a['Status Agendamento']=statusAnterior; a['Motivo Cancelamento']=motivoAnterior; render();
         if(agendamentoAtual&&agendamentoAtual.IdAgendamento===a.IdAgendamento)atualizarPainelStatus(a);
         showAgToast((resp&&resp.erro)||'Não foi possível salvar — status desfeito.',true);
         return;
@@ -5605,7 +5707,7 @@
       showAgToast('Status atualizado.');
     }).catch(function(err){
       if(btn)btn.disabled=false;
-      a['Status Agendamento']=statusAnterior; render();
+      a['Status Agendamento']=statusAnterior; a['Motivo Cancelamento']=motivoAnterior; render();
       if(agendamentoAtual&&agendamentoAtual.IdAgendamento===a.IdAgendamento)atualizarPainelStatus(a);
       showAgToast('Erro de conexão — status desfeito: '+err.message,true);
     });
@@ -5617,6 +5719,12 @@
     if(badge){ badge.className='ag-status-tag '+statusSlug(status); badge.textContent=status; }
     var sel=document.getElementById('ad-statusSelect');
     if(sel)sel.value=status;
+    var motivoRow=document.getElementById('ad-motivoRow'),motivoValor=document.getElementById('ad-motivoValor');
+    if(motivoRow&&motivoValor){
+      var motivo=a['Motivo Cancelamento']||'';
+      motivoRow.style.display=motivo?'':'none';
+      motivoValor.textContent=motivo;
+    }
   }
 
   function showAgToast(texto,erro){
@@ -5659,6 +5767,7 @@
       '<div class="ad-row"><span class="dl">Técnico</span><span class="dv">'+escapeHtml(nomeVendedor(a.TecnicoResponsavel))+'</span></div>'+
       '<div class="ad-row"><span class="dl">Data</span><span class="dv">'+dataFmt+'</span></div>'+
       '<div class="ad-row"><span class="dl">Horário</span><span class="dv">'+escapeHtml((a['Hora inicio']||'—')+' – '+(a['Hora Fim']||'—'))+'</span></div>'+
+      '<div class="ad-row" id="ad-motivoRow" style="'+(a['Motivo Cancelamento']?'':'display:none;')+'"><span class="dl">Motivo do cancelamento</span><span class="dv" id="ad-motivoValor">'+escapeHtml(a['Motivo Cancelamento']||'')+'</span></div>'+
       '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line);">'+
         '<label style="display:block;font-size:11px;font-weight:700;color:var(--ink-soft);margin-bottom:6px;">Editar status manualmente</label>'+
         '<div style="display:flex;gap:8px;">'+
@@ -5693,7 +5802,16 @@
     document.getElementById('ad-body').innerHTML=html;
     document.getElementById('ad-statusSelect').value=status;
     document.getElementById('ad-statusSalvarBtn').addEventListener('click',function(){
-      salvarStatusOtimista(a,document.getElementById('ad-statusSelect').value,document.getElementById('ad-statusSalvarBtn'));
+      var novoStatus=document.getElementById('ad-statusSelect').value;
+      var btn=document.getElementById('ad-statusSalvarBtn');
+      if(novoStatus==='Cancelado'){
+        pedirMotivoCancelamento(a['Motivo Cancelamento']).then(function(motivo){
+          if(motivo===null)return;
+          salvarStatusOtimista(a,novoStatus,btn,motivo);
+        });
+        return;
+      }
+      salvarStatusOtimista(a,novoStatus,btn);
     });
     document.getElementById('ad-body').addEventListener('click',function(e){
       if(e.target.tagName==='IMG')window.open(e.target.src,'_blank');
@@ -6174,48 +6292,61 @@
     var registroAnteriorCopia=registroAnterior?Object.assign({},registroAnterior):null;
     var dataInicioBR=dataInicio.split('-').reverse().join('/'); // YYYY-MM-DD -> DD/MM/YYYY, igual o resto dos registros
 
-    var registroNovo={
-      IdAgendamento:idAlvo, IdCliente:idCliente, IdServico:idServico,
-      'Data Inicio':dataInicioBR, 'Hora inicio':horaInicio, 'Hora Fim':horaFim,
-      TecnicoResponsavel:tecnico, 'Status Agendamento':status,
-      'Observacao Comercial':observacao,
-      'Quantidade de Modulos':qtdModulos, 'Modelo Modulos':modeloModulos,
-      'Quantidade Inversores':qtdInversores, 'Modelo Inversores':modeloInversores
-    };
-    var indice=agendamentos.findIndex(function(a){return String(a.IdAgendamento)===String(idAlvo);});
-    if(indice===-1)agendamentos.push(registroNovo);
-    else agendamentos[indice]=registroNovo;
-
-    // Fecha o modal e atualiza a lista JÁ — sem esperar o servidor confirmar.
-    closeModal();
-    render();
-    showAgToast(ehNovo?'Agendamento criado.':'Agendamento atualizado.');
-
-    function desfazer(motivo){
-      if(ehNovo)agendamentos=agendamentos.filter(function(a){return String(a.IdAgendamento)!==String(idAlvo);});
-      else{ var idx=agendamentos.findIndex(function(a){return String(a.IdAgendamento)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)agendamentos[idx]=registroAnteriorCopia; }
-      render();
-      showAgToast(motivo,true);
+    if(status==='Cancelado'){
+      pedirMotivoCancelamento(registroAnterior?registroAnterior['Motivo Cancelamento']:'').then(function(motivo){
+        if(motivo===null)return; // usuário desistiu do diálogo — não salva nada
+        continuarSalvarAgendamento(motivo);
+      });
+      return;
     }
+    continuarSalvarAgendamento('');
 
-    apiCall('salvarAgendamento',{
-      solicitanteId: meuId(),
-      idAgendamento: idAlvo,
-      idCliente: idCliente, idServico: idServico, tecnicoResponsavel: tecnico,
-      dataInicio: dataInicio,
-      horaInicio: horaInicio, horaFim: horaFim,
-      quantidadeModulos: qtdModulos, modeloModulos: modeloModulos,
-      quantidadeInversores: qtdInversores, modeloInversores: modeloInversores,
-      observacaoComercial: observacao,
-      statusAgendamento: status
-    }).then(function(resp){
-      if(!resp||!resp.ok){ desfazer((resp&&resp.erro)||'Não foi possível salvar — a alteração foi desfeita.'); return; }
-      // se o servidor devolveu outro ID (implantação desatualizada, por ex.), corrige e redesenha na hora
-      if(resp.idAgendamento&&String(resp.idAgendamento)!==String(idAlvo)){
-        var idx2=agendamentos.findIndex(function(a){return String(a.IdAgendamento)===String(idAlvo);});
-        if(idx2!==-1){ agendamentos[idx2].IdAgendamento=resp.idAgendamento; render(); }
+    function continuarSalvarAgendamento(motivoCancelamento){
+      var registroNovo={
+        IdAgendamento:idAlvo, IdCliente:idCliente, IdServico:idServico,
+        'Data Inicio':dataInicioBR, 'Hora inicio':horaInicio, 'Hora Fim':horaFim,
+        TecnicoResponsavel:tecnico, 'Status Agendamento':status,
+        'Motivo Cancelamento':motivoCancelamento,
+        'Observacao Comercial':observacao,
+        'Quantidade de Modulos':qtdModulos, 'Modelo Modulos':modeloModulos,
+        'Quantidade Inversores':qtdInversores, 'Modelo Inversores':modeloInversores
+      };
+      var indice=agendamentos.findIndex(function(a){return String(a.IdAgendamento)===String(idAlvo);});
+      if(indice===-1)agendamentos.push(registroNovo);
+      else agendamentos[indice]=registroNovo;
+
+      // Fecha o modal e atualiza a lista JÁ — sem esperar o servidor confirmar.
+      closeModal();
+      render();
+      showAgToast(ehNovo?'Agendamento criado.':'Agendamento atualizado.');
+
+      function desfazer(motivo){
+        if(ehNovo)agendamentos=agendamentos.filter(function(a){return String(a.IdAgendamento)!==String(idAlvo);});
+        else{ var idx=agendamentos.findIndex(function(a){return String(a.IdAgendamento)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)agendamentos[idx]=registroAnteriorCopia; }
+        render();
+        showAgToast(motivo,true);
       }
-    }).catch(function(err){ desfazer('Erro de conexão — a alteração foi desfeita: '+err.message); });
+
+      apiCall('salvarAgendamento',{
+        solicitanteId: meuId(),
+        idAgendamento: idAlvo,
+        idCliente: idCliente, idServico: idServico, tecnicoResponsavel: tecnico,
+        dataInicio: dataInicio,
+        horaInicio: horaInicio, horaFim: horaFim,
+        quantidadeModulos: qtdModulos, modeloModulos: modeloModulos,
+        quantidadeInversores: qtdInversores, modeloInversores: modeloInversores,
+        observacaoComercial: observacao,
+        statusAgendamento: status,
+        motivoCancelamento: motivoCancelamento
+      }).then(function(resp){
+        if(!resp||!resp.ok){ desfazer((resp&&resp.erro)||'Não foi possível salvar — a alteração foi desfeita.'); return; }
+        // se o servidor devolveu outro ID (implantação desatualizada, por ex.), corrige e redesenha na hora
+        if(resp.idAgendamento&&String(resp.idAgendamento)!==String(idAlvo)){
+          var idx2=agendamentos.findIndex(function(a){return String(a.IdAgendamento)===String(idAlvo);});
+          if(idx2!==-1){ agendamentos[idx2].IdAgendamento=resp.idAgendamento; render(); }
+        }
+      }).catch(function(err){ desfazer('Erro de conexão — a alteração foi desfeita: '+err.message); });
+    }
   }
 
   function setDefaultRange(){
