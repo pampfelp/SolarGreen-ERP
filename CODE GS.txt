@@ -2118,7 +2118,7 @@ var AGENDAMENTOS_HEADERS = [
   'IdAgendamento','IdCliente','IdContrato','IdServico','Data Inicio','Hora inicio','Hora Fim',
   'TecnicoResponsavel','Status Agendamento','Observacao Comercial',
   'Quantidade de Modulos','Modelo Modulos','Quantidade Inversores','Modelo Inversores',
-  'DataRelatorio','PDFrelatorio'
+  'DataRelatorio','PDFrelatorio','Motivo Cancelamento'
 ];
 
 var AGENDAMENTOS_RESPOSTAS_HEADERS = ['IdResposta','IdAgendamento','IdTemplate','RespostaTexto','RespostaFoto','RespostaQuantidade'];
@@ -2130,6 +2130,12 @@ function getOrCreateAgendamentosSheet() {
     sheet = ss.insertSheet(CONFIG.ABA_AGENDAMENTOS);
     sheet.getRange(1, 1, 1, AGENDAMENTOS_HEADERS.length).setValues([AGENDAMENTOS_HEADERS]);
     sheet.setFrozenRows(1);
+  }
+  // Migração: planilhas criadas antes do motivo de cancelamento não têm essa coluna — adiciona no fim.
+  var lastCol = sheet.getLastColumn();
+  var headersAtuais = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) { return String(h).trim(); });
+  if (headersAtuais.indexOf('Motivo Cancelamento') === -1) {
+    sheet.getRange(1, lastCol + 1).setValue('Motivo Cancelamento');
   }
   // Hora inicio / Hora Fim como texto, pra não virar Date/hora serializada pelo Sheets.
   sheet.getRange('F2:G').setNumberFormat('@STRING@');
@@ -2384,6 +2390,11 @@ function actionSalvarAgendamento(body) {
   if (!body.horaInicio || !body.horaFim) {
     return { ok: false, erro: 'Escolha o horário de início e fim.' };
   }
+  var statusNovo = body.statusAgendamento || 'Agendado';
+  var canceladoNovo = normalizarTextoGS(statusNovo) === 'cancelado';
+  if (canceladoNovo && !String(body.motivoCancelamento || '').trim()) {
+    return { ok: false, erro: 'Informe o motivo do cancelamento.' };
+  }
 
   // Regra 1: cliente precisa ter endereço cadastrado antes de agendar.
   var clientes = sheetToObjects(getSheet(CONFIG.ABA_CLIENTES));
@@ -2448,7 +2459,8 @@ function actionSalvarAgendamento(body) {
       'Hora inicio': body.horaInicio || '',
       'Hora Fim': body.horaFim || '',
       'TecnicoResponsavel': tecnico,
-      'Status Agendamento': body.statusAgendamento || 'Agendado',
+      'Status Agendamento': statusNovo,
+      'Motivo Cancelamento': canceladoNovo ? body.motivoCancelamento : '',
       'Observacao Comercial': body.observacaoComercial || '',
       'Quantidade de Modulos': body.quantidadeModulos !== undefined ? body.quantidadeModulos : '',
       'Modelo Modulos': body.modeloModulos || '',
@@ -2638,14 +2650,19 @@ function actionAtualizarStatusAgendamento(body) {
   if (!isTecnicoOuAdmin(body.solicitanteId, idAgendamento)) {
     return { ok: false, erro: 'Sem permissão para essa ordem de serviço.' };
   }
+  var statusNorm = normalizarTextoGS(status);
+  if (statusNorm === 'cancelado' && !String(body.motivoCancelamento || '').trim()) {
+    return { ok: false, erro: 'Informe o motivo do cancelamento.' };
+  }
 
   var found = findAgendamentoRowById(idAgendamento);
   if (!found) return { ok: false, erro: 'Agendamento não encontrado.' };
 
   found.sheet.getRange(found.rowIndex, found.colIdx['Status Agendamento']).setValue(status);
+  if (found.colIdx['Motivo Cancelamento']) {
+    found.sheet.getRange(found.rowIndex, found.colIdx['Motivo Cancelamento']).setValue(statusNorm === 'cancelado' ? body.motivoCancelamento : '');
+  }
 
-  var statusNorm = String(status).trim().toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   if (statusNorm === 'concluido' && found.colIdx['DataRelatorio']) {
     found.sheet.getRange(found.rowIndex, found.colIdx['DataRelatorio']).setValue(new Date());
   }
