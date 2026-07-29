@@ -1997,7 +1997,7 @@ var SGAuth=(function(){
 // ==== Dimensionamento Solar (tela dedicada, dentro do mesmo indexdotecnico) ====
 (function(){
 const state = {
-  roofs: [ { largura:null, altura:null, orientation:'auto', facing:'', customModule:{enabled:false, modH:null, modW:null, power:null, vocMod:null, iscMod:null, idCatalogo:null} } ],
+  roofs: [ { largura:null, altura:null, orientation:'auto', facing:'', customModule:{enabled:false, modH:null, modW:null, power:null, vocMod:null, iscMod:null, idCatalogo:null, pesoKg:null} } ],
   activeTab: 0
 };
 
@@ -2005,6 +2005,7 @@ const state = {
 // Único ponto dessa tela que fala com o backend (o resto é 100% client-side).
 let modulosCatalogo = [];
 let inversoresCatalogo = [];
+let globalModuloPesoKg = null; // só existe quando o módulo padrão vem do catálogo (não tem campo manual)
 
 function carregarCatalogoProdutos(){
   if(typeof SGAuth === 'undefined' || !SGAuth.apiCall) return;
@@ -2288,6 +2289,16 @@ function getRoofElectrical(roof, globalVoc, globalIsc){
   return { voc: globalVoc, isc: globalIsc, isCustom:false };
 }
 
+// Peso só entra no sistema via seleção no catálogo (não tem campo manual pra
+// não poluir o formulário pra quem nunca usa isso) — se não veio de lá, fica
+// desconhecido e simplesmente não soma no peso total.
+function getRoofWeight(roof, globalWeight){
+  if(roof.customModule && roof.customModule.enabled && roof.customModule.pesoKg){
+    return roof.customModule.pesoKg;
+  }
+  return globalWeight;
+}
+
 function getHouseFloors(){
   return num(document.getElementById('houseFloors').value) || 0;
 }
@@ -2499,6 +2510,7 @@ function renderRoofPanels(){
         state.roofs[i].customModule.power = num(mod.PotenciaW);
         state.roofs[i].customModule.voc = num(mod.VocV);
         state.roofs[i].customModule.isc = num(mod.IscA);
+        state.roofs[i].customModule.pesoKg = num(mod.PesoKg);
       }
       renderRoofPanels();
       renderTotals();
@@ -2566,6 +2578,11 @@ function renderTotals(){
   const totalFinal = sum('finalScrews','mat');
   const totalInter = sum('interClamps','mat');
   const totalCable = sum('cableTotal','mat');
+  const totalWeight = all.reduce((a,x)=>{
+    if(!x.pack || !x.pack.total) return a;
+    const w = getRoofWeight(x.roof, globalModuloPesoKg);
+    return a + (w ? x.pack.total*w : 0);
+  }, 0);
 
   const grid = document.getElementById('totalsGrid');
   grid.innerHTML = `
@@ -2576,6 +2593,7 @@ function renderTotals(){
     <div class="stat"><div class="label">Parafusos finais</div><div class="val">${totalFinal}</div></div>
     <div class="stat"><div class="label">Grampos intermediários</div><div class="val">${totalInter}</div></div>
     <div class="stat"><div class="label">Cabo solar</div><div class="val">${fmt(totalCable,2)} <small>m</small></div></div>
+    ${totalWeight>0 ? `<div class="stat"><div class="label">Peso total dos módulos</div><div class="val">${fmt(totalWeight,1)} <small>kg</small></div></div>` : ''}
   `;
 }
 
@@ -2948,7 +2966,7 @@ function renderStringPlan(){
 function rebuildRoofCount(newCount){
   const current = state.roofs.length;
   if(newCount > current){
-    for(let i=current;i<newCount;i++) state.roofs.push({largura:null, altura:null, orientation:'auto', facing:'', customModule:{enabled:false, modH:null, modW:null, power:null, vocMod:null, iscMod:null, idCatalogo:null}});
+    for(let i=current;i<newCount;i++) state.roofs.push({largura:null, altura:null, orientation:'auto', facing:'', customModule:{enabled:false, modH:null, modW:null, power:null, vocMod:null, iscMod:null, idCatalogo:null, pesoKg:null}});
   } else if(newCount < current){
     state.roofs = state.roofs.slice(0, newCount);
     if(state.activeTab >= newCount) state.activeTab = newCount-1;
@@ -2992,6 +3010,7 @@ document.getElementById('numMppts').addEventListener('input', (e)=>{ redimension
 
 document.getElementById('moduloCatalogoSelect').addEventListener('change', (e)=>{
   const mod = modulosCatalogo.find(m=>String(m.IdModulo)===String(e.target.value));
+  globalModuloPesoKg = mod ? num(mod.PesoKg) : null;
   if(mod){
     document.getElementById('modH').value = mod.AlturaM ?? '';
     document.getElementById('modW').value = mod.LarguraM ?? '';
@@ -3077,6 +3096,11 @@ carregarCatalogoProdutos();
     var totalFinal = all.reduce(function(a,x){ return a + (x.mat?x.mat.finalScrews:0); },0);
     var totalInter = all.reduce(function(a,x){ return a + (x.mat?x.mat.interClamps:0); },0);
     var totalCable = all.reduce(function(a,x){ return a + (x.mat?x.mat.cableTotal:0); },0);
+    var totalWeight = all.reduce(function(a,x){
+      if(!x.pack || !x.pack.total) return a;
+      var w = getRoofWeight(x.roof, globalModuloPesoKg);
+      return a + (w ? x.pack.total*w : 0);
+    },0);
 
     var invCompatHtml = '';
     if(invMax && totalKwp>0){
@@ -3222,6 +3246,7 @@ carregarCatalogoProdutos();
         '<tr><td>Parafusos finais</td><td>'+totalFinal+'</td></tr>'+
         '<tr><td>Grampos intermediários</td><td>'+totalInter+'</td></tr>'+
         '<tr><td>Cabo solar (total)</td><td>'+fmt(totalCable,2)+' m</td></tr>'+
+        (totalWeight>0 ? '<tr><td>Peso total dos módulos</td><td>'+fmt(totalWeight,1)+' kg</td></tr>' : '')+
       '</table>'+
     '</section>'+
 
