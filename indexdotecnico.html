@@ -665,6 +665,13 @@
   <div class="panel" data-tag="05 · Dimensionamento de strings">
     <h2>MPPTs &amp; strings</h2>
     <div class="sub" style="margin-bottom:14px;">Telhados com "Usar outro tamanho de módulo" ativado podem ter seu próprio Voc/Isc — configure isso na aba do telhado. Os campos abaixo valem para os demais telhados.</div>
+    <div class="field" style="margin-bottom:14px;">
+      <label>Inversor do catálogo</label>
+      <div style="display:flex;gap:8px;">
+        <select id="inversorCatalogoSelect" style="flex:1;"><option value="">— Personalizado —</option></select>
+        <button type="button" id="btn-abrir-novo-inversor" style="flex:none;background:none;border:1.5px solid var(--line-strong);border-radius:9px;padding:0 14px;font-size:12.5px;color:var(--accent);cursor:pointer;">+ Cadastrar</button>
+      </div>
+    </div>
     <div class="grid">
       <div class="field">
         <label>Voc do módulo padrão (V)</label>
@@ -687,17 +694,13 @@
         <input type="number" id="mpptMaxV" step="1" placeholder="ex: 500">
       </div>
       <div class="field">
-        <label>Corrente máx. de curto-circuito por MPPT (A)</label>
-        <input type="number" id="mpptMaxIsc" step="0.1" placeholder="ex: 21">
-      </div>
-      <div class="field">
         <label>Número de MPPTs</label>
-        <input type="number" id="numMppts" step="1" min="1" placeholder="ex: 2">
+        <input type="number" id="numMppts" step="1" min="0" placeholder="ex: 2">
       </div>
-      <div class="field">
-        <label>Strings por MPPT</label>
-        <input type="number" id="stringsPerMppt" step="1" min="1" placeholder="ex: 2">
-      </div>
+    </div>
+    <div class="field" style="margin-top:6px;">
+      <label>Configuração por MPPT (corrente máxima e nº de strings — alguns inversores têm valores diferentes entre MPPTs)</label>
+      <div id="mpptsConfigWrap"></div>
     </div>
     <div id="customModuleVocInputs"></div>
     <div id="stringPlanOutput" style="margin-top:16px;"></div>
@@ -729,6 +732,35 @@
     <div class="sheet-actions">
       <button class="btn-limpar" id="btn-nm-cancelar">Voltar</button>
       <button class="btn-aplicar" id="btn-nm-salvar">Salvar módulo</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet-overlay hidden" id="novo-inversor-overlay">
+  <div class="sheet-card" style="max-height:88vh;">
+    <h3>Cadastrar inversor</h3>
+    <div class="sheet-field"><label>Marca</label><input type="text" id="ni-marca"></div>
+    <div class="sheet-field"><label>Modelo</label><input type="text" id="ni-modelo"></div>
+    <div class="grid" style="grid-template-columns:1fr 1fr;">
+      <div class="sheet-field"><label>Potência máx. CC (W)</label><input type="number" id="ni-potenciaMaxCC" step="1"></div>
+      <div class="sheet-field"><label>Potência nom. CC (W)</label><input type="number" id="ni-potenciaNomCC" step="1"></div>
+      <div class="sheet-field"><label>Tensão entrada máxima (V)</label><input type="number" id="ni-tensaoEntradaMax" step="1"></div>
+      <div class="sheet-field"><label>Tensão mínima de partida (V)</label><input type="number" id="ni-startupV" step="1"></div>
+      <div class="sheet-field"><label>Tensão mínima da MPPT (V)</label><input type="number" id="ni-mpptMinV" step="1"></div>
+      <div class="sheet-field"><label>Tensão máxima da MPPT (V)</label><input type="number" id="ni-mpptMaxV" step="1"></div>
+      <div class="sheet-field"><label>Potência ativa nominal CA (W)</label><input type="number" id="ni-potenciaAtivaNomCA" step="1"></div>
+      <div class="sheet-field"><label>Tensão CA nominal (V)</label><input type="number" id="ni-tensaoCANominal" step="1"></div>
+      <div class="sheet-field"><label>Corrente máxima CA (A)</label><input type="number" id="ni-correnteMaxCA" step="0.1"></div>
+      <div class="sheet-field"><label>Fases</label>
+        <select id="ni-fases"><option value="Monofasico">Monofásico</option><option value="Bifasico">Bifásico</option><option value="Trifasico">Trifásico</option></select>
+      </div>
+    </div>
+    <div class="sheet-field"><label>Número de entradas MPPT</label><input type="number" id="ni-numMppts" min="0" step="1"></div>
+    <div id="ni-mpptsWrap"></div>
+    <div id="ni-msg" style="font-size:12px;color:var(--debit);margin-top:2px;"></div>
+    <div class="sheet-actions">
+      <button class="btn-limpar" id="btn-ni-cancelar">Voltar</button>
+      <button class="btn-aplicar" id="btn-ni-salvar">Salvar inversor</button>
     </div>
   </div>
 </div>
@@ -1965,7 +1997,7 @@ var SGAuth=(function(){
 // ==== Dimensionamento Solar (tela dedicada, dentro do mesmo indexdotecnico) ====
 (function(){
 const state = {
-  roofs: [ { largura:null, altura:null, orientation:'auto', facing:'', customModule:{enabled:false, modH:null, modW:null, power:null, vocMod:null, iscMod:null} } ],
+  roofs: [ { largura:null, altura:null, orientation:'auto', facing:'', customModule:{enabled:false, modH:null, modW:null, power:null, vocMod:null, iscMod:null, idCatalogo:null} } ],
   activeTab: 0
 };
 
@@ -1981,7 +2013,7 @@ function carregarCatalogoProdutos(){
     modulosCatalogo = resp.modulos || [];
     inversoresCatalogo = resp.inversores || [];
     popularSelectModulos(document.getElementById('moduloCatalogoSelect'), '');
-    document.querySelectorAll('.roof-module-select').forEach(function(sel){ popularSelectModulos(sel, ''); });
+    document.querySelectorAll('.roof-module-select').forEach(function(sel){ var i=parseInt(sel.dataset.i); popularSelectModulos(sel, (state.roofs[i]&&state.roofs[i].customModule.idCatalogo)||''); });
     if(typeof popularSelectInversores === 'function') popularSelectInversores(document.getElementById('inversorCatalogoSelect'), '');
   }).catch(function(){}); // catálogo é um bônus — se falhar, a tela continua funcionando 100% manual
 }
@@ -2026,8 +2058,106 @@ function salvarNovoModuloRapido(){
       AlturaM: payload.alturaM, LarguraM: payload.larguraM, PotenciaW: payload.potenciaW,
       PesoKg: payload.pesoKg, VocV: payload.vocV, IscA: payload.iscA}));
     popularSelectModulos(document.getElementById('moduloCatalogoSelect'), '');
-    document.querySelectorAll('.roof-module-select').forEach(function(sel){ popularSelectModulos(sel, ''); });
+    document.querySelectorAll('.roof-module-select').forEach(function(sel){ var i=parseInt(sel.dataset.i); popularSelectModulos(sel, (state.roofs[i]&&state.roofs[i].customModule.idCatalogo)||''); });
     fecharNovoModuloSheet();
+  }).catch(function(err){ btn.disabled = false; msgEl.textContent = 'Erro de conexão: '+err.message; });
+}
+
+// ==== Inversor do catálogo + configuração por MPPT ====
+// mpptsConfigAtual = [{maxIsc,maxStrings}, ...] (1 item por MPPT) do inversor
+// selecionado/editado no formulário principal — é o que computeStringPlan() usa
+// pra alocar strings respeitando a capacidade individual de cada MPPT.
+let mpptsConfigAtual = [];
+
+function popularSelectInversores(selectEl, valorSelecionado){
+  if(!selectEl) return;
+  var opts = '<option value="">— Personalizado —</option>' + inversoresCatalogo.map(function(v){
+    var label = (v.Marca ? v.Marca + ' — ' : '') + (v.Modelo || v.IdInversor) + ' (' + (v.NumMppts||'?') + ' MPPT)';
+    return '<option value="'+escapeHtml(v.IdInversor)+'">'+escapeHtml(label)+'</option>';
+  }).join('');
+  selectEl.innerHTML = opts;
+  selectEl.value = valorSelecionado || '';
+}
+
+/**
+ * Renderiza uma tabela de "corrente máxima + nº de strings" por MPPT dentro de
+ * wrapEl, a partir de configArray ([{maxIsc,maxStrings}]) — reaproveitada tanto
+ * pelo formulário principal (seção 05) quanto pelo cadastro rápido de inversor.
+ * onChange(i, campo, valor) é chamado a cada edição de campo.
+ */
+function renderMpptsTable(wrapEl, configArray, onChange){
+  if(!wrapEl) return;
+  if(!configArray.length){ wrapEl.innerHTML = '<div style="font-size:12px;color:var(--text-dim);padding:6px 0;">Informe o número de MPPTs acima.</div>'; return; }
+  wrapEl.innerHTML = configArray.map(function(cfg,i){
+    return '<div class="mppt-cfg-row" data-i="'+i+'" style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">'+
+      '<span style="font-size:12px;color:var(--text-dim);width:56px;flex:none;">MPPT '+(i+1)+'</span>'+
+      '<input type="number" class="mppt-maxisc" step="0.1" placeholder="Corrente máx. (A)" value="'+(cfg.maxIsc!==undefined&&cfg.maxIsc!==null?cfg.maxIsc:'')+'" style="flex:1;">'+
+      '<input type="number" class="mppt-maxstrings" step="1" min="0" placeholder="Nº strings" value="'+(cfg.maxStrings!==undefined&&cfg.maxStrings!==null?cfg.maxStrings:'')+'" style="width:100px;">'+
+    '</div>';
+  }).join('');
+  wrapEl.querySelectorAll('.mppt-cfg-row').forEach(function(row){
+    var i = parseInt(row.getAttribute('data-i'),10);
+    row.querySelector('.mppt-maxisc').addEventListener('input', function(e){ onChange(i,'maxIsc',e.target.value); });
+    row.querySelector('.mppt-maxstrings').addEventListener('input', function(e){ onChange(i,'maxStrings',e.target.value); });
+  });
+}
+
+function redimensionarMpptsConfigAtual(n){
+  n = Math.max(0, parseInt(n,10)||0);
+  while(mpptsConfigAtual.length<n) mpptsConfigAtual.push({maxIsc:'',maxStrings:''});
+  mpptsConfigAtual.length = n;
+  renderMpptsTable(document.getElementById('mpptsConfigWrap'), mpptsConfigAtual, function(i,campo,valor){
+    mpptsConfigAtual[i][campo] = valor;
+    renderStringPlan();
+  });
+}
+
+let mpptsConfigNovoInversor = [];
+
+function abrirNovoInversorSheet(){
+  ['ni-marca','ni-modelo','ni-potenciaMaxCC','ni-potenciaNomCC','ni-tensaoEntradaMax','ni-startupV','ni-mpptMinV','ni-mpptMaxV','ni-potenciaAtivaNomCA','ni-tensaoCANominal','ni-correnteMaxCA','ni-numMppts'].forEach(function(id){ document.getElementById(id).value=''; });
+  document.getElementById('ni-fases').value='Monofasico';
+  document.getElementById('ni-msg').textContent='';
+  mpptsConfigNovoInversor = [];
+  renderMpptsTable(document.getElementById('ni-mpptsWrap'), mpptsConfigNovoInversor, function(i,campo,valor){ mpptsConfigNovoInversor[i][campo]=valor; });
+  document.getElementById('novo-inversor-overlay').classList.remove('hidden');
+}
+function fecharNovoInversorSheet(){ document.getElementById('novo-inversor-overlay').classList.add('hidden'); }
+
+function salvarNovoInversorRapido(){
+  var modelo = document.getElementById('ni-modelo').value.trim();
+  var msgEl = document.getElementById('ni-msg');
+  if(!modelo){ msgEl.textContent='Informe o modelo do inversor.'; return; }
+  var mpptsConfigPayload = mpptsConfigNovoInversor.map(function(c){ return { maxIsc: parseFloat(String(c.maxIsc||'0').replace(',','.'))||0, maxStrings: parseInt(c.maxStrings,10)||0 }; });
+  var payload = {
+    marca: document.getElementById('ni-marca').value.trim(),
+    modelo: modelo,
+    potenciaMaxCC_W: document.getElementById('ni-potenciaMaxCC').value,
+    potenciaNomCC_W: document.getElementById('ni-potenciaNomCC').value,
+    tensaoEntradaMaxV: document.getElementById('ni-tensaoEntradaMax').value,
+    startupV: document.getElementById('ni-startupV').value,
+    mpptMinV: document.getElementById('ni-mpptMinV').value,
+    mpptMaxV: document.getElementById('ni-mpptMaxV').value,
+    numMppts: document.getElementById('ni-numMppts').value,
+    mpptsConfig: mpptsConfigPayload,
+    potenciaAtivaNomCA_W: document.getElementById('ni-potenciaAtivaNomCA').value,
+    tensaoCANominalV: document.getElementById('ni-tensaoCANominal').value,
+    correnteMaxCA_A: document.getElementById('ni-correnteMaxCA').value,
+    fases: document.getElementById('ni-fases').value
+  };
+  var btn = document.getElementById('btn-ni-salvar');
+  btn.disabled = true;
+  SGAuth.apiCall('salvarInversor', payload).then(function(resp){
+    btn.disabled = false;
+    if(!resp || !resp.ok){ msgEl.textContent = (resp && resp.erro) || 'Não foi possível salvar.'; return; }
+    inversoresCatalogo.push(Object.assign({IdInversor: resp.idInversor, Marca: payload.marca, Modelo: payload.modelo,
+      PotenciaMaxCC_W: payload.potenciaMaxCC_W, PotenciaNomCC_W: payload.potenciaNomCC_W,
+      TensaoEntradaMaxV: payload.tensaoEntradaMaxV, MpptMinV: payload.mpptMinV, MpptMaxV: payload.mpptMaxV,
+      StartupV: payload.startupV, NumMppts: payload.numMppts, mpptsConfig: mpptsConfigPayload,
+      PotenciaAtivaNomCA_W: payload.potenciaAtivaNomCA_W, TensaoCANominalV: payload.tensaoCANominalV,
+      CorrenteMaxCA_A: payload.correnteMaxCA_A, Fases: payload.fases}));
+    popularSelectInversores(document.getElementById('inversorCatalogoSelect'), '');
+    fecharNovoInversorSheet();
   }).catch(function(err){ btn.disabled = false; msgEl.textContent = 'Erro de conexão: '+err.message; });
 }
 
@@ -2357,10 +2487,12 @@ function renderRoofPanels(){
   });
 
   wrap.querySelectorAll('.roof-module-select').forEach(sel=>{
-    popularSelectModulos(sel, '');
+    const i = parseInt(sel.dataset.i);
+    popularSelectModulos(sel, state.roofs[i].customModule.idCatalogo || '');
     sel.addEventListener('change', (e)=>{
       const i = parseInt(e.target.dataset.i);
       const mod = modulosCatalogo.find(m=>String(m.IdModulo)===String(e.target.value));
+      state.roofs[i].customModule.idCatalogo = e.target.value || null;
       if(mod){
         state.roofs[i].customModule.modH = num(mod.AlturaM);
         state.roofs[i].customModule.modW = num(mod.LarguraM);
@@ -2533,11 +2665,15 @@ function computeStringPlan(){
   const startupV = num(document.getElementById('startupV').value);
   const mpptMinV = num(document.getElementById('mpptMinV').value);
   const mpptMaxV = num(document.getElementById('mpptMaxV').value);
-  const mpptMaxIsc = num(document.getElementById('mpptMaxIsc').value);
   const numMppts = num(document.getElementById('numMppts').value);
-  const stringsPerMppt = num(document.getElementById('stringsPerMppt').value);
 
-  if(!mpptMinV || !mpptMaxV || !mpptMaxIsc || !numMppts || !stringsPerMppt){
+  // Cada MPPT tem sua própria corrente máxima e seu próprio número de strings —
+  // alguns inversores têm MPPTs desiguais entre si (ex: MPPT1/4=60A/2 strings,
+  // MPPT2/3=48A/1 string), então isso não pode mais ser um valor único global.
+  const slotsConfig = mpptsConfigAtual.map(c=>({ maxIsc: num(c.maxIsc), maxStrings: num(c.maxStrings) }));
+  const slotsValidos = slotsConfig.length>0 && slotsConfig.every(s=>s.maxIsc>0 && s.maxStrings>0);
+
+  if(!mpptMinV || !mpptMaxV || !numMppts || !slotsValidos){
     return { ready:false };
   }
 
@@ -2584,8 +2720,12 @@ function computeStringPlan(){
     return (gb.power||0) - (ga.power||0);
   });
 
-  let mpptsLeft = numMppts;
-  let mpptCounter = 0;
+  // Pool de MPPTs físicos, compartilhado entre todos os grupos (é o mesmo
+  // inversor) — cada slot só aceita mais uma string se sobrar espaço (strings)
+  // E corrente. Processados na ordem em que aparecem no cadastro (MPPT 1
+  // primeiro), e um slot pode acabar com strings de mais de uma orientação/
+  // tipo de módulo se sobrar capacidade depois do primeiro grupo.
+  const slots = slotsConfig.map((s,idx)=>({ id: idx+1, maxIsc: s.maxIsc, maxStrings: s.maxStrings, stringsUsadas:0, correnteUsada:0 }));
   const groupResults = [];
   const roofColorSlices = {};
 
@@ -2600,15 +2740,6 @@ function computeStringPlan(){
       g.roofRefs.forEach(r=> roofColorSlices[r.i] = Array(r.count).fill(null));
       return;
     }
-    const maxStringsByCurrent = Math.floor(mpptMaxIsc/g.isc + 1e-9);
-    const effStringsPerMppt = Math.min(stringsPerMppt, maxStringsByCurrent);
-    if(effStringsPerMppt < 1){
-      groupResults.push({ facing:g.facing, voc:g.voc, isc:g.isc, power:g.power, totalModules:g.total,
-        usedModules:0, unusedModules:g.total, mppts:[], noMppts:false,
-        error:`Isc de ${fmt(g.isc,2)} A já excede o limite da MPPT (${fmt(mpptMaxIsc,2)} A) com apenas 1 string.` });
-      g.roofRefs.forEach(r=> roofColorSlices[r.i] = Array(r.count).fill(null));
-      return;
-    }
 
     const split = bestStringSplit(g.total, modsMin, modsMax);
     if(split.strings === 0){
@@ -2616,37 +2747,42 @@ function computeStringPlan(){
       g.roofRefs.forEach(r=> roofColorSlices[r.i] = Array(r.count).fill(null));
       return;
     }
-    const mpptsNeededIdeal = Math.ceil(split.strings/effStringsPerMppt);
-    const mpptsAssigned = Math.min(mpptsNeededIdeal, mpptsLeft);
-    const stringsThatFit = mpptsAssigned*effStringsPerMppt;
-    let usedSizes = split.sizes;
+
+    // Aloca cada string desse grupo no primeiro slot com espaço (strings) e
+    // corrente sobrando — na ordem dos MPPTs cadastrados.
+    const usadosPorSlot = {}; // id do slot -> array de tamanhos (nº de módulos) das strings dele
     let unusedModules = split.leftover;
-    if(split.strings > stringsThatFit){
-      const dropped = split.sizes.slice(stringsThatFit);
-      usedSizes = split.sizes.slice(0, stringsThatFit);
-      unusedModules += dropped.reduce((a,b)=>a+b,0);
-    }
-    mpptsLeft -= mpptsAssigned;
+    let sobrouStringSemMppt = false;
+
+    split.sizes.forEach(sz=>{
+      const slot = slots.find(s => s.stringsUsadas < s.maxStrings && (s.correnteUsada + g.isc) <= s.maxIsc + 1e-9);
+      if(!slot){ unusedModules += sz; sobrouStringSemMppt = true; return; }
+      slot.stringsUsadas++;
+      slot.correnteUsada += g.isc;
+      if(!usadosPorSlot[slot.id]) usadosPorSlot[slot.id] = [];
+      usadosPorSlot[slot.id].push(sz);
+    });
+
     const mppts = [];
     const colorSlots = [];
-    for(let k=0;k<usedSizes.length;k+=effStringsPerMppt){
-      mpptCounter++;
-      const chunk = usedSizes.slice(k, k+effStringsPerMppt);
+    Object.keys(usadosPorSlot).map(Number).sort((a,b)=>a-b).forEach(id=>{
+      const chunk = usadosPorSlot[id];
+      const slot = slots.find(s=>s.id===id);
       const stringsArr = chunk.map((sz,idx)=>{
         const voltage = sz*g.voc;
-        const color = stringColor(mpptCounter, idx, chunk.length);
-        const label = `String ${idx+1} · MPPT ${mpptCounter} · ${fmt(voltage,0)} V`;
+        const color = stringColor(id, idx, chunk.length);
+        const label = `String ${idx+1} · MPPT ${id} · ${fmt(voltage,0)} V`;
         for(let m=0;m<sz;m++) colorSlots.push({ color, label });
         return { modules:sz, voltage, current:g.isc, color, label, index:idx+1 };
       });
       mppts.push({
-        id: mpptCounter,
+        id,
         strings: stringsArr,
         totalCurrent: chunk.length*g.isc,
-        totalMaxIsc: mpptMaxIsc,
+        totalMaxIsc: slot.maxIsc,
         modules: chunk.reduce((a,b)=>a+b,0)
       });
-    }
+    });
     for(let u=0; u<unusedModules; u++) colorSlots.push(null);
 
     // hand out this group's colored slots to the roofs that contributed to it, in order
@@ -2658,7 +2794,7 @@ function computeStringPlan(){
 
     groupResults.push({
       facing:g.facing, voc:g.voc, isc:g.isc, power:g.power, totalModules:g.total, usedModules: g.total-unusedModules, unusedModules,
-      mppts, noMppts: mpptsAssigned < mpptsNeededIdeal
+      mppts, noMppts: sobrouStringSemMppt
     });
   });
 
@@ -2672,9 +2808,11 @@ function computeStringPlan(){
   const minStringVoltage = allStringVoltages.length ? Math.min(...allStringVoltages) : 0;
   const startupOk = startupV ? (allStringVoltages.length>0 && minStringVoltage >= startupV) : null;
 
+  const totalMpptsUsed = slots.filter(s=>s.stringsUsadas>0).length;
+
   return {
-    ready:true, mpptMaxIsc, missingSpecRoofs,
-    groupResults, totalMpptsUsed: mpptCounter, mpptsAvailable:numMppts, mpptsLeftover:mpptsLeft,
+    ready:true, missingSpecRoofs,
+    groupResults, totalMpptsUsed, mpptsAvailable:numMppts, mpptsLeftover:numMppts-totalMpptsUsed,
     minStringVoltage, startupV, startupOk, layouts:all, roofColorSlices
   };
 }
@@ -2778,7 +2916,7 @@ function renderStringPlan(){
         const hue = (m.id*61)%360;
         html += `<div class="mppt-card" style="border-color:hsl(${hue} 45% 32%);">
           <div class="mppt-card-title" style="color:hsl(${hue} 70% 68%);">MPPT ${m.id}</div>
-          <div class="mppt-card-sub">${m.modules} módulos · ${fmt(m.totalCurrent,2)} A${plan.mpptMaxIsc ? ' / '+fmt(plan.mpptMaxIsc,2)+' A' : ''}</div>
+          <div class="mppt-card-sub">${m.modules} módulos · ${fmt(m.totalCurrent,2)} A / ${fmt(m.totalMaxIsc,2)} A</div>
           <div class="string-list">`;
         m.strings.forEach((s,idx)=>{
           html += `<div class="string-chip" style="background:${s.color};">
@@ -2810,7 +2948,7 @@ function renderStringPlan(){
 function rebuildRoofCount(newCount){
   const current = state.roofs.length;
   if(newCount > current){
-    for(let i=current;i<newCount;i++) state.roofs.push({largura:null, altura:null, orientation:'auto', facing:'', customModule:{enabled:false, modH:null, modW:null, power:null, vocMod:null, iscMod:null}});
+    for(let i=current;i<newCount;i++) state.roofs.push({largura:null, altura:null, orientation:'auto', facing:'', customModule:{enabled:false, modH:null, modW:null, power:null, vocMod:null, iscMod:null, idCatalogo:null}});
   } else if(newCount < current){
     state.roofs = state.roofs.slice(0, newCount);
     if(state.activeTab >= newCount) state.activeTab = newCount-1;
@@ -2847,9 +2985,10 @@ document.querySelectorAll('input[name=qtyMode]').forEach(r=> r.addEventListener(
 document.getElementById('manualQty').addEventListener('blur', renderInverter);
 document.getElementById('invMax').addEventListener('blur', renderInverter);
 
-['vocMod','iscMod','startupV','mpptMinV','mpptMaxV','mpptMaxIsc','numMppts','stringsPerMppt'].forEach(id=>{
+['vocMod','iscMod','startupV','mpptMinV','mpptMaxV'].forEach(id=>{
   document.getElementById(id).addEventListener('blur', renderStringPlan);
 });
+document.getElementById('numMppts').addEventListener('input', (e)=>{ redimensionarMpptsConfigAtual(e.target.value); renderStringPlan(); });
 
 document.getElementById('moduloCatalogoSelect').addEventListener('change', (e)=>{
   const mod = modulosCatalogo.find(m=>String(m.IdModulo)===String(e.target.value));
@@ -2868,10 +3007,34 @@ document.getElementById('btn-nm-cancelar').addEventListener('click', fecharNovoM
 document.getElementById('btn-nm-salvar').addEventListener('click', salvarNovoModuloRapido);
 document.getElementById('novo-modulo-overlay').addEventListener('click', (e)=>{ if(e.target.id==='novo-modulo-overlay') fecharNovoModuloSheet(); });
 
+document.getElementById('inversorCatalogoSelect').addEventListener('change', (e)=>{
+  const inv = inversoresCatalogo.find(v=>String(v.IdInversor)===String(e.target.value));
+  if(inv){
+    document.getElementById('startupV').value = inv.StartupV ?? '';
+    document.getElementById('mpptMinV').value = inv.MpptMinV ?? '';
+    document.getElementById('mpptMaxV').value = inv.MpptMaxV ?? '';
+    document.getElementById('numMppts').value = inv.NumMppts ?? '';
+    mpptsConfigAtual = (inv.mpptsConfig||[]).map(c=>({maxIsc:c.maxIsc, maxStrings:c.maxStrings}));
+    renderMpptsTable(document.getElementById('mpptsConfigWrap'), mpptsConfigAtual, (i,campo,valor)=>{ mpptsConfigAtual[i][campo]=valor; renderStringPlan(); });
+  }
+  renderStringPlan();
+});
+document.getElementById('btn-abrir-novo-inversor').addEventListener('click', abrirNovoInversorSheet);
+document.getElementById('btn-ni-cancelar').addEventListener('click', fecharNovoInversorSheet);
+document.getElementById('btn-ni-salvar').addEventListener('click', salvarNovoInversorRapido);
+document.getElementById('novo-inversor-overlay').addEventListener('click', (e)=>{ if(e.target.id==='novo-inversor-overlay') fecharNovoInversorSheet(); });
+document.getElementById('ni-numMppts').addEventListener('input', (e)=>{
+  const n = Math.max(0, parseInt(e.target.value,10)||0);
+  while(mpptsConfigNovoInversor.length<n) mpptsConfigNovoInversor.push({maxIsc:'',maxStrings:''});
+  mpptsConfigNovoInversor.length = n;
+  renderMpptsTable(document.getElementById('ni-mpptsWrap'), mpptsConfigNovoInversor, (i,campo,valor)=>{ mpptsConfigNovoInversor[i][campo]=valor; });
+});
+
 buildTabs();
 renderRoofPanels();
 renderTotals();
 renderInverter();
+redimensionarMpptsConfigAtual(document.getElementById('numMppts').value);
 renderStringPlan();
 carregarCatalogoProdutos();
 
