@@ -3033,9 +3033,12 @@ document.getElementById('inversorCatalogoSelect').addEventListener('change', (e)
     document.getElementById('mpptMinV').value = inv.MpptMinV ?? '';
     document.getElementById('mpptMaxV').value = inv.MpptMaxV ?? '';
     document.getElementById('numMppts').value = inv.NumMppts ?? '';
+    const potMaxW = num(inv.PotenciaMaxCC_W);
+    document.getElementById('invMax').value = potMaxW ? (potMaxW/1000) : '';
     mpptsConfigAtual = (inv.mpptsConfig||[]).map(c=>({maxIsc:c.maxIsc, maxStrings:c.maxStrings}));
     renderMpptsTable(document.getElementById('mpptsConfigWrap'), mpptsConfigAtual, (i,campo,valor)=>{ mpptsConfigAtual[i][campo]=valor; renderStringPlan(); });
   }
+  renderInverter();
   renderStringPlan();
 });
 document.getElementById('btn-abrir-novo-inversor').addEventListener('click', abrirNovoInversorSheet);
