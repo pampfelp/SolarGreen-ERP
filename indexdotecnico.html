@@ -100,7 +100,7 @@
   .sheet-card h3{font-family:var(--unbounded);font-size:15px;margin-bottom:16px;}
   .sheet-field{margin-bottom:16px;}
   .sheet-field label{display:block;font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;margin-bottom:7px;}
-  .sheet-field select{width:100%;font-size:14px;border:1px solid var(--line);border-radius:9px;padding:11px 12px;background:#fff;color:var(--ink);}
+  .sheet-field select,.sheet-field input{width:100%;font-size:14px;border:1px solid var(--line);border-radius:9px;padding:11px 12px;background:#fff;color:var(--ink);}
   .sheet-actions{display:flex;gap:8px;margin-top:6px;}
   .sheet-actions button{flex:1;border:none;border-radius:10px;padding:13px;font-weight:800;font-size:13.5px;cursor:pointer;}
   .sheet-actions .btn-aplicar{background:var(--accent);color:#003122;}
@@ -579,6 +579,13 @@
   <div class="panel" data-tag="01 · Módulo &amp; trilho">
     <h2>Especificações do módulo</h2>
     <div class="grid">
+      <div class="field" style="grid-column:1/-1;">
+        <label>Módulo do catálogo</label>
+        <div style="display:flex;gap:8px;">
+          <select id="moduloCatalogoSelect" style="flex:1;"><option value="">— Personalizado —</option></select>
+          <button type="button" id="btn-abrir-novo-modulo" style="flex:none;background:none;border:1.5px solid var(--line);border-radius:9px;padding:0 14px;font-size:12.5px;color:var(--accent-deep);cursor:pointer;">+ Cadastrar</button>
+        </div>
+      </div>
       <div class="field">
         <label>Altura do módulo (m)</label>
         <input type="number" id="modH" placeholder="2.382" step="0.001">
@@ -703,6 +710,27 @@
   </div>
 
 </div>
+</div>
+
+<div class="sheet-overlay hidden" id="novo-modulo-overlay">
+  <div class="sheet-card">
+    <h3>Cadastrar módulo</h3>
+    <div class="sheet-field"><label>Marca</label><input type="text" id="nm-marca"></div>
+    <div class="sheet-field"><label>Modelo</label><input type="text" id="nm-modelo"></div>
+    <div class="grid" style="grid-template-columns:1fr 1fr;">
+      <div class="sheet-field"><label>Altura (m)</label><input type="number" id="nm-alturaM" step="0.001"></div>
+      <div class="sheet-field"><label>Largura (m)</label><input type="number" id="nm-larguraM" step="0.001"></div>
+      <div class="sheet-field"><label>Potência (W)</label><input type="number" id="nm-potenciaW" step="1"></div>
+      <div class="sheet-field"><label>Peso (kg)</label><input type="number" id="nm-pesoKg" step="0.1"></div>
+      <div class="sheet-field"><label>Voc (V)</label><input type="number" id="nm-vocV" step="0.01"></div>
+      <div class="sheet-field"><label>Isc (A)</label><input type="number" id="nm-iscA" step="0.01"></div>
+    </div>
+    <div id="nm-msg" style="font-size:12px;color:var(--debit);margin-top:2px;"></div>
+    <div class="sheet-actions">
+      <button class="btn-limpar" id="btn-nm-cancelar">Voltar</button>
+      <button class="btn-aplicar" id="btn-nm-salvar">Salvar módulo</button>
+    </div>
+  </div>
 </div>
 
 <div id="screen-detalhe">
@@ -1941,6 +1969,68 @@ const state = {
   activeTab: 0
 };
 
+// ==== Catálogo de módulos/inversores — autopreenchimento ====
+// Único ponto dessa tela que fala com o backend (o resto é 100% client-side).
+let modulosCatalogo = [];
+let inversoresCatalogo = [];
+
+function carregarCatalogoProdutos(){
+  if(typeof SGAuth === 'undefined' || !SGAuth.apiCall) return;
+  SGAuth.apiCall('getCatalogoProdutos', {}).then(function(resp){
+    if(!resp || !resp.ok) return;
+    modulosCatalogo = resp.modulos || [];
+    inversoresCatalogo = resp.inversores || [];
+    popularSelectModulos(document.getElementById('moduloCatalogoSelect'), '');
+    document.querySelectorAll('.roof-module-select').forEach(function(sel){ popularSelectModulos(sel, ''); });
+    if(typeof popularSelectInversores === 'function') popularSelectInversores(document.getElementById('inversorCatalogoSelect'), '');
+  }).catch(function(){}); // catálogo é um bônus — se falhar, a tela continua funcionando 100% manual
+}
+
+function popularSelectModulos(selectEl, valorSelecionado){
+  if(!selectEl) return;
+  var opts = '<option value="">— Personalizado —</option>' + modulosCatalogo.map(function(m){
+    var label = (m.Marca ? m.Marca + ' — ' : '') + (m.Modelo || m.IdModulo) + ' (' + (m.PotenciaW||'?') + 'W)';
+    return '<option value="'+escapeHtml(m.IdModulo)+'">'+escapeHtml(label)+'</option>';
+  }).join('');
+  selectEl.innerHTML = opts;
+  selectEl.value = valorSelecionado || '';
+}
+
+function abrirNovoModuloSheet(){
+  ['nm-marca','nm-modelo','nm-alturaM','nm-larguraM','nm-potenciaW','nm-pesoKg','nm-vocV','nm-iscA'].forEach(function(id){ document.getElementById(id).value=''; });
+  document.getElementById('nm-msg').textContent='';
+  document.getElementById('novo-modulo-overlay').classList.remove('hidden');
+}
+function fecharNovoModuloSheet(){ document.getElementById('novo-modulo-overlay').classList.add('hidden'); }
+
+function salvarNovoModuloRapido(){
+  var modelo = document.getElementById('nm-modelo').value.trim();
+  var msgEl = document.getElementById('nm-msg');
+  if(!modelo){ msgEl.textContent='Informe o modelo do módulo.'; return; }
+  var payload = {
+    marca: document.getElementById('nm-marca').value.trim(),
+    modelo: modelo,
+    alturaM: document.getElementById('nm-alturaM').value,
+    larguraM: document.getElementById('nm-larguraM').value,
+    potenciaW: document.getElementById('nm-potenciaW').value,
+    pesoKg: document.getElementById('nm-pesoKg').value,
+    vocV: document.getElementById('nm-vocV').value,
+    iscA: document.getElementById('nm-iscA').value
+  };
+  var btn = document.getElementById('btn-nm-salvar');
+  btn.disabled = true;
+  SGAuth.apiCall('salvarModulo', payload).then(function(resp){
+    btn.disabled = false;
+    if(!resp || !resp.ok){ msgEl.textContent = (resp && resp.erro) || 'Não foi possível salvar.'; return; }
+    modulosCatalogo.push(Object.assign({IdModulo: resp.idModulo, Marca: payload.marca, Modelo: payload.modelo,
+      AlturaM: payload.alturaM, LarguraM: payload.larguraM, PotenciaW: payload.potenciaW,
+      PesoKg: payload.pesoKg, VocV: payload.vocV, IscA: payload.iscA}));
+    popularSelectModulos(document.getElementById('moduloCatalogoSelect'), '');
+    document.querySelectorAll('.roof-module-select').forEach(function(sel){ popularSelectModulos(sel, ''); });
+    fecharNovoModuloSheet();
+  }).catch(function(err){ btn.disabled = false; msgEl.textContent = 'Erro de conexão: '+err.message; });
+}
+
 function num(v){ const n = parseFloat(v); return isNaN(n) ? null : n; }
 
 function fitCount(total, mod){
@@ -2175,6 +2265,10 @@ function renderRoofPanels(){
           <span class="switch-label">Usar outro tamanho de módulo</span>
         </div>
         ${roof.customModule.enabled ? `
+        <div class="field" style="margin-top:10px;">
+          <label>Módulo do catálogo (preenche tudo, inclusive Voc/Isc)</label>
+          <select class="roof-module-select" data-i="${i}"><option value="">— Personalizado —</option></select>
+        </div>
         <div class="grid" style="grid-template-columns:1fr 1fr 1fr;margin-top:10px;">
           <div class="field">
             <label>Altura do módulo (m)</label>
@@ -2189,7 +2283,7 @@ function renderRoofPanels(){
             <input type="number" step="1" class="custom-mod-input" data-i="${i}" data-k="power" value="${roof.customModule.power ?? ''}">
           </div>
         </div>
-        <div class="hint-box" style="margin-top:10px;">Informe o Voc/Isc deste módulo personalizado lá embaixo, na seção "05 · Dimensionamento de strings" — é lá que o cálculo de strings/MPPT realmente usa esses valores.</div>` : ''}
+        <div class="hint-box" style="margin-top:10px;">Se não selecionar do catálogo, informe o Voc/Isc deste módulo personalizado lá embaixo, na seção "05 · Dimensionamento de strings" — é lá que o cálculo de strings/MPPT realmente usa esses valores.</div>` : ''}
         ${hasFit ? svgDiagram(roof.largura, roof.altura, pack) : '<div class="readout" style="text-align:center;color:var(--text-dim);">Preencha módulo e telhado para ver o encaixe</div>'}
       </div>
       <div>
@@ -2255,6 +2349,25 @@ function renderRoofPanels(){
     inp.addEventListener('blur', (e)=>{
       const i = parseInt(e.target.dataset.i), k = e.target.dataset.k;
       state.roofs[i].customModule[k] = num(e.target.value);
+      renderRoofPanels();
+      renderTotals();
+      renderInverter();
+      renderStringPlan();
+    });
+  });
+
+  wrap.querySelectorAll('.roof-module-select').forEach(sel=>{
+    popularSelectModulos(sel, '');
+    sel.addEventListener('change', (e)=>{
+      const i = parseInt(e.target.dataset.i);
+      const mod = modulosCatalogo.find(m=>String(m.IdModulo)===String(e.target.value));
+      if(mod){
+        state.roofs[i].customModule.modH = num(mod.AlturaM);
+        state.roofs[i].customModule.modW = num(mod.LarguraM);
+        state.roofs[i].customModule.power = num(mod.PotenciaW);
+        state.roofs[i].customModule.voc = num(mod.VocV);
+        state.roofs[i].customModule.isc = num(mod.IscA);
+      }
       renderRoofPanels();
       renderTotals();
       renderInverter();
@@ -2738,11 +2851,29 @@ document.getElementById('invMax').addEventListener('blur', renderInverter);
   document.getElementById(id).addEventListener('blur', renderStringPlan);
 });
 
+document.getElementById('moduloCatalogoSelect').addEventListener('change', (e)=>{
+  const mod = modulosCatalogo.find(m=>String(m.IdModulo)===String(e.target.value));
+  if(mod){
+    document.getElementById('modH').value = mod.AlturaM ?? '';
+    document.getElementById('modW').value = mod.LarguraM ?? '';
+    document.getElementById('modPower').value = mod.PotenciaW ?? '';
+    document.getElementById('vocMod').value = mod.VocV ?? '';
+    document.getElementById('iscMod').value = mod.IscA ?? '';
+  }
+  renderRoofPanels(); renderTotals(); renderInverter(); renderStringPlan();
+});
+
+document.getElementById('btn-abrir-novo-modulo').addEventListener('click', abrirNovoModuloSheet);
+document.getElementById('btn-nm-cancelar').addEventListener('click', fecharNovoModuloSheet);
+document.getElementById('btn-nm-salvar').addEventListener('click', salvarNovoModuloRapido);
+document.getElementById('novo-modulo-overlay').addEventListener('click', (e)=>{ if(e.target.id==='novo-modulo-overlay') fecharNovoModuloSheet(); });
+
 buildTabs();
 renderRoofPanels();
 renderTotals();
 renderInverter();
 renderStringPlan();
+carregarCatalogoProdutos();
 
   var backBtn = document.getElementById('btn-dim-back');
   if (backBtn) backBtn.addEventListener('click', function(){
