@@ -1580,6 +1580,8 @@ function updateCliente(body) {
   var nomeCol = colIdx['Nome Razao Social'] !== undefined ? colIdx['Nome Razao Social'] : colIdx['Nome'];
   var cpfCol  = colIdx['CPF ou CNPJ']       !== undefined ? colIdx['CPF ou CNPJ']       : colIdx['CPF'];
   var endCol  = colIdx['Endereco'];
+  var cpfEqCol      = colIdx['CPFEquatorial'];
+  var dataNascEqCol = colIdx['DataNascimentoEquatorial'];
 
   if (body.nome !== undefined && body.nome !== null && nomeCol !== undefined) {
     sheet.getRange(rowIdx, nomeCol + 1).setValue(body.nome);
@@ -1590,10 +1592,17 @@ function updateCliente(body) {
   if (body.endereco !== undefined && body.endereco !== null && endCol !== undefined) {
     sheet.getRange(rowIdx, endCol + 1).setValue(body.endereco);
   }
+  if (body.cpfEquatorial !== undefined && body.cpfEquatorial !== null && cpfEqCol !== undefined) {
+    sheet.getRange(rowIdx, cpfEqCol + 1).setValue(body.cpfEquatorial);
+  }
+  if (body.dataNascimentoEquatorial !== undefined && body.dataNascimentoEquatorial !== null && dataNascEqCol !== undefined) {
+    sheet.getRange(rowIdx, dataNascEqCol + 1).setValue(body.dataNascimentoEquatorial);
+  }
 
   return {
     ok: true, acao: 'atualizado', idCliente: idCliente,
-    nome: body.nome, cpf: body.cpf, endereco: body.endereco
+    nome: body.nome, cpf: body.cpf, endereco: body.endereco,
+    cpfEquatorial: body.cpfEquatorial, dataNascimentoEquatorial: body.dataNascimentoEquatorial
   };
 }
 
