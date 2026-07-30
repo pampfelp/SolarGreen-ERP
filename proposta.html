@@ -1204,6 +1204,29 @@ function printProposal(){
       '</td><td style="padding:6px 8px;text-align:right;color:#1e40af;font-weight:700;font-family:monospace;">−'+fmtMoney(desc)+'</td></tr>';
   }).join('');
 
+  // ── Aviso de validade por quantidade de módulos ──
+  // Cobre tanto o Plano Anual (qtdModulos) quanto qualquer serviço avulso
+  // cadastrado como "Por Módulo / Qtd" (quantidade) — os dois jeitos que um
+  // bloco pode ser precificado com base na contagem de módulos do sistema.
+  var modBlocks=S.blocks.filter(function(b){
+    return (b.calcTipo==='plano'&&(b.qtdModulos||0)>0)||(b.calcTipo==='modulo'&&(b.quantidade||0)>0);
+  });
+  var moduleWarningHtml='';
+  if(modBlocks.length){
+    var mwItens=modBlocks.map(function(b){
+      var svc=S.servicosMap[b.idServico]||{};
+      var nomeB=b.calcTipo==='plano'?'Plano Anual Solar Green':(svc.nome||'Serviço');
+      var qtdB=b.calcTipo==='plano'?b.qtdModulos:b.quantidade;
+      return '<li>'+escH(nomeB)+': válido para <strong>'+qtdB+' módulo(s)</strong></li>';
+    }).join('');
+    moduleWarningHtml=
+      '<div class="mod-warning">'+
+        '<div class="mw-title">&#9888; Proposta válida somente para a quantidade de módulos indicada</div>'+
+        '<div class="mw-text">Os valores abaixo foram calculados com base na quantidade de módulos informada para cada serviço listado. Caso a quantidade real de módulos instalados no sistema do cliente seja diferente da indicada, os valores desta proposta deverão ser recalculados.</div>'+
+        '<ul class="mw-list">'+mwItens+'</ul>'+
+      '</div>';
+  }
+
   var win=window.open('','_blank');
 
   // Dados do vendedor (busca no map completo para pegar telefone)
@@ -1230,6 +1253,10 @@ function printProposal(){
   '.tot-avista{font-size:14px;color:#16a34a;font-weight:600;margin-top:8px;}'+
   '.tot-parcela{font-size:12px;color:#9aab9a;margin-top:3px;}'+
   '.obs{margin-top:24px;padding:16px;background:#f2f7f2;border-radius:8px;font-size:12px;color:#5a6b5a;line-height:1.7;}'+
+  '.mod-warning{margin-bottom:24px;padding:16px 20px;background:#fff7ed;border:1.5px solid #f59e0b;border-radius:10px;}'+
+  '.mod-warning .mw-title{font-size:13px;font-weight:800;color:#92400e;margin-bottom:6px;}'+
+  '.mod-warning .mw-text{font-size:12px;color:#78350f;line-height:1.6;}'+
+  '.mod-warning .mw-list{margin:8px 0 0;padding-left:18px;font-size:12px;color:#78350f;line-height:1.7;}'+
   '.vendedor-card{margin-top:40px;padding:16px 20px;border:1px solid #dde8dd;border-radius:10px;display:flex;justify-content:space-between;align-items:center;}'+
   '.vc-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#9aab9a;font-weight:600;margin-bottom:6px;}'+
   '.vc-nome{font-size:15px;font-weight:700;color:#003122;}'+
@@ -1250,6 +1277,8 @@ function printProposal(){
     '<div class="label">Proposta exclusiva para</div>'+
     '<div class="nome">'+escH(lead.nomeCliente||'Cliente')+'</div>'+
   '</div>'+
+
+  moduleWarningHtml+
 
   '<table><thead><tr><th>Serviço</th><th style="text-align:right;">Valor</th></tr></thead><tbody>'+rows+discRows+'</tbody></table>'+
 
