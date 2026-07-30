@@ -7,9 +7,9 @@
 <title>Gerador de Proposta · Solar Green</title>
 <meta name="theme-color" content="#003122">
 <link rel="manifest" href="manifest-proposta.json">
-<link rel="icon" type="image/png" href="favicon_1.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
 <link rel="icon" type="image/x-icon" href="favicon_1.ico">
-<link rel="apple-touch-icon" href="favicon-180_1.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -393,6 +393,8 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
         <div>Telefone: <span id="lcTelefone">—</span></div>
         <div>Valor estimado: <span id="lcValor">—</span></div>
         <div style="grid-column:span 2;">Endereço: <span id="lcEndereco">—</span></div>
+        <div>CPF titular Equatorial: <span id="lcCpfEquatorial">—</span></div>
+        <div>Nasc. titular Equatorial: <span id="lcDataNascEquatorial">—</span></div>
       </div>
     </div>
   </div>
@@ -486,6 +488,11 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
       <div class="field"><label>Cidade</label><input type="text" id="ctrCidade" placeholder="ex: Breves" oninput="renderContratoPreview();markClienteDirty();"></div>
     </div>
     <div class="field"><label>Endereço completo</label><input type="text" id="ctrEndereco" placeholder="Rua, número, bairro, cidade - CEP" oninput="renderContratoPreview();markClienteDirty();"></div>
+    <div class="frow" style="margin-top:12px;">
+      <div class="field"><label>CPF do titular Equatorial</label><input type="text" id="ctrCpfEquatorial" placeholder="000.000.000-00" oninput="renderContratoPreview();markClienteDirty();"></div>
+      <div class="field"><label>Data de nascimento do titular Equatorial</label><input type="text" id="ctrDataNascEquatorial" placeholder="DD/MM/AAAA" oninput="renderContratoPreview();markClienteDirty();"></div>
+    </div>
+    <div style="font-size:11px;color:var(--ink-faint,#9aab9a);margin-top:-4px;">Usado pra coletar as faturas da concessionária (Equatorial) — pode ser uma pessoa diferente de quem assina o contrato.</div>
     <div id="ctrSyncRow" style="display:none;margin-top:10px;align-items:center;gap:10px;" class="save-bar">
       <div class="sbi" id="ctrSyncMsg">Dados alterados aqui — a planilha Clientes ainda não foi atualizada.</div>
       <button class="btn btn-primary" id="ctrSyncBtn" style="white-space:nowrap;">💾 Salvar na planilha</button>
@@ -680,7 +687,9 @@ function buildMaps(resp){
       endereco:String(c.Endereco||'').trim(),
       cpf:String(c['CPF ou CNPJ']||c.CPF||'').trim(),
       tipoPessoa:String(c['Tipo Pessoa']||'').trim(),
-      status:String(c['Status Cliente']||'').trim()
+      status:String(c['Status Cliente']||'').trim(),
+      cpfEquatorial:String(c.CPFEquatorial||'').trim(),
+      dataNascimentoEquatorial:String(c.DataNascimentoEquatorial||'').trim()
     };
     S.clientesMap[c.IdCliente]=obj; S.clientesArray.push(obj);
   });
@@ -700,7 +709,7 @@ function buildMaps(resp){
   });
   S.funilRecords=(resp.funil||[]).map(function(o){
     var cli=S.clientesMap[o.IdCliente]||{},vend=S.vendedoresMap[o.IdVendedor]||{};
-    return{ id:o.IdOportunidade||o.IdFunil, idCliente:o.IdCliente, idVendedor:o.IdVendedor, nomeCliente:cli.nome||o.IdCliente||'—', telefone:cli.telefone||'', email:cli.email||'', endereco:cli.endereco||'', nomeVendedor:vend.Nome||o.IdVendedor||'—', etapa:(o.Etapa||'').trim(), valor:parseFloat(String(o['Valor Estimado']||o.Valor||'0').replace(',','.'))||0, obs:(o.Observacoes||'').trim() };
+    return{ id:o.IdOportunidade||o.IdFunil, idCliente:o.IdCliente, idVendedor:o.IdVendedor, nomeCliente:cli.nome||o.IdCliente||'—', telefone:cli.telefone||'', email:cli.email||'', endereco:cli.endereco||'', cpfEquatorial:cli.cpfEquatorial||'', dataNascimentoEquatorial:cli.dataNascimentoEquatorial||'', nomeVendedor:vend.Nome||o.IdVendedor||'—', etapa:(o.Etapa||'').trim(), valor:parseFloat(String(o['Valor Estimado']||o.Valor||'0').replace(',','.'))||0, obs:(o.Observacoes||'').trim() };
   }).filter(function(r){return !!r.id;});
 }
 
@@ -751,7 +760,9 @@ function onClienteContratoChange(){
   document.getElementById('ctrCpf').value=c.cpf||'';
   document.getElementById('ctrEndereco').value=c.endereco||'';
   document.getElementById('ctrCidade').value=guessCidade(c.endereco)||'';
-  CT.clienteOriginal={ nome:c.nome||'', cpf:c.cpf||'', endereco:c.endereco||'' };
+  document.getElementById('ctrCpfEquatorial').value=c.cpfEquatorial||'';
+  document.getElementById('ctrDataNascEquatorial').value=c.dataNascimentoEquatorial||'';
+  CT.clienteOriginal={ nome:c.nome||'', cpf:c.cpf||'', endereco:c.endereco||'', cpfEquatorial:c.cpfEquatorial||'', dataNascimentoEquatorial:c.dataNascimentoEquatorial||'' };
   renderContratoPreview();
   markClienteDirty();
 }
@@ -767,7 +778,10 @@ window.markClienteDirty=function(){
   var nome=document.getElementById('ctrNome').value.trim();
   var cpf=document.getElementById('ctrCpf').value.trim();
   var endereco=document.getElementById('ctrEndereco').value.trim();
-  var dirty=nome!==CT.clienteOriginal.nome||cpf!==CT.clienteOriginal.cpf||endereco!==CT.clienteOriginal.endereco;
+  var cpfEquatorial=document.getElementById('ctrCpfEquatorial').value.trim();
+  var dataNascEquatorial=document.getElementById('ctrDataNascEquatorial').value.trim();
+  var dirty=nome!==CT.clienteOriginal.nome||cpf!==CT.clienteOriginal.cpf||endereco!==CT.clienteOriginal.endereco||
+    cpfEquatorial!==CT.clienteOriginal.cpfEquatorial||dataNascEquatorial!==CT.clienteOriginal.dataNascimentoEquatorial;
   ['ctrSyncBtn','ctrSyncBtnBottom'].forEach(function(id){
     var b=document.getElementById(id);
     b.disabled=!dirty; b.style.opacity=dirty?'1':'.45';
@@ -784,11 +798,13 @@ function syncClienteToSheet(){
   var nome=document.getElementById('ctrNome').value.trim();
   var cpf=document.getElementById('ctrCpf').value.trim();
   var endereco=document.getElementById('ctrEndereco').value.trim();
-  apiCall('updateCliente',{ idCliente:CT.clienteId, nome:nome, cpf:cpf, endereco:endereco }).then(function(resp){
+  var cpfEquatorial=document.getElementById('ctrCpfEquatorial').value.trim();
+  var dataNascEquatorial=document.getElementById('ctrDataNascEquatorial').value.trim();
+  apiCall('updateCliente',{ idCliente:CT.clienteId, nome:nome, cpf:cpf, endereco:endereco, cpfEquatorial:cpfEquatorial, dataNascimentoEquatorial:dataNascEquatorial }).then(function(resp){
     btn.textContent='💾 Salvar na planilha'; btnB.textContent='💾 Salvar na planilha';
     if(!resp||!resp.ok){ btn.disabled=false; btnB.disabled=false; showToast((resp&&resp.erro)||'Erro ao salvar na planilha',false); return; }
-    if(S.clientesMap[CT.clienteId]){ S.clientesMap[CT.clienteId].nome=nome; S.clientesMap[CT.clienteId].cpf=cpf; S.clientesMap[CT.clienteId].endereco=endereco; }
-    CT.clienteOriginal={nome:nome,cpf:cpf,endereco:endereco};
+    if(S.clientesMap[CT.clienteId]){ S.clientesMap[CT.clienteId].nome=nome; S.clientesMap[CT.clienteId].cpf=cpf; S.clientesMap[CT.clienteId].endereco=endereco; S.clientesMap[CT.clienteId].cpfEquatorial=cpfEquatorial; S.clientesMap[CT.clienteId].dataNascimentoEquatorial=dataNascEquatorial; }
+    CT.clienteOriginal={nome:nome,cpf:cpf,endereco:endereco,cpfEquatorial:cpfEquatorial,dataNascimentoEquatorial:dataNascEquatorial};
     markClienteDirty();
     populateClientesContrato();
     var cAtual=S.clientesMap[CT.clienteId];
@@ -808,6 +824,8 @@ function onLeadChange(){
   document.getElementById('lcTelefone').textContent=r.telefone||'—';
   document.getElementById('lcValor').textContent=fmtMoney(r.valor);
   document.getElementById('lcEndereco').textContent=r.endereco||'—';
+  document.getElementById('lcCpfEquatorial').textContent=r.cpfEquatorial||'—';
+  document.getElementById('lcDataNascEquatorial').textContent=r.dataNascimentoEquatorial||'—';
   lc.style.display='block';
 }
 
@@ -1457,7 +1475,9 @@ function clienteVars(){
     nome:document.getElementById('ctrNome').value.trim()||'—',
     cpf:document.getElementById('ctrCpf').value.trim()||'não informado',
     endereco:document.getElementById('ctrEndereco').value.trim()||'—',
-    cidade:document.getElementById('ctrCidade').value.trim()||'Breves'
+    cidade:document.getElementById('ctrCidade').value.trim()||'Breves',
+    cpfEquatorial:document.getElementById('ctrCpfEquatorial').value.trim(),
+    dataNascimentoEquatorial:document.getElementById('ctrDataNascEquatorial').value.trim()
   };
 }
 
@@ -1478,6 +1498,9 @@ function composeMonitoramento(v,c){
   var limpezaHtml=v.incluirLimpeza?
     ('4.2. Este contrato <strong>inclui</strong> a limpeza dos módulos solares, com periodicidade '+escH(v.periodicidadeLimpeza).toLowerCase()+'. Não estão incluídos manutenção elétrica corretiva, troca de peças ou reparos físicos no telhado, que deverão ser orçados à parte.')
     :('4.2. Este contrato <strong>não inclui</strong> serviços de limpeza dos painéis, manutenção elétrica corretiva, troca de peças ou reparos físicos no telhado, que deverão ser orçados à parte.');
+  var equatorialClause=(c.cpfEquatorial&&c.dataNascimentoEquatorial)?
+    ('3.3. Autorizar o acesso da CONTRATADA à fatura de energia elétrica junto à concessionária Equatorial Energia, para fins de acompanhamento da geração e economia — titular da conta portador(a) do CPF <strong>'+escH(c.cpfEquatorial)+'</strong>, nascido(a) em <strong>'+escH(c.dataNascimentoEquatorial)+'</strong>.')
+    :'3.3. Fornecer à CONTRATADA os dados (CPF e data de nascimento) do titular da conta de energia junto à concessionária Equatorial, necessários para acompanhamento da fatura — a preencher no cadastro do cliente.';
 
   return(
   '<h2>Contrato de Prestação de Serviços de Monitoramento e Gestão de Geração Fotovoltaica</h2>'+
@@ -1495,7 +1518,8 @@ function composeMonitoramento(v,c){
   '<div class="cp-clause-title">CLÁUSULA TERCEIRA – DAS OBRIGAÇÕES DO CONTRATANTE</div>'+
   '<p>3.1. Manter o sistema conectado à rede elétrica e à rede de internet (Wi-Fi).</p>'+
   '<p>3.2. Fornecer à CONTRATADA acesso (login e senha ou permissão de visualização) à plataforma de monitoramento.</p>'+
-  '<p>3.3. Efetuar o pagamento na data acordada.</p>'+
+  '<p>'+equatorialClause+'</p>'+
+  '<p>3.4. Efetuar o pagamento na data acordada.</p>'+
   '<div class="cp-clause-title">CLÁUSULA QUARTA – DAS LIMITAÇÕES E EXCLUSÕES</div>'+
   '<p>4.1. A CONTRATADA não se responsabiliza pela interrupção do monitoramento causada por falta de energia elétrica, corte de internet ou alteração de senha do Wi-Fi por parte do CONTRATANTE.</p>'+
   taxaHtml+
