@@ -75,10 +75,6 @@
   .ph-btn{display:inline-block;background:#fff;border:1px solid var(--line);border-radius:9px;padding:10px 16px;font-size:12.5px;font-weight:700;color:var(--ink-soft);}
   input[type=file]{display:none;}
 
-  .loc-status{font-size:11.5px;color:var(--ink-faint);text-align:center;margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:6px;}
-  .loc-status.ok{color:var(--accent-deep);}
-  .loc-status.error{color:var(--debit);}
-
   .btn-confirmar{width:100%;background:var(--sidebar-bg);color:#fff;border:none;border-radius:13px;padding:16px;font-size:15px;font-weight:700;}
   .btn-confirmar:disabled{opacity:.45;cursor:not-allowed;}
 
@@ -207,8 +203,6 @@
       <div style="font-size:11px;color:var(--ink-faint);margin-top:8px;">A selfie é opcional, mas ajuda a confirmar o registro.</div>
     </div>
 
-    <div class="loc-status" id="locStatus">📍 Obtendo localização…</div>
-
     <button class="btn-confirmar" id="btnConfirmar" disabled>Selecione o tipo de ponto</button>
 
     <div class="hist-title">Seus registros de hoje</div>
@@ -274,7 +268,6 @@ window.PontoApp=(function(){
   ];
   var tipoSelecionado=null;
   var registrosHoje=[];
-  var localizacaoAtual='';
   var fotoBase64=null, fotoMime='image/jpeg';
 
   function apiCall(action,payload){
@@ -299,31 +292,6 @@ window.PontoApp=(function(){
     var d=new Date();
     document.getElementById('relogio').textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');
     document.getElementById('dataHoje').textContent=d.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});
-  }
-
-  function obterLocalizacao(){
-    var el=document.getElementById('locStatus');
-    el.className='loc-status'; el.innerHTML='📍 Obtendo localização…';
-    localizacaoAtual='';
-    atualizarBotaoConfirmar();
-    if(!navigator.geolocation){
-      el.className='loc-status error'; el.innerHTML='📍 Seu navegador não suporta localização — não é possível bater o ponto por aqui.';
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(function(pos){
-      localizacaoAtual=pos.coords.latitude.toFixed(6)+', '+pos.coords.longitude.toFixed(6);
-      el.className='loc-status ok'; el.textContent='📍 Localização capturada.';
-      atualizarBotaoConfirmar();
-    },function(err){
-      var motivo='Verifique se o GPS do celular está ligado e se você permitiu o acesso à localização para este site.';
-      if(err&&err.code===1)motivo='Você negou o acesso à localização — permita nas configurações do site/navegador pra continuar.';
-      else if(err&&err.code===3)motivo='Demorou demais pra responder — tente de novo num local com sinal melhor.';
-      el.className='loc-status error';
-      el.innerHTML='📍 Não foi possível obter a localização. '+motivo+' <button type="button" id="btnRetryLoc" style="background:none;border:none;color:var(--debit);font-weight:700;text-decoration:underline;cursor:pointer;font-size:11.5px;padding:0;">Tentar novamente</button>';
-      var retryBtn=document.getElementById('btnRetryLoc');
-      if(retryBtn)retryBtn.addEventListener('click',obterLocalizacao);
-      atualizarBotaoConfirmar();
-    },{timeout:12000,maximumAge:60000});
   }
 
   function renderTipos(){
@@ -355,7 +323,6 @@ window.PontoApp=(function(){
 
   function atualizarBotaoConfirmar(){
     var btn=document.getElementById('btnConfirmar');
-    if(!localizacaoAtual){ btn.disabled=true; btn.textContent='Aguardando localização…'; return; }
     if(!tipoSelecionado){ btn.disabled=true; btn.textContent='Selecione o tipo de ponto'; return; }
     btn.disabled=false;
     btn.textContent='Confirmar '+tipoSelecionado;
@@ -428,14 +395,12 @@ window.PontoApp=(function(){
 
   function confirmarPonto(){
     if(!tipoSelecionado)return;
-    if(!localizacaoAtual){ showToast('Precisa da localização pra bater o ponto — toque em "Tentar novamente" acima.',true); return; }
     var btn=document.getElementById('btnConfirmar');
     btn.disabled=true; btn.textContent='Registrando…';
     apiCall('registrarPonto',{
       tipo:tipoSelecionado,
       base64:fotoBase64||undefined,
-      mimeType:fotoMime,
-      localizacao:localizacaoAtual
+      mimeType:fotoMime
     }).then(function(resp){
       if(!resp||!resp.ok){
         btn.disabled=false; atualizarBotaoConfirmar();
@@ -538,7 +503,6 @@ window.PontoApp=(function(){
     session=s;
     atualizarRelogio();
     setInterval(atualizarRelogio,1000);
-    obterLocalizacao();
     wirePhotoInputs();
     document.getElementById('btnConfirmar').addEventListener('click',confirmarPonto);
     document.getElementById('btn-historico').addEventListener('click',abrirHistoricoCompleto);
