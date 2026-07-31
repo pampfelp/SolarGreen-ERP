@@ -25,6 +25,8 @@ var CONFIG = {
   ABA_PLANOS:                   'Planos',
   ABA_PERMISSOES:                'Permissoes',
   ABA_CUSTO_RECORRENTE:          'Custo_Recorrente',
+  ABA_PRODUTOS_MODULOS:          'Produtos_Modulos',
+  ABA_PRODUTOS_INVERSORES:       'Produtos_Inversores',
   CHAVE_SECRETA:    '1234'
 };
 
@@ -125,6 +127,13 @@ function handleRequest(e) {
     if (action === 'atualizarStatusAgendamento') return jsonOutput(actionAtualizarStatusAgendamento(body));
     if (action === 'salvarRespostasAgendamento') return jsonOutput(actionSalvarRespostasAgendamento(body));
     if (action === 'uploadFotoResposta')         return jsonOutput(actionUploadFotoResposta(body));
+
+    // ── Catálogo de produtos (módulos e inversores) — dimensionamento solar ──
+    if (action === 'getCatalogoProdutos')  return jsonOutput(getCatalogoProdutos());
+    if (action === 'salvarModulo')         return jsonOutput(actionSalvarModulo(body));
+    if (action === 'excluirModulo')        return jsonOutput(actionExcluirModulo(body));
+    if (action === 'salvarInversor')       return jsonOutput(actionSalvarInversor(body));
+    if (action === 'excluirInversor')      return jsonOutput(actionExcluirInversor(body));
 
     if (action === 'ping')            return jsonOutput({ ok: true, mensagem: 'Conectado com sucesso.' });
 
@@ -1571,6 +1580,8 @@ function updateCliente(body) {
   var nomeCol = colIdx['Nome Razao Social'] !== undefined ? colIdx['Nome Razao Social'] : colIdx['Nome'];
   var cpfCol  = colIdx['CPF ou CNPJ']       !== undefined ? colIdx['CPF ou CNPJ']       : colIdx['CPF'];
   var endCol  = colIdx['Endereco'];
+  var cpfEqCol      = colIdx['CPFEquatorial'];
+  var dataNascEqCol = colIdx['DataNascimentoEquatorial'];
 
   if (body.nome !== undefined && body.nome !== null && nomeCol !== undefined) {
     sheet.getRange(rowIdx, nomeCol + 1).setValue(body.nome);
@@ -1581,10 +1592,17 @@ function updateCliente(body) {
   if (body.endereco !== undefined && body.endereco !== null && endCol !== undefined) {
     sheet.getRange(rowIdx, endCol + 1).setValue(body.endereco);
   }
+  if (body.cpfEquatorial !== undefined && body.cpfEquatorial !== null && cpfEqCol !== undefined) {
+    sheet.getRange(rowIdx, cpfEqCol + 1).setValue(body.cpfEquatorial);
+  }
+  if (body.dataNascimentoEquatorial !== undefined && body.dataNascimentoEquatorial !== null && dataNascEqCol !== undefined) {
+    sheet.getRange(rowIdx, dataNascEqCol + 1).setValue(body.dataNascimentoEquatorial);
+  }
 
   return {
     ok: true, acao: 'atualizado', idCliente: idCliente,
-    nome: body.nome, cpf: body.cpf, endereco: body.endereco
+    nome: body.nome, cpf: body.cpf, endereco: body.endereco,
+    cpfEquatorial: body.cpfEquatorial, dataNascimentoEquatorial: body.dataNascimentoEquatorial
   };
 }
 
@@ -2118,7 +2136,7 @@ var AGENDAMENTOS_HEADERS = [
   'IdAgendamento','IdCliente','IdContrato','IdServico','Data Inicio','Hora inicio','Hora Fim',
   'TecnicoResponsavel','Status Agendamento','Observacao Comercial',
   'Quantidade de Modulos','Modelo Modulos','Quantidade Inversores','Modelo Inversores',
-  'DataRelatorio','PDFrelatorio'
+  'DataRelatorio','PDFrelatorio','Motivo Cancelamento'
 ];
 
 var AGENDAMENTOS_RESPOSTAS_HEADERS = ['IdResposta','IdAgendamento','IdTemplate','RespostaTexto','RespostaFoto','RespostaQuantidade'];
@@ -2130,6 +2148,12 @@ function getOrCreateAgendamentosSheet() {
     sheet = ss.insertSheet(CONFIG.ABA_AGENDAMENTOS);
     sheet.getRange(1, 1, 1, AGENDAMENTOS_HEADERS.length).setValues([AGENDAMENTOS_HEADERS]);
     sheet.setFrozenRows(1);
+  }
+  // Migração: planilhas criadas antes do motivo de cancelamento não têm essa coluna — adiciona no fim.
+  var lastCol = sheet.getLastColumn();
+  var headersAtuais = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) { return String(h).trim(); });
+  if (headersAtuais.indexOf('Motivo Cancelamento') === -1) {
+    sheet.getRange(1, lastCol + 1).setValue('Motivo Cancelamento');
   }
   // Hora inicio / Hora Fim como texto, pra não virar Date/hora serializada pelo Sheets.
   sheet.getRange('F2:G').setNumberFormat('@STRING@');
@@ -2384,6 +2408,11 @@ function actionSalvarAgendamento(body) {
   if (!body.horaInicio || !body.horaFim) {
     return { ok: false, erro: 'Escolha o horário de início e fim.' };
   }
+  var statusNovo = body.statusAgendamento || 'Agendado';
+  var canceladoNovo = normalizarTextoGS(statusNovo) === 'cancelado';
+  if (canceladoNovo && !String(body.motivoCancelamento || '').trim()) {
+    return { ok: false, erro: 'Informe o motivo do cancelamento.' };
+  }
 
   // Regra 1: cliente precisa ter endereço cadastrado antes de agendar.
   var clientes = sheetToObjects(getSheet(CONFIG.ABA_CLIENTES));
@@ -2448,7 +2477,8 @@ function actionSalvarAgendamento(body) {
       'Hora inicio': body.horaInicio || '',
       'Hora Fim': body.horaFim || '',
       'TecnicoResponsavel': tecnico,
-      'Status Agendamento': body.statusAgendamento || 'Agendado',
+      'Status Agendamento': statusNovo,
+      'Motivo Cancelamento': canceladoNovo ? body.motivoCancelamento : '',
       'Observacao Comercial': body.observacaoComercial || '',
       'Quantidade de Modulos': body.quantidadeModulos !== undefined ? body.quantidadeModulos : '',
       'Modelo Modulos': body.modeloModulos || '',
@@ -2638,14 +2668,19 @@ function actionAtualizarStatusAgendamento(body) {
   if (!isTecnicoOuAdmin(body.solicitanteId, idAgendamento)) {
     return { ok: false, erro: 'Sem permissão para essa ordem de serviço.' };
   }
+  var statusNorm = normalizarTextoGS(status);
+  if (statusNorm === 'cancelado' && !String(body.motivoCancelamento || '').trim()) {
+    return { ok: false, erro: 'Informe o motivo do cancelamento.' };
+  }
 
   var found = findAgendamentoRowById(idAgendamento);
   if (!found) return { ok: false, erro: 'Agendamento não encontrado.' };
 
   found.sheet.getRange(found.rowIndex, found.colIdx['Status Agendamento']).setValue(status);
+  if (found.colIdx['Motivo Cancelamento']) {
+    found.sheet.getRange(found.rowIndex, found.colIdx['Motivo Cancelamento']).setValue(statusNorm === 'cancelado' ? body.motivoCancelamento : '');
+  }
 
-  var statusNorm = String(status).trim().toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   if (statusNorm === 'concluido' && found.colIdx['DataRelatorio']) {
     found.sheet.getRange(found.rowIndex, found.colIdx['DataRelatorio']).setValue(new Date());
   }
@@ -2944,4 +2979,215 @@ function diagSheets() {
     return { esperada: nome, encontrada: achada ? achada.getName() : null, ok: !!achada };
   });
   return { ok: true, todasAsAbasDaPlanilha: todasAbas, checagem: resultado };
+}
+
+// =====================================================================
+// ── CATÁLOGO DE PRODUTOS (módulos e inversores) — Dimensionamento Solar ──
+// =====================================================================
+// Cadastro reutilizável de modelos de módulo/inversor com os parâmetros
+// técnicos completos — o Dimensionamento Solar (dentro do app do técnico)
+// seleciona um item daqui e autopreenche os campos, que continuam
+// editáveis manualmente depois. Salvar é liberado pra qualquer solicitante
+// autenticado (admin ou técnico, os dois cadastram); excluir é só admin.
+
+var PRODUTOS_MODULOS_HEADERS = [
+  'IdModulo','Marca','Modelo','AlturaM','LarguraM','PotenciaW','VocV','IscA','PesoKg',
+  'DataCriacao','DataAtualizacao'
+];
+
+// MpptsConfigJSON guarda um array [{"maxIsc":60,"maxStrings":2},...] (um item por
+// MPPT) serializado como texto — alguns inversores têm MPPTs com corrente máxima e
+// número de strings DIFERENTES entre si, então não dá pra representar isso como uma
+// coluna numérica só.
+var PRODUTOS_INVERSORES_HEADERS = [
+  'IdInversor','Marca','Modelo','PotenciaMaxCC_W','PotenciaNomCC_W','TensaoEntradaMaxV',
+  'MpptMinV','MpptMaxV','StartupV','NumMppts','MpptsConfigJSON',
+  'PotenciaAtivaNomCA_W','TensaoCANominalV','CorrenteMaxCA_A','Fases',
+  'DataCriacao','DataAtualizacao'
+];
+
+function getOrCreateProdutosModulosSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = getSheetSafe(CONFIG.ABA_PRODUTOS_MODULOS);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG.ABA_PRODUTOS_MODULOS);
+    sheet.getRange(1, 1, 1, PRODUTOS_MODULOS_HEADERS.length).setValues([PRODUTOS_MODULOS_HEADERS]);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function getOrCreateProdutosInversoresSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = getSheetSafe(CONFIG.ABA_PRODUTOS_INVERSORES);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG.ABA_PRODUTOS_INVERSORES);
+    sheet.getRange(1, 1, 1, PRODUTOS_INVERSORES_HEADERS.length).setValues([PRODUTOS_INVERSORES_HEADERS]);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function colIdxDaAba(sheet) {
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function (h) { return String(h).trim(); });
+  var colIdx = {};
+  headers.forEach(function (h, i) { if (h) colIdx[h] = i + 1; });
+  return colIdx;
+}
+
+/**
+ * action: getCatalogoProdutos — sem parâmetros além da chave.
+ * Inversores já vêm com mpptsConfig parseado em array (não a string JSON crua).
+ */
+function getCatalogoProdutos() {
+  var modulos = sheetToObjects(getOrCreateProdutosModulosSheet());
+  var inversores = sheetToObjects(getOrCreateProdutosInversoresSheet()).map(function (inv) {
+    var out = {};
+    Object.keys(inv).forEach(function (k) { if (k !== 'MpptsConfigJSON') out[k] = inv[k]; });
+    try {
+      out.mpptsConfig = inv.MpptsConfigJSON ? JSON.parse(inv.MpptsConfigJSON) : [];
+    } catch (e) {
+      out.mpptsConfig = [];
+    }
+    return out;
+  });
+  return { ok: true, modulos: modulos, inversores: inversores };
+}
+
+/**
+ * action: salvarModulo — body { idModulo?, marca, modelo, alturaM, larguraM,
+ *   potenciaW, vocV, iscA, pesoKg }
+ */
+function actionSalvarModulo(body) {
+  var modelo = String(body.modelo || '').trim();
+  if (!modelo) return { ok: false, erro: 'Modelo do módulo é obrigatório.' };
+
+  var sheet = getOrCreateProdutosModulosSheet();
+  var colIdx = colIdxDaAba(sheet);
+
+  var rowIndex = -1;
+  if (body.idModulo && colIdx['IdModulo']) {
+    var values = sheet.getDataRange().getValues();
+    for (var i = 1; i < values.length; i++) {
+      if (String(values[i][colIdx['IdModulo'] - 1]) === String(body.idModulo)) { rowIndex = i + 1; break; }
+    }
+  }
+
+  var agora = new Date();
+  var campos = {
+    'Marca': body.marca || '',
+    'Modelo': modelo,
+    'AlturaM': paraNumero(body.alturaM),
+    'LarguraM': paraNumero(body.larguraM),
+    'PotenciaW': paraNumero(body.potenciaW),
+    'VocV': paraNumero(body.vocV),
+    'IscA': paraNumero(body.iscA),
+    'PesoKg': paraNumero(body.pesoKg),
+    'DataAtualizacao': agora
+  };
+
+  var novoId = body.idModulo;
+  if (rowIndex === -1) {
+    novoId = novoId || generateShortId();
+    campos['DataCriacao'] = agora;
+    var lastCol = sheet.getLastColumn();
+    var novaLinha = new Array(lastCol).fill('');
+    Object.keys(colIdx).forEach(function (h) {
+      if (h === 'IdModulo') novaLinha[colIdx[h] - 1] = novoId;
+      else if (campos[h] !== undefined) novaLinha[colIdx[h] - 1] = campos[h];
+    });
+    sheet.getRange(sheet.getLastRow() + 1, 1, 1, novaLinha.length).setValues([novaLinha]);
+  } else {
+    Object.keys(campos).forEach(function (h) { if (colIdx[h]) sheet.getRange(rowIndex, colIdx[h]).setValue(campos[h]); });
+  }
+  return { ok: true, idModulo: novoId };
+}
+
+function actionExcluirModulo(body) {
+  if (!isSolicitanteAdmin(body.solicitanteId)) {
+    return { ok: false, erro: 'Acesso restrito a administradores.' };
+  }
+  var idModulo = body.idModulo;
+  if (!idModulo) return { ok: false, erro: 'idModulo é obrigatório.' };
+  var sheet = getOrCreateProdutosModulosSheet();
+  var colIdx = colIdxDaAba(sheet);
+  if (!colIdx['IdModulo']) return { ok: false, erro: 'Coluna IdModulo não encontrada.' };
+  var values = sheet.getDataRange().getValues();
+  for (var i = 1; i < values.length; i++) {
+    if (String(values[i][colIdx['IdModulo'] - 1]) === String(idModulo)) { sheet.deleteRow(i + 1); return { ok: true }; }
+  }
+  return { ok: false, erro: 'Módulo não encontrado.' };
+}
+
+/**
+ * action: salvarInversor — body { idInversor?, marca, modelo, potenciaMaxCC_W,
+ *   potenciaNomCC_W, tensaoEntradaMaxV, mpptMinV, mpptMaxV, startupV, numMppts,
+ *   mpptsConfig:[{maxIsc,maxStrings},...] (um item por MPPT), potenciaAtivaNomCA_W,
+ *   tensaoCANominalV, correnteMaxCA_A, fases }
+ */
+function actionSalvarInversor(body) {
+  var modelo = String(body.modelo || '').trim();
+  if (!modelo) return { ok: false, erro: 'Modelo do inversor é obrigatório.' };
+
+  var sheet = getOrCreateProdutosInversoresSheet();
+  var colIdx = colIdxDaAba(sheet);
+
+  var rowIndex = -1;
+  if (body.idInversor && colIdx['IdInversor']) {
+    var values = sheet.getDataRange().getValues();
+    for (var i = 1; i < values.length; i++) {
+      if (String(values[i][colIdx['IdInversor'] - 1]) === String(body.idInversor)) { rowIndex = i + 1; break; }
+    }
+  }
+
+  var agora = new Date();
+  var campos = {
+    'Marca': body.marca || '',
+    'Modelo': modelo,
+    'PotenciaMaxCC_W': paraNumero(body.potenciaMaxCC_W),
+    'PotenciaNomCC_W': paraNumero(body.potenciaNomCC_W),
+    'TensaoEntradaMaxV': paraNumero(body.tensaoEntradaMaxV),
+    'MpptMinV': paraNumero(body.mpptMinV),
+    'MpptMaxV': paraNumero(body.mpptMaxV),
+    'StartupV': paraNumero(body.startupV),
+    'NumMppts': paraNumero(body.numMppts),
+    'MpptsConfigJSON': JSON.stringify(body.mpptsConfig || []),
+    'PotenciaAtivaNomCA_W': paraNumero(body.potenciaAtivaNomCA_W),
+    'TensaoCANominalV': paraNumero(body.tensaoCANominalV),
+    'CorrenteMaxCA_A': paraNumero(body.correnteMaxCA_A),
+    'Fases': body.fases || '',
+    'DataAtualizacao': agora
+  };
+
+  var novoId = body.idInversor;
+  if (rowIndex === -1) {
+    novoId = novoId || generateShortId();
+    campos['DataCriacao'] = agora;
+    var lastCol = sheet.getLastColumn();
+    var novaLinha = new Array(lastCol).fill('');
+    Object.keys(colIdx).forEach(function (h) {
+      if (h === 'IdInversor') novaLinha[colIdx[h] - 1] = novoId;
+      else if (campos[h] !== undefined) novaLinha[colIdx[h] - 1] = campos[h];
+    });
+    sheet.getRange(sheet.getLastRow() + 1, 1, 1, novaLinha.length).setValues([novaLinha]);
+  } else {
+    Object.keys(campos).forEach(function (h) { if (colIdx[h]) sheet.getRange(rowIndex, colIdx[h]).setValue(campos[h]); });
+  }
+  return { ok: true, idInversor: novoId };
+}
+
+function actionExcluirInversor(body) {
+  if (!isSolicitanteAdmin(body.solicitanteId)) {
+    return { ok: false, erro: 'Acesso restrito a administradores.' };
+  }
+  var idInversor = body.idInversor;
+  if (!idInversor) return { ok: false, erro: 'idInversor é obrigatório.' };
+  var sheet = getOrCreateProdutosInversoresSheet();
+  var colIdx = colIdxDaAba(sheet);
+  if (!colIdx['IdInversor']) return { ok: false, erro: 'Coluna IdInversor não encontrada.' };
+  var values = sheet.getDataRange().getValues();
+  for (var i = 1; i < values.length; i++) {
+    if (String(values[i][colIdx['IdInversor'] - 1]) === String(idInversor)) { sheet.deleteRow(i + 1); return { ok: true }; }
+  }
+  return { ok: false, erro: 'Inversor não encontrado.' };
 }
