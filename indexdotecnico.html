@@ -2185,15 +2185,15 @@ function packOriented(largura, altura, modH, modW, orientation, x, y, depth, for
   const block = { x, y, w:usedW, h:usedH, rows, perRow, alongRow, alongCol,
                    orientation, total:mainTotal, isMain: depth===0 };
 
-  // Propaga o forceOrientation ORIGINAL (não o "orientation" que é só a tentativa
-  // atual) pro preenchimento da área residual: se o usuário travou o telhado em
-  // "Retrato", a sobra tem que continuar só em "Retrato" também — senão o telhado
-  // ganhava módulos em "Paisagem" escondidos na sobra, contrariando a escolha
-  // explícita. No modo automático (forceOrientation null) isso preserva o
-  // comportamento de sempre: cada sobra continua livre pra explorar as duas
-  // orientações e maximizar o total, como o comentário do packRoof já descrevia.
-  const bottom = packRoof(largura, altura-usedH, modH, modW, forceOrientation, x, y+usedH, depth+1);
-  const side   = packRoof(largura-usedW, usedH, modH, modW, forceOrientation, x+usedW, y, depth+1);
+  // A área residual (sobra) SEMPRE explora as duas orientações livremente e
+  // fica com a que couber mais módulos, mesmo quando o usuário trava a grade
+  // principal em "Retrato" ou "Paisagem" — travar a orientação é uma escolha
+  // sobre a grade principal (estética/alinhamento), não uma renúncia aos
+  // módulos que só cabem na sobra virando a orientação ali. Por isso aqui
+  // sempre passa null (automático) pro preenchimento residual, nunca o
+  // forceOrientation recebido.
+  const bottom = packRoof(largura, altura-usedH, modH, modW, null, x, y+usedH, depth+1);
+  const side   = packRoof(largura-usedW, usedH, modH, modW, null, x+usedW, y, depth+1);
 
   return {
     total: mainTotal + bottom.total + side.total,
