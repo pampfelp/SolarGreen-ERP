@@ -2185,15 +2185,15 @@ function packOriented(largura, altura, modH, modW, orientation, x, y, depth, for
   const block = { x, y, w:usedW, h:usedH, rows, perRow, alongRow, alongCol,
                    orientation, total:mainTotal, isMain: depth===0 };
 
-  // Propaga o forceOrientation ORIGINAL (não o "orientation" que é só a tentativa
-  // atual) pro preenchimento da área residual: se o usuário travou o telhado em
-  // "Retrato", a sobra tem que continuar só em "Retrato" também — senão o telhado
-  // ganhava módulos em "Paisagem" escondidos na sobra, contrariando a escolha
-  // explícita. No modo automático (forceOrientation null) isso preserva o
-  // comportamento de sempre: cada sobra continua livre pra explorar as duas
-  // orientações e maximizar o total, como o comentário do packRoof já descrevia.
-  const bottom = packRoof(largura, altura-usedH, modH, modW, forceOrientation, x, y+usedH, depth+1);
-  const side   = packRoof(largura-usedW, usedH, modH, modW, forceOrientation, x+usedW, y, depth+1);
+  // A área residual (sobra) SEMPRE explora as duas orientações livremente e
+  // fica com a que couber mais módulos, mesmo quando o usuário trava a grade
+  // principal em "Retrato" ou "Paisagem" — travar a orientação é uma escolha
+  // sobre a grade principal (estética/alinhamento), não uma renúncia aos
+  // módulos que só cabem na sobra virando a orientação ali. Por isso aqui
+  // sempre passa null (automático) pro preenchimento residual, nunca o
+  // forceOrientation recebido.
+  const bottom = packRoof(largura, altura-usedH, modH, modW, null, x, y+usedH, depth+1);
+  const side   = packRoof(largura-usedW, usedH, modH, modW, null, x+usedW, y, depth+1);
 
   return {
     total: mainTotal + bottom.total + side.total,
@@ -2740,10 +2740,13 @@ function computeStringPlan(){
 
   // Pool de MPPTs físicos, compartilhado entre todos os grupos (é o mesmo
   // inversor) — cada slot só aceita mais uma string se sobrar espaço (strings)
-  // E corrente. Processados na ordem em que aparecem no cadastro (MPPT 1
-  // primeiro), e um slot pode acabar com strings de mais de uma orientação/
-  // tipo de módulo se sobrar capacidade depois do primeiro grupo.
-  const slots = slotsConfig.map((s,idx)=>({ id: idx+1, maxIsc: s.maxIsc, maxStrings: s.maxStrings, stringsUsadas:0, correnteUsada:0 }));
+  // E corrente, processados na ordem em que aparecem no cadastro (MPPT 1
+  // primeiro). Um MPPT só pode ter strings de UMA orientação/tipo de módulo —
+  // misturar facing/Voc/Isc diferentes no mesmo MPPT não é fisicamente
+  // possível (o rastreamento de máxima potência de um MPPT único não faz
+  // sentido pra duas curvas I-V diferentes), então groupKey trava o slot
+  // assim que a primeira string entra nele.
+  const slots = slotsConfig.map((s,idx)=>({ id: idx+1, maxIsc: s.maxIsc, maxStrings: s.maxStrings, stringsUsadas:0, correnteUsada:0, groupKey:null }));
   const groupResults = [];
   const roofColorSlices = {};
 
@@ -2773,8 +2776,13 @@ function computeStringPlan(){
     let sobrouStringSemMppt = false;
 
     split.sizes.forEach(sz=>{
-      const slot = slots.find(s => s.stringsUsadas < s.maxStrings && (s.correnteUsada + g.isc) <= s.maxIsc + 1e-9);
+      const slot = slots.find(s =>
+        (s.groupKey===null || s.groupKey===key) &&
+        s.stringsUsadas < s.maxStrings &&
+        (s.correnteUsada + g.isc) <= s.maxIsc + 1e-9
+      );
       if(!slot){ unusedModules += sz; sobrouStringSemMppt = true; return; }
+      slot.groupKey = key;
       slot.stringsUsadas++;
       slot.correnteUsada += g.isc;
       if(!usadosPorSlot[slot.id]) usadosPorSlot[slot.id] = [];
@@ -3118,12 +3126,14 @@ carregarCatalogoProdutos();
     var roofsHtml = roofsComDados.map(function(x,idxVisible){
       var i = all.indexOf(x);
       var r = x.roof;
-      var diagram = svgDiagram(r.largura, r.altura, x.pack);
+      var slice = plan.roofColorSlices ? plan.roofColorSlices[i] : null;
+      var diagram = svgDiagramColored(r.largura, r.altura, x.pack, slice);
+      var legenda = roofStringLegend(slice);
       var mat = x.mat;
       return '<div class="roof-block">'+
         '<h3>Telhado '+(i+1)+' &mdash; '+fmt(r.largura,2)+' × '+fmt(r.altura,2)+' m &mdash; '+(FACING_LABELS[r.facing]||'sem orientação definida')+'</h3>'+
         '<div class="roof-grid">'+
-          '<div class="roof-diagram">'+diagram+'</div>'+
+          '<div class="roof-diagram">'+diagram+legenda+'</div>'+
           '<table class="tbl">'+
             '<tr><td>Módulos nesse telhado</td><td>'+x.pack.total+'</td></tr>'+
             '<tr><td>Filas</td><td>'+x.pack.rows+'</td></tr>'+
@@ -3170,10 +3180,52 @@ carregarCatalogoProdutos();
       stringHtml = '<div class="status-box warn">Preencha Voc/Isc do módulo e os dados da MPPT (seção 05) para calcular o dimensionamento elétrico de strings.</div>';
     }
 
+    // ── Planta baixa: reúne os telhados por orientação (Norte em cima, Sul
+    // embaixo, Leste à direita, Oeste à esquerda), cada um com o diagrama
+    // colorido por string e a legenda de MPPT/quantidade — dá pro técnico
+    // enxergar o sistema inteiro de uma vez, não telhado por telhado.
+    var plantaBaixaHtml = '';
+    if(plan.ready && plan.groupResults && plan.groupResults.length){
+      var porFacingPB = { norte:[], sul:[], leste:[], oeste:[], outros:[] };
+      roofsComDados.forEach(function(x){
+        var i = all.indexOf(x);
+        var r = x.roof;
+        var slicePB = plan.roofColorSlices ? plan.roofColorSlices[i] : null;
+        var cellHtml = '<div class="pb-roof">'+
+          '<div class="pb-roof-title">Telhado '+(i+1)+' &middot; '+fmt(r.largura,2)+'×'+fmt(r.altura,2)+' m</div>'+
+          svgDiagramColored(r.largura, r.altura, x.pack, slicePB)+
+          roofStringLegend(slicePB)+
+        '</div>';
+        var fKey = r.facing||'';
+        (porFacingPB[fKey]||porFacingPB.outros).push(cellHtml);
+      });
+      var temOrientacaoPB = porFacingPB.norte.length||porFacingPB.sul.length||porFacingPB.leste.length||porFacingPB.oeste.length;
+      if(temOrientacaoPB){
+        var roseIcon='<svg class="pb-rose" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">'+
+          '<circle cx="32" cy="32" r="30" fill="none" stroke="#dde8dd" stroke-width="1.5"/>'+
+          '<path d="M32 6 L37 30 L32 26 L27 30 Z" fill="#78D800"/>'+
+          '<path d="M32 58 L27 34 L32 38 L37 34 Z" fill="#c7d6c7"/>'+
+          '<path d="M58 32 L34 27 L38 32 L34 37 Z" fill="#c7d6c7"/>'+
+          '<path d="M6 32 L30 37 L26 32 L30 27 Z" fill="#c7d6c7"/>'+
+          '<text x="32" y="16" text-anchor="middle" font-size="8" font-weight="700" fill="#003122" font-family="IBM Plex Mono, monospace">N</text>'+
+        '</svg>';
+        plantaBaixaHtml =
+          '<div class="pb-compass">'+
+            '<div class="pb-cell pb-norte"><div class="pb-dir">Norte</div>'+(porFacingPB.norte.join('')||'<div class="pb-empty">Sem telhado nessa face</div>')+'</div>'+
+            '<div class="pb-cell pb-oeste"><div class="pb-dir">Oeste</div>'+(porFacingPB.oeste.join('')||'<div class="pb-empty">Sem telhado nessa face</div>')+'</div>'+
+            '<div class="pb-cell pb-center">'+roseIcon+'</div>'+
+            '<div class="pb-cell pb-leste"><div class="pb-dir">Leste</div>'+(porFacingPB.leste.join('')||'<div class="pb-empty">Sem telhado nessa face</div>')+'</div>'+
+            '<div class="pb-cell pb-sul"><div class="pb-dir">Sul</div>'+(porFacingPB.sul.join('')||'<div class="pb-empty">Sem telhado nessa face</div>')+'</div>'+
+          '</div>'+
+          (porFacingPB.outros.length ? '<div class="pb-outros"><div class="pb-dir">Sem orientação definida</div>'+porFacingPB.outros.join('')+'</div>' : '');
+      }
+    }
+
     var win = window.open('','_blank');
     win.document.write('<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Projeto Elétrico Fotovoltaico</title>'+
     '<style>'+
     '*{box-sizing:border-box;margin:0;padding:0;}'+
+    ':root{--line-strong:#c7d6c7;}'+
     'body{font-family:Inter,sans-serif;font-size:13px;color:#1e1e1e;padding:40px;max-width:900px;margin:auto;}'+
     'h1{font-size:21px;font-weight:900;color:#003122;}h1 span{color:#78D800;}'+
     '.doc-sub{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#3a5cc4;margin-top:6px;}'+
@@ -3194,13 +3246,27 @@ carregarCatalogoProdutos();
     '.status-box.warn{background:#fdecea;border-color:#dc2626;color:#c0392b;}'+
     '.roof-block{page-break-inside:avoid;border:1px solid #dde8dd;border-radius:8px;padding:14px 16px;margin-bottom:14px;}'+
     '.roof-grid{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;}'+
-    '.roof-diagram{flex:1 1 280px;max-width:340px;}'+
-    '.roof-diagram svg{width:100%;height:auto;background:#F2F7F2;border:1px solid #dde8dd;border-radius:4px;}'+
+    '.roof-diagram{flex:0 0 260px;width:260px;}'+
+    '.roof-diagram svg{width:260px;height:260px;display:block;background:#F2F7F2;border:1px solid #dde8dd;border-radius:4px;}'+
     '.mod-rect{fill:rgba(120,216,0,0.28);stroke:#5aaa00;stroke-width:1;}'+
     '.mod-rect-extra{fill:rgba(166,224,106,0.35);stroke:#3a5cc4;stroke-dasharray:2,1.5;}'+
     '.dim-line{stroke:#3a5cc4;stroke-width:1;}'+
     '.dim-text{fill:#3a5cc4;font-family:"IBM Plex Mono",monospace;font-size:9px;}'+
     '.roof-grid .tbl{flex:1 1 260px;}'+
+    '.legend-list{display:flex;flex-direction:column;gap:4px;margin-top:8px;}'+
+    '.legend-chip{display:flex;align-items:center;gap:7px;font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.02em;color:#5a6b5a;}'+
+    '.legend-swatch{width:11px;height:11px;border-radius:2px;flex-shrink:0;display:inline-block;border:1px solid rgba(0,0,0,.15);}'+
+    '.pb-compass{display:grid;grid-template-columns:1fr 1.3fr 1fr;grid-template-areas:". norte ." "oeste centro leste" ". sul .";gap:14px;align-items:start;page-break-inside:avoid;}'+
+    '.pb-norte{grid-area:norte;} .pb-sul{grid-area:sul;} .pb-leste{grid-area:leste;} .pb-oeste{grid-area:oeste;}'+
+    '.pb-center{grid-area:centro;display:flex;align-items:center;justify-content:center;min-height:100%;}'+
+    '.pb-dir{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#78D800;font-weight:700;text-align:center;margin-bottom:8px;}'+
+    '.pb-roof{page-break-inside:avoid;border:1px solid #dde8dd;border-radius:8px;padding:10px;margin-bottom:10px;width:190px;margin-left:auto;margin-right:auto;}'+
+    '.pb-roof-title{font-size:10.5px;font-weight:700;color:#003122;margin-bottom:6px;text-align:center;}'+
+    '.pb-roof svg{width:170px;height:170px;display:block;margin:0 auto;background:#F2F7F2;border:1px solid #dde8dd;border-radius:4px;}'+
+    '.pb-empty{text-align:center;color:#c4d4c4;font-size:11px;padding:24px 0;border:1px dashed #dde8dd;border-radius:8px;}'+
+    '.pb-rose{width:64px;height:64px;}'+
+    '.pb-outros{margin-top:16px;display:flex;flex-wrap:wrap;gap:10px;justify-content:center;}'+
+    '.pb-outros .pb-dir{width:100%;}'+
     '.disclaimer{margin-top:30px;padding:14px 16px;background:#f2f7f2;border-radius:8px;font-size:10.5px;color:#5a6b5a;line-height:1.6;}'+
     '.footer{margin-top:16px;text-align:center;font-size:10px;color:#9aab9a;letter-spacing:.04em;}'+
     '@media print{body{padding:20px;} .roof-block{page-break-inside:avoid;}}'+
@@ -3252,6 +3318,13 @@ carregarCatalogoProdutos();
         (totalWeight>0 ? '<tr><td>Peso total dos módulos</td><td>'+fmt(totalWeight,1)+' kg</td></tr>' : '')+
       '</table>'+
     '</section>'+
+
+    (plantaBaixaHtml ?
+    '<section>'+
+      '<div class="tag">05 &middot; Planta baixa</div>'+
+      '<h2>Visão geral do sistema por orientação</h2>'+
+      plantaBaixaHtml+
+    '</section>' : '')+
 
     '<div class="disclaimer"><strong>Aviso:</strong> documento técnico gerado automaticamente pelo sistema Solar Green a partir dos dados levantados em campo. Não substitui projeto assinado por responsável técnico habilitado (ART) quando exigido por norma ou pela concessionária local.</div>'+
     '<div class="footer">Solar Green Suporte &nbsp;&middot;&nbsp; Documento gerado em '+new Date().toLocaleDateString('pt-BR')+'</div>'+
