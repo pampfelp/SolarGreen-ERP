@@ -2740,10 +2740,13 @@ function computeStringPlan(){
 
   // Pool de MPPTs físicos, compartilhado entre todos os grupos (é o mesmo
   // inversor) — cada slot só aceita mais uma string se sobrar espaço (strings)
-  // E corrente. Processados na ordem em que aparecem no cadastro (MPPT 1
-  // primeiro), e um slot pode acabar com strings de mais de uma orientação/
-  // tipo de módulo se sobrar capacidade depois do primeiro grupo.
-  const slots = slotsConfig.map((s,idx)=>({ id: idx+1, maxIsc: s.maxIsc, maxStrings: s.maxStrings, stringsUsadas:0, correnteUsada:0 }));
+  // E corrente, processados na ordem em que aparecem no cadastro (MPPT 1
+  // primeiro). Um MPPT só pode ter strings de UMA orientação/tipo de módulo —
+  // misturar facing/Voc/Isc diferentes no mesmo MPPT não é fisicamente
+  // possível (o rastreamento de máxima potência de um MPPT único não faz
+  // sentido pra duas curvas I-V diferentes), então groupKey trava o slot
+  // assim que a primeira string entra nele.
+  const slots = slotsConfig.map((s,idx)=>({ id: idx+1, maxIsc: s.maxIsc, maxStrings: s.maxStrings, stringsUsadas:0, correnteUsada:0, groupKey:null }));
   const groupResults = [];
   const roofColorSlices = {};
 
@@ -2773,8 +2776,13 @@ function computeStringPlan(){
     let sobrouStringSemMppt = false;
 
     split.sizes.forEach(sz=>{
-      const slot = slots.find(s => s.stringsUsadas < s.maxStrings && (s.correnteUsada + g.isc) <= s.maxIsc + 1e-9);
+      const slot = slots.find(s =>
+        (s.groupKey===null || s.groupKey===key) &&
+        s.stringsUsadas < s.maxStrings &&
+        (s.correnteUsada + g.isc) <= s.maxIsc + 1e-9
+      );
       if(!slot){ unusedModules += sz; sobrouStringSemMppt = true; return; }
+      slot.groupKey = key;
       slot.stringsUsadas++;
       slot.correnteUsada += g.isc;
       if(!usadosPorSlot[slot.id]) usadosPorSlot[slot.id] = [];
