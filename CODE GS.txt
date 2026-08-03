@@ -2133,7 +2133,7 @@ function actionSalvarPermissoes(body) {
 // =====================================================================
 
 var AGENDAMENTOS_HEADERS = [
-  'IdAgendamento','IdCliente','IdContrato','IdServico','Data Inicio','Hora inicio','Hora Fim',
+  'IdAgendamento','IdCliente','IdContrato','IdServico','Valor','Data Inicio','Hora inicio','Hora Fim',
   'TecnicoResponsavel','Status Agendamento','Observacao Comercial',
   'Quantidade de Modulos','Modelo Modulos','Quantidade Inversores','Modelo Inversores',
   'DataRelatorio','PDFrelatorio','Motivo Cancelamento'
@@ -2149,12 +2149,17 @@ function getOrCreateAgendamentosSheet() {
     sheet.getRange(1, 1, 1, AGENDAMENTOS_HEADERS.length).setValues([AGENDAMENTOS_HEADERS]);
     sheet.setFrozenRows(1);
   }
-  // Migração: planilhas criadas antes do motivo de cancelamento não têm essa coluna — adiciona no fim.
+  // Migração: planilhas criadas antes de colunas novas (motivo de cancelamento, valor)
+  // não as têm — adiciona no fim, sem apagar nada que já existe.
   var lastCol = sheet.getLastColumn();
   var headersAtuais = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) { return String(h).trim(); });
-  if (headersAtuais.indexOf('Motivo Cancelamento') === -1) {
-    sheet.getRange(1, lastCol + 1).setValue('Motivo Cancelamento');
-  }
+  ['Motivo Cancelamento', 'Valor'].forEach(function (h) {
+    if (headersAtuais.indexOf(h) === -1) {
+      lastCol++;
+      sheet.getRange(1, lastCol).setValue(h);
+      headersAtuais.push(h);
+    }
+  });
   // Hora inicio / Hora Fim como texto, pra não virar Date/hora serializada pelo Sheets.
   sheet.getRange('F2:G').setNumberFormat('@STRING@');
   return sheet;
@@ -2405,6 +2410,12 @@ function actionSalvarAgendamento(body) {
   if (!idCliente || !idServico || !dataInicio || !tecnico) {
     return { ok: false, erro: 'Cliente, serviço, data de início e técnico responsável são obrigatórios.' };
   }
+  // Regra pedida pelo Felipe: a OS não pode sair sem valor definido — evita
+  // agendamento (e depois proposta/cobrança) sem preço registrado.
+  var valorNum = paraNumero(body.valor);
+  if (valorNum === '' || valorNum <= 0) {
+    return { ok: false, erro: 'Informe o valor do serviço.' };
+  }
   if (!body.horaInicio || !body.horaFim) {
     return { ok: false, erro: 'Escolha o horário de início e fim.' };
   }
@@ -2473,6 +2484,7 @@ function actionSalvarAgendamento(body) {
       'IdCliente': idCliente,
       'IdContrato': body.idContrato || '',
       'IdServico': idServico,
+      'Valor': valorNum,
       'Data Inicio': parseDataISO(dataInicio),
       'Hora inicio': body.horaInicio || '',
       'Hora Fim': body.horaFim || '',
