@@ -2346,7 +2346,23 @@
     var s=window.SG_SESSION;
     var auto=(s&&s.idVendedor)?{solicitanteId:s.idVendedor}:{};
     var body=Object.assign({action:action,chave:apiKey()},auto,payload||{});
-    return fetch(apiUrl(),{method:'POST',cache:'no-store',body:JSON.stringify(body)}).then(function(r){return r.json();});
+    return fetch(apiUrl(),{method:'POST',cache:'no-store',body:JSON.stringify(body)}).then(function(r){return r.json();}).then(function(resp){
+      // 'ponto_api_url'/'ponto_api_key' também são usadas pela tela "Conectar
+      // por link" (Ponto/Vendas/Funil) pra apontar pra uma planilha própria —
+      // se alguém salvar ali um link/chave errado, TODO login do sistema
+      // passa a mandar essa chave quebrada pra sempre, sem nenhum jeito óbvio
+      // de resetar pela interface. Se o servidor recusar por chave inválida
+      // e havia uma customização salva, descarta ela e tenta de novo só com
+      // o padrão — assim o sistema se autocorrige em vez de travar pra sempre.
+      var custom=(localStorage.getItem('ponto_api_url')||localStorage.getItem('ponto_api_key'));
+      if(resp&&resp.ok===false&&/chave inv/i.test(resp.erro||'')&&custom){
+        localStorage.removeItem('ponto_api_url');
+        localStorage.removeItem('ponto_api_key');
+        var retryBody=Object.assign({action:action,chave:DEFAULT_API_KEY},auto,payload||{});
+        return fetch(DEFAULT_API_URL,{method:'POST',cache:'no-store',body:JSON.stringify(retryBody)}).then(function(r){return r.json();});
+      }
+      return resp;
+    });
   }
 
   function getSession(){
@@ -3540,7 +3556,17 @@
   document.getElementById('p-connectBtn').addEventListener('click',function(){
     var url=document.getElementById('p-apiUrl').value.trim(),key=document.getElementById('p-apiKey').value.trim();
     if(!url||!key){document.getElementById('p-connectStatus').style.display='flex';document.getElementById('p-connectStatus').className='connect-status error';document.getElementById('p-connectStatusText').textContent='Preencha o link e a chave.';return;}
-    setApiCreds(url,key);fetchFromApi(true);
+    // Só grava no localStorage se o link/chave realmente funcionar — essas
+    // chaves ('ponto_api_url'/'ponto_api_key') são compartilhadas com o
+    // login do sistema inteiro, então gravar um valor errado aqui travava
+    // o login de todo mundo em "Chave inválida" sem nenhum jeito de reverter.
+    var btnP=this;btnP.disabled=true;
+    document.getElementById('p-connectStatus').style.display='flex';document.getElementById('p-connectStatus').className='connect-status';document.getElementById('p-connectStatusText').textContent='Conectando…';
+    fetch(url,{method:'POST',cache:'no-store',body:JSON.stringify({action:'ping',chave:key})}).then(function(r){return r.json();}).then(function(resp){
+      btnP.disabled=false;
+      if(!resp||!resp.ok){document.getElementById('p-connectStatus').className='connect-status error';document.getElementById('p-connectStatusText').textContent=(resp&&resp.erro)||'Não foi possível conectar — confira o link e a chave.';return;}
+      setApiCreds(url,key);fetchFromApi(true);
+    }).catch(function(err){btnP.disabled=false;document.getElementById('p-connectStatus').className='connect-status error';document.getElementById('p-connectStatusText').textContent='Erro: '+err.message;});
   });
   document.getElementById('toggleManualBtn').addEventListener('click',function(){
     var grid=document.getElementById('uploadGrid'),isHidden=grid.style.display==='none';
@@ -4420,7 +4446,15 @@
   document.getElementById('v-connectBtn').addEventListener('click',function(){
     var url=document.getElementById('v-apiUrl').value.trim(),key=document.getElementById('v-apiKey').value.trim();
     if(!url||!key){document.getElementById('v-connectStatus').style.display='flex';document.getElementById('v-connectStatus').className='connect-status error';document.getElementById('v-connectStatusText').textContent='Preencha o link e a chave.';return;}
-    setApiCreds(url,key);fetchFromApi(true);
+    // Só grava no localStorage se o link/chave realmente funcionar — veja o
+    // comentário equivalente no painel de Ponto Eletrônico.
+    var btnV=this;btnV.disabled=true;
+    document.getElementById('v-connectStatus').style.display='flex';document.getElementById('v-connectStatus').className='connect-status';document.getElementById('v-connectStatusText').textContent='Conectando…';
+    fetch(url,{method:'POST',cache:'no-store',body:JSON.stringify({action:'ping',chave:key})}).then(function(r){return r.json();}).then(function(resp){
+      btnV.disabled=false;
+      if(!resp||!resp.ok){document.getElementById('v-connectStatus').className='connect-status error';document.getElementById('v-connectStatusText').textContent=(resp&&resp.erro)||'Não foi possível conectar — confira o link e a chave.';return;}
+      setApiCreds(url,key);fetchFromApi(true);
+    }).catch(function(err){btnV.disabled=false;document.getElementById('v-connectStatus').className='connect-status error';document.getElementById('v-connectStatusText').textContent='Erro: '+err.message;});
   });
   (function autoConnect(){if(!window.SG_SESSION)return;var u=getApiUrl(),k=getApiKey();if(u&&k){document.getElementById('v-apiUrl').value=u;document.getElementById('v-apiKey').value=k;fetchFromApi(true);}})();
   document.getElementById('v-dateFrom').addEventListener('change',render);document.getElementById('v-dateTo').addEventListener('change',render);document.getElementById('selVendedor').addEventListener('change',render);document.getElementById('selServico').addEventListener('change',render);
@@ -5621,7 +5655,15 @@
     document.getElementById('f-showConnectFormBtn').addEventListener('click',function(){document.getElementById('f-connectBar').style.display='none';document.getElementById('f-connectCard').style.display='block';});
     document.getElementById('f-connectBtn').addEventListener('click',function(){
       var url=document.getElementById('f-apiUrl').value.trim(),key=document.getElementById('f-apiKey').value.trim();
-      if(!url||!key)return;localStorage.setItem('ponto_api_url',url);localStorage.setItem('ponto_api_key',key);fetchData(true);
+      if(!url||!key)return;
+      // Só grava no localStorage se o link/chave realmente funcionar — veja o
+      // comentário equivalente no painel de Ponto Eletrônico.
+      var btnF=this;btnF.disabled=true;
+      fetch(url,{method:'POST',cache:'no-store',body:JSON.stringify({action:'ping',chave:key})}).then(function(r){return r.json();}).then(function(resp){
+        btnF.disabled=false;
+        if(!resp||!resp.ok){document.getElementById('f-connectStatus').style.display='flex';document.getElementById('f-connectStatus').className='connect-status error';document.getElementById('f-connectStatusText').textContent=(resp&&resp.erro)||'Não foi possível conectar — confira o link e a chave.';return;}
+        localStorage.setItem('ponto_api_url',url);localStorage.setItem('ponto_api_key',key);fetchData(true);
+      }).catch(function(err){btnF.disabled=false;document.getElementById('f-connectStatus').style.display='flex';document.getElementById('f-connectStatus').className='connect-status error';document.getElementById('f-connectStatusText').textContent='Erro: '+err.message;});
     });
 
     function aplicarVisao(){
