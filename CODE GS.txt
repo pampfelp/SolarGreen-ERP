@@ -41,6 +41,26 @@ var AUTH_PEPPER = 'TROQUE-ESTE-VALOR-SolarGreen-2026';
 // Troque este valor e avise a equipe sempre que quiser "resetar" o acesso inicial.
 var SENHA_PADRAO = 'SolarGreen@2026';
 
+// ── Assinatura eletrônica da Ordem de Serviço (Autentique) ────────────
+// Sem isso configurado, "gerarPdfOS" continua funcionando normalmente
+// (o PDF é gerado e guardado no Drive) — só o botão "Enviar para
+// assinatura digital" fica indisponível.
+// Configure em ⚙️ Configurações do projeto > Script Properties > "Add
+// script property":
+//   AUTENTIQUE_API_TOKEN = token gerado em painel.autentique.com.br/perfil/api
+//                           (NUNCA cole o token aqui no código-fonte — ele
+//                           precisa morar só em Script Properties, senão
+//                           fica exposto pra qualquer um que tenha acesso a
+//                           este arquivo)
+//   AUTENTIQUE_SANDBOX   = (opcional) "true" pra testar sem gastar
+//                           crédito/documento real — deixe em branco ou
+//                           "false" em produção
+// Depois de configurar, rode "autorizarPermissoes" uma vez pelo editor (▶)
+// e aceite a tela de permissão — sem isso a chamada à Autentique falha com
+// erro de permissão mesmo com o token certo. E lembre: toda vez que este
+// arquivo for editado, é preciso fazer uma NOVA implantação (Implantar >
+// Gerenciar implantações > editar > Nova versão) pra publicar o código novo.
+
 // =====================================================================
 
 function doGet(e)  { return handleRequest(e); }
@@ -127,6 +147,8 @@ function handleRequest(e) {
     if (action === 'atualizarStatusAgendamento') return jsonOutput(actionAtualizarStatusAgendamento(body));
     if (action === 'salvarRespostasAgendamento') return jsonOutput(actionSalvarRespostasAgendamento(body));
     if (action === 'uploadFotoResposta')         return jsonOutput(actionUploadFotoResposta(body));
+    if (action === 'gerarPdfOS')                 return jsonOutput(actionGerarPdfOS(body));
+    if (action === 'enviarOSParaAssinatura')     return jsonOutput(actionEnviarOSParaAssinatura(body));
 
     // ── Catálogo de produtos (módulos e inversores) — dimensionamento solar ──
     if (action === 'getCatalogoProdutos')  return jsonOutput(getCatalogoProdutos());
@@ -2136,7 +2158,8 @@ var AGENDAMENTOS_HEADERS = [
   'IdAgendamento','IdCliente','IdContrato','IdServico','Valor','Data Inicio','Hora inicio','Hora Fim',
   'TecnicoResponsavel','Status Agendamento','Observacao Comercial',
   'Quantidade de Modulos','Modelo Modulos','Quantidade Inversores','Modelo Inversores',
-  'DataRelatorio','PDFrelatorio','Motivo Cancelamento'
+  'DataRelatorio','PDFrelatorio','Motivo Cancelamento',
+  'PDFrelatorioFileId','LinkAssinaturaOS','StatusAssinaturaOS','EnviadoAssinaturaOSEm'
 ];
 
 var AGENDAMENTOS_RESPOSTAS_HEADERS = ['IdResposta','IdAgendamento','IdTemplate','RespostaTexto','RespostaFoto','RespostaQuantidade'];
@@ -2149,11 +2172,12 @@ function getOrCreateAgendamentosSheet() {
     sheet.getRange(1, 1, 1, AGENDAMENTOS_HEADERS.length).setValues([AGENDAMENTOS_HEADERS]);
     sheet.setFrozenRows(1);
   }
-  // Migração: planilhas criadas antes de colunas novas (motivo de cancelamento, valor)
-  // não as têm — adiciona no fim, sem apagar nada que já existe.
+  // Migração: planilhas criadas antes de colunas novas (motivo de cancelamento, valor,
+  // PDF/assinatura da Ordem de Serviço) não as têm — adiciona no fim, sem apagar nada
+  // que já existe.
   var lastCol = sheet.getLastColumn();
   var headersAtuais = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) { return String(h).trim(); });
-  ['Motivo Cancelamento', 'Valor'].forEach(function (h) {
+  ['Motivo Cancelamento', 'Valor', 'PDFrelatorioFileId', 'LinkAssinaturaOS', 'StatusAssinaturaOS', 'EnviadoAssinaturaOSEm'].forEach(function (h) {
     if (headersAtuais.indexOf(h) === -1) {
       lastCol++;
       sheet.getRange(1, lastCol).setValue(h);
@@ -2430,6 +2454,13 @@ function actionSalvarAgendamento(body) {
   var clienteObj = clientes.filter(function (c) { return String(c.IdCliente) === String(idCliente); })[0];
   if (!clienteObj || !String((clienteObj.Endereco || clienteObj['Endereço']) || '').trim()) {
     return { ok: false, erro: '⚠️ Este cliente não possui endereço cadastrado. Atualize o cadastro do cliente antes de realizar o agendamento.' };
+  }
+
+  // Regra 1b: cliente precisa ter e-mail cadastrado antes de agendar — é pra
+  // lá que vai o link de assinatura digital da Ordem de Serviço depois do
+  // atendimento; sem e-mail, o cliente nunca recebe o link pra assinar.
+  if (!String(clienteObj.Email || '').trim()) {
+    return { ok: false, erro: '⚠️ Este cliente não possui e-mail cadastrado. Atualize o cadastro do cliente antes de realizar o agendamento.' };
   }
 
   // Regra 2: hora fim tem que ser maior que hora início.
@@ -2951,6 +2982,152 @@ function actionUploadFotoResposta(body) {
   }
 }
 
+// ══════════════ ORDEM DE SERVIÇO EM PDF + ASSINATURA ELETRÔNICA (Autentique) ══════════════
+//
+// O "Relatório de Atendimento" (Ordem de Serviço) já é montado inteiro no
+// navegador, em HTML — inclusive pra impressão direta (Ctrl+P). Pra poder
+// mandar esse documento pra Autentique assinar, precisa de um PDF de
+// verdade guardado em algum lugar (a Autentique não aceita HTML, e o
+// navegador sozinho não gera PDF sem lib externa). Por isso esse fluxo é em
+// duas etapas: 1) o navegador manda o MESMO HTML já montado pra cá, que só
+// converte pra PDF e guarda no Drive; 2) com o fileId desse PDF em mãos, o
+// navegador aciona o envio pra assinatura.
+
+var AUTENTIQUE_GRAPHQL_URL_ = 'https://api.autentique.com.br/v2/graphql';
+
+function getOrCreatePastaOS_() {
+  var nomePasta = 'Solar Green - Ordens de Serviço';
+  var it = DriveApp.getFoldersByName(nomePasta);
+  if (it.hasNext()) return it.next();
+  return DriveApp.createFolder(nomePasta);
+}
+
+/**
+ * action: gerarPdfOS — body { solicitanteId, idAgendamento, html }
+ * "html" é o mesmo documento que a tela já monta pro botão "🖨 Gerar PDF"
+ * (relatório de atendimento + a página de aceite/cláusula no final).
+ * Converte pra PDF de verdade e salva na pasta "Solar Green - Ordens de
+ * Serviço" do Drive — devolve fileId/url, que "enviarOSParaAssinatura" usa
+ * em seguida. O link e a data ficam gravados na própria linha do
+ * agendamento (colunas PDFrelatorio/PDFrelatorioFileId/DataRelatorio, pra
+ * não precisar gerar de novo se alguém só quiser abrir o PDF depois).
+ */
+function actionGerarPdfOS(body) {
+  var idAgendamento = body.idAgendamento, html = body.html;
+  if (!idAgendamento || !html) return { ok: false, erro: 'idAgendamento e html são obrigatórios.' };
+  if (!isTecnicoOuAdmin(body.solicitanteId, idAgendamento)) {
+    return { ok: false, erro: 'Sem permissão para essa ordem de serviço.' };
+  }
+
+  try {
+    var pasta = getOrCreatePastaOS_();
+    var nomeArquivo = 'OS ' + idAgendamento + ' - ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT-3', 'dd-MM-yyyy HH-mm');
+
+    // Converter HTML->PDF direto pelo mimetype do blob é o único jeito de
+    // gerar PDF sem lib externa no Apps Script — não dá pra usar o mesmo
+    // caminho do Contrato (Google Docs + placeholders) porque a Ordem de
+    // Serviço não vem de um modelo fixo, e sim montada dinamicamente com as
+    // respostas/fotos de cada atendimento.
+    var blobHtml = Utilities.newBlob(html, 'text/html', nomeArquivo + '.html');
+    var pdfBlob = blobHtml.getAs('application/pdf').setName(nomeArquivo + '.pdf');
+    var arquivo = pasta.createFile(pdfBlob);
+    arquivo.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+    var found = findAgendamentoRowById(idAgendamento);
+    if (found) {
+      if (found.colIdx['PDFrelatorio'])       found.sheet.getRange(found.rowIndex, found.colIdx['PDFrelatorio']).setValue(arquivo.getUrl());
+      if (found.colIdx['PDFrelatorioFileId']) found.sheet.getRange(found.rowIndex, found.colIdx['PDFrelatorioFileId']).setValue(arquivo.getId());
+      if (found.colIdx['DataRelatorio'])      found.sheet.getRange(found.rowIndex, found.colIdx['DataRelatorio']).setValue(new Date());
+    }
+
+    return { ok: true, url: arquivo.getUrl(), fileId: arquivo.getId() };
+  } catch (err) {
+    return { ok: false, erro: 'Falha ao gerar o PDF da Ordem de Serviço: ' + err.message };
+  }
+}
+
+/**
+ * action: enviarOSParaAssinatura — body { solicitanteId, idAgendamento, fileId, clienteNome, clienteEmail, nomeDocumento }
+ * Manda o PDF da Ordem de Serviço (já gerado no Drive por actionGerarPdfOS,
+ * identificado por "fileId") pra Autentique via GraphQL, criando um
+ * documento com um único signatário (o cliente). A própria Autentique
+ * dispara o e-mail com o link de assinatura pro "clienteEmail" — como o
+ * cliente já está no local com o técnico (celular/tablet), o normal é abrir
+ * esse e-mail na hora e assinar ali mesmo. Este script só aciona a API e
+ * devolve o link também, como cópia de backup (pra reenviar manualmente por
+ * WhatsApp se precisar).
+ *
+ * O token da Autentique mora em Script Properties (AUTENTIQUE_API_TOKEN),
+ * NUNCA no código-fonte — configure em ⚙️ Configurações do projeto >
+ * Script Properties (veja o topo deste arquivo pro passo a passo).
+ */
+function actionEnviarOSParaAssinatura(body) {
+  var idAgendamento = body.idAgendamento, fileId = body.fileId,
+      clienteNome = body.clienteNome, clienteEmail = body.clienteEmail;
+  if (!fileId) return { ok: false, erro: 'Gere o PDF da Ordem de Serviço antes de enviar pra assinatura.' };
+  if (!clienteEmail) return { ok: false, erro: 'O cliente precisa ter um e-mail cadastrado pra receber o link de assinatura.' };
+  if (!isTecnicoOuAdmin(body.solicitanteId, idAgendamento)) {
+    return { ok: false, erro: 'Sem permissão para essa ordem de serviço.' };
+  }
+
+  var props = PropertiesService.getScriptProperties();
+  var token = props.getProperty('AUTENTIQUE_API_TOKEN');
+  if (!token) return { ok: false, erro: 'Configure AUTENTIQUE_API_TOKEN em Project Settings > Script Properties.' };
+  var sandbox = props.getProperty('AUTENTIQUE_SANDBOX') === 'true';
+
+  var blob;
+  try {
+    blob = DriveApp.getFileById(fileId).getBlob();
+  } catch (err) {
+    return { ok: false, erro: 'Não encontrei o PDF da Ordem de Serviço no Drive (fileId inválido).' };
+  }
+
+  // Mesmo "GraphQL multipart request spec" que a Autentique exige pra
+  // upload de arquivo: 3 partes — "operations" (query+variáveis, com o
+  // campo do arquivo como null), "map" (aponta qual parte do multipart
+  // preenche qual variável) e a parte com o arquivo em si.
+  var query = 'mutation CreateDocumentMutation($document: DocumentInput!, $signers: [SignerInput!]!, $file: Upload!) { ' +
+    'createDocument(document: $document, signers: $signers, file: $file, sandbox: ' + (sandbox ? 'true' : 'false') + ') { ' +
+    'id name signatures { public_id email link { short_link } } } }';
+  var variables = {
+    document: { name: body.nomeDocumento || ('Ordem de Serviço - ' + (clienteNome || 'Cliente')) },
+    signers: [{ email: clienteEmail, name: clienteNome || '', action: 'SIGN' }],
+    file: null
+  };
+  var operations = JSON.stringify({ query: query, variables: variables });
+  var map = JSON.stringify({ file: ['variables.file'] });
+
+  var resposta = UrlFetchApp.fetch(AUTENTIQUE_GRAPHQL_URL_, {
+    method: 'post',
+    headers: { Authorization: 'Bearer ' + token },
+    payload: { operations: operations, map: map, file: blob },
+    muteHttpExceptions: true
+  });
+
+  var json;
+  try {
+    json = JSON.parse(resposta.getContentText());
+  } catch (err) {
+    return { ok: false, erro: 'Resposta inválida da Autentique: ' + resposta.getContentText() };
+  }
+  if (json.errors && json.errors.length) {
+    return { ok: false, erro: 'Autentique: ' + json.errors.map(function (e) { return e.message; }).join('; ') };
+  }
+  var documento = json.data && json.data.createDocument;
+  if (!documento) return { ok: false, erro: 'Autentique não retornou o documento criado.' };
+  var assinatura = (documento.signatures || [])[0] || {};
+  var link = assinatura.link ? assinatura.link.short_link : null;
+
+  var found = findAgendamentoRowById(idAgendamento);
+  if (found) {
+    if (found.colIdx['LinkAssinaturaOS'])      found.sheet.getRange(found.rowIndex, found.colIdx['LinkAssinaturaOS']).setValue(link || '');
+    if (found.colIdx['StatusAssinaturaOS'])    found.sheet.getRange(found.rowIndex, found.colIdx['StatusAssinaturaOS']).setValue('Enviado');
+    if (found.colIdx['EnviadoAssinaturaOSEm']) found.sheet.getRange(found.rowIndex, found.colIdx['EnviadoAssinaturaOSEm']).setValue(new Date());
+  }
+
+  return { ok: true, autentiqueDocId: documento.id, link: link, sandbox: sandbox };
+}
+
 // ── Diagnóstico ─────────────────────────────────────────────────────
 
 // ── Autorização manual (rode 1x pelo editor, veja instruções no chat) ──
@@ -2962,6 +3139,15 @@ function actionUploadFotoResposta(body) {
  * o compartilhamento dele, pra garantir que a permissão de ESCRITA (a que
  * faltava) também seja pedida e concedida de uma vez. A pasta de teste é
  * apagada (lixeira) no final — não fica lixo no seu Drive.
+ *
+ * A chamada UrlFetchApp aqui no final é só pra forçar o Google a listar o
+ * escopo "script.external_request" na tela de autorização — sem isso, quem
+ * já tinha autorizado antes de existir a assinatura eletrônica (que é quem
+ * chama UrlFetchApp de verdade, pra falar com a Autentique) nunca vê essa
+ * permissão de novo, e a chamada falha com "Você não tem permissão para
+ * chamar UrlFetchApp.fetch" mesmo depois de reimplantado. Rodar esta função
+ * de novo (▶) e aceitar a tela de permissão resolve — não precisa
+ * reautorizar toda vez, só quando um escopo novo é adicionado.
  */
 function autorizarPermissoes() {
   DriveApp.getRootFolder();
@@ -2972,7 +3158,8 @@ function autorizarPermissoes() {
   pastaTeste.setTrashed(true);
 
   MailApp.getRemainingDailyQuota();
-  return 'Permissões OK (leitura, escrita e compartilhamento no Drive + Mail).';
+  UrlFetchApp.fetch('https://www.google.com', { muteHttpExceptions: true });
+  return 'Permissões OK (leitura, escrita e compartilhamento no Drive + Mail + acesso externo).';
 }
 
 function diagSheets() {
