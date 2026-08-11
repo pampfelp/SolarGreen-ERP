@@ -1479,6 +1479,7 @@
   <div class="ad-actions">
     <button class="reset-btn" id="ad-editarBtn">Editar agendamento</button>
     <button class="connect-btn" id="ad-pdfBtn">🖨 Gerar PDF</button>
+    <button class="connect-btn" id="ad-assinaturaBtn">✍️ Enviar para assinatura digital</button>
   </div>
 </div>
 
@@ -5955,6 +5956,14 @@
       (respostasCarregadasPara[idAgendamento]?renderRespostasHtml(a):'<div style="font-size:12.5px;color:var(--ink-faint);padding:6px 0;">Carregando respostas…</div>')+
     '</div></div>';
 
+    if(a.LinkAssinaturaOS){
+      html+='<div class="ad-section"><h4>Assinatura digital da OS</h4>'+
+        '<div class="ad-row"><span class="dl">Status</span><span class="dv">'+escapeHtml(a.StatusAssinaturaOS||'Enviado')+'</span></div>'+
+        (a.EnviadoAssinaturaOSEm?'<div class="ad-row"><span class="dl">Enviado em</span><span class="dv">'+escapeHtml(a.EnviadoAssinaturaOSEm)+'</span></div>':'')+
+        '<a href="'+escapeHtml(a.LinkAssinaturaOS)+'" target="_blank" rel="noopener" style="font-size:12.5px;">Abrir link de assinatura</a>'+
+      '</div>';
+    }
+
     document.getElementById('ad-body').innerHTML=html;
     document.getElementById('ad-statusSelect').value=status;
     document.getElementById('ad-statusSalvarBtn').addEventListener('click',function(){
@@ -6015,10 +6024,13 @@
     });
   }
 
-  function gerarPdfRespostas(){
-    if(!agendamentoAtual)return;
-    var idAgendamento=agendamentoAtual.IdAgendamento;
-    var a=agendamentoAtual;
+  // Monta o HTML completo da Ordem de Serviço (relatório de atendimento +
+  // a página de aceite/cláusula no final, com espaço pra assinatura) — é
+  // reaproveitado tanto pelo botão "🖨 Gerar PDF" (abre e imprime na hora)
+  // quanto pelo botão "✍️ Enviar para assinatura digital" (o MESMO html vai
+  // pro servidor virar um PDF de verdade e ser mandado pra Autentique).
+  function montarHtmlOS(a){
+    var idAgendamento=a.IdAgendamento;
     var cliente=clientesMap[a.IdCliente]||{};
     var lista=(respostasPorAgendamento[idAgendamento]||[]).filter(respostaTemValor);
     lista.sort(function(x,y){
@@ -6037,7 +6049,24 @@
       return '<div style="padding:10px 0;border-bottom:1px solid #eee;"><div style="font-weight:700;font-size:13px;margin-bottom:4px;">'+escapeHtml(pergunta)+'</div>'+valorHtml+'</div>';
     }).join('');
 
-    var htmlDoc='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">'+
+    // Página final: cláusula de aceite do serviço + linha de assinatura.
+    // "page-break-before" garante que ela sempre comece numa folha nova,
+    // tanto na impressão quanto no PDF gerado no servidor.
+    var paginaAceite='<div style="page-break-before:always;padding-top:24px;">'+
+      '<h1>Ordem de Serviço — Aceite do cliente</h1>'+
+      '<p style="font-size:13px;line-height:1.6;margin:16px 0 36px;">'+
+        'Declaro que o serviço foi executado a contento e autorizo o pagamento, ciente de que, '+
+        'após a execução, não cabe estorno por arrependimento (art. 49 do CDC aplica-se apenas a '+
+        'compras fora do estabelecimento comercial dentro de 7 dias, o que não é o caso aqui).'+
+      '</p>'+
+      '<div style="font-size:13px;">'+
+        '<div style="border-top:1px solid #1E1E1E;width:320px;margin-top:50px;padding-top:6px;">Assinatura do cliente</div>'+
+        '<div style="margin-top:14px;"><strong>Nome:</strong> '+escapeHtml(nomeCliente(a.IdCliente))+'</div>'+
+        '<div style="margin-top:4px;"><strong>Data:</strong> '+dataFmt+'</div>'+
+      '</div>'+
+    '</div>';
+
+    return '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">'+
       '<title>Relatorio de Atendimento - '+escapeHtml(nomeCliente(a.IdCliente))+'</title>'+
       '<style>'+
       "body{font-family:'Helvetica Neue',Arial,sans-serif;color:#1E1E1E;padding:24px;}"+
@@ -6063,12 +6092,46 @@
         '<div><strong>Status:</strong> '+escapeHtml(a['Status Agendamento']||'Agendado')+'</div>'+
       '</div>'+
       (linhas||'<p>Nenhuma resposta preenchida.</p>')+
+      paginaAceite+
       '</body></html>';
+  }
 
+  function gerarPdfRespostas(){
+    if(!agendamentoAtual)return;
+    var htmlDoc=montarHtmlOS(agendamentoAtual);
     var win=window.open('','_blank');
     win.document.write(htmlDoc);
     win.document.close();
     setTimeout(function(){win.print();},500);
+  }
+
+  // Gera o PDF de verdade no servidor (a partir do MESMO html do "🖨 Gerar
+  // PDF") e manda pra Autentique assinar — encadeado num só clique porque
+  // o fileId do PDF só existe depois que ele é criado no Drive.
+  function enviarOSParaAssinatura(){
+    if(!agendamentoAtual)return;
+    var a=agendamentoAtual;
+    var cliente=clientesMap[a.IdCliente]||{};
+    if(!cliente.Email){ showAgToast('Cadastre o e-mail do cliente antes de enviar a Ordem de Serviço pra assinatura digital.',true); return; }
+    var btn=document.getElementById('ad-assinaturaBtn');
+    btn.disabled=true; var textoOriginal=btn.textContent; btn.textContent='Gerando PDF…';
+    var html=montarHtmlOS(a);
+    apiCall('gerarPdfOS',{solicitanteId:meuId(),idAgendamento:a.IdAgendamento,html:html}).then(function(resp){
+      if(!resp||!resp.ok){ btn.disabled=false; btn.textContent=textoOriginal; showAgToast((resp&&resp.erro)||'Não foi possível gerar o PDF.',true); return; }
+      btn.textContent='Enviando pra assinatura…';
+      return apiCall('enviarOSParaAssinatura',{
+        solicitanteId:meuId(),idAgendamento:a.IdAgendamento,fileId:resp.fileId,
+        clienteNome:nomeCliente(a.IdCliente),clienteEmail:cliente.Email,
+        nomeDocumento:'Ordem de Serviço - '+nomeCliente(a.IdCliente)
+      }).then(function(resp2){
+        btn.disabled=false; btn.textContent=textoOriginal;
+        if(!resp2||!resp2.ok){ showAgToast((resp2&&resp2.erro)||'PDF gerado, mas não foi possível enviar pra assinatura.',true); return; }
+        showAgToast('Ordem de Serviço enviada pra assinatura — e-mail disparado pra '+cliente.Email+'.');
+      });
+    }).catch(function(err){
+      btn.disabled=false; btn.textContent=textoOriginal;
+      showAgToast('Erro de conexão: '+err.message,true);
+    });
   }
 
   function normalizaBuscaAg(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
@@ -6426,7 +6489,9 @@
 
   /**
    * Regra vinda do AppSheet: só deixa escolher (ou manter) um cliente que já
-   * tem endereço cadastrado.
+   * tem endereço cadastrado. O e-mail entrou na mesma regra (obrigatório
+   * antes de agendar) porque é pra onde vai o link de assinatura digital da
+   * Ordem de Serviço — sem e-mail, o cliente nunca recebe o link pra assinar.
    */
   function validarCliente(){
     var msgEl=document.getElementById('ag-clienteWarn');
@@ -6437,6 +6502,14 @@
     if(cliente&&!enderecoDoCliente(cliente)){
       msgEl.className='uform-msg error sg-msg-fix';
       msgEl.innerHTML='⚠️ Este cliente não possui endereço cadastrado — <strong>clique aqui pra atualizar o cadastro do cliente</strong>.';
+      msgEl.onclick=function(){
+        if(window.clientesApp&&window.clientesApp.abrirEdicao)window.clientesApp.abrirEdicao(idCliente);
+      };
+      return false;
+    }
+    if(cliente&&!String(cliente.Email||'').trim()){
+      msgEl.className='uform-msg error sg-msg-fix';
+      msgEl.innerHTML='⚠️ Este cliente não possui e-mail cadastrado (necessário pra enviar a Ordem de Serviço pra assinatura digital) — <strong>clique aqui pra atualizar o cadastro do cliente</strong>.';
       msgEl.onclick=function(){
         if(window.clientesApp&&window.clientesApp.abrirEdicao)window.clientesApp.abrirEdicao(idCliente);
       };
@@ -6621,6 +6694,7 @@
     document.getElementById('ad-fecharBtn').addEventListener('click',fecharPainelDetalhe);
     document.getElementById('adBackdrop').addEventListener('click',fecharPainelDetalhe);
     document.getElementById('ad-pdfBtn').addEventListener('click',gerarPdfRespostas);
+    document.getElementById('ad-assinaturaBtn').addEventListener('click',enviarOSParaAssinatura);
     document.getElementById('ad-editarBtn').addEventListener('click',function(){
       if(agendamentoAtual)openModal(agendamentoAtual.IdAgendamento);
     });
