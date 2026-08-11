@@ -1480,6 +1480,7 @@
     <button class="reset-btn" id="ad-editarBtn">Editar agendamento</button>
     <button class="connect-btn" id="ad-pdfBtn">🖨 Gerar PDF</button>
     <button class="connect-btn" id="ad-assinaturaBtn">✍️ Enviar para assinatura digital</button>
+    <p class="hint" id="ad-osIndisponivelHint" style="display:none;margin-top:2px;">A Ordem de Serviço (PDF e assinatura digital) só fica disponível depois que o atendimento é marcado como Concluído.</p>
   </div>
 </div>
 
@@ -5970,6 +5971,17 @@
     }
 
     document.getElementById('ad-body').innerHTML=html;
+
+    // A Ordem de Serviço (PDF + assinatura digital) só faz sentido depois do
+    // atendimento concluído — assinar "declarando que o serviço foi
+    // executado a contento" antes de ele acontecer não tem validade nenhuma.
+    // Os botões continuam visíveis (cinza/bloqueados), não somem — assim
+    // fica claro que a função existe, só não está liberada ainda.
+    var concluido=normalizaTexto(status)==='concluido';
+    document.getElementById('ad-pdfBtn').disabled=!concluido;
+    document.getElementById('ad-assinaturaBtn').disabled=!concluido;
+    document.getElementById('ad-osIndisponivelHint').style.display=concluido?'none':'';
+
     document.getElementById('ad-statusSelect').value=status;
     document.getElementById('ad-statusSalvarBtn').addEventListener('click',function(){
       var novoStatus=document.getElementById('ad-statusSelect').value;
@@ -6107,13 +6119,24 @@
       '</body></html>';
   }
 
+  // "garantirRespostas" primeiro: sem isso, clicar rápido demais (antes das
+  // respostas do técnico terminarem de carregar em segundo plano) gera um
+  // PDF com "Nenhuma resposta preenchida" mesmo já tendo fotos/respostas
+  // salvas — foi exatamente esse race condition que causou o PDF mandado
+  // pra Autentique sair sem as fotos.
   function gerarPdfRespostas(){
     if(!agendamentoAtual)return;
-    var htmlDoc=montarHtmlOS(agendamentoAtual);
-    var win=window.open('','_blank');
-    win.document.write(htmlDoc);
-    win.document.close();
-    setTimeout(function(){win.print();},500);
+    var a=agendamentoAtual;
+    var btn=document.getElementById('ad-pdfBtn');
+    btn.disabled=true; var textoOriginal=btn.textContent; btn.textContent='Carregando respostas…';
+    garantirRespostas(a.IdAgendamento).then(function(){
+      btn.disabled=false; btn.textContent=textoOriginal;
+      var htmlDoc=montarHtmlOS(a);
+      var win=window.open('','_blank');
+      win.document.write(htmlDoc);
+      win.document.close();
+      setTimeout(function(){win.print();},500);
+    });
   }
 
   // Gera o PDF de verdade no servidor (a partir do MESMO html do "🖨 Gerar
@@ -6125,23 +6148,26 @@
     var cliente=clientesMap[a.IdCliente]||{};
     if(!cliente.Email){ showAgToast('Cadastre o e-mail do cliente antes de enviar a Ordem de Serviço pra assinatura digital.',true); return; }
     var btn=document.getElementById('ad-assinaturaBtn');
-    btn.disabled=true; var textoOriginal=btn.textContent; btn.textContent='Gerando PDF…';
-    var html=montarHtmlOS(a);
-    apiCall('gerarPdfOS',{solicitanteId:meuId(),idAgendamento:a.IdAgendamento,html:html}).then(function(resp){
-      if(!resp||!resp.ok){ btn.disabled=false; btn.textContent=textoOriginal; showAgToast((resp&&resp.erro)||'Não foi possível gerar o PDF.',true); return; }
-      btn.textContent='Enviando pra assinatura…';
-      return apiCall('enviarOSParaAssinatura',{
-        solicitanteId:meuId(),idAgendamento:a.IdAgendamento,fileId:resp.fileId,
-        clienteNome:nomeCliente(a.IdCliente),clienteEmail:cliente.Email,
-        nomeDocumento:'Ordem de Serviço - '+nomeCliente(a.IdCliente)
-      }).then(function(resp2){
+    btn.disabled=true; var textoOriginal=btn.textContent; btn.textContent='Carregando respostas…';
+    garantirRespostas(a.IdAgendamento).then(function(){
+      btn.textContent='Gerando PDF…';
+      var html=montarHtmlOS(a);
+      apiCall('gerarPdfOS',{solicitanteId:meuId(),idAgendamento:a.IdAgendamento,html:html}).then(function(resp){
+        if(!resp||!resp.ok){ btn.disabled=false; btn.textContent=textoOriginal; showAgToast((resp&&resp.erro)||'Não foi possível gerar o PDF.',true); return; }
+        btn.textContent='Enviando pra assinatura…';
+        return apiCall('enviarOSParaAssinatura',{
+          solicitanteId:meuId(),idAgendamento:a.IdAgendamento,fileId:resp.fileId,
+          clienteNome:nomeCliente(a.IdCliente),clienteEmail:cliente.Email,
+          nomeDocumento:'Ordem de Serviço - '+nomeCliente(a.IdCliente)
+        }).then(function(resp2){
+          btn.disabled=false; btn.textContent=textoOriginal;
+          if(!resp2||!resp2.ok){ showAgToast((resp2&&resp2.erro)||'PDF gerado, mas não foi possível enviar pra assinatura.',true); return; }
+          showAgToast('Ordem de Serviço enviada pra assinatura — e-mail disparado pra '+cliente.Email+'.');
+        });
+      }).catch(function(err){
         btn.disabled=false; btn.textContent=textoOriginal;
-        if(!resp2||!resp2.ok){ showAgToast((resp2&&resp2.erro)||'PDF gerado, mas não foi possível enviar pra assinatura.',true); return; }
-        showAgToast('Ordem de Serviço enviada pra assinatura — e-mail disparado pra '+cliente.Email+'.');
+        showAgToast('Erro de conexão: '+err.message,true);
       });
-    }).catch(function(err){
-      btn.disabled=false; btn.textContent=textoOriginal;
-      showAgToast('Erro de conexão: '+err.message,true);
     });
   }
 

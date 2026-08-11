@@ -3012,11 +3012,26 @@ function getOrCreatePastaOS_() {
  * agendamento (colunas PDFrelatorio/PDFrelatorioFileId/DataRelatorio, pra
  * não precisar gerar de novo se alguém só quiser abrir o PDF depois).
  */
+// A Ordem de Serviço (PDF + assinatura digital) só faz sentido depois do
+// atendimento concluído — assinar "declarando que o serviço foi executado a
+// contento" antes de ele acontecer não tem validade nenhuma. Réplica no
+// servidor da mesma trava que já existe na tela, pra ninguém burlar chamando
+// a API direto.
+function agendamentoEstaConcluido_(found) {
+  if (!found) return false;
+  var col = found.colIdx['Status Agendamento'];
+  if (!col) return false;
+  return normalizarTextoGS(found.values[col - 1]) === 'concluido';
+}
+
 function actionGerarPdfOS(body) {
   var idAgendamento = body.idAgendamento, html = body.html;
   if (!idAgendamento || !html) return { ok: false, erro: 'idAgendamento e html são obrigatórios.' };
   if (!isTecnicoOuAdmin(body.solicitanteId, idAgendamento)) {
     return { ok: false, erro: 'Sem permissão para essa ordem de serviço.' };
+  }
+  if (!agendamentoEstaConcluido_(findAgendamentoRowById(idAgendamento))) {
+    return { ok: false, erro: 'A Ordem de Serviço só pode ser gerada depois que o atendimento é marcado como Concluído.' };
   }
 
   try {
@@ -3068,6 +3083,9 @@ function actionEnviarOSParaAssinatura(body) {
   if (!clienteEmail) return { ok: false, erro: 'O cliente precisa ter um e-mail cadastrado pra receber o link de assinatura.' };
   if (!isTecnicoOuAdmin(body.solicitanteId, idAgendamento)) {
     return { ok: false, erro: 'Sem permissão para essa ordem de serviço.' };
+  }
+  if (!agendamentoEstaConcluido_(findAgendamentoRowById(idAgendamento))) {
+    return { ok: false, erro: 'A Ordem de Serviço só pode ser enviada pra assinatura depois que o atendimento é marcado como Concluído.' };
   }
 
   var props = PropertiesService.getScriptProperties();
