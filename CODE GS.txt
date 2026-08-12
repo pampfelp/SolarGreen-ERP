@@ -2365,6 +2365,27 @@ function isTecnicoOuAdmin(solicitanteId, idAgendamento) {
   return String(found.values[tecnicoCol - 1]) === String(solicitanteId);
 }
 
+/**
+ * Um solicitante pode gerar/enviar a Ordem de Serviço pra assinatura se for
+ * administrador OU se for o vendedor responsável pelo CLIENTE daquele
+ * agendamento — quem manda a OS pra assinatura é o vendedor (dono da
+ * negociação), não o técnico que executou o serviço em campo (esse já tem
+ * sua própria regra em isTecnicoOuAdmin, usada só pro upload de fotos).
+ */
+function isVendedorDoClienteOuAdmin_(solicitanteId, idAgendamento) {
+  if (!solicitanteId) return false;
+  if (isSolicitanteAdmin(solicitanteId)) return true;
+  var found = findAgendamentoRowById(idAgendamento);
+  if (!found) return false;
+  var clienteCol = found.colIdx['IdCliente'];
+  if (!clienteCol) return false;
+  var idCliente = found.values[clienteCol - 1];
+  var clientes = sheetToObjects(getSheet(CONFIG.ABA_CLIENTES));
+  var clienteObj = clientes.filter(function (c) { return String(c.IdCliente) === String(idCliente); })[0];
+  if (!clienteObj) return false;
+  return String(clienteObj['Vendedor Responsavel'] || '') === String(solicitanteId);
+}
+
 // ── Actions: tela do vendedor (criar/editar agendamentos) ─────────────
 
 function getAgendamentosData() {
@@ -3027,7 +3048,7 @@ function agendamentoEstaConcluido_(found) {
 function actionGerarPdfOS(body) {
   var idAgendamento = body.idAgendamento, html = body.html;
   if (!idAgendamento || !html) return { ok: false, erro: 'idAgendamento e html são obrigatórios.' };
-  if (!isTecnicoOuAdmin(body.solicitanteId, idAgendamento)) {
+  if (!isVendedorDoClienteOuAdmin_(body.solicitanteId, idAgendamento)) {
     return { ok: false, erro: 'Sem permissão para essa ordem de serviço.' };
   }
   if (!agendamentoEstaConcluido_(findAgendamentoRowById(idAgendamento))) {
@@ -3081,7 +3102,7 @@ function actionEnviarOSParaAssinatura(body) {
       clienteNome = body.clienteNome, clienteEmail = body.clienteEmail;
   if (!fileId) return { ok: false, erro: 'Gere o PDF da Ordem de Serviço antes de enviar pra assinatura.' };
   if (!clienteEmail) return { ok: false, erro: 'O cliente precisa ter um e-mail cadastrado pra receber o link de assinatura.' };
-  if (!isTecnicoOuAdmin(body.solicitanteId, idAgendamento)) {
+  if (!isVendedorDoClienteOuAdmin_(body.solicitanteId, idAgendamento)) {
     return { ok: false, erro: 'Sem permissão para essa ordem de serviço.' };
   }
   if (!agendamentoEstaConcluido_(findAgendamentoRowById(idAgendamento))) {
