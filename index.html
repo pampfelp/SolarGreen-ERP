@@ -5964,13 +5964,47 @@
 
     if(a.LinkAssinaturaOS){
       html+='<div class="ad-section"><h4>Assinatura digital da OS</h4>'+
-        '<div class="ad-row"><span class="dl">Status</span><span class="dv">'+escapeHtml(a.StatusAssinaturaOS||'Enviado')+'</span></div>'+
+        '<div class="ad-row"><span class="dl">Status</span><span class="dv" id="ad-osStatusValor">'+escapeHtml(a.StatusAssinaturaOS||'Enviado')+'</span></div>'+
         (a.EnviadoAssinaturaOSEm?'<div class="ad-row"><span class="dl">Enviado em</span><span class="dv">'+escapeHtml(a.EnviadoAssinaturaOSEm)+'</span></div>':'')+
-        '<a href="'+escapeHtml(a.LinkAssinaturaOS)+'" target="_blank" rel="noopener" style="font-size:12.5px;">Abrir link de assinatura</a>'+
+        '<p class="hint" style="margin:8px 0 10px;">Se o cliente não receber o e-mail (caixa cheia, filtro de spam etc), copie o link abaixo e mande direto por WhatsApp.</p>'+
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;">'+
+          '<a class="connect-btn" id="ad-abrirLinkOSBtn" href="'+escapeHtml(a.LinkAssinaturaOS)+'" target="_blank" rel="noopener" style="text-decoration:none;font-size:12.5px;padding:9px 14px;">🔗 Abrir link</a>'+
+          '<button type="button" class="reset-btn" id="ad-copiarLinkOSBtn" style="font-size:12.5px;padding:9px 14px;">📋 Copiar link</button>'+
+          '<button type="button" class="reset-btn" id="ad-verificarStatusOSBtn" style="font-size:12.5px;padding:9px 14px;">🔄 Verificar status</button>'+
+        '</div>'+
       '</div>';
     }
 
     document.getElementById('ad-body').innerHTML=html;
+
+    var copiarLinkOSBtn=document.getElementById('ad-copiarLinkOSBtn');
+    if(copiarLinkOSBtn){
+      copiarLinkOSBtn.addEventListener('click',function(){
+        navigator.clipboard.writeText(a.LinkAssinaturaOS).then(function(){
+          showAgToast('Link copiado — já pode colar no WhatsApp.');
+        }).catch(function(){
+          showAgToast('Não foi possível copiar automaticamente. Link: '+a.LinkAssinaturaOS,true);
+        });
+      });
+    }
+    var verificarStatusOSBtn=document.getElementById('ad-verificarStatusOSBtn');
+    if(verificarStatusOSBtn){
+      verificarStatusOSBtn.addEventListener('click',function(){
+        verificarStatusOSBtn.disabled=true; var textoOriginal=verificarStatusOSBtn.textContent; verificarStatusOSBtn.textContent='Verificando…';
+        apiCall('verificarStatusOS',{solicitanteId:meuId(),idAgendamento:a.IdAgendamento}).then(function(resp){
+          verificarStatusOSBtn.disabled=false; verificarStatusOSBtn.textContent=textoOriginal;
+          if(!resp||!resp.ok){ showAgToast((resp&&resp.erro)||'Não foi possível verificar o status.',true); return; }
+          a.StatusAssinaturaOS=resp.status;
+          var statusEl=document.getElementById('ad-osStatusValor');
+          if(statusEl)statusEl.textContent=resp.status;
+          if(resp.refused)showAgToast('⚠️ '+resp.status+' — copie o link e mande manualmente por WhatsApp.',true);
+          else showAgToast('Status atualizado: '+resp.status);
+        }).catch(function(err){
+          verificarStatusOSBtn.disabled=false; verificarStatusOSBtn.textContent=textoOriginal;
+          showAgToast('Erro de conexão: '+err.message,true);
+        });
+      });
+    }
 
     // A Ordem de Serviço (PDF + assinatura digital) só faz sentido depois do
     // atendimento concluído — assinar "declarando que o serviço foi
