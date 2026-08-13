@@ -149,6 +149,7 @@ function handleRequest(e) {
     if (action === 'uploadFotoResposta')         return jsonOutput(actionUploadFotoResposta(body));
     if (action === 'gerarPdfOS')                 return jsonOutput(actionGerarPdfOS(body));
     if (action === 'enviarOSParaAssinatura')     return jsonOutput(actionEnviarOSParaAssinatura(body));
+    if (action === 'verificarStatusOS')          return jsonOutput(actionVerificarStatusOS(body));
 
     // ── Catálogo de produtos (módulos e inversores) — dimensionamento solar ──
     if (action === 'getCatalogoProdutos')  return jsonOutput(getCatalogoProdutos());
@@ -2159,7 +2160,7 @@ var AGENDAMENTOS_HEADERS = [
   'TecnicoResponsavel','Status Agendamento','Observacao Comercial',
   'Quantidade de Modulos','Modelo Modulos','Quantidade Inversores','Modelo Inversores',
   'DataRelatorio','PDFrelatorio','Motivo Cancelamento',
-  'PDFrelatorioFileId','LinkAssinaturaOS','StatusAssinaturaOS','EnviadoAssinaturaOSEm'
+  'PDFrelatorioFileId','LinkAssinaturaOS','StatusAssinaturaOS','EnviadoAssinaturaOSEm','AutentiqueDocId'
 ];
 
 var AGENDAMENTOS_RESPOSTAS_HEADERS = ['IdResposta','IdAgendamento','IdTemplate','RespostaTexto','RespostaFoto','RespostaQuantidade'];
@@ -2177,7 +2178,7 @@ function getOrCreateAgendamentosSheet() {
   // que já existe.
   var lastCol = sheet.getLastColumn();
   var headersAtuais = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) { return String(h).trim(); });
-  ['Motivo Cancelamento', 'Valor', 'PDFrelatorioFileId', 'LinkAssinaturaOS', 'StatusAssinaturaOS', 'EnviadoAssinaturaOSEm'].forEach(function (h) {
+  ['Motivo Cancelamento', 'Valor', 'PDFrelatorioFileId', 'LinkAssinaturaOS', 'StatusAssinaturaOS', 'EnviadoAssinaturaOSEm', 'AutentiqueDocId'].forEach(function (h) {
     if (headersAtuais.indexOf(h) === -1) {
       lastCol++;
       sheet.getRange(1, lastCol).setValue(h);
@@ -3162,9 +3163,82 @@ function actionEnviarOSParaAssinatura(body) {
     if (found.colIdx['LinkAssinaturaOS'])      found.sheet.getRange(found.rowIndex, found.colIdx['LinkAssinaturaOS']).setValue(link || '');
     if (found.colIdx['StatusAssinaturaOS'])    found.sheet.getRange(found.rowIndex, found.colIdx['StatusAssinaturaOS']).setValue('Enviado');
     if (found.colIdx['EnviadoAssinaturaOSEm']) found.sheet.getRange(found.rowIndex, found.colIdx['EnviadoAssinaturaOSEm']).setValue(new Date());
+    if (found.colIdx['AutentiqueDocId'])       found.sheet.getRange(found.rowIndex, found.colIdx['AutentiqueDocId']).setValue(documento.id);
   }
 
   return { ok: true, autentiqueDocId: documento.id, link: link, sandbox: sandbox };
+}
+
+/**
+ * action: verificarStatusOS — body { solicitanteId, idAgendamento }
+ * Consulta a Autentique pelo status REAL do envio (não só "mandei e
+ * pronto") — inclui se o e-mail chegou a ser entregue de verdade, porque
+ * um envio pode "dar certo" do nosso lado e mesmo assim nunca chegar (caixa
+ * de entrada cheia, e-mail bloqueado, etc — foi exatamente isso que
+ * aconteceu com uma cliente e motivou essa checagem). Atualiza
+ * StatusAssinaturaOS com o resultado, pra já ficar salvo pra próxima vez
+ * que alguém abrir esse agendamento.
+ */
+function actionVerificarStatusOS(body) {
+  var idAgendamento = body.idAgendamento;
+  if (!idAgendamento) return { ok: false, erro: 'idAgendamento é obrigatório.' };
+  if (!isVendedorDoClienteOuAdmin_(body.solicitanteId, idAgendamento)) {
+    return { ok: false, erro: 'Sem permissão para essa ordem de serviço.' };
+  }
+
+  var found = findAgendamentoRowById(idAgendamento);
+  var autentiqueDocId = found && found.colIdx['AutentiqueDocId'] ? found.values[found.colIdx['AutentiqueDocId'] - 1] : '';
+  if (!autentiqueDocId) return { ok: false, erro: 'Esta Ordem de Serviço ainda não foi enviada pra assinatura.' };
+
+  var props = PropertiesService.getScriptProperties();
+  var token = props.getProperty('AUTENTIQUE_API_TOKEN');
+  if (!token) return { ok: false, erro: 'Configure AUTENTIQUE_API_TOKEN em Project Settings > Script Properties.' };
+
+  // O id vai direto no corpo da query (como no exemplo oficial da Autentique,
+  // "document(id: \"DOCUMENT ID\")"), em vez de variável tipada — assim não
+  // depende de acertar o nome exato do scalar type (UUID/ID/String) no
+  // schema deles. JSON.stringify escapa o valor com segurança pra dentro da
+  // string da query.
+  var query = 'query { document(id: ' + JSON.stringify(String(autentiqueDocId)) + ') { signatures { ' +
+    'email link { short_link } email_events { sent opened delivered refused reason } ' +
+    'viewed { created_at } signed { created_at } rejected { created_at } } } }';
+  var resposta = UrlFetchApp.fetch(AUTENTIQUE_GRAPHQL_URL_, {
+    method: 'post',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    payload: JSON.stringify({ query: query }),
+    muteHttpExceptions: true
+  });
+
+  var json;
+  try {
+    json = JSON.parse(resposta.getContentText());
+  } catch (err) {
+    return { ok: false, erro: 'Resposta inválida da Autentique: ' + resposta.getContentText() };
+  }
+  if (json.errors && json.errors.length) {
+    return { ok: false, erro: 'Autentique: ' + json.errors.map(function (e) { return e.message; }).join('; ') };
+  }
+  var documento = json.data && json.data.document;
+  if (!documento) return { ok: false, erro: 'Documento não encontrado na Autentique.' };
+  var assinatura = (documento.signatures || [])[0] || {};
+  var eventos = assinatura.email_events || {};
+
+  var statusTexto, refused = !!(eventos.refused || eventos.reason);
+  if (assinatura.signed) statusTexto = 'Assinado';
+  else if (assinatura.rejected) statusTexto = 'Recusado pelo cliente';
+  else if (refused) statusTexto = 'E-mail não entregue' + (eventos.reason ? (': ' + eventos.reason) : '');
+  else if (assinatura.viewed) statusTexto = 'Visualizado, aguardando assinatura';
+  else if (eventos.delivered) statusTexto = 'E-mail entregue, aguardando abertura';
+  else statusTexto = 'Enviado, aguardando confirmação de entrega';
+
+  if (found && found.colIdx['StatusAssinaturaOS']) {
+    found.sheet.getRange(found.rowIndex, found.colIdx['StatusAssinaturaOS']).setValue(statusTexto);
+  }
+
+  return {
+    ok: true, status: statusTexto, assinado: !!assinatura.signed, refused: refused,
+    reason: eventos.reason || null, link: assinatura.link ? assinatura.link.short_link : null
+  };
 }
 
 // ── Diagnóstico ─────────────────────────────────────────────────────
