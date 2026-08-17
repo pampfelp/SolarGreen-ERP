@@ -3025,6 +3025,30 @@ function getOrCreatePastaOS_() {
 }
 
 /**
+ * Troca cada "https://drive.google.com/thumbnail?id=XXX&sz=..." que aparece
+ * no HTML pelo conteúdo da própria imagem, embutido como "data:...;base64,"
+ * — busca o arquivo direto pelo Drive (DriveApp.getFileById), sem depender
+ * de rede nem do link público, que é onde a conversão HTML->PDF do Apps
+ * Script falha de vez em quando. Cada fileId só é baixado uma vez, mesmo
+ * que apareça repetido no HTML.
+ */
+function embutirFotosDriveComoBase64_(html) {
+  var cache = {};
+  return html.replace(/https:\/\/drive\.google\.com\/thumbnail\?id=([a-zA-Z0-9_-]+)(?:&amp;|&)sz=w\d+/g, function (match, fileId) {
+    if (cache[fileId] !== undefined) return cache[fileId];
+    try {
+      var blob = DriveApp.getFileById(fileId).getBlob();
+      var dataUri = 'data:' + blob.getContentType() + ';base64,' + Utilities.base64Encode(blob.getBytes());
+      cache[fileId] = dataUri;
+      return dataUri;
+    } catch (err) {
+      cache[fileId] = match; // não achou o arquivo — mantém o link original em vez de quebrar o PDF inteiro
+      return match;
+    }
+  });
+}
+
+/**
  * action: gerarPdfOS — body { solicitanteId, idAgendamento, html }
  * "html" é o mesmo documento que a tela já monta pro botão "🖨 Gerar PDF"
  * (relatório de atendimento + a página de aceite/cláusula no final).
@@ -3059,6 +3083,15 @@ function actionGerarPdfOS(body) {
   try {
     var pasta = getOrCreatePastaOS_();
     var nomeArquivo = 'OS ' + idAgendamento + ' - ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT-3', 'dd-MM-yyyy HH-mm');
+
+    // A conversão HTML->PDF do Apps Script não é confiável pra BUSCAR fotos
+    // por link (https://drive.google.com/thumbnail?...) — é isso que
+    // deixava algumas fotos "quebradas" no PDF mandado pra Autentique,
+    // mesmo elas existindo normalmente no Drive. Solução: embutir cada foto
+    // como base64 direto no HTML antes de converter, buscando o arquivo
+    // pelo Drive (acesso direto, sem depender de rede/link) em vez de pedir
+    // pro conversor buscar a URL sozinho.
+    html = embutirFotosDriveComoBase64_(html);
 
     // Converter HTML->PDF direto pelo mimetype do blob é o único jeito de
     // gerar PDF sem lib externa no Apps Script — não dá pra usar o mesmo
