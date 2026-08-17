@@ -5785,6 +5785,7 @@
   // Ordem de Serviço, junto com os dados do cliente.
   var EMPRESA_RAZAO_SOCIAL='Solar Suporte e Serviços LTDA';
   var EMPRESA_CNPJ='53.386.274/0001-27';
+  var EMPRESA_EMAIL='solargreensuporte@gmail.com';
 
   function ordemTemplate(t){ var o=parseInt(t&&t.Ordem,10); return isNaN(o)?999:o; }
 
@@ -6157,10 +6158,19 @@
         'pacote seja posteriormente cancelado, o valor deste serviço, já executado e registrado nesta Ordem '+
         'de Serviço, será deduzido do valor total do referido pacote.'+
       '</p>'+
-      '<div style="font-size:13px;">'+
-        '<div style="border-top:1px solid #1E1E1E;width:320px;margin-top:50px;padding-top:6px;">Assinatura do cliente</div>'+
-        '<div style="margin-top:14px;"><strong>Nome:</strong> '+escapeHtml(nomeCliente(a.IdCliente))+'</div>'+
-        '<div style="margin-top:4px;"><strong>Data:</strong> '+dataFmt+'</div>'+
+      '<div style="display:flex;gap:40px;margin-top:50px;font-size:13px;">'+
+        '<div style="flex:1;">'+
+          '<div style="border-top:1px solid #1E1E1E;padding-top:6px;">Assinatura do prestador</div>'+
+          '<div style="margin-top:14px;"><strong>'+escapeHtml(EMPRESA_RAZAO_SOCIAL)+'</strong></div>'+
+          '<div style="margin-top:4px;">CNPJ: '+escapeHtml(EMPRESA_CNPJ)+'</div>'+
+          '<div style="margin-top:4px;">'+escapeHtml(EMPRESA_EMAIL)+'</div>'+
+          '<div style="margin-top:8px;color:#2c6e00;">✓ Assinado eletronicamente em '+dataFmt+'</div>'+
+        '</div>'+
+        '<div style="flex:1;">'+
+          '<div style="border-top:1px solid #1E1E1E;padding-top:6px;">Assinatura do cliente</div>'+
+          '<div style="margin-top:14px;"><strong>Nome:</strong> '+escapeHtml(nomeCliente(a.IdCliente))+'</div>'+
+          '<div style="margin-top:4px;"><strong>Data:</strong> '+dataFmt+'</div>'+
+        '</div>'+
       '</div>'+
     '</div>';
 
