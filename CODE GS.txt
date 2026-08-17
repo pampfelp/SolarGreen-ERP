@@ -150,6 +150,7 @@ function handleRequest(e) {
     if (action === 'gerarPdfOS')                 return jsonOutput(actionGerarPdfOS(body));
     if (action === 'enviarOSParaAssinatura')     return jsonOutput(actionEnviarOSParaAssinatura(body));
     if (action === 'verificarStatusOS')          return jsonOutput(actionVerificarStatusOS(body));
+    if (action === 'enviarContratoParaAssinatura') return jsonOutput(actionEnviarContratoParaAssinatura(body));
 
     // ── Catálogo de produtos (módulos e inversores) — dimensionamento solar ──
     if (action === 'getCatalogoProdutos')  return jsonOutput(getCatalogoProdutos());
@@ -1603,6 +1604,7 @@ function updateCliente(body) {
   var nomeCol = colIdx['Nome Razao Social'] !== undefined ? colIdx['Nome Razao Social'] : colIdx['Nome'];
   var cpfCol  = colIdx['CPF ou CNPJ']       !== undefined ? colIdx['CPF ou CNPJ']       : colIdx['CPF'];
   var endCol  = colIdx['Endereco'];
+  var emailCol      = colIdx['Email'];
   var cpfEqCol      = colIdx['CPFEquatorial'];
   var dataNascEqCol = colIdx['DataNascimentoEquatorial'];
 
@@ -1615,6 +1617,9 @@ function updateCliente(body) {
   if (body.endereco !== undefined && body.endereco !== null && endCol !== undefined) {
     sheet.getRange(rowIdx, endCol + 1).setValue(body.endereco);
   }
+  if (body.email !== undefined && body.email !== null && emailCol !== undefined) {
+    sheet.getRange(rowIdx, emailCol + 1).setValue(body.email);
+  }
   if (body.cpfEquatorial !== undefined && body.cpfEquatorial !== null && cpfEqCol !== undefined) {
     sheet.getRange(rowIdx, cpfEqCol + 1).setValue(body.cpfEquatorial);
   }
@@ -1624,7 +1629,7 @@ function updateCliente(body) {
 
   return {
     ok: true, acao: 'atualizado', idCliente: idCliente,
-    nome: body.nome, cpf: body.cpf, endereco: body.endereco,
+    nome: body.nome, cpf: body.cpf, endereco: body.endereco, email: body.email,
     cpfEquatorial: body.cpfEquatorial, dataNascimentoEquatorial: body.dataNascimentoEquatorial
   };
 }
@@ -3131,18 +3136,17 @@ function actionGerarPdfOS(body) {
  * NUNCA no código-fonte — configure em ⚙️ Configurações do projeto >
  * Script Properties (veja o topo deste arquivo pro passo a passo).
  */
-function actionEnviarOSParaAssinatura(body) {
-  var idAgendamento = body.idAgendamento, fileId = body.fileId,
-      clienteNome = body.clienteNome, clienteEmail = body.clienteEmail;
-  if (!fileId) return { ok: false, erro: 'Gere o PDF da Ordem de Serviço antes de enviar pra assinatura.' };
-  if (!clienteEmail) return { ok: false, erro: 'O cliente precisa ter um e-mail cadastrado pra receber o link de assinatura.' };
-  if (!isVendedorDoClienteOuAdmin_(body.solicitanteId, idAgendamento)) {
-    return { ok: false, erro: 'Sem permissão para essa ordem de serviço.' };
-  }
-  if (!agendamentoEstaConcluido_(findAgendamentoRowById(idAgendamento))) {
-    return { ok: false, erro: 'A Ordem de Serviço só pode ser enviada pra assinatura depois que o atendimento é marcado como Concluído.' };
-  }
-
+/**
+ * Faz a parte em comum de mandar QUALQUER documento pra Autentique — um
+ * único signatário, via GraphQL multipart (o "GraphQL multipart request
+ * spec" que a Autentique exige pra upload de arquivo: 3 partes —
+ * "operations" com a query+variáveis e o campo do arquivo como null, "map"
+ * apontando qual parte do multipart preenche qual variável, e a parte com
+ * o arquivo em si). Usada tanto pela Ordem de Serviço quanto pelo Contrato
+ * — cada chamador cuida só de onde salvar o resultado (link/status/id).
+ * Retorna { ok:false, erro } OU { ok:true, documento, link, sandbox }.
+ */
+function criarDocumentoNaAutentique_(fileId, clienteNome, clienteEmail, nomeDocumento) {
   var props = PropertiesService.getScriptProperties();
   var token = props.getProperty('AUTENTIQUE_API_TOKEN');
   if (!token) return { ok: false, erro: 'Configure AUTENTIQUE_API_TOKEN em Project Settings > Script Properties.' };
@@ -3152,18 +3156,14 @@ function actionEnviarOSParaAssinatura(body) {
   try {
     blob = DriveApp.getFileById(fileId).getBlob();
   } catch (err) {
-    return { ok: false, erro: 'Não encontrei o PDF da Ordem de Serviço no Drive (fileId inválido).' };
+    return { ok: false, erro: 'Não encontrei o PDF no Drive (fileId inválido).' };
   }
 
-  // Mesmo "GraphQL multipart request spec" que a Autentique exige pra
-  // upload de arquivo: 3 partes — "operations" (query+variáveis, com o
-  // campo do arquivo como null), "map" (aponta qual parte do multipart
-  // preenche qual variável) e a parte com o arquivo em si.
   var query = 'mutation CreateDocumentMutation($document: DocumentInput!, $signers: [SignerInput!]!, $file: Upload!) { ' +
     'createDocument(document: $document, signers: $signers, file: $file, sandbox: ' + (sandbox ? 'true' : 'false') + ') { ' +
     'id name signatures { public_id email link { short_link } } } }';
   var variables = {
-    document: { name: body.nomeDocumento || ('Ordem de Serviço - ' + (clienteNome || 'Cliente')) },
+    document: { name: nomeDocumento || (clienteNome || 'Cliente') },
     signers: [{ email: clienteEmail, name: clienteNome || '', action: 'SIGN' }],
     file: null
   };
@@ -3191,6 +3191,25 @@ function actionEnviarOSParaAssinatura(body) {
   var assinatura = (documento.signatures || [])[0] || {};
   var link = assinatura.link ? assinatura.link.short_link : null;
 
+  return { ok: true, documento: documento, link: link, sandbox: sandbox };
+}
+
+function actionEnviarOSParaAssinatura(body) {
+  var idAgendamento = body.idAgendamento, fileId = body.fileId,
+      clienteNome = body.clienteNome, clienteEmail = body.clienteEmail;
+  if (!fileId) return { ok: false, erro: 'Gere o PDF da Ordem de Serviço antes de enviar pra assinatura.' };
+  if (!clienteEmail) return { ok: false, erro: 'O cliente precisa ter um e-mail cadastrado pra receber o link de assinatura.' };
+  if (!isVendedorDoClienteOuAdmin_(body.solicitanteId, idAgendamento)) {
+    return { ok: false, erro: 'Sem permissão para essa ordem de serviço.' };
+  }
+  if (!agendamentoEstaConcluido_(findAgendamentoRowById(idAgendamento))) {
+    return { ok: false, erro: 'A Ordem de Serviço só pode ser enviada pra assinatura depois que o atendimento é marcado como Concluído.' };
+  }
+
+  var resultado = criarDocumentoNaAutentique_(fileId, clienteNome, clienteEmail, body.nomeDocumento || ('Ordem de Serviço - ' + (clienteNome || 'Cliente')));
+  if (!resultado.ok) return resultado;
+  var documento = resultado.documento, link = resultado.link;
+
   var found = findAgendamentoRowById(idAgendamento);
   if (found) {
     if (found.colIdx['LinkAssinaturaOS'])      found.sheet.getRange(found.rowIndex, found.colIdx['LinkAssinaturaOS']).setValue(link || '');
@@ -3199,7 +3218,7 @@ function actionEnviarOSParaAssinatura(body) {
     if (found.colIdx['AutentiqueDocId'])       found.sheet.getRange(found.rowIndex, found.colIdx['AutentiqueDocId']).setValue(documento.id);
   }
 
-  return { ok: true, autentiqueDocId: documento.id, link: link, sandbox: sandbox };
+  return { ok: true, autentiqueDocId: documento.id, link: link, sandbox: resultado.sandbox };
 }
 
 /**
@@ -3272,6 +3291,86 @@ function actionVerificarStatusOS(body) {
     ok: true, status: statusTexto, assinado: !!assinatura.signed, refused: refused,
     reason: eventos.reason || null, link: assinatura.link ? assinatura.link.short_link : null
   };
+}
+
+// ══════════════ ASSINATURA ELETRÔNICA DO CONTRATO (tela Proposta) ══════════════
+//
+// Mesma ideia da Ordem de Serviço (HTML montado no navegador -> PDF de
+// verdade -> Autentique), mas num único passo só, porque aqui não existe
+// nenhum registro prévio (tipo IdAgendamento) pra encadear duas chamadas —
+// a tela de Proposta ("aba Contrato") não tem login/sessão de usuário nem
+// salva o contrato em lugar nenhum antes de gerar o PDF, só a "chave"
+// compartilhada já valida no roteador (mesmo modelo de confiança que
+// updateCliente já usa nessa tela). Cada envio cria uma linha nova na aba
+// "Contratos Assinados", como um registro/auditoria de quando cada contrato
+// foi mandado pra assinar — não é um cadastro editável de contrato.
+
+var CONTRATOS_ASSINADOS_HEADERS = [
+  'IdRegistro','IdCliente','ClienteNome','ClienteEmail','TipoContrato',
+  'PDFUrl','PDFFileId','LinkAssinatura','StatusAssinatura','AutentiqueDocId','EnviadoEm'
+];
+
+function getOrCreateContratosAssinadosSheet_() {
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = getSheetSafe('Contratos Assinados');
+  if (!sheet) {
+    sheet = ss.insertSheet('Contratos Assinados');
+    sheet.getRange(1, 1, 1, CONTRATOS_ASSINADOS_HEADERS.length).setValues([CONTRATOS_ASSINADOS_HEADERS]);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function getOrCreatePastaContratosProposta_() {
+  var nomePasta = 'Solar Green - Contratos Assinados';
+  var it = DriveApp.getFoldersByName(nomePasta);
+  if (it.hasNext()) return it.next();
+  return DriveApp.createFolder(nomePasta);
+}
+
+var TIPOS_CONTRATO_ASSINAVEIS_ = { monitoramento: true, manutencao: true };
+
+/**
+ * action: enviarContratoParaAssinatura — body { idCliente, clienteNome,
+ *   clienteEmail, tipoContrato, html, nomeDocumento }
+ * "html" é o MESMO documento que a tela já monta pro botão "Imprimir/PDF"
+ * do Contrato (composeMonitoramento/composeManutencao). Só os tipos em
+ * TIPOS_CONTRATO_ASSINAVEIS_ podem ser mandados pra assinatura (Recibo e
+ * Procuração continuam só com impressão).
+ */
+function actionEnviarContratoParaAssinatura(body) {
+  var tipoContrato = body.tipoContrato, html = body.html,
+      clienteNome = body.clienteNome, clienteEmail = body.clienteEmail;
+  if (!html) return { ok: false, erro: 'Faltam os dados do contrato.' };
+  if (!TIPOS_CONTRATO_ASSINAVEIS_[tipoContrato]) {
+    return { ok: false, erro: 'Esse tipo de documento não pode ser enviado pra assinatura digital.' };
+  }
+  if (!clienteEmail) return { ok: false, erro: 'O cliente precisa ter um e-mail cadastrado pra receber o link de assinatura.' };
+
+  try {
+    var pasta = getOrCreatePastaContratosProposta_();
+    var nomeArquivo = 'Contrato - ' + (clienteNome || 'Cliente') + ' - ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT-3', 'dd-MM-yyyy HH-mm');
+
+    html = embutirFotosDriveComoBase64_(html);
+    var blobHtml = Utilities.newBlob(html, 'text/html', nomeArquivo + '.html');
+    var pdfBlob = blobHtml.getAs('application/pdf').setName(nomeArquivo + '.pdf');
+    var arquivo = pasta.createFile(pdfBlob);
+    arquivo.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+    var resultado = criarDocumentoNaAutentique_(arquivo.getId(), clienteNome, clienteEmail, body.nomeDocumento || ('Contrato - ' + (clienteNome || 'Cliente')));
+    if (!resultado.ok) return resultado;
+    var documento = resultado.documento, link = resultado.link;
+
+    var sheet = getOrCreateContratosAssinadosSheet_();
+    sheet.appendRow([
+      generateShortId(), body.idCliente || '', clienteNome || '', clienteEmail,
+      tipoContrato, arquivo.getUrl(), arquivo.getId(), link || '', 'Enviado', documento.id, new Date()
+    ]);
+
+    return { ok: true, url: arquivo.getUrl(), fileId: arquivo.getId(), autentiqueDocId: documento.id, link: link };
+  } catch (err) {
+    return { ok: false, erro: 'Falha ao gerar/enviar o contrato pra assinatura: ' + err.message };
+  }
 }
 
 // ── Diagnóstico ─────────────────────────────────────────────────────
