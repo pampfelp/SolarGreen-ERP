@@ -1459,6 +1459,22 @@
   </div>
 </div>
 
+<div class="modal-overlay hidden" id="osEnviadaModal">
+  <div class="modal-card" style="max-width:440px;">
+    <h3>Ordem de Serviço enviada ✓</h3>
+    <div class="lstep-sub" style="font-size:12.5px;color:var(--ink-faint);margin-bottom:14px;">Documento enviado pro e-mail <strong id="osEnviada-email"></strong> com sucesso.</div>
+    <div class="uform-field">
+      <label>Link de assinatura</label>
+      <input type="text" id="osEnviada-link" readonly style="width:100%;font-family:var(--sans);font-size:12.5px;border:1px solid var(--line);border-radius:7px;padding:9px 12px;background:#F2F7F2;color:var(--ink);">
+    </div>
+    <div class="lstep-sub" style="font-size:12px;color:var(--ink-faint);margin-top:-4px;">Se preferir, copie o link acima e mande direto pro cliente assinar pelo WhatsApp — ele também continua disponível depois, no painel deste agendamento.</div>
+    <div class="modal-actions">
+      <button class="reset-btn" id="osEnviada-copiarBtn">📋 Copiar link</button>
+      <button class="connect-btn" id="osEnviada-okBtn">OK</button>
+    </div>
+  </div>
+</div>
+
 <div class="ad-backdrop" id="adBackdrop"></div>
 <div id="viewDetalhe" class="side-panel">
   <div class="ad-top">
@@ -5844,6 +5860,26 @@
   });
   document.getElementById('motivoCancelamentoModal').addEventListener('click',function(e){ if(e.target.id==='motivoCancelamentoModal')fecharModalMotivoCancelamento(null); });
 
+  // Modal de confirmação depois de mandar a OS pra assinatura — fica na
+  // frente até a pessoa clicar OK (não some sozinho como um toast), com o
+  // link já pronto pra copiar e mandar manualmente por WhatsApp se quiser.
+  function abrirModalOSEnviada(email,link){
+    document.getElementById('osEnviada-email').textContent=email;
+    document.getElementById('osEnviada-link').value=link||'';
+    document.getElementById('osEnviadaModal').classList.remove('hidden');
+  }
+  function fecharModalOSEnviada(){ document.getElementById('osEnviadaModal').classList.add('hidden'); }
+  document.getElementById('osEnviada-okBtn').addEventListener('click',fecharModalOSEnviada);
+  document.getElementById('osEnviada-copiarBtn').addEventListener('click',function(){
+    var link=document.getElementById('osEnviada-link').value;
+    navigator.clipboard.writeText(link).then(function(){
+      showAgToast('Link copiado — já pode colar no WhatsApp.');
+    }).catch(function(){
+      showAgToast('Não foi possível copiar automaticamente. Link: '+link,true);
+    });
+  });
+  document.getElementById('osEnviadaModal').addEventListener('click',function(e){ if(e.target.id==='osEnviadaModal')fecharModalOSEnviada(); });
+
   /**
    * Atualização "otimista": muda a linha da tabela e o painel na hora, sem
    * esperar o servidor — se der erro, desfaz e avisa. Se o novo status for
@@ -6201,7 +6237,14 @@
         }).then(function(resp2){
           btn.disabled=false; btn.textContent=textoOriginal;
           if(!resp2||!resp2.ok){ showAgToast((resp2&&resp2.erro)||'PDF gerado, mas não foi possível enviar pra assinatura.',true); return; }
-          showAgToast('Ordem de Serviço enviada pra assinatura — e-mail disparado pra '+cliente.Email+'.');
+          // Atualiza localmente (mesmo objeto referenciado em "agendamentos")
+          // e reabre o painel pra seção "Assinatura digital da OS" (com o
+          // link/status) já aparecer na hora, sem precisar fechar e reabrir.
+          a.LinkAssinaturaOS=resp2.link||'';
+          a.StatusAssinaturaOS='Enviado';
+          a.EnviadoAssinaturaOSEm=new Date().toLocaleString('pt-BR');
+          abrirPainelDetalhe(a.IdAgendamento);
+          abrirModalOSEnviada(cliente.Email,resp2.link||'');
         });
       }).catch(function(err){
         btn.disabled=false; btn.textContent=textoOriginal;
