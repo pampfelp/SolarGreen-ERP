@@ -3146,6 +3146,13 @@ function actionGerarPdfOS(body) {
  * — cada chamador cuida só de onde salvar o resultado (link/status/id).
  * Retorna { ok:false, erro } OU { ok:true, documento, link, sandbox }.
  */
+// Identidade da Solar Green como SIGNATÁRIA de verdade na Autentique (não
+// só texto no PDF) — precisa ser o mesmo e-mail dono do AUTENTIQUE_API_TOKEN
+// configurado em Script Properties, senão o signDocument() (auto-assinatura)
+// abaixo falha com "signature_not_found".
+var EMPRESA_SIGNATARIO_EMAIL_ = 'solargreensuporte@gmail.com';
+var EMPRESA_SIGNATARIO_NOME_  = 'Solar Green Suporte';
+
 function criarDocumentoNaAutentique_(fileId, clienteNome, clienteEmail, nomeDocumento) {
   var props = PropertiesService.getScriptProperties();
   var token = props.getProperty('AUTENTIQUE_API_TOKEN');
@@ -3159,12 +3166,18 @@ function criarDocumentoNaAutentique_(fileId, clienteNome, clienteEmail, nomeDocu
     return { ok: false, erro: 'Não encontrei o PDF no Drive (fileId inválido).' };
   }
 
+  // Dois signatários: o cliente (recebe e-mail da própria Autentique) e a
+  // Solar Green (assinada automaticamente logo abaixo, via signDocument —
+  // não precisa de ninguém clicar em nada do nosso lado).
   var query = 'mutation CreateDocumentMutation($document: DocumentInput!, $signers: [SignerInput!]!, $file: Upload!) { ' +
     'createDocument(document: $document, signers: $signers, file: $file, sandbox: ' + (sandbox ? 'true' : 'false') + ') { ' +
     'id name signatures { public_id email link { short_link } } } }';
   var variables = {
     document: { name: nomeDocumento || (clienteNome || 'Cliente') },
-    signers: [{ email: clienteEmail, name: clienteNome || '', action: 'SIGN' }],
+    signers: [
+      { email: clienteEmail, name: clienteNome || '', action: 'SIGN' },
+      { email: EMPRESA_SIGNATARIO_EMAIL_, name: EMPRESA_SIGNATARIO_NOME_, action: 'SIGN' }
+    ],
     file: null
   };
   var operations = JSON.stringify({ query: query, variables: variables });
@@ -3188,8 +3201,24 @@ function criarDocumentoNaAutentique_(fileId, clienteNome, clienteEmail, nomeDocu
   }
   var documento = json.data && json.data.createDocument;
   if (!documento) return { ok: false, erro: 'Autentique não retornou o documento criado.' };
-  var assinatura = (documento.signatures || [])[0] || {};
-  var link = assinatura.link ? assinatura.link.short_link : null;
+  var assinaturaCliente = (documento.signatures || []).filter(function (s) { return s.email === clienteEmail; })[0] || {};
+  var link = assinaturaCliente.link ? assinaturaCliente.link.short_link : null;
+
+  // Assina automaticamente em nome da Solar Green (a conta dona do token)
+  // — sem isso o documento ficaria "aguardando" as duas partes pra sempre,
+  // já que ninguém entra na Autentique pra clicar em assinar manualmente.
+  // Se falhar por qualquer motivo, não derruba o envio inteiro: o cliente
+  // já recebeu o e-mail dele normalmente, só a nossa assinatura que fica
+  // pendente (dá pra assinar depois direto pela Autentique, se precisar).
+  try {
+    var querySign = 'mutation { signDocument(id: ' + JSON.stringify(String(documento.id)) + ') }';
+    UrlFetchApp.fetch(AUTENTIQUE_GRAPHQL_URL_, {
+      method: 'post',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      payload: JSON.stringify({ query: querySign }),
+      muteHttpExceptions: true
+    });
+  } catch (err) { /* não é crítico — o documento já foi criado e enviado normalmente */ }
 
   return { ok: true, documento: documento, link: link, sandbox: sandbox };
 }
@@ -3242,6 +3271,16 @@ function actionVerificarStatusOS(body) {
   var autentiqueDocId = found && found.colIdx['AutentiqueDocId'] ? found.values[found.colIdx['AutentiqueDocId'] - 1] : '';
   if (!autentiqueDocId) return { ok: false, erro: 'Esta Ordem de Serviço ainda não foi enviada pra assinatura.' };
 
+  // Precisa saber o e-mail do CLIENTE especificamente (não da Solar Green,
+  // que agora também é signatária) pra achar a assinatura certa na resposta.
+  var clienteEmailOS = '';
+  if (found && found.colIdx['IdCliente']) {
+    var idClienteOS = found.values[found.colIdx['IdCliente'] - 1];
+    var clientesOS = sheetToObjects(getSheet(CONFIG.ABA_CLIENTES));
+    var clienteObjOS = clientesOS.filter(function (c) { return String(c.IdCliente) === String(idClienteOS); })[0];
+    clienteEmailOS = clienteObjOS ? String(clienteObjOS.Email || '') : '';
+  }
+
   var props = PropertiesService.getScriptProperties();
   var token = props.getProperty('AUTENTIQUE_API_TOKEN');
   if (!token) return { ok: false, erro: 'Configure AUTENTIQUE_API_TOKEN em Project Settings > Script Properties.' };
@@ -3272,7 +3311,8 @@ function actionVerificarStatusOS(body) {
   }
   var documento = json.data && json.data.document;
   if (!documento) return { ok: false, erro: 'Documento não encontrado na Autentique.' };
-  var assinatura = (documento.signatures || [])[0] || {};
+  var assinatura = (documento.signatures || []).filter(function (s) { return s.email === clienteEmailOS; })[0]
+    || (documento.signatures || [])[0] || {};
   var eventos = assinatura.email_events || {};
 
   var statusTexto, refused = !!(eventos.refused || eventos.reason);
