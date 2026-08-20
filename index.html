@@ -3677,6 +3677,12 @@
   function isDiaUtil(d){var dow=d.getDay();return dow!==0&&dow!==6;}
   function countDiasUteis(start,end){var count=0,cursor=new Date(start.getTime());while(cursor<=end){if(isDiaUtil(cursor))count++;cursor.setDate(cursor.getDate()+1);}return count;}
   function isVendedorAtivo(v){return(v.Tipo||'').trim()==='Vendedor'&&(v.Status||'').trim()==='Ativo';}
+  // Vendas feitas pelo CEO não entram nos indicadores/meta agregados da
+  // empresa (ele já não conta como "vendedor ativo" pra divisão de meta, mas
+  // as vendas dele continuavam inflando Faturado/Ticket/Lucro/Saldo) — mas
+  // continuam aparecendo normalmente na linha dele na tabela por vendedor,
+  // e se alguém filtrar especificamente por ele no seletor.
+  function vendaEhDeCEO(v){var vd=vendedoresMap[v.idVendedor];return !!(vd&&(vd.Tipo||'').trim().toLowerCase()==='ceo');}
   function nomeFor(id){var v=vendedoresMap[id];return(v&&v.Nome)||('Vendedor '+String(id).slice(0,8));}
 
   function processVendedores(list){vendedoresMap={};vendedoresAtivosVenda=[];list.forEach(function(v){if(!v.IdVendedor)return;vendedoresMap[v.IdVendedor]=v;if(isVendedorAtivo(v))vendedoresAtivosVenda.push(v.IdVendedor);});}
@@ -3773,6 +3779,7 @@
     var fatTotalPeriodo=vendasRecordsFaturamento.filter(function(v){
       if(from&&v.dateKey<from)return false;
       if(to&&v.dateKey>to)return false;
+      if(vendaEhDeCEO(v))return false;
       return true;
     }).reduce(function(s,v){return s+v.valor;},0);
     if(fatTotalPeriodo<=0)return 0;
@@ -3823,23 +3830,31 @@
     document.getElementById('metaDiaria').textContent=fmtMoney(metaDiariaSelecionada);document.getElementById('metaDiariaSub').textContent='meta '+(vs==='__all__'?'da empresa':'individual')+' ÷ '+ctx.diasUteisRestantes+' dia(s) útil(eis) restante(s)';
     document.getElementById('metaAteHoje').textContent=fmtMoney(metaAteHojeSelecionada);document.getElementById('metaAteHojeSub').textContent=ctx.diasUteisDecorridos+' dia(s) útil(eis) decorrido(s)';
     document.getElementById('metaHint').textContent=vs==='__all__'?'soma das metas de '+ctx.nVendedoresAtivos+' vendedor(es) ativo(s), manuais quando existirem':'cota individual de '+nomeFor(vs);
-    var fat=filtered.vendas.reduce(function(s,v){return s+v.valor;},0),ma=metaSelecionada;
+    // Indicadores agregados da empresa ("Todos os vendedores") não contam
+    // vendas nem custos do CEO — mas só nessa visão agregada: se alguém
+    // filtrar especificamente pelo CEO no seletor, os números dele aparecem
+    // normalmente (é o que a pessoa pediu ao filtrar por ele). filtered.vendas
+    // e filtered.custos continuam intactos pra tabela por vendedor abaixo.
+    var vendasKPI=vs==='__all__'?filtered.vendas.filter(function(v){return !vendaEhDeCEO(v);}):filtered.vendas;
+    var vendaIdsCEO={};filtered.vendasTodas.forEach(function(v){if(vendaEhDeCEO(v))vendaIdsCEO[v.idVenda]=true;});
+    var custosKPI=vs==='__all__'?filtered.custos.filter(function(c){return !vendaIdsCEO[c.idVenda];}):filtered.custos;
+    var fat=vendasKPI.reduce(function(s,v){return s+v.valor;},0),ma=metaSelecionada;
     var pct=ma>0?(fat/ma)*100:0,fill=document.getElementById('progressFill');
     fill.style.width=Math.min(pct,100)+'%';fill.classList.remove('over','behind');
     if(pct>=100)fill.classList.add('over');else if(pct<(ctx.diasUteisMes>0?(ctx.diasUteisDecorridos/ctx.diasUteisMes)*100-15:0))fill.classList.add('behind');
     document.getElementById('progressPct').textContent=pct.toFixed(1).replace('.',',')+' %';
     document.getElementById('progressFaturado').textContent=fmtMoney(fat)+' faturado';
     document.getElementById('progressFaltante').textContent=fmtMoney(Math.max(ma-fat,0))+' faltam';
-    var nV=filtered.vendas.length,tm=nV>0?fat/nV:0,tmH=vendasRecordsFaturamento.length>0?vendasRecordsFaturamento.reduce(function(s,v){return s+v.valor;},0)/vendasRecordsFaturamento.length:0;
+    var nV=vendasKPI.length,tm=nV>0?fat/nV:0,tmH=vendasRecordsFaturamento.length>0?vendasRecordsFaturamento.reduce(function(s,v){return s+v.valor;},0)/vendasRecordsFaturamento.length:0;
     var ticket=tm>0?tm:tmH,ticketProj=tm<=0&&tmH>0;
     var mr=Math.max(ma-fat,0),vn=ticket>0?Math.ceil(mr/ticket):(mr>0?null:0);
     var vnt=ticket>0?Math.ceil(ma/ticket):(ma>0?null:0);
-    var cv=filtered.custos.reduce(function(s,c){return s+c.valor;},0),ce=filtered.custosEscritorio.reduce(function(s,c){return s+c.valor;},0);
+    var cv=custosKPI.reduce(function(s,c){return s+c.valor;},0),ce=filtered.custosEscritorio.reduce(function(s,c){return s+c.valor;},0);
     document.getElementById('kpiFaturado').textContent=fmtMoney(fat);document.getElementById('kpiFaturadoSub').textContent=nV+' venda(s)';
     document.getElementById('kpiTicket').textContent=fmtMoney(ticket);document.getElementById('kpiTicketSub').textContent=ticketProj?'média histórica (projetado)':(vs==='__all__'?'geral':'de '+nomeFor(vs));
     document.getElementById('kpiVendasFeitas').textContent=nV;
     document.getElementById('kpiVendasNecessarias').textContent=vn===null?'—':vn;document.getElementById('kpiVendasNecessariasSub').textContent=vn===null?'sem ticket médio':(vn===0?'meta atingida':'restantes');
-    document.getElementById('kpiCustosVenda').textContent=fmtMoney(cv);document.getElementById('kpiCustosVendaSub').textContent=filtered.custos.length+' lançamento(s) pago(s)';
+    document.getElementById('kpiCustosVenda').textContent=fmtMoney(cv);document.getElementById('kpiCustosVendaSub').textContent=custosKPI.length+' lançamento(s) pago(s)';
     document.getElementById('kpiCustosEscritorio').textContent=fmtMoney(ce);
     var aporte=filtered.vendasTodas.filter(function(v){return v.idCliente===ID_CLIENTE_APORTE_SOCIOS;}).reduce(function(s,v){return s+v.valor;},0);
     document.getElementById('kpiAporteSocios').textContent=fmtMoney(aporte);
