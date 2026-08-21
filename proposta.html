@@ -684,7 +684,7 @@ function buildMaps(resp){
     if(!c.IdCliente)return;
     var obj={
       id:c.IdCliente,
-      nome:(c['Nome Razao Social']||c.Nome||c.IdCliente).trim(),
+      nome:String(c['Nome Razao Social']||c.Nome||c.IdCliente).trim(),
       telefone:String(c.Telefone||'').trim(),
       email:String(c.Email||'').trim(),
       endereco:String(c.Endereco||'').trim(),
@@ -701,7 +701,7 @@ function buildMaps(resp){
     if(!s.IdServico)return;
     var obj={
       id:s.IdServico,
-      nome:(s['Nome Servico']||s.NomeServico||s.Nome||s.IdServico).trim(),
+      nome:String(s['Nome Servico']||s.NomeServico||s.Nome||s.IdServico).trim(),
       tipoCobranca:(s['Tipo Cobranca']||s.TipoCobranca||'Unitário').trim(),
       tipoServico:(s.TipoServico||'').trim(),
       descricao:(s.Descricao||s.Descrição||'').trim(),
