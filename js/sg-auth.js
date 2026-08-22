@@ -25,7 +25,20 @@
     // solicitanteId própria (chamadas já corrigidas manualmente) continua
     // funcionando igual.
     var s=window.SG_SESSION;
-    var auto=(s&&s.idVendedor)?{solicitanteId:s.idVendedor}:{};
+    // Nesse piloto, quem está logado tem um uid do Firebase Auth como
+    // idVendedor — não é uma linha de verdade na aba Vendedores do Apps
+    // Script. Se mandarmos esse uid como solicitanteId pro backend antigo, o
+    // Code.gs (linha ~92, isSolicitanteAtivo_) não reconhece o uid, entende
+    // que "esse vendedor foi desativado" e devolve sessaoInvalida:true — o
+    // que faz o app DESLOGAR SOZINHO (clearSession + reload) alguns segundos
+    // depois do login, assim que o aquecimento em segundo plano chama as
+    // outras abas ainda não convertidas pro Firestore (Agendamentos, Planos,
+    // Relatórios, etc.). Era isso que parecia "os registros somem": não eram
+    // clientes/vendas/funil se apagando, era a sessão inteira sendo derrubada
+    // por uma checagem do backend antigo que não tem como saber desse uid.
+    // Por isso, não mandamos solicitanteId nas chamadas que ainda vão pro
+    // Apps Script — só as ações do piloto (Firestore) usam window.SG_SESSION.
+    var auto={};
     var body=Object.assign({action:action,chave:apiKey()},auto,payload||{});
     // 'ponto_api_url'/'ponto_api_key' também são usadas pela tela "Conectar
     // por link" (Ponto/Vendas/Funil) pra apontar pra uma planilha própria —
