@@ -1080,8 +1080,6 @@
     document.getElementById('f-dateFrom').value=dates[0];document.getElementById('f-dateTo').value=dates[dates.length-1];
   }
 
-  function showConnectBar(){ document.getElementById('f-connectCard').style.display='none';document.getElementById('f-connectBar').style.display='flex'; }
-
   function aplicarDadosFunil(resp){
     var fVendedores=window.SGAuth?window.SGAuth.filterByOwner(resp.vendedores||[],'IdVendedor'):(resp.vendedores||[]);
     var fFunil=window.SGAuth?window.SGAuth.filterByOwner(resp.funil||[],'IdVendedor'):(resp.funil||[]);
@@ -1102,24 +1100,20 @@
     populateVendedorSelect();setDefaultRange();
     document.getElementById('f-emptyState').style.display='none';document.getElementById('f-mainContent').style.display='block';
     document.getElementById('f-appVersion').textContent='v'+APP_VERSION;
-    render();showConnectBar();
+    render();
   }
 
   function fetchData(showStatus){
     var cache=window.SGCache&&window.SGCache.get('funil');
     var temCache=!!(cache&&cache.dados);
     if(temCache)aplicarDadosFunil(cache.dados);
-    if(showStatus&&!temCache){document.getElementById('f-connectStatus').style.display='flex';document.getElementById('f-connectStatus').className='connect-status';document.getElementById('f-connectStatusText').textContent='Conectando…';}
-    document.getElementById('f-connectBtn').disabled=true;
     var epocaInicio=_epoca.atual();
     apiCall('getFunilData').then(function(resp){
-      document.getElementById('f-connectBtn').disabled=false;
-      if(!resp||!resp.ok){if(showStatus&&!temCache){document.getElementById('f-connectStatus').className='connect-status error';document.getElementById('f-connectStatusText').textContent=(resp&&resp.erro)||'Não foi possível conectar.';}return;}
+      if(!resp||!resp.ok){if(showStatus&&!temCache)window.SGToast.mostrar((resp&&resp.erro)||'Não foi possível conectar.',true);return;}
       if(window.SGCache)window.SGCache.set('funil',resp);
       if(_epoca.atual()!==epocaInicio)return;
       aplicarDadosFunil(resp);
-      if(showStatus){document.getElementById('f-connectStatus').className='connect-status online';document.getElementById('f-connectStatusText').textContent='Conectado.';}
-    }).catch(function(err){document.getElementById('f-connectBtn').disabled=false;if(showStatus&&!temCache){document.getElementById('f-connectStatus').className='connect-status error';document.getElementById('f-connectStatusText').textContent='Erro: '+err.message;}});
+    }).catch(function(err){if(showStatus&&!temCache)window.SGToast.mostrar('Erro: '+err.message,true);});
   }
 
   function init(){
@@ -1127,7 +1121,6 @@
     if(!window.SG_SESSION)return;
     _initialized=true;
     document.getElementById('f-appVersion').textContent='v'+APP_VERSION;
-    document.getElementById('f-apiUrl').value=getApiUrl();document.getElementById('f-apiKey').value=getApiKey();
     document.getElementById('f-dateFrom').addEventListener('change',render);
     document.getElementById('f-dateTo').addEventListener('change',render);
     document.getElementById('f-selVendedor').addEventListener('change',render);
@@ -1159,21 +1152,6 @@
         render();
       });
     });
-    if(window.SGAuth&&!window.SGAuth.isAdmin())document.getElementById('f-showConnectFormBtn').style.display='none';
-    else document.getElementById('f-showConnectFormBtn').addEventListener('click',function(){document.getElementById('f-connectBar').style.display='none';document.getElementById('f-connectCard').style.display='block';});
-    document.getElementById('f-connectBtn').addEventListener('click',function(){
-      var url=document.getElementById('f-apiUrl').value.trim(),key=document.getElementById('f-apiKey').value.trim();
-      if(!url||!key)return;
-      // Só grava no localStorage se o link/chave realmente funcionar — veja o
-      // comentário equivalente no painel de Ponto Eletrônico.
-      var btnF=this;btnF.disabled=true;
-      fetch(url,{method:'POST',cache:'no-store',body:JSON.stringify({action:'ping',chave:key})}).then(function(r){return r.json();}).then(function(resp){
-        btnF.disabled=false;
-        if(!resp||!resp.ok){document.getElementById('f-connectStatus').style.display='flex';document.getElementById('f-connectStatus').className='connect-status error';document.getElementById('f-connectStatusText').textContent=(resp&&resp.erro)||'Não foi possível conectar — confira o link e a chave.';return;}
-        localStorage.setItem('ponto_api_url',url);localStorage.setItem('ponto_api_key',key);fetchData(true);
-      }).catch(function(err){btnF.disabled=false;document.getElementById('f-connectStatus').style.display='flex';document.getElementById('f-connectStatus').className='connect-status error';document.getElementById('f-connectStatusText').textContent='Erro: '+err.message;});
-    });
-
     function aplicarVisao(){
       var listaAtiva=visaoAtual==='lista';
       document.getElementById('f-listaWrap').style.display=listaAtiva?'block':'none';

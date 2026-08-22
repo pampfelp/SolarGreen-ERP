@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/app.css?v=20260822b">
 </head>
 <body>
 
@@ -218,27 +218,7 @@
     </div>
   </header>
 
-  <div class="connect-bar" id="p-connectBar" style="display:none;">
-    <span class="dot"></span>
-    <span id="p-connectBarText">Conectado à planilha</span>
-    <button class="connect-bar-link" id="p-showConnectFormBtn">trocar conexão</button>
-  </div>
-
-  <div class="connect-card" id="p-connectCard">
-    <h2>Conectar à planilha do Google Sheets</h2>
-    <div class="sub">Cole aqui o link da Web App e a chave que você configurou no Apps Script.</div>
-    <div class="connect-row">
-      <div class="connect-field">
-        <label for="p-apiUrl">Link da web app</label>
-        <input type="text" id="p-apiUrl" placeholder="https://script.google.com/macros/s/.../exec">
-      </div>
-      <div class="connect-field" style="max-width:220px;">
-        <label for="p-apiKey">Chave secreta</label>
-        <input type="password" id="p-apiKey" placeholder="sua chave">
-      </div>
-      <button class="connect-btn" id="p-connectBtn">Conectar</button>
-    </div>
-    <div class="connect-status" id="p-connectStatus" style="display:none;"><span class="dot"></span><span id="p-connectStatusText"></span></div>
+  <div id="p-connectCard">
     <button class="connect-toggle-manual" id="toggleManualBtn">Prefiro subir os arquivos manualmente</button>
   </div>
 
@@ -370,17 +350,6 @@
     <div><h1>Relatório de <span>Vendas</span></h1><div class="top-sub">Meta, projeção e conversão por colaborador · <span id="v-appVersion"></span></div></div>
     <div style="text-align:right;"><div class="clock" id="v-lastUpdate"></div><div class="sync-pill" id="v-syncPill" style="display:none;"><span class="dot"></span><span id="v-syncPillText">Sincronizado</span></div></div>
   </header>
-  <div class="connect-bar" id="v-connectBar" style="display:none;"><span class="dot"></span><span id="v-connectBarText">Conectado à planilha</span><button class="connect-bar-link" id="v-showConnectFormBtn">trocar conexão</button></div>
-  <div class="connect-card" id="v-connectCard">
-    <h2>Conectar à planilha do Google Sheets</h2>
-    <div class="sub">Cole aqui o link da Web App e a chave do Apps Script.</div>
-    <div class="connect-row">
-      <div class="connect-field"><label>Link da web app</label><input type="text" id="v-apiUrl" placeholder="https://script.google.com/macros/s/.../exec"></div>
-      <div class="connect-field" style="max-width:220px;"><label>Chave secreta</label><input type="password" id="v-apiKey" placeholder="sua chave"></div>
-      <button class="connect-btn" id="v-connectBtn">Conectar</button>
-    </div>
-    <div class="connect-status" id="v-connectStatus" style="display:none;"><span class="dot"></span><span id="v-connectStatusText"></span></div>
-  </div>
   <div id="v-mainContent" style="display:none;">
     <div class="filters">
       <div class="field"><label>Período de</label><input type="date" id="v-dateFrom"></div>
@@ -495,23 +464,6 @@
       <div class="sync-pill" id="f-syncPill" style="display:none;"><span class="dot"></span><span id="f-syncPillText">Sincronizado</span></div>
     </div>
   </header>
-
-  <div class="connect-bar" id="f-connectBar" style="display:none;">
-    <span class="dot"></span>
-    <span>Conectado à planilha</span>
-    <button class="connect-bar-link" id="f-showConnectFormBtn">trocar conexão</button>
-  </div>
-
-  <div class="connect-card" id="f-connectCard">
-    <h2>Conectar à planilha do Google Sheets</h2>
-    <div class="sub">Usa as mesmas credenciais das outras abas.</div>
-    <div class="connect-row">
-      <div class="connect-field"><label>Link da web app</label><input type="text" id="f-apiUrl" placeholder="https://script.google.com/macros/s/.../exec"></div>
-      <div class="connect-field" style="max-width:220px;"><label>Chave secreta</label><input type="password" id="f-apiKey" placeholder="sua chave"></div>
-      <button class="connect-btn" id="f-connectBtn">Conectar</button>
-    </div>
-    <div class="connect-status" id="f-connectStatus" style="display:none;"><span class="dot"></span><span id="f-connectStatusText"></span></div>
-  </div>
 
   <div id="f-mainContent" style="display:none;">
 
@@ -1673,25 +1625,25 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="js/firebase-init.js"></script>
-<script src="js/firestore-router.js"></script>
-<script src="js/sg-auth.js"></script>
-<script src="js/dashboard.js"></script>
-<script src="js/ponto.js"></script>
-<script src="js/vendas.js"></script>
-<script src="js/funil.js"></script>
-<script src="js/agendamentos.js"></script>
-<script src="js/clientes.js"></script>
-<script src="js/relatorios.js"></script>
-<script src="js/custos-venda.js"></script>
-<script src="js/custo-recorrente.js"></script>
-<script src="js/servicos.js"></script>
-<script src="js/catalogo.js"></script>
-<script src="js/metas.js"></script>
-<script src="js/planos.js"></script>
-<script src="js/usuarios.js"></script>
-<script src="js/permissoes.js"></script>
-<script src="js/controller.js"></script>
+<script src="js/firebase-init.js?v=20260822b"></script>
+<script src="js/firestore-router.js?v=20260822b"></script>
+<script src="js/sg-auth.js?v=20260822b"></script>
+<script src="js/dashboard.js?v=20260822b"></script>
+<script src="js/ponto.js?v=20260822b"></script>
+<script src="js/vendas.js?v=20260822b"></script>
+<script src="js/funil.js?v=20260822b"></script>
+<script src="js/agendamentos.js?v=20260822b"></script>
+<script src="js/clientes.js?v=20260822b"></script>
+<script src="js/relatorios.js?v=20260822b"></script>
+<script src="js/custos-venda.js?v=20260822b"></script>
+<script src="js/custo-recorrente.js?v=20260822b"></script>
+<script src="js/servicos.js?v=20260822b"></script>
+<script src="js/catalogo.js?v=20260822b"></script>
+<script src="js/metas.js?v=20260822b"></script>
+<script src="js/planos.js?v=20260822b"></script>
+<script src="js/usuarios.js?v=20260822b"></script>
+<script src="js/permissoes.js?v=20260822b"></script>
+<script src="js/controller.js?v=20260822b"></script>
 
 <div id="sg-install-banner">
   <span class="sg-ib-icon">📲</span>

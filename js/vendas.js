@@ -794,9 +794,6 @@
     });
   }
 
-  function showConnectBar(){document.getElementById('v-connectCard').style.display='none';document.getElementById('v-connectBar').style.display='flex';}
-  function showConnectForm(){document.getElementById('v-connectBar').style.display='none';document.getElementById('v-connectCard').style.display='block';}
-
   function aplicarDadosVendas(resp){
     var vVendedores=window.SGAuth?window.SGAuth.filterByOwner(resp.vendedores||[],'IdVendedor'):(resp.vendedores||[]);
     var vVendas=window.SGAuth?window.SGAuth.filterByOwner(resp.vendas||[],'IdVendedor'):(resp.vendas||[]);
@@ -816,7 +813,7 @@
     vendasRecordsFaturamento=vendasRecords.filter(function(v){return v.idCliente!==ID_CLIENTE_APORTE_SOCIOS;});
     populateSelects();setDefaultDateRange();
     document.getElementById('v-emptyState').style.display='none';document.getElementById('v-mainContent').style.display='block';render();
-    setSyncPill('ok','Sincronizado');showConnectBar();
+    setSyncPill('ok','Sincronizado');
   }
 
   function fetchFromApi(showStatus){
@@ -824,36 +821,17 @@
     var cache=window.SGCache&&window.SGCache.get('vendas');
     var temCache=!!(cache&&cache.dados);
     if(temCache)aplicarDadosVendas(cache.dados);
-    if(showStatus&&!temCache){document.getElementById('v-connectStatus').style.display='flex';document.getElementById('v-connectStatus').className='connect-status';document.getElementById('v-connectStatusText').textContent='Conectando…';}
-    var btn=document.getElementById('v-connectBtn');if(btn)btn.disabled=true;
     var epocaInicio=_epoca.atual();
     apiCall('getVendasData').then(function(resp){
-      if(btn)btn.disabled=false;
-      if(!resp||!resp.ok){if(showStatus&&!temCache){document.getElementById('v-connectStatus').className='connect-status error';document.getElementById('v-connectStatusText').textContent=(resp&&resp.erro)||'Não foi possível conectar.';}return;}
+      if(!resp||!resp.ok){if(showStatus&&!temCache)window.SGToast.mostrar((resp&&resp.erro)||'Não foi possível conectar.',true);return;}
       if(resp.diagnostico)console.log('[Vendas] Diagnóstico:',resp.diagnostico);
       if(window.SGCache)window.SGCache.set('vendas',resp);
       if(_epoca.atual()!==epocaInicio)return;
       aplicarDadosVendas(resp);
-      if(showStatus){document.getElementById('v-connectStatus').className='connect-status online';document.getElementById('v-connectStatusText').textContent='Conectado.';}
-    }).catch(function(err){if(btn)btn.disabled=false;if(showStatus&&!temCache){document.getElementById('v-connectStatus').className='connect-status error';document.getElementById('v-connectStatusText').textContent='Erro: '+err.message;}});
+    }).catch(function(err){if(showStatus&&!temCache)window.SGToast.mostrar('Erro: '+err.message,true);});
   }
 
-  if(window.SGAuth&&!window.SGAuth.isAdmin())document.getElementById('v-showConnectFormBtn').style.display='none';
-  else document.getElementById('v-showConnectFormBtn').addEventListener('click',showConnectForm);
-  document.getElementById('v-connectBtn').addEventListener('click',function(){
-    var url=document.getElementById('v-apiUrl').value.trim(),key=document.getElementById('v-apiKey').value.trim();
-    if(!url||!key){document.getElementById('v-connectStatus').style.display='flex';document.getElementById('v-connectStatus').className='connect-status error';document.getElementById('v-connectStatusText').textContent='Preencha o link e a chave.';return;}
-    // Só grava no localStorage se o link/chave realmente funcionar — veja o
-    // comentário equivalente no painel de Ponto Eletrônico.
-    var btnV=this;btnV.disabled=true;
-    document.getElementById('v-connectStatus').style.display='flex';document.getElementById('v-connectStatus').className='connect-status';document.getElementById('v-connectStatusText').textContent='Conectando…';
-    fetch(url,{method:'POST',cache:'no-store',body:JSON.stringify({action:'ping',chave:key})}).then(function(r){return r.json();}).then(function(resp){
-      btnV.disabled=false;
-      if(!resp||!resp.ok){document.getElementById('v-connectStatus').className='connect-status error';document.getElementById('v-connectStatusText').textContent=(resp&&resp.erro)||'Não foi possível conectar — confira o link e a chave.';return;}
-      setApiCreds(url,key);fetchFromApi(true);
-    }).catch(function(err){btnV.disabled=false;document.getElementById('v-connectStatus').className='connect-status error';document.getElementById('v-connectStatusText').textContent='Erro: '+err.message;});
-  });
-  (function autoConnect(){if(!window.SG_SESSION)return;var u=getApiUrl(),k=getApiKey();if(u&&k){document.getElementById('v-apiUrl').value=u;document.getElementById('v-apiKey').value=k;fetchFromApi(true);}})();
+  (function autoConnect(){if(!window.SG_SESSION)return;if(getApiUrl()&&getApiKey())fetchFromApi(true);})();
   document.getElementById('v-dateFrom').addEventListener('change',render);document.getElementById('v-dateTo').addEventListener('change',render);document.getElementById('selVendedor').addEventListener('change',render);document.getElementById('selServico').addEventListener('change',render);
   document.getElementById('v-buscaGeral').addEventListener('input',function(){ vPaginaAtual=1; render(); });
   document.getElementById('v-resetFiltros').addEventListener('click',function(){document.getElementById('selVendedor').value='__all__';document.getElementById('selServico').value='__all__';document.getElementById('v-buscaGeral').value='';setDefaultDateRange();document.querySelectorAll('.qr-btn[data-range]').forEach(function(b){b.classList.remove('active');});render();});

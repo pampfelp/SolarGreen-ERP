@@ -270,9 +270,6 @@
 
   function tryBuildReport(){ if(rawVendedores&&rawPonto){buildReportFrom(processVendedores(rawVendedores),processPonto(rawPonto),null);} }
 
-  function showConnectBar(){document.getElementById('p-connectCard').style.display='none';document.getElementById('p-connectBar').style.display='flex';}
-  function showConnectForm(){document.getElementById('p-connectBar').style.display='none';document.getElementById('p-connectCard').style.display='block';}
-
   function fetchFromApi(showStatus){
     if(!hasApiCreds())return;
     var cache=window.SGCache&&window.SGCache.get('ponto');
@@ -281,22 +278,18 @@
       var pVendedoresC=window.SGAuth?window.SGAuth.filterByOwner(cache.dados.vendedores||[],'IdVendedor'):(cache.dados.vendedores||[]);
       var pPontoC=window.SGAuth?window.SGAuth.filterByOwner(cache.dados.ponto||[],'Funcionario'):(cache.dados.ponto||[]);
       buildReportFrom(processVendedoresFromObjects(pVendedoresC),processPontoFromObjects(pPontoC),cache.dados.overrides||{});
-      setSyncPill('ok','Sincronizado');showConnectBar();
+      setSyncPill('ok','Sincronizado');
     }
-    if(showStatus&&!temCache){document.getElementById('p-connectStatus').style.display='flex';document.getElementById('p-connectStatus').className='connect-status';document.getElementById('p-connectStatusText').textContent='Conectando…';}
-    var btn=document.getElementById('p-connectBtn');if(btn)btn.disabled=true;
     var epocaInicio=_epoca.atual();
     apiCall('getData').then(function(resp){
-      if(btn)btn.disabled=false;
-      if(!resp||!resp.ok){if(showStatus&&!temCache){document.getElementById('p-connectStatus').className='connect-status error';document.getElementById('p-connectStatusText').textContent=(resp&&resp.erro)||'Não foi possível conectar.';}return;}
+      if(!resp||!resp.ok){if(showStatus&&!temCache)window.SGToast.mostrar((resp&&resp.erro)||'Não foi possível conectar.',true);return;}
       if(window.SGCache)window.SGCache.set('ponto',resp);
       if(_epoca.atual()!==epocaInicio)return;
       var pVendedores=window.SGAuth?window.SGAuth.filterByOwner(resp.vendedores||[],'IdVendedor'):(resp.vendedores||[]);
       var pPonto=window.SGAuth?window.SGAuth.filterByOwner(resp.ponto||[],'Funcionario'):(resp.ponto||[]);
       buildReportFrom(processVendedoresFromObjects(pVendedores),processPontoFromObjects(pPonto),resp.overrides||{});
-      setSyncPill('ok','Sincronizado');showConnectBar();
-      if(showStatus){document.getElementById('p-connectStatus').className='connect-status online';document.getElementById('p-connectStatusText').textContent='Conectado.';}
-    }).catch(function(err){if(btn)btn.disabled=false;if(showStatus&&!temCache){document.getElementById('p-connectStatus').className='connect-status error';document.getElementById('p-connectStatusText').textContent='Erro: '+err.message;}});
+      setSyncPill('ok','Sincronizado');
+    }).catch(function(err){if(showStatus&&!temCache)window.SGToast.mostrar('Erro: '+err.message,true);});
   }
 
   function wireUpload(inputId,cardId,detailId,clearId,onLoaded){
@@ -311,33 +304,12 @@
 
   wireUpload('fileVendedores','cardVendedores','detailVendedores','clearVendedores',function(rows){rawVendedores=rows;});
   wireUpload('filePonto','cardPonto','detailPonto','clearPonto',function(rows){rawPonto=rows;});
-  // "Trocar conexão" aponta o app inteiro pra outra planilha/chave, salvo pra
-  // sempre no localStorage do navegador — um vendedor clicando aí sem saber o
-  // que é trava todo salvamento dele numa planilha errada até alguém notar
-  // (foi exatamente o que aconteceu). Só admin deve poder acessar.
-  if(window.SGAuth&&!window.SGAuth.isAdmin())document.getElementById('p-showConnectFormBtn').style.display='none';
-  else document.getElementById('p-showConnectFormBtn').addEventListener('click',showConnectForm);
-  document.getElementById('p-connectBtn').addEventListener('click',function(){
-    var url=document.getElementById('p-apiUrl').value.trim(),key=document.getElementById('p-apiKey').value.trim();
-    if(!url||!key){document.getElementById('p-connectStatus').style.display='flex';document.getElementById('p-connectStatus').className='connect-status error';document.getElementById('p-connectStatusText').textContent='Preencha o link e a chave.';return;}
-    // Só grava no localStorage se o link/chave realmente funcionar — essas
-    // chaves ('ponto_api_url'/'ponto_api_key') são compartilhadas com o
-    // login do sistema inteiro, então gravar um valor errado aqui travava
-    // o login de todo mundo em "Chave inválida" sem nenhum jeito de reverter.
-    var btnP=this;btnP.disabled=true;
-    document.getElementById('p-connectStatus').style.display='flex';document.getElementById('p-connectStatus').className='connect-status';document.getElementById('p-connectStatusText').textContent='Conectando…';
-    fetch(url,{method:'POST',cache:'no-store',body:JSON.stringify({action:'ping',chave:key})}).then(function(r){return r.json();}).then(function(resp){
-      btnP.disabled=false;
-      if(!resp||!resp.ok){document.getElementById('p-connectStatus').className='connect-status error';document.getElementById('p-connectStatusText').textContent=(resp&&resp.erro)||'Não foi possível conectar — confira o link e a chave.';return;}
-      setApiCreds(url,key);fetchFromApi(true);
-    }).catch(function(err){btnP.disabled=false;document.getElementById('p-connectStatus').className='connect-status error';document.getElementById('p-connectStatusText').textContent='Erro: '+err.message;});
-  });
   document.getElementById('toggleManualBtn').addEventListener('click',function(){
     var grid=document.getElementById('uploadGrid'),isHidden=grid.style.display==='none';
     grid.style.display=isHidden?'grid':'none';useApi=!isHidden;
     document.getElementById('toggleManualBtn').textContent=isHidden?'Prefiro conectar pela planilha do Google':'Prefiro subir os arquivos manualmente';
   });
-  (function autoConnect(){if(!window.SG_SESSION)return;var u=getApiUrl(),k=getApiKey();if(u&&k){document.getElementById('p-apiUrl').value=u;document.getElementById('p-apiKey').value=k;fetchFromApi(true);}})();
+  (function autoConnect(){if(!window.SG_SESSION)return;if(getApiUrl()&&getApiKey())fetchFromApi(true);})();
   document.getElementById('p-dateFrom').addEventListener('change',render);
   document.getElementById('p-dateTo').addEventListener('change',render);
   document.getElementById('selColaborador').addEventListener('change',render);
