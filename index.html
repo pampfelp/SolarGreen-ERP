@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=20260822b">
+<link rel="stylesheet" href="css/app.css?v=20260822c">
 </head>
 <body>
 
@@ -32,6 +32,12 @@
   }catch(e){ document.documentElement.classList.add('sg-locked'); }
 })();
 </script>
+
+<div id="sg-sync-badge" style="display:none;"><span class="dot"></span><span id="sg-sync-text">Sincronizado</span></div>
+<div id="sg-sync-panel">
+  <h4>Pendente de sincronizar</h4>
+  <div id="sg-sync-panel-body"><div class="empty">Nada pendente.</div></div>
+</div>
 
 <div id="sg-login-screen">
   <div class="sg-login-card">
@@ -917,6 +923,13 @@
     <div style="text-align:right;"><div class="clock" id="cl-lastUpdate"></div></div>
   </header>
 
+  <div class="kpis" id="cl-kpiRow">
+    <div class="kpi"><div class="tag">Total</div><div class="num" id="cl-kpiTotal">0</div><div class="sub">clientes cadastrados</div><div class="bar"></div></div>
+    <div class="kpi"><div class="tag">Lead</div><div class="num" id="cl-kpiLead">0</div><div class="sub">ainda não fechou</div><div class="bar" style="background:var(--warn);"></div></div>
+    <div class="kpi"><div class="tag">Cliente</div><div class="num" id="cl-kpiCliente">0</div><div class="sub">negócio fechado</div><div class="bar" style="background:var(--accent);"></div></div>
+    <div class="kpi"><div class="tag">Inativo</div><div class="num" id="cl-kpiInativo">0</div><div class="sub">sem operação ativa</div><div class="bar" style="background:var(--debit);"></div></div>
+  </div>
+
   <div class="section-head">
     <h2>Clientes <span id="cl-tableTitle">cadastrados</span></h2>
     <div class="hint" id="cl-tableHint"></div>
@@ -1625,25 +1638,25 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="js/firebase-init.js?v=20260822b"></script>
-<script src="js/firestore-router.js?v=20260822b"></script>
-<script src="js/sg-auth.js?v=20260822b"></script>
-<script src="js/dashboard.js?v=20260822b"></script>
-<script src="js/ponto.js?v=20260822b"></script>
-<script src="js/vendas.js?v=20260822b"></script>
-<script src="js/funil.js?v=20260822b"></script>
-<script src="js/agendamentos.js?v=20260822b"></script>
-<script src="js/clientes.js?v=20260822b"></script>
-<script src="js/relatorios.js?v=20260822b"></script>
-<script src="js/custos-venda.js?v=20260822b"></script>
-<script src="js/custo-recorrente.js?v=20260822b"></script>
-<script src="js/servicos.js?v=20260822b"></script>
-<script src="js/catalogo.js?v=20260822b"></script>
-<script src="js/metas.js?v=20260822b"></script>
-<script src="js/planos.js?v=20260822b"></script>
-<script src="js/usuarios.js?v=20260822b"></script>
-<script src="js/permissoes.js?v=20260822b"></script>
-<script src="js/controller.js?v=20260822b"></script>
+<script src="js/firebase-init.js?v=20260822c"></script>
+<script src="js/firestore-router.js?v=20260822c"></script>
+<script src="js/sg-auth.js?v=20260822c"></script>
+<script src="js/dashboard.js?v=20260822c"></script>
+<script src="js/ponto.js?v=20260822c"></script>
+<script src="js/vendas.js?v=20260822c"></script>
+<script src="js/funil.js?v=20260822c"></script>
+<script src="js/agendamentos.js?v=20260822c"></script>
+<script src="js/clientes.js?v=20260822c"></script>
+<script src="js/relatorios.js?v=20260822c"></script>
+<script src="js/custos-venda.js?v=20260822c"></script>
+<script src="js/custo-recorrente.js?v=20260822c"></script>
+<script src="js/servicos.js?v=20260822c"></script>
+<script src="js/catalogo.js?v=20260822c"></script>
+<script src="js/metas.js?v=20260822c"></script>
+<script src="js/planos.js?v=20260822c"></script>
+<script src="js/usuarios.js?v=20260822c"></script>
+<script src="js/permissoes.js?v=20260822c"></script>
+<script src="js/controller.js?v=20260822c"></script>
 
 <div id="sg-install-banner">
   <span class="sg-ib-icon">📲</span>

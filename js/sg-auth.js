@@ -188,6 +188,66 @@
   };
 
   /**
+   * Indicador global de sincronização (bolinha no canto superior direito).
+   * Diferente do padrão com onSnapshot/hasPendingWrites (documentado em
+   * segundo-cerebro/padroes/javascript-patterns.md) — esse piloto do
+   * Firestore usa leitura/escrita "de uma vez" (get/set), não listener em
+   * tempo real, então em vez de escutar hasPendingWrites, cada escrita
+   * (js/firestore-router.js) avisa aqui quando começa e quando termina.
+   * Mesma ideia, mesmo resultado visual: verde = tudo confirmado pelo
+   * servidor; amarelo com número = quantas escritas ainda estão em voo.
+   * Clicar na bolinha abre o painel com o que está pendente.
+   */
+  window.SGSync=(function(){
+    var pendentes={}; // id -> {coleção, resumo}
+    var proximoId=1;
+
+    function badge(){ return document.getElementById('sg-sync-badge'); }
+    function texto(){ return document.getElementById('sg-sync-text'); }
+
+    function renderPainel(){
+      var corpo=document.getElementById('sg-sync-panel-body');
+      if(!corpo)return;
+      var ids=Object.keys(pendentes);
+      if(!ids.length){ corpo.innerHTML='<div class="empty">Nada pendente.</div>'; return; }
+      corpo.innerHTML=ids.map(function(id){
+        var p=pendentes[id];
+        return '<div class="item"><span class="col">'+escapeHtmlSync(p.colecao)+'</span><span>'+escapeHtmlSync(p.resumo)+'</span></div>';
+      }).join('');
+    }
+    function escapeHtmlSync(s){ var d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
+
+    function render(){
+      var b=badge(); if(!b)return;
+      if(!window.SG_SESSION){ b.style.display='none'; return; }
+      var n=Object.keys(pendentes).length;
+      b.style.display='flex';
+      if(n>0){ b.classList.add('pending'); texto().textContent=n+' pendente'+(n>1?'s':''); }
+      else{ b.classList.remove('pending'); texto().textContent='Sincronizado'; }
+      renderPainel();
+    }
+
+    function iniciar(colecao,resumo){
+      var id=proximoId++;
+      pendentes[id]={colecao:colecao,resumo:resumo};
+      render();
+      return id;
+    }
+    function concluir(id){
+      delete pendentes[id];
+      render();
+    }
+
+    document.addEventListener('DOMContentLoaded',function(){
+      var b=badge();
+      if(b)b.addEventListener('click',function(){ document.getElementById('sg-sync-panel').classList.toggle('active'); });
+      render();
+    });
+
+    return {iniciar:iniciar,concluir:concluir};
+  })();
+
+  /**
    * Painel de VISUALIZAÇÃO compartilhado por todas as telas com tabelas de
    * linhas clicáveis. Clicar numa linha abre esse painel (somente leitura,
    * sem nada editável); o botão de lápis no topo é que abre o formulário de

@@ -387,6 +387,25 @@
   .sync-pill.error{color:var(--debit);}
   .sync-pill.error .dot{background:var(--debit);}
 
+  /* ── Indicador global de sincronização (Firestore) ──
+     Bolinha fixa, sempre visível, independente da tela atual. Verde = tudo
+     confirmado pelo servidor. Amarela com número = X escrita(s) ainda em
+     voo. Clicar abre o painel do que está pendente. Sem transition na cor
+     de fundo de propósito (troca instantânea é mais confiável que suave
+     pra um indicador cujo propósito é justamente confiabilidade). */
+  #sg-sync-badge{position:fixed;top:14px;right:18px;z-index:500;display:flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:7px 13px 7px 11px;font-size:12px;font-weight:600;color:var(--ink-soft);box-shadow:0 4px 14px rgba(0,0,0,.08);cursor:pointer;user-select:none;}
+  #sg-sync-badge .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none;}
+  #sg-sync-badge.pending .dot{background:var(--warn);}
+  #sg-sync-badge.pending{color:var(--warn);}
+  #sg-sync-panel{position:fixed;top:52px;right:18px;z-index:500;width:290px;max-height:340px;overflow-y:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 34px rgba(0,0,0,.16);padding:12px;display:none;}
+  #sg-sync-panel.active{display:block;}
+  #sg-sync-panel h4{font-family:var(--unbounded);font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-faint);margin-bottom:8px;}
+  #sg-sync-panel .item{display:flex;flex-direction:column;gap:2px;padding:8px 0;border-bottom:1px solid var(--line);font-size:12.5px;}
+  #sg-sync-panel .item:last-child{border-bottom:none;}
+  #sg-sync-panel .item .col{color:var(--ink-faint);font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;}
+  #sg-sync-panel .empty{font-size:12.5px;color:var(--ink-faint);text-align:center;padding:10px 0;}
+  @media(max-width:760px){ #sg-sync-badge{top:10px;right:10px;} #sg-sync-panel{top:46px;right:10px;width:calc(100vw - 20px);} }
+
   /* ── Sidebar recolhível ── */
   .sidebar{ transition: width .22s cubic-bezier(.4,0,.2,1); overflow: hidden; white-space: nowrap; }
   .sidebar.collapsed{ width: 58px; }
