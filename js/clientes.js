@@ -71,7 +71,23 @@
     ].join(' | '));
   }
 
+  // KPIs sempre sobre a lista COMPLETA (nunca sobre o resultado da busca) —
+  // assim continuam respondendo "quanto no total, por status" mesmo enquanto
+  // a pessoa usa a busca pra achar um cliente específico embaixo.
+  function renderKpisClientes(){
+    var porStatus={Lead:0,Cliente:0,Inativo:0};
+    clientes.forEach(function(c){
+      var s=(c['Status Cliente']||'').trim();
+      if(porStatus[s]!==undefined)porStatus[s]++;
+    });
+    document.getElementById('cl-kpiTotal').textContent=clientes.length;
+    document.getElementById('cl-kpiLead').textContent=porStatus.Lead;
+    document.getElementById('cl-kpiCliente').textContent=porStatus.Cliente;
+    document.getElementById('cl-kpiInativo').textContent=porStatus.Inativo;
+  }
+
   function render(){
+    renderKpisClientes();
     var termo=normalizaBuscaCl(buscaFiltro).trim();
     var filtrados=clientes.filter(function(c){
       if(!termo)return true;

@@ -116,9 +116,27 @@
     };
   }
 
+  // Avisa o indicador global de sincronização (window.SGSync, em sg-auth.js)
+  // enquanto uma escrita está em voo — só nas ações de escrita, nunca nas de
+  // leitura (getXData). "resumoFn" descreve o registro pra aparecer no
+  // painel de pendências (ex: nome do cliente, valor da venda).
+  function comSync(colecao,resumoFn,fn){
+    return function(payload){
+      var idPendente=window.SGSync?window.SGSync.iniciar(colecao,resumoFn(payload)):null;
+      function finalizar(){ if(window.SGSync&&idPendente!==null)window.SGSync.concluir(idPendente); }
+      return fn(payload).then(function(resp){ finalizar(); return resp; }).catch(function(err){ finalizar(); throw err; });
+    };
+  }
+
   window.SGFireActions={
-    getClientesData:comAuthPronto(getClientesData), salvarCliente:comAuthPronto(salvarCliente), excluirCliente:comAuthPronto(excluirCliente),
-    getVendasData:comAuthPronto(getVendasData), salvarVenda:comAuthPronto(salvarVenda), excluirVenda:comAuthPronto(excluirVenda),
-    getFunilData:comAuthPronto(getFunilData), salvarFunil:comAuthPronto(salvarFunil), excluirFunil:comAuthPronto(excluirFunil)
+    getClientesData:comAuthPronto(getClientesData),
+    salvarCliente:comSync('clientes',function(p){return p.nome||p.idCliente;},comAuthPronto(salvarCliente)),
+    excluirCliente:comSync('clientes',function(p){return 'excluir '+p.idCliente;},comAuthPronto(excluirCliente)),
+    getVendasData:comAuthPronto(getVendasData),
+    salvarVenda:comSync('vendas',function(p){return 'venda de R$ '+(p.valor||0);},comAuthPronto(salvarVenda)),
+    excluirVenda:comSync('vendas',function(p){return 'excluir '+p.idVenda;},comAuthPronto(excluirVenda)),
+    getFunilData:comAuthPronto(getFunilData),
+    salvarFunil:comSync('funil',function(p){return 'lead ('+(p.etapa||'')+')';},comAuthPronto(salvarFunil)),
+    excluirFunil:comSync('funil',function(p){return 'excluir '+p.idOportunidade;},comAuthPronto(excluirFunil))
   };
 })();
