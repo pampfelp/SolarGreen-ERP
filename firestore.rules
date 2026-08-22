@@ -1,0 +1,35 @@
+rules_version = '2';
+// Piloto de migração Sheets -> Firestore (login + clientes + vendas + funil).
+// Exige estar autenticado (Firebase Auth) pra ler/escrever essas 4 coleções.
+// Não distingue papel (admin/vendedor) ainda por dentro da regra — isso é
+// suficiente pra ESSE piloto (só existe 1 usuário de teste, admin); quando a
+// migração virar de verdade, entra checagem por papel aqui (ver
+// segundo-cerebro/padroes/dados-e-seguranca.md).
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() { return request.auth != null; }
+
+    match /vendedores/{id} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+    match /clientes/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /vendas/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /funil/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /servicos/{id} {
+      allow read: if isSignedIn();
+      allow write: if false; // sem tela de cadastro nesse piloto; seed manual
+    }
+
+    // Tudo o que não faz parte desse piloto fica fechado por padrão.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

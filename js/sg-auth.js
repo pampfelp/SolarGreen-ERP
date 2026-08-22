@@ -9,6 +9,12 @@
   function apiKey(){ return (localStorage.getItem('ponto_api_key')||'').trim()||DEFAULT_API_KEY; }
 
   function authCall(action,payload){
+    // Piloto de migração pro Firestore: só essas ações (login tratado à parte,
+    // em initLoginScreen) vão pro Firestore — o resto continua no Apps Script
+    // de sempre. Ver js/firestore-router.js.
+    if(window.SGFireActions&&window.SGFireActions[action]){
+      return window.SGFireActions[action](payload||{});
+    }
     // Injeta solicitanteId automaticamente a partir de window.SG_SESSION —
     // a MESMA fonte que isAdmin()/filterByOwner()/SGUtil.meuId() já usam
     // (setada uma vez no script de trava no topo do <body>, a partir do
@@ -409,24 +415,26 @@
       var senha=document.getElementById('sg-login-senha').value;
       if(!email||!senha){ showMsg('sg-login-msg','Preencha e-mail e senha.','error'); return; }
       loginBtn.disabled=true; loginBtn.textContent='Entrando…';
-      authCall('login',{email:email,senha:senha}).then(function(resp){
+      // Piloto de migração: login agora é Firebase Auth (e-mail/senha), não mais
+      // o Apps Script. O registro em vendedores/{uid} guarda nome/tipo — se for
+      // o primeiro login desse usuário (uid sem registro ainda), cria como admin
+      // automaticamente (só faz sentido porque, nesse piloto, quem tem acesso ao
+      // Firebase Auth do projeto já é de confiança).
+      firebase.auth().signInWithEmailAndPassword(email,senha).then(function(cred){
+        var uid=cred.user.uid;
+        var ref=firebase.firestore().collection('vendedores').doc(uid);
+        return ref.get().then(function(doc){
+          if(doc.exists)return doc.data();
+          var novo={IdVendedor:uid,Nome:(cred.user.email||'').split('@')[0],Email:cred.user.email||email,Tipo:'admin',Status:'Ativo'};
+          return ref.set(novo).then(function(){ return novo; });
+        });
+      }).then(function(dados){
         loginBtn.disabled=false; loginBtn.textContent='Entrar';
-        if(!resp||!resp.ok){
-          showMsg('sg-login-msg',(resp&&resp.mensagem)||(resp&&resp.erro)||'Não foi possível entrar.','error');
-          return;
-        }
-        if(resp.precisaTrocarSenha){
-          pendingPrimeiroAcesso={usuario:resp.usuario,senhaAtual:senha};
-          document.getElementById('sg-primeiro-senha1').value='';
-          document.getElementById('sg-primeiro-senha2').value='';
-          goStep('sg-step-primeiro-acesso');
-          return;
-        }
-        setSession(resp.usuario);
+        setSession({idVendedor:dados.IdVendedor,nome:dados.Nome,email:dados.Email,tipo:dados.Tipo});
         location.reload();
       }).catch(function(err){
         loginBtn.disabled=false; loginBtn.textContent='Entrar';
-        showMsg('sg-login-msg','Erro de conexão: '+err.message,'error');
+        showMsg('sg-login-msg','Não foi possível entrar: '+(err.message||err.code||err),'error');
       });
     });
     document.getElementById('sg-login-senha').addEventListener('keydown',function(e){ if(e.key==='Enter') loginBtn.click(); });
