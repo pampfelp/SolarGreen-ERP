@@ -27,6 +27,24 @@ service cloud.firestore {
       allow write: if false; // sem tela de cadastro nesse piloto; seed manual
     }
 
+    // ── App do técnico (piloto offline) ──
+    match /agendamentos/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /agendamentos_respostas/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /templates/{id} {
+      allow read: if isSignedIn();
+      allow write: if false; // sem tela de cadastro nesse piloto; seed manual
+    }
+    match /produtos_modulos/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /produtos_inversores/{id} {
+      allow read, write: if isSignedIn();
+    }
+
     // Tudo o que não faz parte desse piloto fica fechado por padrão.
     match /{document=**} {
       allow read, write: if false;
