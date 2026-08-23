@@ -190,6 +190,21 @@
     ].join(' | '));
   }
 
+  /**
+   * Move/criar/editar um lead atualiza dataProcessoKey pra hoje (rastreia
+   * "última movimentação" pro SLA) — sem isso, se o filtro de período ativo
+   * não incluir hoje, o lead recém-mexido some da tela (some de TODAS as
+   * colunas, não só da antiga) até a página recarregar e o filtro padrão
+   * ser recalculado. Chamar antes do render() sempre que dataProcessoKey
+   * mudar por uma ação do usuário — nunca deixa a própria ação escondida.
+   */
+  function garantirDataVisivelNoFiltro(dataProcessoKey){
+    var toEl=document.getElementById('f-dateTo'),fromEl=document.getElementById('f-dateFrom');
+    if(!toEl||!fromEl||!dataProcessoKey)return;
+    if(toEl.value&&dataProcessoKey>toEl.value)toEl.value=dataProcessoKey;
+    if(fromEl.value&&dataProcessoKey<fromEl.value)fromEl.value=dataProcessoKey;
+  }
+
   function getFiltered(){
     var from=document.getElementById('f-dateFrom').value,to=document.getElementById('f-dateTo').value;
     var vend=document.getElementById('f-selVendedor').value,etapa=getEtapaAtiva();
@@ -484,6 +499,7 @@
       diasNaEtapa:0, slaColor:'green', temLog:true
     });
     funilRecords[indice]=registroNovo;
+    garantirDataVisivelNoFiltro(registroNovo.dataProcessoKey);
     _epoca.marcar();
     render();
     mostrarToastFunil(nomeClienteFor(leadOriginal.idCliente)+' movido para "'+novaEtapa+'".');
@@ -938,6 +954,7 @@
     };
     if(indiceExistente===-1)funilRecords.push(registroNovo);
     else funilRecords[indiceExistente]=registroNovo;
+    garantirDataVisivelNoFiltro(registroNovo.dataProcessoKey);
     _epoca.marcar();
 
     // Já atualiza a tela, fecha o painel e avisa — sem esperar o servidor.

@@ -23,8 +23,7 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
     }
     match /servicos/{id} {
-      allow read: if isSignedIn();
-      allow write: if false; // sem tela de cadastro nesse piloto; seed manual
+      allow read, write: if isSignedIn();
     }
 
     // ── App do técnico (piloto offline) ──
@@ -35,8 +34,7 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
     }
     match /templates/{id} {
-      allow read: if isSignedIn();
-      allow write: if false; // sem tela de cadastro nesse piloto; seed manual
+      allow read, write: if isSignedIn();
     }
     match /produtos_modulos/{id} {
       allow read, write: if isSignedIn();
