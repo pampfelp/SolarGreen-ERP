@@ -1169,7 +1169,7 @@ renderStringPlan();
 </div>
 <script>
 (function(){
-  if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
+  if('serviceWorker' in navigator){ navigator.serviceWorker.register('../sw.js').catch(function(){}); }
   var DISMISS_KEY='sg_install_dismissed_v1';
   var banner=document.getElementById('sg-install-banner');
   if(!banner)return;
