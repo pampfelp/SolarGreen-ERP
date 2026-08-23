@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=20260823s">
+<link rel="stylesheet" href="css/app.css?v=20260823t">
 </head>
 <body>
 
@@ -37,6 +37,20 @@
 <div id="sg-sync-panel">
   <h4>Pendente de sincronizar</h4>
   <div id="sg-sync-panel-body"><div class="empty">Nada pendente.</div></div>
+</div>
+
+<div class="modal-overlay hidden" id="sgConfirmModal">
+  <div class="modal-card">
+    <h3 id="sgc-titulo">Confirmar</h3>
+    <div id="sgc-mensagem"></div>
+    <div id="sgc-inputWrap" class="hidden">
+      <input type="text" id="sgc-input">
+    </div>
+    <div class="modal-actions">
+      <button class="reset-btn" id="sgc-cancelarBtn">Cancelar</button>
+      <button class="connect-btn" id="sgc-confirmarBtn">Confirmar</button>
+    </div>
+  </div>
 </div>
 
 <div id="sg-login-screen">
@@ -173,7 +187,7 @@
     <div class="kpi"><div class="tag">Custos totais</div><div class="num" id="db-kpiCustos">R$ 0,00</div><div class="sub">operação + escritório, no período</div><div class="bar" style="background:var(--debit);"></div></div>
     <div class="kpi"><div class="tag">Lucro operacional</div><div class="num" id="db-kpiLucro">R$ 0,00</div><div class="sub">faturamento − custos</div><div class="bar"></div></div>
     <div class="kpi"><div class="tag">Ticket médio</div><div class="num" id="db-kpiTicket">R$ 0,00</div><div class="sub" id="db-kpiTicketSub"></div><div class="bar"></div></div>
-    <div class="kpi"><div class="tag">Conversão propostas → vendas</div><div class="num" id="db-kpiConversao">0%</div><div class="sub" id="db-kpiConversaoSub"></div><div class="bar" style="background:#3b82f6;"></div></div>
+    <div class="kpi"><div class="tag">Conversão propostas → vendas</div><div class="num" id="db-kpiConversao">0%</div><div class="sub" id="db-kpiConversaoSub"></div><div class="bar" style="background:var(--info);"></div></div>
     <div class="kpi"><div class="tag">Novos leads no funil</div><div class="num" id="db-kpiLeads">0</div><div class="sub" id="db-kpiLeadsSub"></div><div class="bar"></div></div>
   </div>
 
@@ -645,7 +659,7 @@
       <label>Status <span style="font-weight:400;color:var(--ink-faint);">(clique pra filtrar; clique de novo pra limpar)</span></label>
       <div class="kpis ag-status-kpis">
         <div class="kpi ag-kpi-pill" data-agstatus="Agendado"><div class="tag">Pendente</div><div class="num" id="ag-kpiAgendado">0</div><div class="bar" style="background:var(--warn);"></div></div>
-        <div class="kpi ag-kpi-pill" data-agstatus="Em Andamento"><div class="tag">Em Andamento</div><div class="num" id="ag-kpiAndamento">0</div><div class="bar" style="background:#3b82f6;"></div></div>
+        <div class="kpi ag-kpi-pill" data-agstatus="Em Andamento"><div class="tag">Em Andamento</div><div class="num" id="ag-kpiAndamento">0</div><div class="bar" style="background:var(--info);"></div></div>
         <div class="kpi ag-kpi-pill" data-agstatus="Concluído"><div class="tag">Concluído</div><div class="num" id="ag-kpiConcluido">0</div><div class="bar" style="background:var(--accent);"></div></div>
         <div class="kpi ag-kpi-pill" data-agstatus="Cancelado"><div class="tag">Cancelado</div><div class="num" id="ag-kpiCancelado">0</div><div class="bar" style="background:var(--debit);"></div></div>
       </div>
@@ -836,8 +850,8 @@
       <div class="uform-field"><label>Tipo de pessoa <span class="req">*</span></label>
         <select id="cr-tipoPessoa"><option value="Física">Física</option><option value="Jurídica">Jurídica</option></select>
       </div>
-      <div class="uform-field"><label>Telefone <span class="req">*</span></label><input type="text" id="cr-telefone" placeholder="(91) 90000-0000"></div>
-      <div class="uform-field"><label>CPF ou CNPJ</label><input type="text" id="cr-cpfCnpj" placeholder="Opcional"></div>
+      <div class="uform-field"><label>Telefone <span class="req">*</span></label><input type="text" id="cr-telefone" placeholder="(91) 90000-0000" maxlength="15" inputmode="numeric"></div>
+      <div class="uform-field"><label>CPF ou CNPJ</label><input type="text" id="cr-cpfCnpj" placeholder="Opcional" maxlength="18" inputmode="numeric"></div>
       <div class="uform-field"><label>E-mail</label><input type="email" id="cr-email" placeholder="Opcional"></div>
       <div class="uform-field"><label>Endereço</label><input type="text" id="cr-endereco" placeholder="Pode preencher depois, se preferir"></div>
       <div style="font-size:11.5px;color:var(--ink-faint);margin-top:-4px;">O endereço não é obrigatório agora, mas vai ser pedido na hora de criar um agendamento de serviço pra esse cliente.</div>
@@ -860,7 +874,7 @@
           </label>
         </div>
       </div>
-      <div class="uform-field"><label>CPF do titular Equatorial</label><input type="text" id="cr-cpfEquatorial" placeholder="Necessário pra cadastrar Planos"></div>
+      <div class="uform-field"><label>CPF do titular Equatorial</label><input type="text" id="cr-cpfEquatorial" placeholder="Necessário pra cadastrar Planos" maxlength="18" inputmode="numeric"></div>
       <div class="uform-field"><label>Data de nascimento do titular Equatorial</label><input type="date" id="cr-dataNascimentoEquatorial"></div>
     </div>
     <div class="uform-msg" id="cr-msg"></div>
@@ -991,8 +1005,8 @@
     <div class="uform-field"><label>Tipo de pessoa <span class="req">*</span></label>
       <select id="cm-tipoPessoa"><option value="Física">Física</option><option value="Jurídica">Jurídica</option></select>
     </div>
-    <div class="uform-field"><label>Telefone <span class="req">*</span></label><input type="text" id="cm-telefone"></div>
-    <div class="uform-field"><label>CPF ou CNPJ</label><input type="text" id="cm-cpfCnpj"></div>
+    <div class="uform-field"><label>Telefone <span class="req">*</span></label><input type="text" id="cm-telefone" maxlength="15" inputmode="numeric"></div>
+    <div class="uform-field"><label>CPF ou CNPJ</label><input type="text" id="cm-cpfCnpj" maxlength="18" inputmode="numeric"></div>
     <div class="uform-field"><label>E-mail</label><input type="email" id="cm-email"></div>
     <div class="uform-field"><label>Endereço</label><input type="text" id="cm-endereco"></div>
     <div class="uform-field"><label>Status</label>
@@ -1017,7 +1031,7 @@
         </label>
       </div>
     </div>
-    <div class="uform-field"><label>CPF do titular Equatorial</label><input type="text" id="cm-cpfEquatorial" placeholder="Necessário pra cadastrar Planos"></div>
+    <div class="uform-field"><label>CPF do titular Equatorial</label><input type="text" id="cm-cpfEquatorial" placeholder="Necessário pra cadastrar Planos" maxlength="18" inputmode="numeric"></div>
     <div class="uform-field"><label>Data de nascimento do titular Equatorial</label><input type="date" id="cm-dataNascimentoEquatorial"></div>
     <div class="uform-msg" id="cm-msg"></div>
     <div id="cm-avisoDuplicado" class="hidden" style="background:#fef2f2;border:1px solid var(--debit);border-radius:10px;padding:12px 14px;margin-bottom:14px;">
@@ -1086,7 +1100,14 @@
 <div class="modal-overlay hidden" id="planoModal">
   <div class="modal-card">
     <h3 id="planoModalTitle">Novo plano</h3>
-    <div class="uform-field"><label>Cliente</label><select id="pm-cliente"><option value="">— Selecionar cliente…</option></select></div>
+    <div class="uform-field">
+      <label>Cliente</label>
+      <div class="combo-wrap">
+        <input type="text" id="pm-clienteBusca" placeholder="Digite o nome do cliente…" autocomplete="off">
+        <input type="hidden" id="pm-cliente">
+        <div class="combo-dropdown hidden" id="pm-clienteDropdown"></div>
+      </div>
+    </div>
     <div class="uform-field"><label>Tipo de assinatura</label><select id="pm-tipo"><option value="Mensal">Mensal</option><option value="Anual">Anual</option></select></div>
     <div class="uform-field"><label>Valor</label><input type="number" id="pm-valor" step="0.01" min="0"></div>
     <div class="uform-field"><label>Data de assinatura</label><input type="date" id="pm-dataAssinatura"></div>
@@ -1147,7 +1168,7 @@
   </div>
 
   <div style="margin-top:16px;">
-    <button class="reset-btn" id="u-novoBtn">+ Novo usuário</button>
+    <button class="connect-btn" id="u-novoBtn">+ Novo usuário</button>
   </div>
 
   <div class="empty" id="u-emptyState">
@@ -1663,26 +1684,26 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="js/firebase-init.js?v=20260823s"></script>
-<script src="js/firestore-router.js?v=20260823s"></script>
-<script src="js/stub-router.js?v=20260823s"></script>
-<script src="js/sg-auth.js?v=20260823s"></script>
-<script src="js/dashboard.js?v=20260823s"></script>
-<script src="js/ponto.js?v=20260823s"></script>
-<script src="js/vendas.js?v=20260823s"></script>
-<script src="js/funil.js?v=20260823s"></script>
-<script src="js/agendamentos.js?v=20260823s"></script>
-<script src="js/clientes.js?v=20260823s"></script>
-<script src="js/relatorios.js?v=20260823s"></script>
-<script src="js/custos-venda.js?v=20260823s"></script>
-<script src="js/custo-recorrente.js?v=20260823s"></script>
-<script src="js/servicos.js?v=20260823s"></script>
-<script src="js/catalogo.js?v=20260823s"></script>
-<script src="js/metas.js?v=20260823s"></script>
-<script src="js/planos.js?v=20260823s"></script>
-<script src="js/usuarios.js?v=20260823s"></script>
-<script src="js/permissoes.js?v=20260823s"></script>
-<script src="js/controller.js?v=20260823s"></script>
+<script src="js/firebase-init.js?v=20260823t"></script>
+<script src="js/firestore-router.js?v=20260823t"></script>
+<script src="js/stub-router.js?v=20260823t"></script>
+<script src="js/sg-auth.js?v=20260823t"></script>
+<script src="js/dashboard.js?v=20260823t"></script>
+<script src="js/ponto.js?v=20260823t"></script>
+<script src="js/vendas.js?v=20260823t"></script>
+<script src="js/funil.js?v=20260823t"></script>
+<script src="js/agendamentos.js?v=20260823t"></script>
+<script src="js/clientes.js?v=20260823t"></script>
+<script src="js/relatorios.js?v=20260823t"></script>
+<script src="js/custos-venda.js?v=20260823t"></script>
+<script src="js/custo-recorrente.js?v=20260823t"></script>
+<script src="js/servicos.js?v=20260823t"></script>
+<script src="js/catalogo.js?v=20260823t"></script>
+<script src="js/metas.js?v=20260823t"></script>
+<script src="js/planos.js?v=20260823t"></script>
+<script src="js/usuarios.js?v=20260823t"></script>
+<script src="js/permissoes.js?v=20260823t"></script>
+<script src="js/controller.js?v=20260823t"></script>
 
 <div id="sg-install-banner">
   <span class="sg-ib-icon">📲</span>

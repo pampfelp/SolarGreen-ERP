@@ -193,8 +193,8 @@
     document.getElementById('clienteModalTitle').textContent=c?'Editar cliente':'Novo cliente';
     document.getElementById('cm-nome').value=c?(c['Nome Razao Social']||c.Nome||''):'';
     document.getElementById('cm-tipoPessoa').value=c?(c['Tipo Pessoa']||'Física'):'Física';
-    document.getElementById('cm-telefone').value=c?(c.Telefone||''):'';
-    document.getElementById('cm-cpfCnpj').value=c?(c['CPF ou CNPJ']||''):'';
+    document.getElementById('cm-telefone').value=c?window.SGUtil.formatarTelefone(c.Telefone||''):'';
+    document.getElementById('cm-cpfCnpj').value=c?window.SGUtil.formatarCpfCnpj(c['CPF ou CNPJ']||''):'';
     document.getElementById('cm-email').value=c?(c.Email||''):'';
     document.getElementById('cm-endereco').value=c?(c.Endereco||''):'';
     document.getElementById('cm-status').value=c?(c['Status Cliente']||'Lead'):'Lead';
@@ -219,7 +219,7 @@
       if(cpfEqLimpo===cpfCliente&&cpfCliente)document.getElementById('cm-titularSim').checked=true;
       else document.getElementById('cm-titularNao').checked=true;
     }
-    document.getElementById('cm-cpfEquatorial').value=cpfEq;
+    document.getElementById('cm-cpfEquatorial').value=window.SGUtil.formatarCpfCnpj(cpfEq);
     document.getElementById('cm-cpfEquatorial').readOnly=document.getElementById('cm-titularSim').checked;
 
     var idVend=c?c['Vendedor Responsavel']:'';
@@ -347,30 +347,32 @@
 
   function excluirCliente(){
     if(!editandoId)return;
-    if(!confirm('Tem certeza que deseja excluir esse cliente? Essa ação não pode ser desfeita.'))return;
-    var idCliente=editandoId;
-    var registroAnterior=clientes.filter(function(c){return String(c.IdCliente)===String(idCliente);})[0];
+    window.SGConfirm.perguntar({titulo:'Excluir cliente',mensagem:'Tem certeza que deseja excluir esse cliente? Essa ação não pode ser desfeita.',textoConfirmar:'Excluir',perigo:true}).then(function(ok){
+      if(!ok)return;
+      var idCliente=editandoId;
+      var registroAnterior=clientes.filter(function(c){return String(c.IdCliente)===String(idCliente);})[0];
 
-    clientes=clientes.filter(function(c){return String(c.IdCliente)!==String(idCliente);});
-    _epoca.marcar();
-    fecharModalCliente();
-    if(window.SGViewPanel)window.SGViewPanel.fechar();
-    render();
-    window.SGToast.mostrar('Cliente excluído.');
+      clientes=clientes.filter(function(c){return String(c.IdCliente)!==String(idCliente);});
+      _epoca.marcar();
+      fecharModalCliente();
+      if(window.SGViewPanel)window.SGViewPanel.fechar();
+      render();
+      window.SGToast.mostrar('Cliente excluído.');
 
-    apiCall('excluirCliente',{idCliente:idCliente}).then(function(resp){
-      if(!resp||!resp.ok){
-        if(window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
+      apiCall('excluirCliente',{idCliente:idCliente}).then(function(resp){
+        if(!resp||!resp.ok){
+          if(window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
+          if(registroAnterior)clientes.push(registroAnterior);
+          _epoca.marcar();
+          render();
+          window.SGToast.mostrar((resp&&resp.erro)||'Não foi possível excluir — o cliente foi restaurado.',true);
+        }
+      }).catch(function(err){
         if(registroAnterior)clientes.push(registroAnterior);
         _epoca.marcar();
         render();
-        window.SGToast.mostrar((resp&&resp.erro)||'Não foi possível excluir — o cliente foi restaurado.',true);
-      }
-    }).catch(function(err){
-      if(registroAnterior)clientes.push(registroAnterior);
-      _epoca.marcar();
-      render();
-      window.SGToast.mostrar('Erro de conexão — o cliente foi restaurado: '+err.message,true);
+        window.SGToast.mostrar('Erro de conexão — o cliente foi restaurado: '+err.message,true);
+      });
     });
   }
 
@@ -409,6 +411,11 @@
     document.getElementById('cm-salvarBtn').addEventListener('click',salvarCliente);
     document.getElementById('cm-titularSim').addEventListener('change',sincronizarTitularEquatorial);
     document.getElementById('cm-titularNao').addEventListener('change',sincronizarTitularEquatorial);
+    // Máscara sempre ligada ANTES do listener de sincronização abaixo — assim,
+    // quando "Sim" copia o valor pro campo Equatorial, já copia formatado.
+    window.SGUtil.aplicarMascara(document.getElementById('cm-telefone'),window.SGUtil.formatarTelefone);
+    window.SGUtil.aplicarMascara(document.getElementById('cm-cpfCnpj'),window.SGUtil.formatarCpfCnpj);
+    window.SGUtil.aplicarMascara(document.getElementById('cm-cpfEquatorial'),window.SGUtil.formatarCpfCnpj);
     document.getElementById('cm-cpfCnpj').addEventListener('input',function(){ if(document.getElementById('cm-titularSim').checked)sincronizarTitularEquatorial(); });
     document.getElementById('cm-excluirBtn').addEventListener('click',excluirCliente);
     document.getElementById('cm-telefone').addEventListener('input',verificarDuplicidadeCliente);

@@ -188,6 +188,60 @@
   };
 
   /**
+   * Substitui confirm()/prompt() nativos do navegador (regra fixa: nunca usar
+   * popup nativo de confirmação, ver segundo-cerebro/decisoes.md). Um único
+   * modal reaproveitado por qualquer tela — API baseada em Promise, então o
+   * uso equivalente a `if(confirm(msg))` vira
+   * `SGConfirm.perguntar({mensagem:msg}).then(function(ok){ if(ok){...} })`.
+   */
+  window.SGConfirm=(function(){
+    var resolver=null;
+    function el(id){ return document.getElementById(id); }
+    function fechar(resultado){
+      var modal=el('sgConfirmModal');
+      if(modal)modal.classList.add('hidden');
+      if(resolver){ var r=resolver; resolver=null; r(resultado); }
+    }
+    function abrir(opts){
+      return new Promise(function(resolve){
+        if(resolver)resolver(null); // fecha qualquer confirmação pendente antes (nunca deve empilhar duas)
+        resolver=resolve;
+        el('sgc-titulo').textContent=(opts&&opts.titulo)||'Confirmar';
+        el('sgc-mensagem').textContent=(opts&&opts.mensagem)||'';
+        var btn=el('sgc-confirmarBtn');
+        btn.textContent=(opts&&opts.textoConfirmar)||'Confirmar';
+        btn.className=(opts&&opts.perigo)?'danger-btn':'connect-btn';
+        el('sgConfirmModal').classList.remove('hidden');
+      });
+    }
+    function perguntar(opts){
+      el('sgc-inputWrap').classList.add('hidden');
+      return abrir(opts).then(function(ok){ return !!ok; });
+    }
+    function pedirTexto(opts){
+      el('sgc-inputWrap').classList.remove('hidden');
+      var input=el('sgc-input');
+      input.value=(opts&&opts.valorInicial)||'';
+      input.placeholder=(opts&&opts.placeholder)||'';
+      return abrir(opts).then(function(ok){
+        if(!ok)return null;
+        var v=input.value.trim();
+        return v||null;
+      }).then(function(v){ setTimeout(function(){ input.value=''; },0); return v; });
+    }
+    document.addEventListener('DOMContentLoaded',function(){
+      var cancelar=el('sgc-cancelarBtn'),confirmar=el('sgc-confirmarBtn'),modal=el('sgConfirmModal'),input=el('sgc-input');
+      if(!modal)return; // tela sem esse modal (ex.: app do técnico, que não usa confirm/prompt)
+      cancelar.addEventListener('click',function(){ fechar(false); });
+      confirmar.addEventListener('click',function(){ fechar(true); });
+      modal.addEventListener('click',function(e){ if(e.target===modal)fechar(false); });
+      if(input)input.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); fechar(true); } });
+      document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&!modal.classList.contains('hidden'))fechar(false); });
+    });
+    return {perguntar:perguntar,pedirTexto:pedirTexto};
+  })();
+
+  /**
    * Indicador global de sincronização (bolinha no canto superior direito).
    * Diferente do padrão com onSnapshot/hasPendingWrites (documentado em
    * segundo-cerebro/padroes/javascript-patterns.md) — esse piloto do
@@ -349,7 +403,44 @@
     dateKey:function(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); },
     fmtDateBR:function(d){ return d?(String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()):'—'; },
     meuId:function(){ return window.SG_SESSION&&window.SG_SESSION.idVendedor; },
-    souAdmin:function(){ return !!(window.SGAuth&&window.SGAuth.isAdmin()); }
+    souAdmin:function(){ return !!(window.SGAuth&&window.SGAuth.isAdmin()); },
+
+    /**
+     * Máscaras (regra fixa: todo campo de CPF/CNPJ/telefone precisa de
+     * máscara + limite de dígitos enquanto digita — ver segundo-cerebro/
+     * padroes/javascript-patterns.md. Motivada por um incidente real em
+     * outro projeto do Felipe com campo de CNPJ sem nenhum dos dois).
+     */
+    formatarCPF:function(valor){
+      var d=String(valor==null?'':valor).replace(/\D/g,'').slice(0,11);
+      return d.replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2');
+    },
+    formatarCNPJ:function(valor){
+      var d=String(valor==null?'':valor).replace(/\D/g,'').slice(0,14);
+      return d.replace(/^(\d{2})(\d)/,'$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/,'$1.$2.$3').replace(/\.(\d{3})(\d)/,'.$1/$2').replace(/(\d{4})(\d)/,'$1-$2');
+    },
+    // Auto-detecta CPF (até 11 dígitos) vs CNPJ (12+) conforme a pessoa digita —
+    // usado no campo único "CPF ou CNPJ" que aceita física ou jurídica.
+    formatarCpfCnpj:function(valor){
+      var d=String(valor==null?'':valor).replace(/\D/g,'');
+      return d.length>11?window.SGUtil.formatarCNPJ(d):window.SGUtil.formatarCPF(d);
+    },
+    formatarTelefone:function(valor){
+      var d=String(valor==null?'':valor).replace(/\D/g,'').slice(0,11);
+      if(d.length<=10)return d.replace(/^(\d{2})(\d)/,'($1) $2').replace(/(\d{4})(\d{1,4})$/,'$1-$2');
+      return d.replace(/^(\d{2})(\d)/,'($1) $2').replace(/(\d{5})(\d{1,4})$/,'$1-$2');
+    },
+    // Liga a máscara num <input>, preservando a posição do cursor (sem isso
+    // o cursor pula pro fim a cada tecla, atrapalhando editar no meio do número).
+    aplicarMascara:function(input,formatarFn){
+      input.addEventListener('input',function(){
+        var posAntes=input.selectionStart==null?input.value.length:input.selectionStart;
+        var tamAntes=input.value.length;
+        input.value=formatarFn(input.value);
+        var novaPos=Math.max(0,posAntes+(input.value.length-tamAntes));
+        input.setSelectionRange(novaPos,novaPos);
+      });
+    }
   };
 
   // Cache de "quem pode ver o quê" — carregado uma vez por sessão (uma

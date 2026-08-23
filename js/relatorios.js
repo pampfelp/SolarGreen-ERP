@@ -235,26 +235,28 @@
   }
 
   function excluirRelatorio(idRelatorio){
-    if(!confirm('Excluir esse lançamento de relatório? Essa ação não pode ser desfeita.'))return;
-    var registroAnterior=relatorios.filter(function(x){return String(x.IdRelatorio)===String(idRelatorio);})[0];
-    relatorios=relatorios.filter(function(x){return String(x.IdRelatorio)!==String(idRelatorio);});
-    _epoca.marcar();
-    render();
-    (window.SGToast?window.SGToast.mostrar:function(t){})('Relatório excluído.');
+    window.SGConfirm.perguntar({titulo:'Excluir lançamento',mensagem:'Excluir esse lançamento de relatório? Essa ação não pode ser desfeita.',textoConfirmar:'Excluir',perigo:true}).then(function(ok){
+      if(!ok)return;
+      var registroAnterior=relatorios.filter(function(x){return String(x.IdRelatorio)===String(idRelatorio);})[0];
+      relatorios=relatorios.filter(function(x){return String(x.IdRelatorio)!==String(idRelatorio);});
+      _epoca.marcar();
+      render();
+      (window.SGToast?window.SGToast.mostrar:function(t){})('Relatório excluído.');
 
-    apiCall('excluirRelatorio',{solicitanteId:meuId(),idRelatorio:idRelatorio}).then(function(resp){
-      if(!resp||!resp.ok){
-        if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return; // já não existia mesmo
+      apiCall('excluirRelatorio',{solicitanteId:meuId(),idRelatorio:idRelatorio}).then(function(resp){
+        if(!resp||!resp.ok){
+          if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return; // já não existia mesmo
+          if(registroAnterior)relatorios.push(registroAnterior);
+          _epoca.marcar();
+          render();
+          (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
+        }
+      }).catch(function(err){
         if(registroAnterior)relatorios.push(registroAnterior);
         _epoca.marcar();
         render();
-        (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
-      }
-    }).catch(function(err){
-      if(registroAnterior)relatorios.push(registroAnterior);
-      _epoca.marcar();
-      render();
-      (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — restaurado: '+err.message,true);
+        (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — restaurado: '+err.message,true);
+      });
     });
   }
 

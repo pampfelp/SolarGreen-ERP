@@ -127,12 +127,10 @@
     document.getElementById('pl-lastUpdate').textContent='Atualizado em '+new Date().toLocaleDateString('pt-BR')+' às '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   }
 
-  function popularSelectCliente(){
-    var sel=document.getElementById('pm-cliente');
-    sel.innerHTML='<option value="">— Selecionar cliente…</option>'+
-      Object.keys(clientesMap).map(function(id){return clientesMap[id];})
-        .sort(function(a,b){return (a['Nome Razao Social']||a.Nome||'').localeCompare(b['Nome Razao Social']||b.Nome||'','pt-BR');})
-        .map(function(c){return '<option value="'+escapeHtml(c.IdCliente)+'">'+escapeHtml(c['Nome Razao Social']||c.Nome||c.IdCliente)+'</option>';}).join('');
+  function opcoesClientePl(){
+    return Object.keys(clientesMap).map(function(id){return clientesMap[id];})
+      .sort(function(a,b){return (a['Nome Razao Social']||a.Nome||'').localeCompare(b['Nome Razao Social']||b.Nome||'','pt-BR');})
+      .map(function(c){return {id:c.IdCliente,label:c['Nome Razao Social']||c.Nome||c.IdCliente};});
   }
 
   /**
@@ -171,11 +169,14 @@
   }
 
   function abrirModalPlano(idPlano){
-    popularSelectCliente();
     var p=idPlano?planos.filter(function(x){return String(x.IdPlano)===String(idPlano);})[0]:null;
     editandoId=idPlano||null;
     document.getElementById('planoModalTitle').textContent=p?'Editar plano':'Novo plano';
-    document.getElementById('pm-cliente').value=p?(p.IdCliente||''):'';
+    window.SGCombo.criar({
+      inputId:'pm-clienteBusca', hiddenId:'pm-cliente', dropdownId:'pm-clienteDropdown',
+      getOpcoes:opcoesClientePl,
+      valorInicial:p&&p.IdCliente?{id:p.IdCliente,label:nomeCliente(p.IdCliente)}:null
+    });
     document.getElementById('pm-tipo').value=p?(p.TipoAssinatura||'Mensal'):'Mensal';
     document.getElementById('pm-valor').value=p?p.Valor:'';
     var da=p?parseBRDate(p.DataAssinatura):null;
@@ -275,30 +276,32 @@
 
   function excluirPlano(){
     if(!editandoId)return;
-    if(!confirm('Tem certeza que deseja excluir esse plano? Essa ação não pode ser desfeita.'))return;
-    var idPlano=editandoId;
-    var registroAnterior=planos.filter(function(p){return String(p.IdPlano)===String(idPlano);})[0];
+    window.SGConfirm.perguntar({titulo:'Excluir plano',mensagem:'Tem certeza que deseja excluir esse plano? Essa ação não pode ser desfeita.',textoConfirmar:'Excluir',perigo:true}).then(function(ok){
+      if(!ok)return;
+      var idPlano=editandoId;
+      var registroAnterior=planos.filter(function(p){return String(p.IdPlano)===String(idPlano);})[0];
 
-    planos=planos.filter(function(p){return String(p.IdPlano)!==String(idPlano);});
-    _epoca.marcar();
-    fecharModalPlano();
-    if(window.SGViewPanel)window.SGViewPanel.fechar();
-    render();
-    mostrarToastPlanos('Plano excluído.');
+      planos=planos.filter(function(p){return String(p.IdPlano)!==String(idPlano);});
+      _epoca.marcar();
+      fecharModalPlano();
+      if(window.SGViewPanel)window.SGViewPanel.fechar();
+      render();
+      mostrarToastPlanos('Plano excluído.');
 
-    apiCall('excluirPlano',{idPlano:idPlano,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
-      if(!resp||!resp.ok){
-        if(window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
+      apiCall('excluirPlano',{idPlano:idPlano,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
+        if(!resp||!resp.ok){
+          if(window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
+          if(registroAnterior)planos.push(registroAnterior);
+          _epoca.marcar();
+          render();
+          mostrarToastPlanos((resp&&resp.erro)||'Não foi possível excluir — o plano foi restaurado.',true);
+        }
+      }).catch(function(err){
         if(registroAnterior)planos.push(registroAnterior);
         _epoca.marcar();
         render();
-        mostrarToastPlanos((resp&&resp.erro)||'Não foi possível excluir — o plano foi restaurado.',true);
-      }
-    }).catch(function(err){
-      if(registroAnterior)planos.push(registroAnterior);
-      _epoca.marcar();
-      render();
-      mostrarToastPlanos('Erro de conexão — o plano foi restaurado: '+err.message,true);
+        mostrarToastPlanos('Erro de conexão — o plano foi restaurado: '+err.message,true);
+      });
     });
   }
 

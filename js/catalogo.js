@@ -160,27 +160,29 @@
 
   function excluirModulo(){
     if(!moduloAtualId)return;
-    if(!confirm('Tem certeza que deseja excluir esse módulo do catálogo? Essa ação não pode ser desfeita.'))return;
-    var idAlvo=moduloAtualId;
-    var registroAnterior=modulos.filter(function(x){return String(x.IdModulo)===String(idAlvo);})[0];
-    modulos=modulos.filter(function(x){return String(x.IdModulo)!==String(idAlvo);});
-    _epoca.marcar();
-    fecharPainelModulo();
-    if(window.SGViewPanel)window.SGViewPanel.fechar();
-    render();
-    window.SGToast.mostrar('Módulo excluído.');
+    window.SGConfirm.perguntar({titulo:'Excluir módulo',mensagem:'Tem certeza que deseja excluir esse módulo do catálogo? Essa ação não pode ser desfeita.',textoConfirmar:'Excluir',perigo:true}).then(function(ok){
+      if(!ok)return;
+      var idAlvo=moduloAtualId;
+      var registroAnterior=modulos.filter(function(x){return String(x.IdModulo)===String(idAlvo);})[0];
+      modulos=modulos.filter(function(x){return String(x.IdModulo)!==String(idAlvo);});
+      _epoca.marcar();
+      fecharPainelModulo();
+      if(window.SGViewPanel)window.SGViewPanel.fechar();
+      render();
+      window.SGToast.mostrar('Módulo excluído.');
 
-    apiCall('excluirModulo',{idModulo:idAlvo,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
-      if(!resp||!resp.ok){
-        if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
+      apiCall('excluirModulo',{idModulo:idAlvo,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
+        if(!resp||!resp.ok){
+          if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
+          if(registroAnterior)modulos.push(registroAnterior);
+          _epoca.marcar(); render();
+          window.SGToast.mostrar((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
+        }
+      }).catch(function(err){
         if(registroAnterior)modulos.push(registroAnterior);
         _epoca.marcar(); render();
-        window.SGToast.mostrar((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
-      }
-    }).catch(function(err){
-      if(registroAnterior)modulos.push(registroAnterior);
-      _epoca.marcar(); render();
-      window.SGToast.mostrar('Erro de conexão — restaurado: '+err.message,true);
+        window.SGToast.mostrar('Erro de conexão — restaurado: '+err.message,true);
+      });
     });
   }
 
@@ -326,27 +328,29 @@
 
   function excluirInversor(){
     if(!inversorAtualId)return;
-    if(!confirm('Tem certeza que deseja excluir esse inversor do catálogo? Essa ação não pode ser desfeita.'))return;
-    var idAlvo=inversorAtualId;
-    var registroAnterior=inversores.filter(function(x){return String(x.IdInversor)===String(idAlvo);})[0];
-    inversores=inversores.filter(function(x){return String(x.IdInversor)!==String(idAlvo);});
-    _epoca.marcar();
-    fecharPainelInversor();
-    if(window.SGViewPanel)window.SGViewPanel.fechar();
-    render();
-    window.SGToast.mostrar('Inversor excluído.');
+    window.SGConfirm.perguntar({titulo:'Excluir inversor',mensagem:'Tem certeza que deseja excluir esse inversor do catálogo? Essa ação não pode ser desfeita.',textoConfirmar:'Excluir',perigo:true}).then(function(ok){
+      if(!ok)return;
+      var idAlvo=inversorAtualId;
+      var registroAnterior=inversores.filter(function(x){return String(x.IdInversor)===String(idAlvo);})[0];
+      inversores=inversores.filter(function(x){return String(x.IdInversor)!==String(idAlvo);});
+      _epoca.marcar();
+      fecharPainelInversor();
+      if(window.SGViewPanel)window.SGViewPanel.fechar();
+      render();
+      window.SGToast.mostrar('Inversor excluído.');
 
-    apiCall('excluirInversor',{idInversor:idAlvo,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
-      if(!resp||!resp.ok){
-        if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
+      apiCall('excluirInversor',{idInversor:idAlvo,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
+        if(!resp||!resp.ok){
+          if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
+          if(registroAnterior)inversores.push(registroAnterior);
+          _epoca.marcar(); render();
+          window.SGToast.mostrar((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
+        }
+      }).catch(function(err){
         if(registroAnterior)inversores.push(registroAnterior);
         _epoca.marcar(); render();
-        window.SGToast.mostrar((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
-      }
-    }).catch(function(err){
-      if(registroAnterior)inversores.push(registroAnterior);
-      _epoca.marcar(); render();
-      window.SGToast.mostrar('Erro de conexão — restaurado: '+err.message,true);
+        window.SGToast.mostrar('Erro de conexão — restaurado: '+err.message,true);
+      });
     });
   }
 
