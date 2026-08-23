@@ -328,6 +328,15 @@
       if(!str)return null; str=String(str).trim();
       var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
       if(m)return new Date(+m[3],+m[2]-1,+m[1]);
+      // "2026-08-20" (formato que o Firestore grava em DataCriacao/DataVenda
+      // etc.) não pode virar new Date(str) direto — isso parseia como UTC
+      // meia-noite e, no fuso do Brasil, os getters locais (getDate() etc.)
+      // devolvem o dia anterior. Mesmo bug clássico já corrigido em outros
+      // parseBRDate deste projeto (ver segundo-cerebro · parseDataLocal) —
+      // esse aqui é o utilitário COMPARTILHADO (SGUtil), usado por
+      // clientes/vendas/dashboard/funil/planos/relatorios/custos-venda.
+      var iso=str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if(iso)return new Date(+iso[1],+iso[2]-1,+iso[3]);
       var d=new Date(str.substring(0,10)); return isNaN(d)?null:d;
     },
     parseBRNumber:function(v){

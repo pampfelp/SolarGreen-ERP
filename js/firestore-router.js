@@ -89,6 +89,12 @@
     var ref=db().collection('funil').doc(id);
     return ref.get().then(function(snap){
       var agora=new Date();
+      // Só registra uma transição de verdade se a etapa MUDOU (ou é a
+      // primeira gravação) — sem essa checagem, editar só a observação/valor
+      // de um lead (sem mudar de etapa) registraria uma transição falsa toda
+      // vez, inflando "tempo médio" e "já passaram" sem o lead ter se
+      // movido de verdade.
+      var etapaMudou=!snap.exists||snap.data().Etapa!==p.etapa;
       var doc=semUndefined({
         IdOportunidade:id, IdCliente:p.idCliente, IdVendedor:p.idVendedor, IdServico:p.idServico||'',
         Etapa:p.etapa, Observacoes:p.observacoes||'', 'Valor Estimado':parseFloat(p.valorEstimado)||0,
@@ -99,7 +105,12 @@
         // JÁ passaram por uma etapa, não só quantos estão nela agora. Leads
         // criados antes dessa mudança só começam a acumular a partir da
         // próxima vez que mudarem de etapa — não tem histórico retroativo.
-        EtapasPassadas: firebase.firestore.FieldValue.arrayUnion(p.etapa)
+        EtapasPassadas: etapaMudou?firebase.firestore.FieldValue.arrayUnion(p.etapa):undefined,
+        // Histórico COM horário de cada transição — separado de
+        // EtapasPassadas (que só marca presença, sem quando) porque
+        // "tempo médio por etapa" precisa saber quando cada troca aconteceu,
+        // não só que aconteceu.
+        Transicoes: etapaMudou?firebase.firestore.FieldValue.arrayUnion({Etapa:p.etapa,Em:agora.toISOString()}):undefined
       });
       return ref.set(doc,{merge:true});
     }).then(function(){ return {ok:true,idOportunidade:id}; })
