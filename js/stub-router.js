@@ -28,35 +28,32 @@
   }
 
   var stubs={
-    // js/agendamentos.js (agenda do admin — diferente da do app do técnico)
-    getAgendamentosData: function(){ return ok({agendamentos:[],clientes:[],vendedores:[],servicos:[],templates:[],respostas:[]}); },
-    getRespostasAgendamentosVendedor: function(){ return ok({respostas:[]}); },
-    salvarAgendamento: okEcho('idAgendamento'),
-    atualizarStatusAgendamento: function(){ return ok(); },
-    excluirAgendamento: function(){ return ok(); },
-    gerarPdfOS: function(){ return ok({fileId:''}); },
-    enviarOSParaAssinatura: function(){ return ok({link:''}); },
-    verificarStatusOS: function(){ return ok({status:'',refused:false}); },
+    // js/agendamentos.js (agenda do admin) — implementação real em
+    // firestore-router.js, não stub (mesma coleção do app do técnico).
+    // Só PDF/assinatura digital seguem sem integração nesse piloto.
 
     // js/catalogo.js — implementação real em firestore-router.js, não stub
 
-    // js/custo-recorrente.js
+    // js/custo-recorrente.js — Custos Recorrentes não depende de nenhuma
+    // coleção já migrada, fica vazio mesmo até ser migrado de verdade.
     getCustoRecorrenteData: function(){ return ok({custos:[]}); },
     salvarCustoRecorrente: okEcho('idCR'),
     excluirCustoRecorrente: function(){ return ok(); },
 
-    // js/custos-venda.js
-    getCustosVendaData: function(){ return ok({custos:[],vendas:[],clientes:[],servicos:[]}); },
+    // js/custos-venda.js — getCustosVendaData tem implementação real em
+    // firestore-router.js (vendas/clientes/servicos já são Firestore de
+    // verdade); só salvar/excluir custo ficam stub (Custos da Venda em si
+    // ainda não tem coleção própria).
     salvarCustoVenda: okEcho('idCusto'),
     excluirCustoVenda: function(){ return ok(); },
 
-    // js/dashboard.js + js/relatorios.js (getVendasData/getFunilData já são
-    // reais — vêm do Firestore via firestore-router.js, não precisam de stub)
-    getRelatoriosData: function(){ return ok({relatorios:[],vendedores:[]}); },
+    // js/relatorios.js — getRelatoriosData tem implementação real em
+    // firestore-router.js (vendedores já é Firestore de verdade); só
+    // salvar/excluir relatório ficam stub.
     salvarRelatorio: okEcho('idRelatorio'),
     excluirRelatorio: function(){ return ok(); },
 
-    // js/metas.js
+    // js/metas.js — Metas não depende de nenhuma coleção já migrada.
     getMetasData: function(){ return ok({metas:[]}); },
     salvarMeta: okEcho('idMeta'),
     excluirMeta: function(){ return ok(); },
@@ -66,14 +63,16 @@
     getPermissoesData: function(){ return ok({telas:[],tipos:[],permissoes:[]}); },
     salvarPermissoes: function(){ return ok(); },
 
-    // js/planos.js
-    getPlanosData: function(){ return ok({planos:[],clientes:[],vendedores:[]}); },
+    // js/planos.js — getPlanosData tem implementação real em
+    // firestore-router.js (clientes/vendedores já são Firestore de
+    // verdade); só salvar/excluir plano ficam stub.
     salvarPlano: okEcho('idPlano'),
     excluirPlano: function(){ return ok(); },
 
-    // js/ponto.js — getData dispara sozinho logo após o login (autoConnect),
-    // não só quando o usuário abre a aba de Ponto.
-    getData: function(){ return ok({vendedores:[],ponto:[],overrides:{}}); },
+    // js/ponto.js — getData tem implementação real em firestore-router.js
+    // (vendedores já é Firestore de verdade); só setOverride fica stub
+    // (Ponto Eletrônico em si ainda não tem coleção própria). Dispara
+    // sozinho logo após o login (autoConnect), não só ao abrir a aba.
     setOverride: function(){ return ok(); },
 
     // js/servicos.js — implementação real em firestore-router.js, não stub

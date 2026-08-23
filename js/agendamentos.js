@@ -17,6 +17,12 @@
     if(!str)return null; str=String(str).trim();
     var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
     if(m)return new Date(parseInt(m[3],10),parseInt(m[2],10)-1,parseInt(m[1],10));
+    // Agendamentos criados pelo app do técnico gravam "Data Inicio" em
+    // YYYY-MM-DD — sem esse branch, new Date(str) trata como UTC meia-noite
+    // e exibe o dia anterior em fusos negativos (bug clássico, ver
+    // segundo-cerebro/padroes/javascript-patterns.md · parseDataLocal).
+    var iso=str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if(iso)return new Date(parseInt(iso[1],10),parseInt(iso[2],10)-1,parseInt(iso[3],10));
     var d=new Date(str); return isNaN(d.getTime())?null:d;
   }
   function dateKey(d){ return window.SGUtil.dateKey(d); }
