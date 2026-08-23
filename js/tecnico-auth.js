@@ -172,7 +172,6 @@ var SGAuth=(function(){
 window.TecnicoSync=(function(){
   var pendentes={}; var proximoId=1;
   function badge(){ return document.getElementById('tec-sync-badge'); }
-  function texto(){ return document.getElementById('tec-sync-text'); }
   function escapeHtmlSync(s){ var d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
 
   function renderPainel(){
@@ -190,8 +189,8 @@ window.TecnicoSync=(function(){
     if(!SGAuth.getSession()){ b.style.display='none'; return; }
     var n=Object.keys(pendentes).length;
     b.style.display='flex';
-    if(n>0){ b.classList.add('pending'); texto().textContent=n+' pendente'+(n>1?'s':''); }
-    else{ b.classList.remove('pending'); texto().textContent='Sincronizado'; }
+    if(n>0){ b.classList.add('pending'); b.title=n+' pendente'+(n>1?'s':''); }
+    else{ b.classList.remove('pending'); b.title='Sincronizado'; }
     renderPainel();
   }
   function iniciar(colecao,resumo){ var id=proximoId++; pendentes[id]={colecao:colecao,resumo:resumo}; render(); return id; }

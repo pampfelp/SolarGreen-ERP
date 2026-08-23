@@ -203,7 +203,6 @@
     var proximoId=1;
 
     function badge(){ return document.getElementById('sg-sync-badge'); }
-    function texto(){ return document.getElementById('sg-sync-text'); }
 
     function renderPainel(){
       var corpo=document.getElementById('sg-sync-panel-body');
@@ -222,8 +221,8 @@
       if(!window.SG_SESSION){ b.style.display='none'; return; }
       var n=Object.keys(pendentes).length;
       b.style.display='flex';
-      if(n>0){ b.classList.add('pending'); texto().textContent=n+' pendente'+(n>1?'s':''); }
-      else{ b.classList.remove('pending'); texto().textContent='Sincronizado'; }
+      if(n>0){ b.classList.add('pending'); b.title=n+' pendente'+(n>1?'s':''); }
+      else{ b.classList.remove('pending'); b.title='Sincronizado'; }
       renderPainel();
     }
 

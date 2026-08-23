@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/tecnico.css?v=20260822e">
+<link rel="stylesheet" href="css/tecnico.css?v=20260823a">
 </head>
 <body>
 
@@ -86,6 +86,7 @@
         <button class="icon-btn" id="btn-abrir-dimensionamento" title="Dimensionamento Solar">📐</button>
         <button class="icon-btn" id="btn-refresh" title="Atualizar">⟳</button>
         <button class="icon-btn" id="btn-logout" title="Sair">⎋</button>
+        <div id="tec-sync-badge" title="Sincronizado" style="display:none;"><span class="dot"></span></div>
       </div>
     </div>
   </div>
@@ -381,7 +382,6 @@
 </div>
 
 <div class="toast hidden" id="toast"></div>
-<div id="tec-sync-badge" style="display:none;"><span class="dot"></span><span id="tec-sync-text">Sincronizado</span></div>
 <div id="tec-sync-panel">
   <h4>Pendente de sincronizar</h4>
   <div id="tec-sync-panel-body"><div class="empty">Nada pendente.</div></div>
@@ -390,11 +390,11 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="js/tecnico-firebase-init.js?v=20260822e"></script>
-<script src="js/tecnico-router.js?v=20260822e"></script>
-<script src="js/tecnico-auth.js?v=20260822e"></script>
-<script src="js/tecnico-agendamentos.js?v=20260822e"></script>
-<script src="js/tecnico-dimensionamento.js?v=20260822e"></script>
+<script src="js/tecnico-firebase-init.js?v=20260823a"></script>
+<script src="js/tecnico-router.js?v=20260823a"></script>
+<script src="js/tecnico-auth.js?v=20260823a"></script>
+<script src="js/tecnico-agendamentos.js?v=20260823a"></script>
+<script src="js/tecnico-dimensionamento.js?v=20260823a"></script>
 
 <div id="sg-install-banner">
   <span class="sg-ib-icon">📲</span>
@@ -404,7 +404,7 @@
     <button type="button" class="sg-ib-fechar" id="sg-ib-fechar">Agora não</button>
   </div>
 </div>
-<script src="js/tecnico-pwa.js?v=20260822e"></script>
+<script src="js/tecnico-pwa.js?v=20260823a"></script>
 
 </body>
 </html>
