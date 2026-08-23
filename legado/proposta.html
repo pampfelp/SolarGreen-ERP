@@ -1907,7 +1907,13 @@ document.getElementById('ctrSyncBtnBottom').addEventListener('click',syncCliente
 </div>
 <script>
 (function(){
-  if('serviceWorker' in navigator){ navigator.serviceWorker.register('../sw.js').catch(function(){}); }
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('../sw.js',{updateViaCache:'none'}).catch(function(){});
+    var swJaRecarregou=false;
+    navigator.serviceWorker.addEventListener('controllerchange',function(){
+      if(swJaRecarregou)return; swJaRecarregou=true; location.reload();
+    });
+  }
   var DISMISS_KEY='sg_install_dismissed_v1';
   var banner=document.getElementById('sg-install-banner');
   if(!banner)return;
