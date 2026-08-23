@@ -106,6 +106,136 @@
       .catch(function(err){ return {ok:false,erro:err.message}; });
   }
 
+  function paraNumero(v){
+    if(v===''||v===null||v===undefined)return 0;
+    if(typeof v==='number')return v;
+    var n=parseFloat(String(v).replace(',','.'));
+    return isNaN(n)?0:n;
+  }
+
+  // ── Usuários (tela "Usuários do Sistema") ──
+  // vendedores já é 100% Firestore desde o piloto original (é a coleção que
+  // sustenta o próprio login); essa tela só lista/edita o que já existe lá.
+  // Criar um vendedor NOVO por aqui grava o documento, mas não cria conta no
+  // Firebase Auth (isso exigiria Admin SDK/Cloud Function) — a pessoa só
+  // consegue logar de verdade se alguém criar o Auth dela separadamente.
+  function listVendedoresAdmin(){
+    return getColecao('vendedores').then(function(vendedores){
+      return {ok:true, vendedores:vendedores};
+    }).catch(function(err){ return {ok:false, erro:err.message}; });
+  }
+  function salvarVendedor(p){
+    var id=p.idVendedor;
+    if(!id) return Promise.resolve({ok:false,erro:'idVendedor é obrigatório.'});
+    var doc={IdVendedor:id, Nome:p.nome||'', Email:p.email||'', Telefone:p.telefone||'', Tipo:p.tipo||'', Status:p.status||'Ativo'};
+    return db().collection('vendedores').doc(id).set(doc,{merge:true})
+      .then(function(){ return {ok:true,idVendedor:id}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+
+  // ── Serviços (catálogo de serviços + checklist do técnico) ──
+  // servicos/templates já são Firestore de verdade (usados por Vendas/Funil
+  // e pelo checklist do app do técnico) — essa tela é quem cadastra/edita.
+  function getServicosData(){
+    return Promise.all([getColecao('servicos'),getColecao('templates')]).then(function(r){
+      return {ok:true, servicos:r[0], templates:r[1]};
+    }).catch(function(err){ return {ok:false, erro:err.message}; });
+  }
+  function salvarServico(p){
+    var id=p.idServico;
+    if(!id) return Promise.resolve({ok:false,erro:'idServico é obrigatório.'});
+    var doc={
+      IdServico:id, 'Nome Servico':p.nomeServico||'', 'Tipo Cobranca':p.tipoCobranca||'',
+      TipoServico:p.tipoServico||'', Descricao:p.descricao||'',
+      Valor:paraNumero(p.valor), ValorPorModulo:paraNumero(p.valorPorModulo)
+    };
+    return db().collection('servicos').doc(id).set(doc,{merge:true})
+      .then(function(){ return {ok:true,idServico:id}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+  function excluirServico(p){
+    return db().collection('servicos').doc(p.idServico).delete()
+      .then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+  function salvarTemplate(p){
+    var id=p.idTemplate;
+    if(!id) return Promise.resolve({ok:false,erro:'idTemplate é obrigatório.'});
+    var doc={
+      IdTemplate:id, IdServico:p.idServico||'', Ordem:paraNumero(p.ordem),
+      TextoPergunta:p.textoPergunta||'', TipoInput:p.tipoInput||'Texto',
+      OpcoesEnum:p.opcoesEnum||'', Obrigatorio:!!p.obrigatorio
+    };
+    return db().collection('templates').doc(id).set(doc,{merge:true})
+      .then(function(){ return {ok:true,idTemplate:id}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+  function excluirTemplate(p){
+    return db().collection('templates').doc(p.idTemplate).delete()
+      .then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+
+  // ── Catálogo Solar (módulos/inversores) ──
+  // Mesmas coleções e mesmo mapeamento de campos já usados por
+  // tecnico-router.js (getCatalogoProdutos/salvarModulo/salvarInversor) —
+  // um módulo/inversor cadastrado por qualquer um dos dois apps aparece no
+  // outro, porque é a mesma coleção do Firestore.
+  function getCatalogoProdutos(){
+    return Promise.all([getColecao('produtos_modulos'),getColecao('produtos_inversores')]).then(function(r){
+      return {ok:true, modulos:r[0], inversores:r[1].map(function(inv){
+        var out=Object.assign({},inv); out.mpptsConfig=inv.mpptsConfig||[]; return out;
+      })};
+    }).catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+  function salvarModulo(p){
+    var modelo=String(p.modelo||'').trim();
+    if(!modelo) return Promise.resolve({ok:false,erro:'Modelo do módulo é obrigatório.'});
+    var id=p.idModulo||(window.SGId?window.SGId.gerar():String(Date.now()));
+    var ref=db().collection('produtos_modulos').doc(id);
+    return ref.get().then(function(snap){
+      var agora=new Date().toISOString();
+      var doc=semUndefined({
+        IdModulo:id, Marca:p.marca||'', Modelo:modelo,
+        AlturaM:paraNumero(p.alturaM), LarguraM:paraNumero(p.larguraM), PotenciaW:paraNumero(p.potenciaW),
+        VocV:paraNumero(p.vocV), IscA:paraNumero(p.iscA), PesoKg:paraNumero(p.pesoKg),
+        DataAtualizacao:agora, DataCriacao: snap.exists?undefined:agora
+      });
+      return ref.set(doc,{merge:true});
+    }).then(function(){ return {ok:true,idModulo:id}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+  function excluirModulo(p){
+    return db().collection('produtos_modulos').doc(p.idModulo).delete()
+      .then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+  function salvarInversor(p){
+    var modelo=String(p.modelo||'').trim();
+    if(!modelo) return Promise.resolve({ok:false,erro:'Modelo do inversor é obrigatório.'});
+    var id=p.idInversor||(window.SGId?window.SGId.gerar():String(Date.now()));
+    var ref=db().collection('produtos_inversores').doc(id);
+    return ref.get().then(function(snap){
+      var agora=new Date().toISOString();
+      var doc=semUndefined({
+        IdInversor:id, Marca:p.marca||'', Modelo:modelo,
+        PotenciaMaxCC_W:paraNumero(p.potenciaMaxCC_W), PotenciaNomCC_W:paraNumero(p.potenciaNomCC_W),
+        TensaoEntradaMaxV:paraNumero(p.tensaoEntradaMaxV), MpptMinV:paraNumero(p.mpptMinV), MpptMaxV:paraNumero(p.mpptMaxV),
+        StartupV:paraNumero(p.startupV), NumMppts:paraNumero(p.numMppts), mpptsConfig:p.mpptsConfig||[],
+        PotenciaAtivaNomCA_W:paraNumero(p.potenciaAtivaNomCA_W), TensaoCANominalV:paraNumero(p.tensaoCANominalV),
+        CorrenteMaxCA_A:paraNumero(p.correnteMaxCA_A), Fases:p.fases||'',
+        DataAtualizacao:agora, DataCriacao: snap.exists?undefined:agora
+      });
+      return ref.set(doc,{merge:true});
+    }).then(function(){ return {ok:true,idInversor:id}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+  function excluirInversor(p){
+    return db().collection('produtos_inversores').doc(p.idInversor).delete()
+      .then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+
   // Espera o Firebase Auth confirmar a sessão restaurada antes de tocar no
   // Firestore — senão a primeira leitura logo após um F5 chega antes da
   // sessão terminar de restaurar e as rules recusam com "permission denied"
@@ -137,6 +267,21 @@
     excluirVenda:comSync('vendas',function(p){return 'excluir '+p.idVenda;},comAuthPronto(excluirVenda)),
     getFunilData:comAuthPronto(getFunilData),
     salvarFunil:comSync('funil',function(p){return 'lead ('+(p.etapa||'')+')';},comAuthPronto(salvarFunil)),
-    excluirFunil:comSync('funil',function(p){return 'excluir '+p.idOportunidade;},comAuthPronto(excluirFunil))
+    excluirFunil:comSync('funil',function(p){return 'excluir '+p.idOportunidade;},comAuthPronto(excluirFunil)),
+
+    listVendedoresAdmin:comAuthPronto(listVendedoresAdmin),
+    salvarVendedor:comSync('vendedores',function(p){return p.nome||p.idVendedor;},comAuthPronto(salvarVendedor)),
+
+    getServicosData:comAuthPronto(getServicosData),
+    salvarServico:comSync('servicos',function(p){return p.nomeServico||p.idServico;},comAuthPronto(salvarServico)),
+    excluirServico:comSync('servicos',function(p){return 'excluir '+p.idServico;},comAuthPronto(excluirServico)),
+    salvarTemplate:comSync('templates',function(p){return p.textoPergunta||p.idTemplate;},comAuthPronto(salvarTemplate)),
+    excluirTemplate:comSync('templates',function(p){return 'excluir '+p.idTemplate;},comAuthPronto(excluirTemplate)),
+
+    getCatalogoProdutos:comAuthPronto(getCatalogoProdutos),
+    salvarModulo:comSync('produtos_modulos',function(p){return p.modelo||p.idModulo;},comAuthPronto(salvarModulo)),
+    excluirModulo:comSync('produtos_modulos',function(p){return 'excluir '+p.idModulo;},comAuthPronto(excluirModulo)),
+    salvarInversor:comSync('produtos_inversores',function(p){return p.modelo||p.idInversor;},comAuthPronto(salvarInversor)),
+    excluirInversor:comSync('produtos_inversores',function(p){return 'excluir '+p.idInversor;},comAuthPronto(excluirInversor))
   };
 })();
