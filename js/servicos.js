@@ -140,26 +140,28 @@
   }
 
   function excluirPergunta(idTpl){
-    if(!confirm('Excluir essa pergunta do checklist? Essa ação não pode ser desfeita.'))return;
-    var registroAnterior=templates.filter(function(x){return String(x.IdTemplate)===String(idTpl);})[0];
-    templates=templates.filter(function(x){return String(x.IdTemplate)!==String(idTpl);});
-    _epoca.marcar();
-    renderPerguntas();
-    render();
+    window.SGConfirm.perguntar({titulo:'Excluir pergunta',mensagem:'Excluir essa pergunta do checklist? Essa ação não pode ser desfeita.',textoConfirmar:'Excluir',perigo:true}).then(function(ok){
+      if(!ok)return;
+      var registroAnterior=templates.filter(function(x){return String(x.IdTemplate)===String(idTpl);})[0];
+      templates=templates.filter(function(x){return String(x.IdTemplate)!==String(idTpl);});
+      _epoca.marcar();
+      renderPerguntas();
+      render();
 
-    apiCall('excluirTemplate',{idTemplate:idTpl,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
-      if(!resp||!resp.ok){
-        if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
+      apiCall('excluirTemplate',{idTemplate:idTpl,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
+        if(!resp||!resp.ok){
+          if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
+          if(registroAnterior)templates.push(registroAnterior);
+          _epoca.marcar();
+          renderPerguntas(); render();
+          (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
+        }
+      }).catch(function(err){
         if(registroAnterior)templates.push(registroAnterior);
         _epoca.marcar();
         renderPerguntas(); render();
-        (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
-      }
-    }).catch(function(err){
-      if(registroAnterior)templates.push(registroAnterior);
-      _epoca.marcar();
-      renderPerguntas(); render();
-      (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — restaurado: '+err.message,true);
+        (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — restaurado: '+err.message,true);
+      });
     });
   }
 
@@ -282,29 +284,31 @@
 
   function excluirServico(){
     if(!servicoAtualId)return;
-    if(!confirm('Tem certeza que deseja excluir esse serviço? As perguntas do checklist dele NÃO são apagadas automaticamente. Essa ação não pode ser desfeita.'))return;
-    var idAlvo=servicoAtualId;
-    var registroAnterior=servicos.filter(function(x){return String(x.IdServico)===String(idAlvo);})[0];
-    servicos=servicos.filter(function(x){return String(x.IdServico)!==String(idAlvo);});
-    _epoca.marcar();
-    fecharPainel();
-    if(window.SGViewPanel)window.SGViewPanel.fechar();
-    render();
-    (window.SGToast?window.SGToast.mostrar:function(t){})('Serviço excluído.');
+    window.SGConfirm.perguntar({titulo:'Excluir serviço',mensagem:'Tem certeza que deseja excluir esse serviço? As perguntas do checklist dele NÃO são apagadas automaticamente. Essa ação não pode ser desfeita.',textoConfirmar:'Excluir',perigo:true}).then(function(ok){
+      if(!ok)return;
+      var idAlvo=servicoAtualId;
+      var registroAnterior=servicos.filter(function(x){return String(x.IdServico)===String(idAlvo);})[0];
+      servicos=servicos.filter(function(x){return String(x.IdServico)!==String(idAlvo);});
+      _epoca.marcar();
+      fecharPainel();
+      if(window.SGViewPanel)window.SGViewPanel.fechar();
+      render();
+      (window.SGToast?window.SGToast.mostrar:function(t){})('Serviço excluído.');
 
-    apiCall('excluirServico',{idServico:idAlvo,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
-      if(!resp||!resp.ok){
-        if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
+      apiCall('excluirServico',{idServico:idAlvo,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
+        if(!resp||!resp.ok){
+          if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
+          if(registroAnterior)servicos.push(registroAnterior);
+          _epoca.marcar();
+          render();
+          (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
+        }
+      }).catch(function(err){
         if(registroAnterior)servicos.push(registroAnterior);
         _epoca.marcar();
         render();
-        (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
-      }
-    }).catch(function(err){
-      if(registroAnterior)servicos.push(registroAnterior);
-      _epoca.marcar();
-      render();
-      (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — restaurado: '+err.message,true);
+        (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — restaurado: '+err.message,true);
+      });
     });
   }
 

@@ -485,14 +485,16 @@
 
   function removerMetaIndividualOverride(){
     if(!mimContexto)return;
-    if(!confirm('Remover a meta individual desse vendedor pra esse mês? Ele volta a usar a meta padrão dividida entre os vendedores ativos.'))return;
-    var btn=document.getElementById('mim-removerBtn');
-    btn.disabled=true; btn.textContent='Removendo…';
-    apiCall('excluirMetaIndividual',{idVendedor:mimContexto.idVendedor,ano:mimContexto.ano,mes:mimContexto.mes}).then(function(resp){
-      btn.disabled=false; btn.textContent='Remover (usar padrão)';
-      if(!resp||!resp.ok)return;
-      fecharModalMetaIndividual();
-      fetchFromApi(false);
+    window.SGConfirm.perguntar({titulo:'Remover meta individual',mensagem:'Remover a meta individual desse vendedor pra esse mês? Ele volta a usar a meta padrão dividida entre os vendedores ativos.',textoConfirmar:'Remover'}).then(function(ok){
+      if(!ok)return;
+      var btn=document.getElementById('mim-removerBtn');
+      btn.disabled=true; btn.textContent='Removendo…';
+      apiCall('excluirMetaIndividual',{idVendedor:mimContexto.idVendedor,ano:mimContexto.ano,mes:mimContexto.mes}).then(function(resp){
+        btn.disabled=false; btn.textContent='Remover (usar padrão)';
+        if(!resp||!resp.ok)return;
+        fecharModalMetaIndividual();
+        fetchFromApi(false);
+      });
     });
   }
 
@@ -736,61 +738,65 @@
   }
 
   function excluirCustoVenda(idCusto,idVenda){
-    if(!confirm('Excluir esse custo?'))return;
-    var registroAnterior=custosVendaRecords.filter(function(c){return String(c.id)===String(idCusto);})[0];
-    if(custoEditandoId===idCusto){
-      document.getElementById('vd-custoForm').classList.add('hidden');
-      custoEditandoId=null;
-    }
+    window.SGConfirm.perguntar({titulo:'Excluir custo',mensagem:'Excluir esse custo?',textoConfirmar:'Excluir',perigo:true}).then(function(ok){
+      if(!ok)return;
+      var registroAnterior=custosVendaRecords.filter(function(c){return String(c.id)===String(idCusto);})[0];
+      if(custoEditandoId===idCusto){
+        document.getElementById('vd-custoForm').classList.add('hidden');
+        custoEditandoId=null;
+      }
 
-    custosVendaRecords=custosVendaRecords.filter(function(c){return String(c.id)!==String(idCusto);});
-    _epoca.marcar();
-    document.getElementById('vd-custosLista').innerHTML=renderCustosVendaHtml(idVenda);
-    wireCustoDelButtons(idVenda);
-    wireCustoItemClick(vendaAtual);
-    window.SGToast.mostrar('Custo excluído.');
+      custosVendaRecords=custosVendaRecords.filter(function(c){return String(c.id)!==String(idCusto);});
+      _epoca.marcar();
+      document.getElementById('vd-custosLista').innerHTML=renderCustosVendaHtml(idVenda);
+      wireCustoDelButtons(idVenda);
+      wireCustoItemClick(vendaAtual);
+      window.SGToast.mostrar('Custo excluído.');
 
-    apiCall('excluirCustoVenda',{idCusto:idCusto,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
-      if(!resp||!resp.ok){
-        if(window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
+      apiCall('excluirCustoVenda',{idCusto:idCusto,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
+        if(!resp||!resp.ok){
+          if(window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
+          if(registroAnterior)custosVendaRecords.push(registroAnterior);
+          _epoca.marcar();
+          document.getElementById('vd-custosLista').innerHTML=renderCustosVendaHtml(idVenda);
+          wireCustoDelButtons(idVenda);
+          wireCustoItemClick(vendaAtual);
+          window.SGToast.mostrar((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
+        }
+      }).catch(function(err){
         if(registroAnterior)custosVendaRecords.push(registroAnterior);
         _epoca.marcar();
         document.getElementById('vd-custosLista').innerHTML=renderCustosVendaHtml(idVenda);
         wireCustoDelButtons(idVenda);
         wireCustoItemClick(vendaAtual);
-        window.SGToast.mostrar((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
-      }
-    }).catch(function(err){
-      if(registroAnterior)custosVendaRecords.push(registroAnterior);
-      _epoca.marcar();
-      document.getElementById('vd-custosLista').innerHTML=renderCustosVendaHtml(idVenda);
-      wireCustoDelButtons(idVenda);
-      wireCustoItemClick(vendaAtual);
-      window.SGToast.mostrar('Erro de conexão — custo restaurado: '+err.message,true);
+        window.SGToast.mostrar('Erro de conexão — custo restaurado: '+err.message,true);
+      });
     });
   }
 
   function excluirVenda(){
     if(!vendaAtual)return;
-    if(!confirm('Tem certeza que deseja excluir essa venda? Essa ação não pode ser desfeita.'))return;
-    var idVenda=vendaAtual.idVenda;
-    var registroAnterior=Object.assign({},vendaAtual);
+    window.SGConfirm.perguntar({titulo:'Excluir venda',mensagem:'Tem certeza que deseja excluir essa venda? Essa ação não pode ser desfeita.',textoConfirmar:'Excluir',perigo:true}).then(function(ok){
+      if(!ok)return;
+      var idVenda=vendaAtual.idVenda;
+      var registroAnterior=Object.assign({},vendaAtual);
 
-    vendasRecords=vendasRecords.filter(function(x){return String(x.idVenda)!==String(idVenda);});
-    _epoca.marcar();
-    fecharPainelVenda();
-    render();
-    window.SGToast.mostrar('Venda excluída.');
+      vendasRecords=vendasRecords.filter(function(x){return String(x.idVenda)!==String(idVenda);});
+      _epoca.marcar();
+      fecharPainelVenda();
+      render();
+      window.SGToast.mostrar('Venda excluída.');
 
-    apiCall('excluirVenda',{idVenda:idVenda,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
-      if(!resp||!resp.ok){
-        if(window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
+      apiCall('excluirVenda',{idVenda:idVenda,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
+        if(!resp||!resp.ok){
+          if(window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
+          vendasRecords.push(registroAnterior); _epoca.marcar(); render();
+          window.SGToast.mostrar((resp&&resp.erro)||'Não foi possível excluir — a venda foi restaurada.',true);
+        }
+      }).catch(function(err){
         vendasRecords.push(registroAnterior); _epoca.marcar(); render();
-        window.SGToast.mostrar((resp&&resp.erro)||'Não foi possível excluir — a venda foi restaurada.',true);
-      }
-    }).catch(function(err){
-      vendasRecords.push(registroAnterior); _epoca.marcar(); render();
-      window.SGToast.mostrar('Erro de conexão — a venda foi restaurada: '+err.message,true);
+        window.SGToast.mostrar('Erro de conexão — a venda foi restaurada: '+err.message,true);
+      });
     });
   }
 

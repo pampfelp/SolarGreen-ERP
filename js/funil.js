@@ -725,14 +725,15 @@
       valorInicial:r&&r.idServico?{id:r.idServico,label:nomeServicoFunil(r.idServico)}:null,
       addBtnId:'fd-addServicoBtn',
       onAdicionar:function(){
-        var nome=prompt('Nome do novo serviço:');
-        if(!nome||!nome.trim())return;
-        apiCall('criarServicoRapido',{nomeServico:nome.trim()}).then(function(resp){
-          if(!resp||!resp.ok){ mostrarToastFunil((resp&&resp.erro)||'Não foi possível criar o serviço.',true); return; }
-          servicosMapFunil[resp.idServico]={IdServico:resp.idServico,'Nome Servico':resp.nomeServico};
-          document.getElementById('fd-servico').value=resp.idServico;
-          document.getElementById('fd-servicoBusca').value=resp.nomeServico;
-          mostrarToastFunil('Serviço "'+resp.nomeServico+'" criado.');
+        window.SGConfirm.pedirTexto({titulo:'Novo serviço',mensagem:'Nome do novo serviço:',textoConfirmar:'Criar'}).then(function(nome){
+          if(!nome)return;
+          apiCall('criarServicoRapido',{nomeServico:nome.trim()}).then(function(resp){
+            if(!resp||!resp.ok){ mostrarToastFunil((resp&&resp.erro)||'Não foi possível criar o serviço.',true); return; }
+            servicosMapFunil[resp.idServico]={IdServico:resp.idServico,'Nome Servico':resp.nomeServico};
+            document.getElementById('fd-servico').value=resp.idServico;
+            document.getElementById('fd-servicoBusca').value=resp.nomeServico;
+            mostrarToastFunil('Serviço "'+resp.nomeServico+'" criado.');
+          });
         });
       }
     });
@@ -1069,26 +1070,28 @@
 
   function excluirLead(){
     if(!leadAtual)return;
-    if(!confirm('Excluir esse lead do funil? Essa ação não pode ser desfeita.'))return;
-    var id=leadAtual.id;
-    var registroAnterior=Object.assign({},leadAtual);
+    window.SGConfirm.perguntar({titulo:'Excluir lead',mensagem:'Excluir esse lead do funil? Essa ação não pode ser desfeita.',textoConfirmar:'Excluir',perigo:true}).then(function(ok){
+      if(!ok)return;
+      var id=leadAtual.id;
+      var registroAnterior=Object.assign({},leadAtual);
 
-    funilRecords=funilRecords.filter(function(x){return String(x.id)!==String(id);});
-    _epoca.marcar();
-    fecharPainelLead();
-    if(window.SGViewPanel)window.SGViewPanel.fechar();
-    render();
-    mostrarToastFunil('Lead excluído.');
+      funilRecords=funilRecords.filter(function(x){return String(x.id)!==String(id);});
+      _epoca.marcar();
+      fecharPainelLead();
+      if(window.SGViewPanel)window.SGViewPanel.fechar();
+      render();
+      mostrarToastFunil('Lead excluído.');
 
-    apiCall('excluirFunil',{idOportunidade:id,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
-      if(!resp||!resp.ok){
-        if(window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return; // já não existia — exclusão continua válida
+      apiCall('excluirFunil',{idOportunidade:id,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
+        if(!resp||!resp.ok){
+          if(window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return; // já não existia — exclusão continua válida
+          funilRecords.push(registroAnterior); _epoca.marcar(); render();
+          mostrarToastFunil((resp&&resp.erro)||'Não foi possível excluir — o lead foi restaurado.',true);
+        }
+      }).catch(function(err){
         funilRecords.push(registroAnterior); _epoca.marcar(); render();
-        mostrarToastFunil((resp&&resp.erro)||'Não foi possível excluir — o lead foi restaurado.',true);
-      }
-    }).catch(function(err){
-      funilRecords.push(registroAnterior); _epoca.marcar(); render();
-      mostrarToastFunil('Erro de conexão — o lead foi restaurado: '+err.message,true);
+        mostrarToastFunil('Erro de conexão — o lead foi restaurado: '+err.message,true);
+      });
     });
   }
 
@@ -1260,6 +1263,11 @@
     document.getElementById('fd-excluirBtn').addEventListener('click',excluirLead);
     document.getElementById('cr-fecharBtn').addEventListener('click',fecharClienteRapido);
     document.getElementById('cr-salvarBtn').addEventListener('click',salvarClienteRapido);
+    // Máscara sempre ligada ANTES dos listeners abaixo — assim, quando "Sim"
+    // copia o valor pro campo Equatorial, já copia formatado.
+    window.SGUtil.aplicarMascara(document.getElementById('cr-telefone'),window.SGUtil.formatarTelefone);
+    window.SGUtil.aplicarMascara(document.getElementById('cr-cpfCnpj'),window.SGUtil.formatarCpfCnpj);
+    window.SGUtil.aplicarMascara(document.getElementById('cr-cpfEquatorial'),window.SGUtil.formatarCpfCnpj);
     document.getElementById('cr-titularSim').addEventListener('change',function(){
       document.getElementById('cr-cpfEquatorial').value=document.getElementById('cr-cpfCnpj').value;
       document.getElementById('cr-cpfEquatorial').readOnly=true;

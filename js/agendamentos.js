@@ -389,24 +389,26 @@
   function excluirAgendamento(){
     if(!agendamentoAtual)return;
     var nome=nomeCliente(agendamentoAtual.IdCliente);
-    if(!confirm('Tem certeza que deseja excluir o agendamento de "'+nome+'"? Essa ação não pode ser desfeita.'))return;
-    var idAgendamento=agendamentoAtual.IdAgendamento;
-    var registroAnterior=Object.assign({},agendamentoAtual);
+    window.SGConfirm.perguntar({titulo:'Excluir agendamento',mensagem:'Tem certeza que deseja excluir o agendamento de "'+nome+'"? Essa ação não pode ser desfeita.',textoConfirmar:'Excluir',perigo:true}).then(function(ok){
+      if(!ok)return;
+      var idAgendamento=agendamentoAtual.IdAgendamento;
+      var registroAnterior=Object.assign({},agendamentoAtual);
 
-    agendamentos=agendamentos.filter(function(a){return String(a.IdAgendamento)!==String(idAgendamento);});
-    fecharPainelDetalhe();
-    render();
-    showAgToast('Agendamento excluído.');
+      agendamentos=agendamentos.filter(function(a){return String(a.IdAgendamento)!==String(idAgendamento);});
+      fecharPainelDetalhe();
+      render();
+      showAgToast('Agendamento excluído.');
 
-    apiCall('excluirAgendamento',{solicitanteId:meuId(),idAgendamento:idAgendamento}).then(function(resp){
-      if(!resp||!resp.ok){
-        if(window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return; // já não existia mesmo — exclusão continua válida
+      apiCall('excluirAgendamento',{solicitanteId:meuId(),idAgendamento:idAgendamento}).then(function(resp){
+        if(!resp||!resp.ok){
+          if(window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return; // já não existia mesmo — exclusão continua válida
+          agendamentos.push(registroAnterior); render();
+          showAgToast((resp&&resp.erro)||'Não foi possível excluir — o agendamento foi restaurado.',true);
+        }
+      }).catch(function(err){
         agendamentos.push(registroAnterior); render();
-        showAgToast((resp&&resp.erro)||'Não foi possível excluir — o agendamento foi restaurado.',true);
-      }
-    }).catch(function(err){
-      agendamentos.push(registroAnterior); render();
-      showAgToast('Erro de conexão — o agendamento foi restaurado: '+err.message,true);
+        showAgToast('Erro de conexão — o agendamento foi restaurado: '+err.message,true);
+      });
     });
   }
 

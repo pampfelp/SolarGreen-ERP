@@ -213,29 +213,31 @@
 
   function excluir(){
     if(!editandoId)return;
-    if(!confirm('Tem certeza que deseja excluir esse custo recorrente? Essa ação não pode ser desfeita.'))return;
-    var idAlvo=editandoId;
-    var registroAnterior=custos.filter(function(x){return String(x.IdCR)===String(idAlvo);})[0];
-    custos=custos.filter(function(x){return String(x.IdCR)!==String(idAlvo);});
-    _epoca.marcar();
-    fecharModal();
-    if(window.SGViewPanel)window.SGViewPanel.fechar();
-    render();
-    (window.SGToast?window.SGToast.mostrar:function(t){})('Custo recorrente excluído.');
+    window.SGConfirm.perguntar({titulo:'Excluir custo recorrente',mensagem:'Tem certeza que deseja excluir esse custo recorrente? Essa ação não pode ser desfeita.',textoConfirmar:'Excluir',perigo:true}).then(function(ok){
+      if(!ok)return;
+      var idAlvo=editandoId;
+      var registroAnterior=custos.filter(function(x){return String(x.IdCR)===String(idAlvo);})[0];
+      custos=custos.filter(function(x){return String(x.IdCR)!==String(idAlvo);});
+      _epoca.marcar();
+      fecharModal();
+      if(window.SGViewPanel)window.SGViewPanel.fechar();
+      render();
+      (window.SGToast?window.SGToast.mostrar:function(t){})('Custo recorrente excluído.');
 
-    apiCall('excluirCustoRecorrente',{idCR:idAlvo,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
-      if(!resp||!resp.ok){
-        if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
+      apiCall('excluirCustoRecorrente',{idCR:idAlvo,solicitanteId:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''}).then(function(resp){
+        if(!resp||!resp.ok){
+          if(window.SGUtil&&window.SGUtil.ehNaoEncontrado(resp&&resp.erro))return;
+          if(registroAnterior)custos.push(registroAnterior);
+          _epoca.marcar();
+          render();
+          (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
+        }
+      }).catch(function(err){
         if(registroAnterior)custos.push(registroAnterior);
         _epoca.marcar();
         render();
-        (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível excluir — restaurado.',true);
-      }
-    }).catch(function(err){
-      if(registroAnterior)custos.push(registroAnterior);
-      _epoca.marcar();
-      render();
-      (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — restaurado: '+err.message,true);
+        (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — restaurado: '+err.message,true);
+      });
     });
   }
 
