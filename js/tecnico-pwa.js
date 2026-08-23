@@ -1,6 +1,6 @@
 (function(){
   if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).catch(function(){});
+    navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(function(reg){ reg.update(); }).catch(function(){});
     var swJaRecarregou=false;
     navigator.serviceWorker.addEventListener('controllerchange',function(){
       if(swJaRecarregou)return; swJaRecarregou=true; location.reload();
