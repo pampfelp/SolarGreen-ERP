@@ -9,6 +9,46 @@
   var ITENS_POR_PAGINA=10;
   var respostasCarregadasPara={};
   var agendamentoAtual=null;
+  var unsubDetalheAoVivo=null;
+
+  /**
+   * Enquanto o painel de detalhe de uma OS está aberto, escuta ao vivo (Firestore
+   * onSnapshot) as respostas do checklist e o próprio status do agendamento — assim
+   * o admin vê o técnico preenchendo em campo sem precisar apertar F5. Só ativo com
+   * o painel aberto (pararEscutaAoVivo desliga ao fechar), pra não manter listener
+   * escutando telas que ninguém está olhando.
+   */
+  function iniciarEscutaAoVivo(idAgendamento){
+    pararEscutaAoVivo();
+    if(typeof firebase==='undefined'||!firebase.firestore)return;
+    var db=firebase.firestore();
+    var unsubRespostas=db.collection('agendamentos_respostas').where('IdAgendamento','==',idAgendamento)
+      .onSnapshot(function(snap){
+        if(!agendamentoAtual||agendamentoAtual.IdAgendamento!==idAgendamento)return;
+        var lista=[]; snap.forEach(function(doc){ lista.push(doc.data()); });
+        respostasPorAgendamento[idAgendamento]=lista;
+        respostasCarregadasPara[idAgendamento]=true;
+        var secao=document.getElementById('ad-respostas');
+        if(secao)secao.innerHTML=renderRespostasHtml(agendamentoAtual);
+      }, function(){ /* silencioso — mantém o que já carregou via garantirRespostas */ });
+    var unsubAgendamento=db.collection('agendamentos').doc(idAgendamento)
+      .onSnapshot(function(doc){
+        if(!doc.exists||!agendamentoAtual||agendamentoAtual.IdAgendamento!==idAgendamento)return;
+        var dados=doc.data();
+        var indice=agendamentos.findIndex(function(x){return String(x.IdAgendamento)===String(idAgendamento);});
+        if(indice!==-1)agendamentos[indice]=dados;
+        agendamentoAtual=dados;
+        var novoStatus=(dados['Status Agendamento']||'Agendado').trim();
+        var badge=document.querySelector('#agendamentoDetalhe .ag-status-tag');
+        if(badge){ badge.className='ag-status-tag '+statusSlug(novoStatus); badge.textContent=novoStatus; }
+        var sel=document.getElementById('ad-statusSelect');
+        if(sel)sel.value=novoStatus;
+      }, function(){ /* silencioso */ });
+    unsubDetalheAoVivo=function(){ unsubRespostas(); unsubAgendamento(); };
+  }
+  function pararEscutaAoVivo(){
+    if(unsubDetalheAoVivo){ unsubDetalheAoVivo(); unsubDetalheAoVivo=null; }
+  }
 
   function apiCall(action,payload){ return window.SGAuth.apiCall(action,payload); }
   function meuId(){ return window.SGUtil.meuId(); }
@@ -332,18 +372,17 @@
     document.getElementById('agendamentoDetalhe').classList.add('active');
     document.getElementById('adBackdrop').classList.add('active');
 
-    if(!respostasCarregadasPara[idAgendamento]){
-      garantirRespostas(idAgendamento).then(function(){
-        if(!agendamentoAtual||agendamentoAtual.IdAgendamento!==idAgendamento)return;
-        var secao=document.getElementById('ad-respostas');
-        if(secao)secao.innerHTML=renderRespostasHtml(a);
-      });
-    }
+    // Não chama garantirRespostas aqui: iniciarEscutaAoVivo já popula
+    // #ad-respostas sozinho no primeiro snapshot (e ao vivo depois disso) —
+    // chamar os dois juntos duplicava cada resposta (um populava com
+    // replace, o outro com push por cima).
+    iniciarEscutaAoVivo(idAgendamento);
   }
 
   function fecharPainelDetalhe(){
     document.getElementById('agendamentoDetalhe').classList.remove('active');
     document.getElementById('adBackdrop').classList.remove('active');
+    pararEscutaAoVivo();
     agendamentoAtual=null;
   }
 
