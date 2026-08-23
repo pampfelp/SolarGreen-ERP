@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=20260823n">
+<link rel="stylesheet" href="css/app.css?v=20260823o">
 </head>
 <body>
 
@@ -555,6 +555,7 @@
         <button type="button" class="view-toggle-btn" id="f-viewKanban">▦ Kanban</button>
       </div>
       <input type="text" id="f-buscaGeral" placeholder="Buscar cliente, vendedor, etapa, data…" style="margin-left:10px;font-size:13px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;min-width:220px;">
+      <button class="reset-btn" id="f-relatorioBtn" style="margin-left:10px;">📊 Relatório</button>
       <button class="connect-btn" id="f-novoLeadBtn" style="margin-left:10px;">+ Novo lead</button>
     </div>
     <div class="funil-table-wrap" id="f-listaWrap">
@@ -590,6 +591,28 @@
   </div>
 
 </div>
+</div>
+
+<div class="modal-overlay hidden" id="funilRelatorioModal">
+  <div class="modal-card" style="max-width:480px;">
+    <h3>Relatório do funil</h3>
+    <div class="lstep-sub" style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;">"Já passaram" conta cada lead que já esteve nessa etapa em algum momento (posição atual ou pelo histórico) — leads criados antes desse recurso só começam a contar a partir da próxima vez que mudarem de etapa.</div>
+    <div class="table-wrap" style="max-height:50vh;overflow-y:auto;">
+      <table style="width:100%;min-width:0;font-size:13px;border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:8px;border-bottom:1px solid var(--line);color:var(--ink-faint);font-size:11px;text-transform:uppercase;letter-spacing:.04em;">Etapa</th>
+            <th style="text-align:right;padding:8px;border-bottom:1px solid var(--line);color:var(--ink-faint);font-size:11px;text-transform:uppercase;letter-spacing:.04em;">Agora</th>
+            <th style="text-align:right;padding:8px;border-bottom:1px solid var(--line);color:var(--ink-faint);font-size:11px;text-transform:uppercase;letter-spacing:.04em;">Já passaram</th>
+          </tr>
+        </thead>
+        <tbody id="f-relatorioTbody"></tbody>
+      </table>
+    </div>
+    <div class="modal-actions">
+      <button class="connect-btn" id="f-relatorioFecharBtn">Fechar</button>
+    </div>
+  </div>
 </div>
 
 <!-- ═══ VIEW: AGENDAMENTOS ═══ -->
@@ -1638,26 +1661,26 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="js/firebase-init.js?v=20260823n"></script>
-<script src="js/firestore-router.js?v=20260823n"></script>
-<script src="js/stub-router.js?v=20260823n"></script>
-<script src="js/sg-auth.js?v=20260823n"></script>
-<script src="js/dashboard.js?v=20260823n"></script>
-<script src="js/ponto.js?v=20260823n"></script>
-<script src="js/vendas.js?v=20260823n"></script>
-<script src="js/funil.js?v=20260823n"></script>
-<script src="js/agendamentos.js?v=20260823n"></script>
-<script src="js/clientes.js?v=20260823n"></script>
-<script src="js/relatorios.js?v=20260823n"></script>
-<script src="js/custos-venda.js?v=20260823n"></script>
-<script src="js/custo-recorrente.js?v=20260823n"></script>
-<script src="js/servicos.js?v=20260823n"></script>
-<script src="js/catalogo.js?v=20260823n"></script>
-<script src="js/metas.js?v=20260823n"></script>
-<script src="js/planos.js?v=20260823n"></script>
-<script src="js/usuarios.js?v=20260823n"></script>
-<script src="js/permissoes.js?v=20260823n"></script>
-<script src="js/controller.js?v=20260823n"></script>
+<script src="js/firebase-init.js?v=20260823o"></script>
+<script src="js/firestore-router.js?v=20260823o"></script>
+<script src="js/stub-router.js?v=20260823o"></script>
+<script src="js/sg-auth.js?v=20260823o"></script>
+<script src="js/dashboard.js?v=20260823o"></script>
+<script src="js/ponto.js?v=20260823o"></script>
+<script src="js/vendas.js?v=20260823o"></script>
+<script src="js/funil.js?v=20260823o"></script>
+<script src="js/agendamentos.js?v=20260823o"></script>
+<script src="js/clientes.js?v=20260823o"></script>
+<script src="js/relatorios.js?v=20260823o"></script>
+<script src="js/custos-venda.js?v=20260823o"></script>
+<script src="js/custo-recorrente.js?v=20260823o"></script>
+<script src="js/servicos.js?v=20260823o"></script>
+<script src="js/catalogo.js?v=20260823o"></script>
+<script src="js/metas.js?v=20260823o"></script>
+<script src="js/planos.js?v=20260823o"></script>
+<script src="js/usuarios.js?v=20260823o"></script>
+<script src="js/permissoes.js?v=20260823o"></script>
+<script src="js/controller.js?v=20260823o"></script>
 
 <div id="sg-install-banner">
   <span class="sg-ib-icon">📲</span>

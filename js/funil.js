@@ -151,6 +151,7 @@
         etapa:(o.Etapa||'').trim(),obs:(o.Observacoes||o.Observacao||o.Observação||'').trim(),
         motivoPerda:(o.MotivoPerda||o['Motivo Perda']||'').trim(),dt:dt,dateKey:dt?dateKey(dt):null,
         valor:parseFloat(String((o['Valor Estimado']!==undefined&&o['Valor Estimado']!=='')?o['Valor Estimado']:(o.Valor||'0')).replace(',','.'))||0,
+        etapasPassadas:o.EtapasPassadas||[],
         // Campos calculados após enriquecimento com log/SLA
         dataProcesso:null,dataProcessoKey:null,diasNaEtapa:0,slaColor:'green',temLog:false
       };
@@ -481,6 +482,30 @@
   }
 
   /**
+   * "Agora" = quantos leads estão na etapa nesse momento (mesma contagem dos
+   * KPIs). "Já passaram" = quantos leads têm essa etapa em etapasPassadas
+   * (acumulada via arrayUnion a cada mudança — ver salvarFunil no router),
+   * incluindo os que já saíram dela. Sobre a lista INTEIRA carregada, sem
+   * filtro de período/busca (relatório é uma foto geral, não do recorte).
+   */
+  function abrirRelatorioFunil(){
+    var tbody=document.getElementById('f-relatorioTbody');
+    tbody.innerHTML=ETAPAS.map(function(etapa){
+      var agora=funilRecords.filter(function(r){return r.etapa===etapa;}).length;
+      var jaPassaram=funilRecords.filter(function(r){return (r.etapasPassadas||[]).indexOf(etapa)!==-1;}).length;
+      return '<tr>'+
+        '<td style="padding:8px;border-bottom:1px solid var(--line);">'+escapeHtml(etapa)+'</td>'+
+        '<td style="padding:8px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono);">'+agora+'</td>'+
+        '<td style="padding:8px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono);">'+jaPassaram+'</td>'+
+      '</tr>';
+    }).join('');
+    document.getElementById('funilRelatorioModal').classList.remove('hidden');
+  }
+  function fecharRelatorioFunil(){
+    document.getElementById('funilRelatorioModal').classList.add('hidden');
+  }
+
+  /**
    * Move um lead pra outra etapa arrastando no Kanban — mesmo efeito de
    * mudar a etapa pelo painel lateral (registra no FunilLog, recalcula SLA),
    * só que direto, sem precisar abrir o painel. Otimista: atualiza a tela
@@ -494,9 +519,11 @@
 
     var registroAnterior=Object.assign({},leadOriginal);
     var agora=new Date();
+    var etapasPassadasAntes=leadOriginal.etapasPassadas||[];
+    var etapasPassadasNovo=etapasPassadasAntes.indexOf(novaEtapa)===-1?etapasPassadasAntes.concat([novaEtapa]):etapasPassadasAntes;
     var registroNovo=Object.assign({},leadOriginal,{
       etapa:novaEtapa, dataProcesso:agora, dataProcessoKey:dateKey(agora),
-      diasNaEtapa:0, slaColor:'green', temLog:true
+      diasNaEtapa:0, slaColor:'green', temLog:true, etapasPassadas:etapasPassadasNovo
     });
     funilRecords[indice]=registroNovo;
     garantirDataVisivelNoFiltro(registroNovo.dataProcessoKey);
@@ -943,6 +970,8 @@
     var registroAnterior=leadAtual?Object.assign({},leadAtual):null;
     var indiceExistente=funilRecords.findIndex(function(x){return String(x.id)===String(id);});
 
+    var etapasPassadasAntes=(leadAtual&&leadAtual.etapasPassadas)||[];
+    var etapasPassadasNovo=etapasPassadasAntes.indexOf(etapa)===-1?etapasPassadasAntes.concat([etapa]):etapasPassadasAntes;
     var registroNovo={
       id:id, idCliente:idCliente, idVendedor:idVendedor, idServico:idServico,
       etapa:etapa, obs:obs, valor:parseFloat(valor)||0, motivoPerda:motivoPerda,
@@ -950,7 +979,7 @@
       dataProcesso:agora, dataProcessoKey:dateKey(agora),
       diasNaEtapa:(leadAtual&&leadAtual.etapa===etapa)?leadAtual.diasNaEtapa:0,
       slaColor:(leadAtual&&leadAtual.etapa===etapa)?leadAtual.slaColor:'green',
-      temLog:true
+      temLog:true, etapasPassadas:etapasPassadasNovo
     };
     if(indiceExistente===-1)funilRecords.push(registroNovo);
     else funilRecords[indiceExistente]=registroNovo;
@@ -1181,6 +1210,9 @@
     document.getElementById('f-viewKanban').addEventListener('click',function(){ visaoAtual='kanban'; localStorage.setItem('sg_funil_visao','kanban'); aplicarVisao(); });
 
     document.getElementById('f-novoLeadBtn').addEventListener('click',function(){ abrirPainelLead(null); });
+    document.getElementById('f-relatorioBtn').addEventListener('click',abrirRelatorioFunil);
+    document.getElementById('f-relatorioFecharBtn').addEventListener('click',fecharRelatorioFunil);
+    document.getElementById('funilRelatorioModal').addEventListener('click',function(e){ if(e.target.id==='funilRelatorioModal')fecharRelatorioFunil(); });
     document.getElementById('fd-fecharBtn').addEventListener('click',fecharPainelLead);
     document.getElementById('fd-salvarBtn').addEventListener('click',salvarLead);
     document.getElementById('fd-excluirBtn').addEventListener('click',excluirLead);
