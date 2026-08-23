@@ -698,7 +698,6 @@
 
   @media(max-width:420px){
     .kpis{grid-template-columns:1fr;}
-    .funil-kpis{grid-template-columns:1fr;}
     .person-chip{flex:1 1 100%;}
   }
 

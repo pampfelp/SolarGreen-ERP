@@ -93,7 +93,13 @@
         IdOportunidade:id, IdCliente:p.idCliente, IdVendedor:p.idVendedor, IdServico:p.idServico||'',
         Etapa:p.etapa, Observacoes:p.observacoes||'', 'Valor Estimado':parseFloat(p.valorEstimado)||0,
         MotivoPerda:p.motivoPerda||'',
-        DataCriacao: snap.exists?undefined:(agora.getFullYear()+'-'+String(agora.getMonth()+1).padStart(2,'0')+'-'+String(agora.getDate()).padStart(2,'0'))
+        DataCriacao: snap.exists?undefined:(agora.getFullYear()+'-'+String(agora.getMonth()+1).padStart(2,'0')+'-'+String(agora.getDate()).padStart(2,'0')),
+        // Acumula toda etapa por onde o lead já passou (não sobrescreve —
+        // arrayUnion só soma), pro "Relatório do funil" saber quantos leads
+        // JÁ passaram por uma etapa, não só quantos estão nela agora. Leads
+        // criados antes dessa mudança só começam a acumular a partir da
+        // próxima vez que mudarem de etapa — não tem histórico retroativo.
+        EtapasPassadas: firebase.firestore.FieldValue.arrayUnion(p.etapa)
       });
       return ref.set(doc,{merge:true});
     }).then(function(){ return {ok:true,idOportunidade:id}; })
