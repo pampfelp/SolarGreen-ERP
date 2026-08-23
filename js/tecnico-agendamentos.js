@@ -357,7 +357,7 @@
       :'';
 
     if(tipo==='Foto'){
-      var temFoto=valorAtual&&/^https?:\/\//.test(valorAtual);
+      var temFoto=valorAtual&&/^(https?:|data:image)/.test(valorAtual);
       return '<div class="form-field" data-tipo="Foto" data-tpl="'+escapeHtml(tpl.IdTemplate)+'" data-obrig="'+(obrig?'1':'0')+'">'+
         '<label>'+escapeHtml(tpl.TextoPergunta)+reqMark+'</label>'+servTag+
         '<div class="photo-field'+(temFoto?' filled':'')+'" id="ph-'+fid+'">'+
@@ -593,23 +593,56 @@
    * Redimensiona/comprime a foto no navegador antes de enviar (fotos de celular
    * costumam ter vários MB — isso evita que o envio falhe em conexão fraca).
    */
+  function medidasAlvo(w,h,maxDim){
+    if(w>h&&w>maxDim){ return {w:maxDim,h:Math.round(h*maxDim/w)}; }
+    if(h>=w&&h>maxDim){ return {w:Math.round(w*maxDim/h),h:maxDim}; }
+    return {w:w,h:h};
+  }
+
+  function desenharEExportar(source,w,h,qualidade){
+    return new Promise(function(resolve,reject){
+      var canvas=document.createElement('canvas');
+      canvas.width=w; canvas.height=h;
+      canvas.getContext('2d').drawImage(source,0,0,w,h);
+      canvas.toBlob(function(blob){
+        if(!blob){ reject(new Error('Não foi possível comprimir a imagem.')); return; }
+        resolve(blob);
+      },'image/jpeg',qualidade);
+    });
+  }
+
+  /**
+   * Foto de câmera moderna facilmente vem em 12+ megapixels — decodificar
+   * isso via <img>/onload (caminho antigo) carrega a imagem em resolução
+   * TOTAL na memória antes de reduzir, o que trava a aba por vários
+   * segundos num aparelho mais fraco. createImageBitmap é decodificado de
+   * forma mais eficiente (em muitos navegadores, fora da thread principal),
+   * evitando esse travamento — mesmo resultado visual, só mais rápido.
+   * Cai pro caminho antigo (<img>) se o navegador não suportar.
+   */
   function comprimirImagem(file,maxDim,qualidade){
+    if(typeof createImageBitmap==='function'){
+      return createImageBitmap(file).then(function(bitmap){
+        var alvo=medidasAlvo(bitmap.width,bitmap.height,maxDim);
+        return desenharEExportar(bitmap,alvo.w,alvo.h,qualidade).then(function(blob){
+          bitmap.close();
+          return blob;
+        }, function(err){ bitmap.close(); throw err; });
+      }).catch(function(){
+        return comprimirImagemViaImg(file,maxDim,qualidade);
+      });
+    }
+    return comprimirImagemViaImg(file,maxDim,qualidade);
+  }
+
+  function comprimirImagemViaImg(file,maxDim,qualidade){
     return new Promise(function(resolve,reject){
       var img=new Image();
       var url=URL.createObjectURL(file);
       img.onload=function(){
         URL.revokeObjectURL(url);
-        var w=img.width,h=img.height;
-        if(w>h&&w>maxDim){ h=Math.round(h*maxDim/w); w=maxDim; }
-        else if(h>=w&&h>maxDim){ w=Math.round(w*maxDim/h); h=maxDim; }
-        var canvas=document.createElement('canvas');
-        canvas.width=w; canvas.height=h;
-        var ctx=canvas.getContext('2d');
-        ctx.drawImage(img,0,0,w,h);
-        canvas.toBlob(function(blob){
-          if(!blob){ reject(new Error('Não foi possível comprimir a imagem.')); return; }
-          resolve(blob);
-        },'image/jpeg',qualidade);
+        var alvo=medidasAlvo(img.width,img.height,maxDim);
+        desenharEExportar(img,alvo.w,alvo.h,qualidade).then(resolve,reject);
       };
       img.onerror=function(){ URL.revokeObjectURL(url); reject(new Error('Não foi possível ler o arquivo de imagem.')); };
       img.src=url;

@@ -6,7 +6,20 @@
   var servicoAtualId=null;
   var sortState={col:'nome',dir:'asc'};
   var APP_VERSION='2026-07-16-1';
-  var TIPOS_INPUT=['Texto','Number','Foto','Lista','Sim/Nao'];
+  // value tem que bater EXATAMENTE com o que tecnico-agendamentos.js espera
+  // (campoHtml, ali tipo==='YesNo'/'Enum') — só o label mostrado ao admin é
+  // em português. Bug real (2026-08-23): essa lista tinha 'Sim/Nao'/'Lista'
+  // como value, que o app do técnico não reconhece — abrir uma pergunta
+  // existente do tipo YesNo/Enum nessa tela não achava opção correspondente
+  // no <select> (nenhuma ficava "selected"), e salvar corrompia o tipo pra
+  // "Texto" silenciosamente, mesmo sem a intenção de mudar o tipo do campo.
+  var TIPOS_INPUT=[
+    {value:'Texto',label:'Texto'},
+    {value:'Number',label:'Número'},
+    {value:'YesNo',label:'Sim/Não'},
+    {value:'Enum',label:'Lista'},
+    {value:'Foto',label:'Foto'}
+  ];
 
   function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
   function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
@@ -82,7 +95,7 @@
         '<input type="text" class="tpl-pergunta" value="'+escapeHtml(t.TextoPergunta||'')+'" placeholder="Texto da pergunta" style="width:100%;margin-bottom:6px;padding:7px 9px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;">'+
         '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">'+
           '<select class="tpl-tipo" style="font-size:11.5px;padding:5px 7px;border:1px solid var(--line);border-radius:6px;">'+
-            TIPOS_INPUT.map(function(tp){return '<option value="'+tp+'"'+(t.TipoInput===tp?' selected':'')+'>'+tp+'</option>';}).join('')+
+            TIPOS_INPUT.map(function(tp){return '<option value="'+tp.value+'"'+(t.TipoInput===tp.value?' selected':'')+'>'+tp.label+'</option>';}).join('')+
           '</select>'+
           '<input type="text" class="tpl-opcoes" value="'+escapeHtml(t.OpcoesEnum||'')+'" placeholder="opções (se Lista), separadas por vírgula" style="flex:1;min-width:140px;font-size:11.5px;padding:5px 7px;border:1px solid var(--line);border-radius:6px;">'+
           '<input type="number" class="tpl-ordem" value="'+escapeHtml(t.Ordem||'')+'" placeholder="ordem" style="width:64px;font-size:11.5px;padding:5px 7px;border:1px solid var(--line);border-radius:6px;">'+
