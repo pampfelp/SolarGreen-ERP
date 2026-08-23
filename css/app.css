@@ -609,7 +609,22 @@
       min-height:0;
     }
     .sidebar.mobile-open{transform:translateX(0);}
+    /* O recolher-pra-ícones é affordance só de desktop — no celular a
+       sidebar já é uma gaveta que soma/some inteira (.mobile-open), não
+       faz sentido colapsar pra ícones dentro dela. Sem isso, se alguém
+       já tinha colapsado o menu numa visita anterior (ou noutro
+       aparelho — sg_sidebar_collapsed é a mesma origem pros dois), o
+       estado ficava salvo no localStorage e a gaveta mobile abria só com
+       ícone, sem nome nenhum: a largura já tinha esse !important aqui,
+       mas as regras que escondem o texto (.collapsed .nav-label etc.,
+       fora de qualquer @media) continuavam valendo. Zera tudo isso pra
+       neutralizar de vez o efeito de .collapsed nesse breakpoint. */
     .sidebar.collapsed{width:260px!important;}
+    .sidebar.collapsed .sg-solar,.sidebar.collapsed .sg-sub,.sidebar.collapsed .nav-label,
+    .sidebar.collapsed .foot-text,.sidebar.collapsed .toggle-label{ opacity:1!important;max-width:180px!important; }
+    .sidebar.collapsed .brandmark{ padding:0 22px 24px!important;display:block!important;justify-content:flex-start!important; }
+    .sidebar.collapsed nav a{ justify-content:flex-start!important;padding:10px 12px!important; }
+    .sidebar.collapsed .foot{ justify-content:flex-start!important; }
     .sidebar-toggle{display:none;}
 
     /* ── Conteúdo principal ── */
@@ -646,11 +661,20 @@
     /* ── Person chips ── */
     .person-chip{flex:1 1 46%;min-width:0;}
 
-    /* ── Tabelas: scroll horizontal em vez de empilhar/quebrar ── */
+    /* ── Tabelas: scroll horizontal em vez de empilhar/quebrar ──
+       min-width padrão pra QUALQUER tabela (Serviços, Clientes,
+       Agendamentos, Planos, Custos, Usuários, Permissões etc.) — antes só
+       Ponto/Vendas/Funil tinham um valor definido, o resto espremia as
+       colunas pra caber em 375px em vez de rolar horizontalmente (texto
+       tipo "Instalação\nSolar\nResidencial" quebrando em 3 linhas). As
+       exceções abaixo (mais colunas, precisam de mais espaço) continuam
+       valendo por cima desse padrão. */
     .table-wrap,.funil-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+    .table-wrap table{min-width:640px;}
     #view-ponto .table-wrap table{min-width:760px;}
     #view-vendas .table-wrap table{min-width:720px;}
     .funil-table-wrap table{min-width:680px;}
+    #cat-wrapModulos table,#cat-wrapInversores table{min-width:760px;}
 
     /* ── Vendas: meta-flow, funnel, forecast ── */
     .meta-flow{grid-template-columns:1fr;}
