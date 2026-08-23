@@ -152,6 +152,7 @@
         motivoPerda:(o.MotivoPerda||o['Motivo Perda']||'').trim(),dt:dt,dateKey:dt?dateKey(dt):null,
         valor:parseFloat(String((o['Valor Estimado']!==undefined&&o['Valor Estimado']!=='')?o['Valor Estimado']:(o.Valor||'0')).replace(',','.'))||0,
         etapasPassadas:o.EtapasPassadas||[],
+        transicoes:o.Transicoes||[],
         // Campos calculados após enriquecimento com log/SLA
         dataProcesso:null,dataProcessoKey:null,diasNaEtapa:0,slaColor:'green',temLog:false
       };
@@ -482,21 +483,58 @@
   }
 
   /**
-   * "Agora" = quantos leads estão na etapa nesse momento (mesma contagem dos
-   * KPIs). "Já passaram" = quantos leads têm essa etapa em etapasPassadas
-   * (acumulada via arrayUnion a cada mudança — ver salvarFunil no router),
-   * incluindo os que já saíram dela. Sobre a lista INTEIRA carregada, sem
-   * filtro de período/busca (relatório é uma foto geral, não do recorte).
+   * "Agora" = quantos leads estão na etapa nesse momento. "Já passaram" =
+   * quantos leads têm essa etapa em etapasPassadas (acumulada via arrayUnion
+   * a cada mudança — ver salvarFunil no router), incluindo os que já saíram
+   * dela. "Conversão" = já passaram ÷ total de leads criados. "Tempo médio" =
+   * média de dias que os leads que já passaram por ali ficaram na etapa,
+   * calculado a partir de Transicoes (histórico COM horário — diferente de
+   * etapasPassadas, que só marca presença sem quando).
+   *
+   * Novo Lead é caso especial em Agora/Já passaram/Conversão: TODO lead que
+   * existe já foi "novo" uma vez, mesmo que tenha sido cadastrado direto
+   * numa etapa mais adiante (ex.: fechou por WhatsApp e já entrou como
+   * Serviço Agendado, sem nunca ter Etapa="Novo Lead" gravado). Contar só
+   * quem passou literalmente por "Novo Lead" (etapa/etapasPassadas)
+   * SUBESTIMA o denominador e infla a conversão de todo o resto do funil —
+   * mesmo princípio já usado no KPI "Novos leads no funil" do Dashboard,
+   * que conta por data de criação, não por etapa atual.
+   *
+   * Sobre a lista INTEIRA carregada, sem filtro de período/busca (relatório
+   * é uma foto geral, não do recorte).
    */
   function abrirRelatorioFunil(){
+    var totalCriados=funilRecords.length;
+    var agoraTs=new Date();
     var tbody=document.getElementById('f-relatorioTbody');
     tbody.innerHTML=ETAPAS.map(function(etapa){
-      var agora=funilRecords.filter(function(r){return r.etapa===etapa;}).length;
-      var jaPassaram=funilRecords.filter(function(r){return (r.etapasPassadas||[]).indexOf(etapa)!==-1;}).length;
+      var ehNovoLead=(etapa==='Novo Lead');
+      var agora=ehNovoLead?totalCriados:funilRecords.filter(function(r){return r.etapa===etapa;}).length;
+      var jaPassaram=ehNovoLead?totalCriados:funilRecords.filter(function(r){return (r.etapasPassadas||[]).indexOf(etapa)!==-1;}).length;
+      var conversao=totalCriados>0?(jaPassaram/totalCriados*100):0;
+
+      var duracoesDias=[];
+      funilRecords.forEach(function(r){
+        var trans=(r.transicoes||[]).slice().sort(function(a,b){return new Date(a.Em)-new Date(b.Em);});
+        for(var i=0;i<trans.length;i++){
+          if(trans[i].Etapa!==etapa)continue;
+          var inicio=new Date(trans[i].Em);
+          var fim=(i+1<trans.length)?new Date(trans[i+1].Em):agoraTs;
+          duracoesDias.push((fim-inicio)/86400000);
+        }
+      });
+      var tempoMedioTxt='—';
+      if(duracoesDias.length>0){
+        var media=duracoesDias.reduce(function(s,d){return s+d;},0)/duracoesDias.length;
+        tempoMedioTxt=media<1?'<1d':Math.round(media)+'d';
+      }
+
       return '<tr>'+
         '<td style="padding:8px;border-bottom:1px solid var(--line);">'+escapeHtml(etapa)+'</td>'+
         '<td style="padding:8px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono);">'+agora+'</td>'+
         '<td style="padding:8px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono);">'+jaPassaram+'</td>'+
+        '<td style="padding:8px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono);">'+conversao.toFixed(1).replace('.',',')+'%</td>'+
+        '<td style="padding:8px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono);">'+tempoMedioTxt+'</td>'+
       '</tr>';
     }).join('');
     document.getElementById('funilRelatorioModal').classList.remove('hidden');
@@ -521,9 +559,10 @@
     var agora=new Date();
     var etapasPassadasAntes=leadOriginal.etapasPassadas||[];
     var etapasPassadasNovo=etapasPassadasAntes.indexOf(novaEtapa)===-1?etapasPassadasAntes.concat([novaEtapa]):etapasPassadasAntes;
+    var transicoesNovo=(leadOriginal.transicoes||[]).concat([{Etapa:novaEtapa,Em:agora.toISOString()}]);
     var registroNovo=Object.assign({},leadOriginal,{
       etapa:novaEtapa, dataProcesso:agora, dataProcessoKey:dateKey(agora),
-      diasNaEtapa:0, slaColor:'green', temLog:true, etapasPassadas:etapasPassadasNovo
+      diasNaEtapa:0, slaColor:'green', temLog:true, etapasPassadas:etapasPassadasNovo, transicoes:transicoesNovo
     });
     funilRecords[indice]=registroNovo;
     garantirDataVisivelNoFiltro(registroNovo.dataProcessoKey);
@@ -970,8 +1009,11 @@
     var registroAnterior=leadAtual?Object.assign({},leadAtual):null;
     var indiceExistente=funilRecords.findIndex(function(x){return String(x.id)===String(id);});
 
+    var etapaMudouLocal=!leadAtual||leadAtual.etapa!==etapa;
     var etapasPassadasAntes=(leadAtual&&leadAtual.etapasPassadas)||[];
     var etapasPassadasNovo=etapasPassadasAntes.indexOf(etapa)===-1?etapasPassadasAntes.concat([etapa]):etapasPassadasAntes;
+    var transicoesAntes=(leadAtual&&leadAtual.transicoes)||[];
+    var transicoesNovo=etapaMudouLocal?transicoesAntes.concat([{Etapa:etapa,Em:agora.toISOString()}]):transicoesAntes;
     var registroNovo={
       id:id, idCliente:idCliente, idVendedor:idVendedor, idServico:idServico,
       etapa:etapa, obs:obs, valor:parseFloat(valor)||0, motivoPerda:motivoPerda,
@@ -979,7 +1021,7 @@
       dataProcesso:agora, dataProcessoKey:dateKey(agora),
       diasNaEtapa:(leadAtual&&leadAtual.etapa===etapa)?leadAtual.diasNaEtapa:0,
       slaColor:(leadAtual&&leadAtual.etapa===etapa)?leadAtual.slaColor:'green',
-      temLog:true, etapasPassadas:etapasPassadasNovo
+      temLog:true, etapasPassadas:etapasPassadasNovo, transicoes:transicoesNovo
     };
     if(indiceExistente===-1)funilRecords.push(registroNovo);
     else funilRecords[indiceExistente]=registroNovo;
