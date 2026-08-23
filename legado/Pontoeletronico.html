@@ -8,9 +8,9 @@
 <meta name="theme-color" content="#003122">
 <title>Solar Green · Ponto Eletrônico</title>
 <link rel="manifest" href="manifest-ponto.json">
-<link rel="icon" type="image/png" href="icons/icon-192.png">
-<link rel="icon" type="image/x-icon" href="favicon_1.ico">
-<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" href="../icons/icon-192.png">
+<link rel="icon" type="image/x-icon" href="../favicon_1.ico">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -626,7 +626,7 @@ window.PontoApp=(function(){
 </div>
 <script>
 (function(){
-  if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
+  if('serviceWorker' in navigator){ navigator.serviceWorker.register('../sw.js').catch(function(){}); }
   var DISMISS_KEY='sg_install_dismissed_v1';
   var banner=document.getElementById('sg-install-banner');
   if(!banner)return;
