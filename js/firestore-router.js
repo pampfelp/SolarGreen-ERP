@@ -236,6 +236,87 @@
       .catch(function(err){ return {ok:false,erro:err.message}; });
   }
 
+  // ── Agendamentos (visão do admin — todos os técnicos, não só 1) ──
+  // Mesma coleção `agendamentos` que o app do técnico já usa de verdade
+  // (tecnico-router.js) — um agendamento criado num app aparece no outro.
+  function getAgendamentosData(){
+    return Promise.all([
+      getColecao('agendamentos'),getColecao('clientes'),getColecao('vendedores'),
+      getColecao('servicos'),getColecao('templates')
+    ]).then(function(r){
+      return {ok:true, agendamentos:r[0], clientes:r[1], vendedores:r[2], servicos:r[3], templates:r[4], respostas:[]};
+    }).catch(function(err){ return {ok:false, erro:err.message}; });
+  }
+  function getRespostasAgendamentosVendedor(p){
+    var ids=p.idsAgendamentos||[];
+    if(!ids.length) return Promise.resolve({ok:true,respostas:[]});
+    return db().collection('agendamentos_respostas').where('IdAgendamento','in',ids.slice(0,30)).get()
+      .then(snapshotToArray)
+      .then(function(respostas){ return {ok:true, respostas:respostas}; })
+      .catch(function(err){ return {ok:false, erro:err.message}; });
+  }
+  function salvarAgendamento(p){
+    var id=p.idAgendamento;
+    if(!id) return Promise.resolve({ok:false,erro:'idAgendamento é obrigatório.'});
+    var doc=semUndefined({
+      IdAgendamento:id, IdCliente:p.idCliente||'', IdServico:p.idServico||'',
+      TecnicoResponsavel:p.tecnicoResponsavel||'', Valor:paraNumero(p.valor),
+      'Data Inicio':p.dataInicio||'', 'Hora inicio':p.horaInicio||'', 'Hora Fim':p.horaFim||'',
+      'Status Agendamento':p.statusAgendamento||'Agendado', 'Motivo Cancelamento':p.motivoCancelamento||'',
+      'Observacao Comercial':p.observacaoComercial||'',
+      'Quantidade de Modulos':p.quantidadeModulos||'', 'Modelo Modulos':p.modeloModulos||'',
+      'Quantidade Inversores':p.quantidadeInversores||'', 'Modelo Inversores':p.modeloInversores||''
+    });
+    return db().collection('agendamentos').doc(id).set(doc,{merge:true})
+      .then(function(){ return {ok:true,idAgendamento:id}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+  function atualizarStatusAgendamento(p){
+    var id=p.idAgendamento;
+    if(!id||!p.status) return Promise.resolve({ok:false,erro:'Dados incompletos.'});
+    var patch={'Status Agendamento':p.status,'Motivo Cancelamento':p.status==='Cancelado'?(p.motivoCancelamento||''):''};
+    return db().collection('agendamentos').doc(id).update(patch)
+      .then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+  function excluirAgendamento(p){
+    return db().collection('agendamentos').doc(p.idAgendamento).delete()
+      .then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+  // PDF e assinatura digital (Autentique) dependem de integrações externas
+  // que não fazem parte desse piloto — sem Apps Script real por trás, não
+  // tem como gerar PDF nem mandar pra assinatura de verdade. Erro claro em
+  // vez de fingir sucesso.
+  function semIntegracaoNessePiloto(){
+    return Promise.resolve({ok:false,erro:'Geração de PDF/assinatura digital ainda não faz parte desse piloto Firestore.'});
+  }
+
+  // ── Telas que combinam dado JÁ real (clientes/vendedores/servicos/vendas)
+  // com dado que genuinamente ainda não existe em nenhum lugar (custos da
+  // venda, relatórios, planos, ponto/overrides) — a parte real vem do
+  // Firestore, a parte não migrada fica vazia mesmo, de propósito.
+  function getCustosVendaData(){
+    return Promise.all([getColecao('vendas'),getColecao('clientes'),getColecao('servicos')]).then(function(r){
+      return {ok:true, custos:[], vendas:r[0], clientes:r[1], servicos:r[2]};
+    }).catch(function(err){ return {ok:false, erro:err.message}; });
+  }
+  function getRelatoriosData(){
+    return getColecao('vendedores').then(function(vendedores){
+      return {ok:true, relatorios:[], vendedores:vendedores};
+    }).catch(function(err){ return {ok:false, erro:err.message}; });
+  }
+  function getPlanosData(){
+    return Promise.all([getColecao('clientes'),getColecao('vendedores')]).then(function(r){
+      return {ok:true, planos:[], clientes:r[0], vendedores:r[1]};
+    }).catch(function(err){ return {ok:false, erro:err.message}; });
+  }
+  function getDataPonto(){
+    return getColecao('vendedores').then(function(vendedores){
+      return {ok:true, vendedores:vendedores, ponto:[], overrides:{}};
+    }).catch(function(err){ return {ok:false, erro:err.message}; });
+  }
+
   // Espera o Firebase Auth confirmar a sessão restaurada antes de tocar no
   // Firestore — senão a primeira leitura logo após um F5 chega antes da
   // sessão terminar de restaurar e as rules recusam com "permission denied"
@@ -282,6 +363,20 @@
     salvarModulo:comSync('produtos_modulos',function(p){return p.modelo||p.idModulo;},comAuthPronto(salvarModulo)),
     excluirModulo:comSync('produtos_modulos',function(p){return 'excluir '+p.idModulo;},comAuthPronto(excluirModulo)),
     salvarInversor:comSync('produtos_inversores',function(p){return p.modelo||p.idInversor;},comAuthPronto(salvarInversor)),
-    excluirInversor:comSync('produtos_inversores',function(p){return 'excluir '+p.idInversor;},comAuthPronto(excluirInversor))
+    excluirInversor:comSync('produtos_inversores',function(p){return 'excluir '+p.idInversor;},comAuthPronto(excluirInversor)),
+
+    getAgendamentosData:comAuthPronto(getAgendamentosData),
+    getRespostasAgendamentosVendedor:comAuthPronto(getRespostasAgendamentosVendedor),
+    salvarAgendamento:comSync('agendamentos',function(p){return 'agendamento de '+(p.idCliente||'');},comAuthPronto(salvarAgendamento)),
+    atualizarStatusAgendamento:comSync('agendamentos',function(p){return 'status → '+(p.status||'');},comAuthPronto(atualizarStatusAgendamento)),
+    excluirAgendamento:comSync('agendamentos',function(p){return 'excluir '+p.idAgendamento;},comAuthPronto(excluirAgendamento)),
+    gerarPdfOS:semIntegracaoNessePiloto,
+    enviarOSParaAssinatura:semIntegracaoNessePiloto,
+    verificarStatusOS:semIntegracaoNessePiloto,
+
+    getCustosVendaData:comAuthPronto(getCustosVendaData),
+    getRelatoriosData:comAuthPronto(getRelatoriosData),
+    getPlanosData:comAuthPronto(getPlanosData),
+    getData:comAuthPronto(getDataPonto)
   };
 })();
