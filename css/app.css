@@ -374,6 +374,11 @@
   .connect-btn{background:var(--accent);color:#003122;border:none;border-radius:9px;padding:11px 18px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:var(--unbounded);}
   .connect-btn:hover{background:var(--accent-deep);}
   .connect-btn:disabled{opacity:.45;cursor:default;}
+  /* Botão secundário (neutro, com contorno) — pra ação que acompanha um
+     botão principal (verde) sem competir com ele, tipo o "Relatório" ao
+     lado do "+ Novo lead" no Funil. */
+  .secondary-btn{background:#fff;color:var(--ink-soft);border:1px solid var(--line);border-radius:9px;padding:11px 18px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:var(--unbounded);}
+  .secondary-btn:hover{background:var(--panel);border-color:var(--ink-faint);}
   .connect-status{font-size:12px;margin-top:10px;display:flex;align-items:center;gap:7px;color:var(--ink-soft);}
   .connect-status .dot{width:7px;height:7px;border-radius:50%;background:var(--ink-faint);}
   .connect-status.online .dot{background:var(--accent);}
