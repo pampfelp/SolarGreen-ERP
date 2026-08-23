@@ -82,7 +82,7 @@
       var pergunta=tpl?tpl.TextoPergunta:('Pergunta '+r.IdTemplate);
       var servTag=(tpl&&tpl.IdServico&&String(tpl.IdServico)!==String(a.IdServico))?('Respondido no serviço: '+nomeServico(tpl.IdServico)):'';
       var valor=valorDaResposta(r);
-      var isFoto=!!r.RespostaFoto&&/^https?:\/\//.test(r.RespostaFoto);
+      var isFoto=!!r.RespostaFoto&&/^(https?:|data:image)/.test(r.RespostaFoto);
       var valorHtml=isFoto?('<img src="'+escapeHtml(r.RespostaFoto)+'" alt="foto" style="max-width:100%;max-height:200px;border-radius:8px;margin-top:6px;display:block;cursor:pointer;">'):('<div style="font-size:13px;color:var(--ink-soft);margin-top:2px;white-space:pre-wrap;">'+escapeHtml(valor)+'</div>');
       return '<div class="resp-item">'+
         '<div class="resp-q">'+escapeHtml(pergunta)+'</div>'+
@@ -389,7 +389,7 @@
     var linhas=lista.map(function(r){
       var tpl=templatesPorId[r.IdTemplate];
       var pergunta=tpl?tpl.TextoPergunta:('Pergunta '+r.IdTemplate);
-      var isFoto=!!r.RespostaFoto&&/^https?:\/\//.test(r.RespostaFoto);
+      var isFoto=!!r.RespostaFoto&&/^(https?:|data:image)/.test(r.RespostaFoto);
       var valorHtml=isFoto
         ?('<img src="'+r.RespostaFoto+'" style="max-width:280px;max-height:280px;border-radius:8px;border:1px solid #dde8dd;display:block;margin-top:6px;">')
         :('<div>'+escapeHtml(valorDaResposta(r))+'</div>');
