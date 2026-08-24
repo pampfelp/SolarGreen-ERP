@@ -594,11 +594,25 @@
       // Firebase Auth do projeto já é de confiança).
       firebase.auth().signInWithEmailAndPassword(email,senha).then(function(cred){
         var uid=cred.user.uid;
-        var ref=firebase.firestore().collection('vendedores').doc(uid);
+        var db=firebase.firestore();
+        var ref=db.collection('vendedores').doc(uid);
         return ref.get().then(function(doc){
           if(doc.exists)return doc.data();
-          var novo={IdVendedor:uid,Nome:(cred.user.email||'').split('@')[0],Email:cred.user.email||email,Tipo:'admin',Status:'Ativo'};
-          return ref.set(novo).then(function(){ return novo; });
+          // Não achou doc com esse uid — é a PRIMEIRA vez que essa conta do
+          // Firebase Auth loga. Antes de criar um registro em branco, procura
+          // se já existe um vendedor de verdade com esse e-mail, ainda com o
+          // ID antigo da planilha (é o caso de todo vendedor migrado que
+          // nunca tinha logado antes — só o CEO teve isso remapeado na mão
+          // durante a migração). Se achar, usa a identidade ANTIGA (o
+          // idVendedor continua sendo o ID da planilha, não o uid do Firebase
+          // Auth) — assim todo o histórico que já referencia esse ID antigo
+          // (vendas/funil/agendamentos/ponto/metas individuais) continua
+          // batendo, sem precisar mover nem reescrever nenhuma outra coleção.
+          return db.collection('vendedores').where('Email','==',cred.user.email).limit(1).get().then(function(snap){
+            if(!snap.empty)return snap.docs[0].data();
+            var novo={IdVendedor:uid,Nome:(cred.user.email||'').split('@')[0],Email:cred.user.email||email,Tipo:'admin',Status:'Ativo'};
+            return ref.set(novo).then(function(){ return novo; });
+          });
         });
       }).then(function(dados){
         loginBtn.disabled=false; loginBtn.textContent='Entrar';

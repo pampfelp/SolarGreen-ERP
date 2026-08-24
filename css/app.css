@@ -225,8 +225,13 @@
 
   footer.note{margin-top:18px;font-size:11px;color:var(--ink-faint);line-height:1.7;}
 
-  /* ── Edit modal ── */
-  .modal-overlay{position:fixed;inset:0;background:rgba(30,30,30,0.5);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;}
+  /* ── Edit modal ──
+     z-index 200: acima do .side-panel (150) — o mesmo bug do
+     #sgConfirmModal existe em QUALQUER modal-overlay aberto a partir de
+     um painel de detalhe já ativo (ex.: "Editar agendamento" dentro do
+     painel de Agendamento), não só na confirmação de exclusão. Corrigindo
+     a classe base de uma vez, em vez de cada modal individualmente. */
+  .modal-overlay{position:fixed;inset:0;background:rgba(30,30,30,0.5);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px;}
   .hidden{display:none;}
   .modal-overlay.hidden{display:none;}
   .modal-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);max-width:420px;width:100%;padding:26px 28px;box-shadow:0 20px 60px rgba(0,0,0,0.5);max-height:90vh;overflow-y:auto;}
