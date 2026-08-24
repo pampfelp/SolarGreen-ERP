@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/tecnico.css?v=20260823l">
+<link rel="stylesheet" href="css/tecnico.css?v=20260824a">
 </head>
 <body>
 
@@ -33,33 +33,19 @@
       <input type="email" id="in-email" autocomplete="username" placeholder="voce@solargreen.com.br">
       <label>Senha</label>
       <input type="password" id="in-senha" autocomplete="current-password" placeholder="••••••••">
-      <div class="lstep-sub" style="margin:-6px 0 13px;">Primeiro acesso? Use a senha padrão informada pela empresa.</div>
+      <div class="lstep-sub" style="margin:-6px 0 13px;">Primeiro acesso? Peça a senha padrão pra quem administra o sistema — depois você pode trocar por conta própria em "Esqueci minha senha".</div>
       <button class="btn-primary" id="btn-login">Entrar</button>
       <div class="link-row"><button class="link-btn" id="go-esqueci">Esqueci minha senha</button></div>
     </div>
 
     <div class="lstep" id="step-esqueci">
       <h2>Esqueci minha senha</h2>
-      <div class="lstep-sub">Vamos enviar um código de 6 dígitos para o seu e-mail cadastrado.</div>
+      <div class="lstep-sub">Vamos enviar um link de redefinição para o seu e-mail cadastrado.</div>
       <div class="msg" id="msg-esqueci"></div>
       <label>E-mail</label>
       <input type="email" id="in-esqueci-email" autocomplete="username" placeholder="voce@solargreen.com.br">
-      <button class="btn-primary" id="btn-esqueci">Enviar código</button>
+      <button class="btn-primary" id="btn-esqueci">Enviar link de redefinição</button>
       <div class="link-row"><button class="link-btn" id="back-login-1">Voltar para o login</button></div>
-    </div>
-
-    <div class="lstep" id="step-redefinir">
-      <h2>Criar nova senha</h2>
-      <div class="lstep-sub">Confira seu e-mail e digite o código recebido.</div>
-      <div class="msg" id="msg-redefinir"></div>
-      <label>Código recebido por e-mail</label>
-      <input type="text" id="in-token" inputmode="numeric" maxlength="6" placeholder="000000">
-      <label>Nova senha</label>
-      <input type="password" id="in-senha1" autocomplete="new-password" placeholder="mínimo 6 caracteres">
-      <label>Confirmar nova senha</label>
-      <input type="password" id="in-senha2" autocomplete="new-password" placeholder="repita a senha">
-      <button class="btn-primary" id="btn-redefinir">Salvar nova senha</button>
-      <div class="link-row"><button class="link-btn" id="back-login-2">Voltar para o login</button></div>
     </div>
 
     <div class="lstep" id="step-primeiro">
@@ -390,11 +376,11 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="js/tecnico-firebase-init.js?v=20260823l"></script>
-<script src="js/tecnico-router.js?v=20260823l"></script>
-<script src="js/tecnico-auth.js?v=20260823l"></script>
-<script src="js/tecnico-agendamentos.js?v=20260823l"></script>
-<script src="js/tecnico-dimensionamento.js?v=20260823l"></script>
+<script src="js/tecnico-firebase-init.js?v=20260824a"></script>
+<script src="js/tecnico-router.js?v=20260824a"></script>
+<script src="js/tecnico-auth.js?v=20260824a"></script>
+<script src="js/tecnico-agendamentos.js?v=20260824a"></script>
+<script src="js/tecnico-dimensionamento.js?v=20260824a"></script>
 
 <div id="sg-install-banner">
   <span class="sg-ib-icon">📲</span>
@@ -404,7 +390,7 @@
     <button type="button" class="sg-ib-fechar" id="sg-ib-fechar">Agora não</button>
   </div>
 </div>
-<script src="js/tecnico-pwa.js?v=20260823l"></script>
+<script src="js/tecnico-pwa.js?v=20260824a"></script>
 
 </body>
 </html>

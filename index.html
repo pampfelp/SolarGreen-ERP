@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=20260824f">
+<link rel="stylesheet" href="css/app.css?v=20260824g">
 </head>
 <body>
 
@@ -69,35 +69,20 @@
       <input type="email" id="sg-login-email" autocomplete="username" placeholder="voce@solargreen.com.br">
       <label>Senha</label>
       <input type="password" id="sg-login-senha" autocomplete="current-password" placeholder="••••••••">
-      <div class="sg-step-sub" style="margin:-6px 0 14px;">Primeiro acesso? Use a senha padrão informada pela empresa — você vai criar a sua na sequência.</div>
+      <div class="sg-step-sub" style="margin:-6px 0 14px;">Primeiro acesso? Peça a senha padrão pra quem administra o sistema — depois você pode trocar por conta própria em "Esqueci minha senha".</div>
       <button class="sg-btn-primary" id="sg-login-btn">Entrar</button>
       <div class="sg-link-row"><button class="sg-link-btn" id="sg-go-esqueci">Esqueci minha senha</button></div>
     </div>
 
-    <!-- Passo 2: pedir código -->
+    <!-- Passo 2: pedir e-mail pra receber o link de redefinição (Firebase Auth de verdade, sendPasswordResetEmail) -->
     <div class="sg-step" id="sg-step-esqueci">
       <h2>Esqueci minha senha</h2>
-      <div class="sg-step-sub">Vamos enviar um código de 6 dígitos para o seu e-mail cadastrado.</div>
+      <div class="sg-step-sub">Vamos enviar um link de redefinição para o seu e-mail cadastrado.</div>
       <div class="sg-login-msg" id="sg-esqueci-msg"></div>
       <label>E-mail</label>
       <input type="email" id="sg-esqueci-email" autocomplete="username" placeholder="voce@solargreen.com.br">
-      <button class="sg-btn-primary" id="sg-esqueci-btn">Enviar código</button>
+      <button class="sg-btn-primary" id="sg-esqueci-btn">Enviar link de redefinição</button>
       <div class="sg-link-row"><button class="sg-link-btn" id="sg-back-login-1">Voltar para o login</button></div>
-    </div>
-
-    <!-- Passo 3: código + nova senha -->
-    <div class="sg-step" id="sg-step-redefinir">
-      <h2>Criar nova senha</h2>
-      <div class="sg-step-sub">Confira seu e-mail e digite o código recebido.</div>
-      <div class="sg-login-msg" id="sg-redefinir-msg"></div>
-      <label>Código recebido por e-mail</label>
-      <input type="text" id="sg-redefinir-token" inputmode="numeric" maxlength="6" placeholder="000000">
-      <label>Nova senha</label>
-      <input type="password" id="sg-redefinir-senha1" autocomplete="new-password" placeholder="mínimo 6 caracteres">
-      <label>Confirmar nova senha</label>
-      <input type="password" id="sg-redefinir-senha2" autocomplete="new-password" placeholder="repita a senha">
-      <button class="sg-btn-primary" id="sg-redefinir-btn">Salvar nova senha</button>
-      <div class="sg-link-row"><button class="sg-link-btn" id="sg-back-login-2">Voltar para o login</button></div>
     </div>
 
     <!-- Passo 4: primeiro acesso com senha padrão -> obrigatório criar senha própria -->
@@ -1686,25 +1671,25 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="js/firebase-init.js?v=20260824f"></script>
-<script src="js/firestore-router.js?v=20260824f"></script>
-<script src="js/sg-auth.js?v=20260824f"></script>
-<script src="js/dashboard.js?v=20260824f"></script>
-<script src="js/ponto.js?v=20260824f"></script>
-<script src="js/vendas.js?v=20260824f"></script>
-<script src="js/funil.js?v=20260824f"></script>
-<script src="js/agendamentos.js?v=20260824f"></script>
-<script src="js/clientes.js?v=20260824f"></script>
-<script src="js/relatorios.js?v=20260824f"></script>
-<script src="js/custos-venda.js?v=20260824f"></script>
-<script src="js/custo-recorrente.js?v=20260824f"></script>
-<script src="js/servicos.js?v=20260824f"></script>
-<script src="js/catalogo.js?v=20260824f"></script>
-<script src="js/metas.js?v=20260824f"></script>
-<script src="js/planos.js?v=20260824f"></script>
-<script src="js/usuarios.js?v=20260824f"></script>
-<script src="js/permissoes.js?v=20260824f"></script>
-<script src="js/controller.js?v=20260824f"></script>
+<script src="js/firebase-init.js?v=20260824g"></script>
+<script src="js/firestore-router.js?v=20260824g"></script>
+<script src="js/sg-auth.js?v=20260824g"></script>
+<script src="js/dashboard.js?v=20260824g"></script>
+<script src="js/ponto.js?v=20260824g"></script>
+<script src="js/vendas.js?v=20260824g"></script>
+<script src="js/funil.js?v=20260824g"></script>
+<script src="js/agendamentos.js?v=20260824g"></script>
+<script src="js/clientes.js?v=20260824g"></script>
+<script src="js/relatorios.js?v=20260824g"></script>
+<script src="js/custos-venda.js?v=20260824g"></script>
+<script src="js/custo-recorrente.js?v=20260824g"></script>
+<script src="js/servicos.js?v=20260824g"></script>
+<script src="js/catalogo.js?v=20260824g"></script>
+<script src="js/metas.js?v=20260824g"></script>
+<script src="js/planos.js?v=20260824g"></script>
+<script src="js/usuarios.js?v=20260824g"></script>
+<script src="js/permissoes.js?v=20260824g"></script>
+<script src="js/controller.js?v=20260824g"></script>
 
 <div id="sg-install-banner">
   <span class="sg-ib-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>

@@ -568,7 +568,7 @@
   function goStep(id){
     document.querySelectorAll('#sg-login-screen .sg-step').forEach(function(s){s.classList.remove('active');});
     document.getElementById(id).classList.add('active');
-    ['sg-login-msg','sg-esqueci-msg','sg-redefinir-msg','sg-primeiro-msg'].forEach(function(m){showMsg(m,'');});
+    ['sg-login-msg','sg-esqueci-msg','sg-primeiro-msg'].forEach(function(m){showMsg(m,'');});
   }
 
   function paintUserChip(){
@@ -651,48 +651,31 @@
       goStep('sg-step-esqueci');
     });
     document.getElementById('sg-back-login-1').addEventListener('click',function(){ goStep('sg-step-login'); });
-    document.getElementById('sg-back-login-2').addEventListener('click',function(){ goStep('sg-step-login'); });
 
+    // "Esqueci minha senha" chamava esqueciSenha/redefinirSenha — ações que
+    // só existiam no Apps Script antigo (fluxo de código de 6 dígitos
+    // digitado à mão), nunca portadas pro Firestore. Como o login agora É
+    // Firebase Auth de verdade, usa o mecanismo PRÓPRIO dele
+    // (sendPasswordResetEmail): manda um e-mail de verdade com um LINK
+    // (não um código pra digitar aqui) — a pessoa clica, cai numa página do
+    // próprio Firebase pra criar a senha nova, sem precisar de nenhum
+    // backend nosso pra isso. A etapa "sg-step-redefinir" (digitar código)
+    // fica sem uso — não é mais o formato certo pra esse mecanismo.
     var esqueciBtn=document.getElementById('sg-esqueci-btn');
     esqueciBtn.addEventListener('click',function(){
       var email=document.getElementById('sg-esqueci-email').value.trim();
       if(!email){ showMsg('sg-esqueci-msg','Informe seu e-mail.','error'); return; }
       esqueciBtn.disabled=true; esqueciBtn.textContent='Enviando…';
-      authCall('esqueciSenha',{email:email}).then(function(resp){
-        esqueciBtn.disabled=false; esqueciBtn.textContent='Enviar código';
-        if(!resp||!resp.ok){ showMsg('sg-esqueci-msg',(resp&&resp.erro)||'Não foi possível enviar o código.','error'); return; }
-        document.getElementById('sg-redefinir-token').value='';
-        document.getElementById('sg-redefinir-senha1').value='';
-        document.getElementById('sg-redefinir-senha2').value='';
-        goStep('sg-step-redefinir');
-        showMsg('sg-redefinir-msg','Código enviado! Confira seu e-mail (e a caixa de spam).','success');
-        document.getElementById('sg-step-redefinir').dataset.email=email;
+      firebase.auth().sendPasswordResetEmail(email).then(function(){
+        esqueciBtn.disabled=false; esqueciBtn.textContent='Enviar link de redefinição';
+        showMsg('sg-esqueci-msg','Link enviado! Confira seu e-mail (e a caixa de spam) e clique nele pra criar sua senha nova.','success');
       }).catch(function(err){
-        esqueciBtn.disabled=false; esqueciBtn.textContent='Enviar código';
-        showMsg('sg-esqueci-msg','Erro de conexão: '+err.message,'error');
-      });
-    });
-
-    var redefinirBtn=document.getElementById('sg-redefinir-btn');
-    redefinirBtn.addEventListener('click',function(){
-      var email=document.getElementById('sg-step-redefinir').dataset.email||document.getElementById('sg-esqueci-email').value.trim();
-      var token=document.getElementById('sg-redefinir-token').value.trim();
-      var s1=document.getElementById('sg-redefinir-senha1').value;
-      var s2=document.getElementById('sg-redefinir-senha2').value;
-      if(!token||!s1||!s2){ showMsg('sg-redefinir-msg','Preencha o código e a nova senha.','error'); return; }
-      if(s1!==s2){ showMsg('sg-redefinir-msg','As senhas não coincidem.','error'); return; }
-      if(s1.length<6){ showMsg('sg-redefinir-msg','A senha deve ter pelo menos 6 caracteres.','error'); return; }
-      redefinirBtn.disabled=true; redefinirBtn.textContent='Salvando…';
-      authCall('redefinirSenha',{email:email,token:token,novaSenha:s1}).then(function(resp){
-        redefinirBtn.disabled=false; redefinirBtn.textContent='Salvar nova senha';
-        if(!resp||!resp.ok){ showMsg('sg-redefinir-msg',(resp&&resp.erro)||'Não foi possível redefinir a senha.','error'); return; }
-        document.getElementById('sg-login-email').value=email;
-        document.getElementById('sg-login-senha').value='';
-        goStep('sg-step-login');
-        showMsg('sg-login-msg','Senha criada! Faça login com a nova senha.','success');
-      }).catch(function(err){
-        redefinirBtn.disabled=false; redefinirBtn.textContent='Salvar nova senha';
-        showMsg('sg-redefinir-msg','Erro de conexão: '+err.message,'error');
+        esqueciBtn.disabled=false; esqueciBtn.textContent='Enviar link de redefinição';
+        // Por segurança o Firebase não diz se o e-mail existe ou não — mas
+        // "user-not-found" ainda vale mostrar, já que aqui dentro é sempre
+        // um e-mail que o Felipe já cadastrou como vendedor/técnico.
+        var msg=err.code==='auth/user-not-found'?'Não existe conta com esse e-mail — confira com quem cadastrou seu acesso.':'Não foi possível enviar: '+(err.message||err.code);
+        showMsg('sg-esqueci-msg',msg,'error');
       });
     });
   }
