@@ -52,9 +52,18 @@
     // funil entra aqui pra alimentar as taxas de conversão médias (Novos
     // Contatos/Conversas/Propostas) direto da movimentação real do funil, em
     // vez do lançamento manual diário que existia antes (ver funil-crm.md).
-    return Promise.all([getColecao('vendedores'),getColecao('vendas'),getColecao('clientes'),getColecao('servicos'),getColecao('funil')]).then(function(r){
+    // metas/custosVenda: resquício de ANTES dessas coleções existirem de
+    // verdade (voltavam sempre vazio, mesmo depois delas ganharem leitura/
+    // escrita própria na parte 20) — corrigido pra ler de verdade, senão
+    // "Meta do período"/"Previsão de funil"/"Custos de operação" nessa tela
+    // ficam zerados pra sempre, mesmo com meta e custo cadastrados.
+    // metasIndividuais/relatorios continuam vazios de propósito: relatorios
+    // é lançamento manual diário, não usado mais nessa tela (ver
+    // funil-crm.md); metasIndividuais (sobreposição de meta por vendedor)
+    // ainda não tem coleção/tela própria migrada.
+    return Promise.all([getColecao('vendedores'),getColecao('vendas'),getColecao('clientes'),getColecao('servicos'),getColecao('funil'),getColecao('metas'),getColecao('custos_venda')]).then(function(r){
       return {ok:true, vendedores:r[0], vendas:r[1], clientes:r[2], servicos:r[3], funil:r[4],
-        metas:[], metasIndividuais:[], relatorios:[], custosVenda:[]};
+        metas:r[5], metasIndividuais:[], relatorios:[], custosVenda:r[6]};
     }).catch(function(err){ return {ok:false, erro:err.message}; });
   }
 
