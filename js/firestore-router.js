@@ -312,29 +312,183 @@
     return Promise.resolve({ok:false,erro:'Geração de PDF/assinatura digital ainda não faz parte desse piloto Firestore.'});
   }
 
+  // Converte data ISO (yyyy-mm-dd, vinda de <input type="date">) pro formato
+  // BR (dd/mm/yyyy) já usado nos campos de data desse projeto (DataVenda,
+  // DataAssinatura etc.) — mesma conversão que cada tela já fazia local pro
+  // registro otimista, replicada aqui pra gravar consistente.
+  function isoParaBR(iso){
+    if(!iso)return '';
+    var p=String(iso).split('-');
+    return p.length===3?(p[2]+'/'+p[1]+'/'+p[0]):iso;
+  }
+
   // ── Telas que combinam dado JÁ real (clientes/vendedores/servicos/vendas)
-  // com dado que genuinamente ainda não existe em nenhum lugar (custos da
-  // venda, relatórios, planos, ponto/overrides) — a parte real vem do
-  // Firestore, a parte não migrada fica vazia mesmo, de propósito.
+  // com dado próprio que agora também é Firestore de verdade (custos da
+  // venda, relatórios, planos, custo recorrente, metas, permissões, ponto).
   function getCustosVendaData(){
-    return Promise.all([getColecao('vendas'),getColecao('clientes'),getColecao('servicos')]).then(function(r){
-      return {ok:true, custos:[], vendas:r[0], clientes:r[1], servicos:r[2]};
+    return Promise.all([getColecao('vendas'),getColecao('clientes'),getColecao('servicos'),getColecao('custos_venda')]).then(function(r){
+      return {ok:true, custos:r[3], vendas:r[0], clientes:r[1], servicos:r[2]};
     }).catch(function(err){ return {ok:false, erro:err.message}; });
   }
+  function salvarCustoVenda(p){
+    var id=p.idCusto||(window.SGId?window.SGId.gerar():String(Date.now()));
+    var doc={IdCusto:id,IdVenda:p.idVenda||'',Descricao:p.descricao||'',Valor:paraNumero(p.valor),Status:p.status||'',Data:isoParaBR(p.data)};
+    return db().collection('custos_venda').doc(id).set(doc,{merge:true})
+      .then(function(){ return {ok:true,idCusto:id}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+  function excluirCustoVenda(p){
+    return db().collection('custos_venda').doc(p.idCusto).delete()
+      .then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+
   function getRelatoriosData(){
-    return getColecao('vendedores').then(function(vendedores){
-      return {ok:true, relatorios:[], vendedores:vendedores};
+    return Promise.all([getColecao('vendedores'),getColecao('relatorios')]).then(function(r){
+      return {ok:true, relatorios:r[1], vendedores:r[0]};
     }).catch(function(err){ return {ok:false, erro:err.message}; });
   }
+  function salvarRelatorio(p){
+    var id=p.idRelatorio||(window.SGId?window.SGId.gerar():String(Date.now()));
+    var doc={
+      IdRelatorio:id, IdVendedor:p.idVendedor||'', Data:isoParaBR(p.data),
+      'Novos Contatos':paraNumero(p.novosContatos), Conversas:paraNumero(p.conversas),
+      'Propostas Apresentadas':paraNumero(p.propostas), Vendas:paraNumero(p.vendas)
+    };
+    return db().collection('relatorios').doc(id).set(doc,{merge:true})
+      .then(function(){ return {ok:true,idRelatorio:id}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+  function excluirRelatorio(p){
+    return db().collection('relatorios').doc(p.idRelatorio).delete()
+      .then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+
   function getPlanosData(){
-    return Promise.all([getColecao('clientes'),getColecao('vendedores')]).then(function(r){
-      return {ok:true, planos:[], clientes:r[0], vendedores:r[1]};
+    return Promise.all([getColecao('clientes'),getColecao('vendedores'),getColecao('planos')]).then(function(r){
+      return {ok:true, planos:r[2], clientes:r[0], vendedores:r[1]};
     }).catch(function(err){ return {ok:false, erro:err.message}; });
   }
-  function getDataPonto(){
-    return getColecao('vendedores').then(function(vendedores){
-      return {ok:true, vendedores:vendedores, ponto:[], overrides:{}};
+  function salvarPlano(p){
+    var id=p.idPlano||(window.SGId?window.SGId.gerar():String(Date.now()));
+    var doc={
+      IdPlano:id, IdCliente:p.idCliente||'', TipoAssinatura:p.tipoAssinatura||'',
+      Valor:paraNumero(p.valor), DataAssinatura:isoParaBR(p.dataAssinatura), DiaVencimento:isoParaBR(p.diaVencimento),
+      Status:p.status||'', Monitoramento:!!p.monitoramento, VistoriaDiagnostica:!!p.vistoriaDiagnostica,
+      Limpeza:!!p.limpeza, ManutencaoPreventiva:!!p.manutencaoPreventiva
+    };
+    return db().collection('planos').doc(id).set(doc,{merge:true})
+      .then(function(){ return {ok:true,idPlano:id}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+  function excluirPlano(p){
+    return db().collection('planos').doc(p.idPlano).delete()
+      .then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+
+  function getCustoRecorrenteData(){
+    return getColecao('custo_recorrente').then(function(custos){
+      return {ok:true, custos:custos};
     }).catch(function(err){ return {ok:false, erro:err.message}; });
+  }
+  function salvarCustoRecorrente(p){
+    var id=p.idCR||(window.SGId?window.SGId.gerar():String(Date.now()));
+    var doc={IdCR:id,Descricao:p.descricao||'','Dia Vencimento':p.diaVencimento||'',Valor:paraNumero(p.valor),Categoria:p.categoria||'',Status:p.status||''};
+    return db().collection('custo_recorrente').doc(id).set(doc,{merge:true})
+      .then(function(){ return {ok:true,idCR:id}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+  function excluirCustoRecorrente(p){
+    return db().collection('custo_recorrente').doc(p.idCR).delete()
+      .then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+
+  function getMetasData(){
+    return getColecao('metas').then(function(metas){
+      return {ok:true, metas:metas};
+    }).catch(function(err){ return {ok:false, erro:err.message}; });
+  }
+  function salvarMeta(p){
+    var id=p.idMeta||(window.SGId?window.SGId.gerar():String(Date.now()));
+    var doc={IdMeta:id,Ano:paraNumero(p.ano),Mes:paraNumero(p.mes),Valor:paraNumero(p.valor)};
+    return db().collection('metas').doc(id).set(doc,{merge:true})
+      .then(function(){ return {ok:true,idMeta:id}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+  function excluirMeta(p){
+    return db().collection('metas').doc(p.idMeta).delete()
+      .then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+
+  // Permissões: "telas" é a lista fixa de telas cobertas pelo controle de
+  // acesso (mesma lista que window.SGPermissoes.aplicarNoMenu usa em
+  // sg-auth.js — se uma tela nova entrar nesse controle, adicionar aqui
+  // também). "tipos" vem dos Tipo de vendedor REAIS já cadastrados,
+  // excluindo os papéis admin (que sempre veem tudo, nunca aparecem na
+  // grade) — assim a tela sempre reflete quem existe de verdade, sem
+  // precisar cadastrar tipo em duplicado.
+  var PERMISSOES_TELAS=[
+    {chave:'dashboard',label:'Dashboard'},{chave:'ponto',label:'Ponto Eletrônico'},
+    {chave:'vendas',label:'Vendas'},{chave:'funil',label:'Funil'},
+    {chave:'clientes',label:'Clientes'},{chave:'agendamentos',label:'Agendamentos'},
+    {chave:'planos',label:'Planos'},{chave:'relatorios',label:'Relatórios'},
+    {chave:'custosvenda',label:'Custos da Venda'},{chave:'servicos',label:'Serviços'}
+  ];
+  var PERMISSOES_ADMIN_ROLES=['admin','administrador','ceo','gestor','gerente'];
+  function getPermissoesData(){
+    return Promise.all([getColecao('vendedores'),getColecao('permissoes')]).then(function(r){
+      var vendedores=r[0],permissoesDocs=r[1];
+      var tiposSet={};
+      vendedores.forEach(function(v){
+        var t=(v.Tipo||'').trim();
+        if(t&&PERMISSOES_ADMIN_ROLES.indexOf(t.toLowerCase())===-1)tiposSet[t]=true;
+      });
+      var permissoes=permissoesDocs.map(function(p){
+        var permitido=p.Permitido;
+        if(typeof permitido==='string')permitido=/^(verdadeiro|true|sim|1)$/i.test(permitido.trim());
+        return {tipo:p.Tipo||'',tela:p.Tela||'',permitido:!!permitido};
+      });
+      return {ok:true, telas:PERMISSOES_TELAS, tipos:Object.keys(tiposSet), permissoes:permissoes};
+    }).catch(function(err){ return {ok:false, erro:err.message}; });
+  }
+  function salvarPermissoes(p){
+    var lista=p.permissoes||[];
+    var batch=db().batch();
+    lista.forEach(function(item){
+      var id=item.tipo+'_'+item.tela;
+      batch.set(db().collection('permissoes').doc(id),{Tipo:item.tipo,Tela:item.tela,Permitido:!!item.permitido});
+    });
+    return batch.commit().then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+
+  // Ponto Eletrônico: "ponto" é o log de batidas em si (lido, não escrito
+  // por essa tela — quem bate ponto é o app do técnico/página dedicada,
+  // ainda no backend antigo, fora de escopo desse piloto); "overrides" é a
+  // correção manual do admin por funcionário+dia, chave composta
+  // `funcionario|dataKey` (mesmo formato que ponto.js já monta local).
+  function getDataPonto(){
+    return Promise.all([getColecao('vendedores'),getColecao('ponto'),getColecao('ponto_overrides')]).then(function(r){
+      var overrides={};
+      r[2].forEach(function(o){
+        var chave=(o.Funcionario||'')+'|'+(o.Data||'');
+        overrides[chave]={abonado:!!o.Abonado,entrada:o.Entrada||'',almoco:o.Almoco||'',retorno:o.RetornoAlmoco||'',saida:o.Saida||''};
+      });
+      return {ok:true, vendedores:r[0], ponto:r[1], overrides:overrides};
+    }).catch(function(err){ return {ok:false, erro:err.message}; });
+  }
+  function setOverride(p){
+    var id=p.funcionario+'_'+p.data;
+    var semDado=!p.abonado&&!p.entrada&&!p.almoco&&!p.retorno&&!p.saida;
+    var ref=db().collection('ponto_overrides').doc(id);
+    if(semDado)return ref.delete().then(function(){ return {ok:true}; }).catch(function(err){ return {ok:false,erro:err.message}; });
+    var doc={Funcionario:p.funcionario,Data:p.data,Abonado:!!p.abonado,Entrada:p.entrada||'',Almoco:p.almoco||'',RetornoAlmoco:p.retorno||'',Saida:p.saida||''};
+    return ref.set(doc,{merge:true}).then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
   }
 
   // Espera o Firebase Auth confirmar a sessão restaurada antes de tocar no
@@ -395,8 +549,29 @@
     verificarStatusOS:semIntegracaoNessePiloto,
 
     getCustosVendaData:comAuthPronto(getCustosVendaData),
+    salvarCustoVenda:comSync('custos_venda',function(p){return p.descricao||p.idCusto;},comAuthPronto(salvarCustoVenda)),
+    excluirCustoVenda:comSync('custos_venda',function(p){return 'excluir '+p.idCusto;},comAuthPronto(excluirCustoVenda)),
+
     getRelatoriosData:comAuthPronto(getRelatoriosData),
+    salvarRelatorio:comSync('relatorios',function(p){return 'relatório de '+(p.data||'');},comAuthPronto(salvarRelatorio)),
+    excluirRelatorio:comSync('relatorios',function(p){return 'excluir '+p.idRelatorio;},comAuthPronto(excluirRelatorio)),
+
     getPlanosData:comAuthPronto(getPlanosData),
-    getData:comAuthPronto(getDataPonto)
+    salvarPlano:comSync('planos',function(p){return 'plano de '+(p.idCliente||'');},comAuthPronto(salvarPlano)),
+    excluirPlano:comSync('planos',function(p){return 'excluir '+p.idPlano;},comAuthPronto(excluirPlano)),
+
+    getCustoRecorrenteData:comAuthPronto(getCustoRecorrenteData),
+    salvarCustoRecorrente:comSync('custo_recorrente',function(p){return p.descricao||p.idCR;},comAuthPronto(salvarCustoRecorrente)),
+    excluirCustoRecorrente:comSync('custo_recorrente',function(p){return 'excluir '+p.idCR;},comAuthPronto(excluirCustoRecorrente)),
+
+    getMetasData:comAuthPronto(getMetasData),
+    salvarMeta:comSync('metas',function(p){return (p.mes||'')+'/'+(p.ano||'');},comAuthPronto(salvarMeta)),
+    excluirMeta:comSync('metas',function(p){return 'excluir '+p.idMeta;},comAuthPronto(excluirMeta)),
+
+    getPermissoesData:comAuthPronto(getPermissoesData),
+    salvarPermissoes:comSync('permissoes',function(){return 'atualização de permissões';},comAuthPronto(salvarPermissoes)),
+
+    getData:comAuthPronto(getDataPonto),
+    setOverride:comSync('ponto_overrides',function(p){return (p.funcionario||'')+' em '+(p.data||'');},comAuthPronto(setOverride))
   };
 })();

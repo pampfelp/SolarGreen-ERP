@@ -43,6 +43,34 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
     }
 
+    // ── Custos da Venda / Relatórios / Planos / Custo Recorrente / Metas /
+    // Permissões / Ponto — ligadas ao Firestore de verdade em 2026-08-24
+    // (antes stub). Mesma regra "só exige estar logado" do resto do piloto.
+    match /custos_venda/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /relatorios/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /planos/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /custo_recorrente/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /metas/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /permissoes/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /ponto/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /ponto_overrides/{id} {
+      allow read, write: if isSignedIn();
+    }
+
     // Tudo o que não faz parte desse piloto fica fechado por padrão.
     match /{document=**} {
       allow read, write: if false;
