@@ -3,7 +3,7 @@
 (function(){
 
   var _epoca=window.SGEpoca.criar();
-  var vendedoresMap={},sortState={col:'faturado',dir:'desc'},vendedoresAtivosVenda=[],vendasRecords=[],metasRecords=[],relatoriosRecords=[],custosVendaRecords=[],servicosMap={};
+  var vendedoresMap={},sortState={col:'faturado',dir:'desc'},vendedoresAtivosVenda=[],vendasRecords=[],metasRecords=[],funilRecords=[],custosVendaRecords=[],servicosMap={};
   var clientesMap={};
   var vendedoresTodosMapVendas={};
   var metasIndividuaisMap={}; // 'idVendedor|ano|mes' -> valor da sobreposição
@@ -51,7 +51,29 @@
   function processVendedores(list){vendedoresMap={};vendedoresAtivosVenda=[];list.forEach(function(v){if(!v.IdVendedor)return;vendedoresMap[v.IdVendedor]=v;if(isVendedorAtivo(v))vendedoresAtivosVenda.push(v.IdVendedor);});}
   function processVendas(list){var out=[];list.forEach(function(o){if(!o.IdVenda)return;var dt=parseBRDate(o.DataVenda);if(!dt)return;out.push({idVenda:o.IdVenda,idCliente:o.IdCliente,idServico:o.IdServico,idVendedor:o.IdVendedor,dt:dt,dateKey:dateKey(dt),valor:parseBRNumber(o.Valor)});});return out;}
   function processMetas(list){var out=[];list.forEach(function(o){if(!o.IdMeta)return;out.push({mes:parseInt(o.Mes,10),ano:parseInt(o.Ano,10),valor:parseBRNumber(o.Valor)});});return out;}
-  function processRelatorios(list){var out=[];list.forEach(function(o){if(!o.IdRelatorio)return;var dt=parseBRDate(o.Data);if(!dt)return;out.push({idVendedor:o.IdVendedor,dt:dt,dateKey:dateKey(dt),contatos:parseBRNumber(o['Novos Contatos']),conversas:parseBRNumber(o['Conversas']),propostas:parseBRNumber(o['Propostas Apresentadas']),vendas:parseBRNumber(o['Vendas'])});});return out;}
+  /**
+   * Taxas de conversão médias (Novos Contatos/Conversas/Propostas) agora vêm
+   * direto da movimentação do Funil, não mais de um lançamento manual diário
+   * (ver segundo-cerebro/padroes/funil-crm.md). Cada lead do funil vira um
+   * registro com a data de criação (pra contar "Novos Contatos" por período,
+   * por lead — nunca por movimentação) e o array de Transições (pra contar
+   * "Conversas"/"Propostas" como eventos dentro do período).
+   */
+  function processFunilVendas(list){
+    var out=[];
+    list.forEach(function(o){
+      var id=o.IdOportunidade||o.IdFunil;
+      if(!id)return;
+      var dt=parseBRDate(o.DataCriacao||o['Data Criacao']||'');
+      if(!dt)return;
+      out.push({id:id,idVendedor:o.IdVendedor,dateKey:dateKey(dt),transicoes:o.Transicoes||[]});
+    });
+    return out;
+  }
+  // Transicoes[].Em é um timestamp ISO completo (agora.toISOString()), não uma
+  // data "crua" tipo DataCriacao — usar new Date(iso) direto (correto pra
+  // timestamp completo) e não o parseBRDate (que é pro bug de data SEM hora).
+  function dateKeyFromISO(iso){ var d=new Date(iso); return isNaN(d)?null:dateKey(d); }
   function processCustosVenda(list){var out=[];list.forEach(function(o){if(!o.IdCusto)return;var dt=parseBRDate(o.Data);out.push({id:o.IdCusto,idVenda:o.IdVenda,descricao:(o.Descricao||'').trim(),status:(o.Status||'').trim(),dt:dt,dateKey:dt?dateKey(dt):null,valor:parseBRNumber(o.Valor)});});return out;}
   function processServicos(list){var map={};list.forEach(function(o){if(!o.IdServico)return;map[o.IdServico]=o['Nome Servico']||o.IdServico;});return map;}
 
@@ -156,7 +178,11 @@
     function passaFiltro(v){if(from&&v.dateKey<from)return false;if(to&&v.dateKey>to)return false;if(vendedor!=='__all__'&&v.idVendedor!==vendedor)return false;if(servico!=='__all__'&&v.idServico!==servico)return false;return true;}
     var vendasTodas=vendasRecords.filter(passaFiltro); // pra tabela de vendas individuais (mostra tudo, inclusive aporte de sócios)
     var vendas=vendasRecordsFaturamento.filter(passaFiltro); // pra faturamento/meta/ticket médio (sem aporte de sócios)
-    var relatorios=relatoriosRecords.filter(function(r){if(from&&r.dateKey<from)return false;if(to&&r.dateKey>to)return false;if(vendedor!=='__all__'&&r.idVendedor!==vendedor)return false;return true;});
+    // "Novos Contatos" conta por lead criado no período (nunca por movimentação —
+    // ver segundo-cerebro/padroes/funil-crm.md), então filtra só por dateKey de
+    // criação + vendedor, sem filtro de serviço (funil não tem "serviço" definido
+    // logo na criação do lead, em geral).
+    var funilNovosContatos=funilRecords.filter(function(f){if(from&&f.dateKey<from)return false;if(to&&f.dateKey>to)return false;if(vendedor!=='__all__'&&f.idVendedor!==vendedor)return false;return true;});
     var vendaIds={};vendasTodas.forEach(function(v){vendaIds[v.idVenda]=true;});
     // Custos de OPERAÇÃO pertencem a uma venda — então seguem o vendedor/serviço/data
     // DESSA venda (cada serviço/vendedor carrega o custo do que ele mesmo gerou).
@@ -173,7 +199,7 @@
       if(c.dateKey){if(from&&c.dateKey<from)return false;if(to&&c.dateKey>to)return false;}
       return true;
     });
-    return{vendas:vendas,vendasTodas:vendasTodas,relatorios:relatorios,custos:custosOperacao,custosEscritorio:custosEscritorio};
+    return{vendas:vendas,vendasTodas:vendasTodas,funilNovosContatos:funilNovosContatos,custos:custosOperacao,custosEscritorio:custosEscritorio,from:from,to:to,vendedor:vendedor};
   }
 
   function render(){
@@ -269,13 +295,53 @@
       });
     });
 
-    var tc=filtered.relatorios.reduce(function(s,r){return s+r.contatos;},0),tcv=filtered.relatorios.reduce(function(s,r){return s+r.conversas;},0),tp=filtered.relatorios.reduce(function(s,r){return s+r.propostas;},0),tvr=filtered.relatorios.reduce(function(s,r){return s+r.vendas;},0);
+    /**
+     * Taxas de conversão médias — direto da movimentação do Funil (não mais
+     * lançamento manual diário, ver funil-crm.md):
+     * - Novos Contatos: leads criados no período (filtered.funilNovosContatos,
+     *   já filtrado por dateKey de criação + vendedor acima em getFiltered).
+     * - Conversas: toda TRANSIÇÃO (criação inclusive, já que criar um lead já
+     *   grava a 1ª transição) dentro do período, EXCETO pra "Tentativa de
+     *   Contato" — mover/criar um lead ali não conta como conversa de verdade.
+     * - Propostas: toda transição dentro do período cujo destino é Negociação/
+     *   Serviço Agendado/Ganho (equivalente a "proposta apresentada").
+     * Escopo do vendedor: como uma transição pode acontecer bem depois da
+     * criação do lead, filtra pelo idVendedor do LEAD (dono do funil), não
+     * pela data de criação — por isso itera sobre TODOS os funilRecords do
+     * vendedor (não só os "novos contatos" do período) e filtra cada
+     * transição pela própria data dela.
+     */
+    var tc=filtered.funilNovosContatos.length;
+    var todasTransicoesPeriodo=[];
+    funilRecords.forEach(function(f){
+      if(filtered.vendedor!=='__all__'&&f.idVendedor!==filtered.vendedor)return;
+      (f.transicoes||[]).forEach(function(t){
+        var dk=dateKeyFromISO(t.Em);
+        if(!dk)return;
+        if(filtered.from&&dk<filtered.from)return;
+        if(filtered.to&&dk>filtered.to)return;
+        todasTransicoesPeriodo.push((t.Etapa||'').trim());
+      });
+    });
+    var ETAPAS_PROPOSTA_VENDAS=['Negociação','Serviço Agendado','Ganho'];
+    var tcv=todasTransicoesPeriodo.filter(function(e){return e!=='Tentativa de Contato';}).length;
+    var tp=todasTransicoesPeriodo.filter(function(e){return ETAPAS_PROPOSTA_VENDAS.indexOf(e)!==-1;}).length;
+    var tvr=filtered.vendas.length;
     document.getElementById('funilContatos').textContent=tc;document.getElementById('funilConversas').textContent=tcv;document.getElementById('funilPropostas').textContent=tp;document.getElementById('funilVendas').textContent=tvr;
     document.getElementById('funilConvContato').textContent=tc>0?((tcv/tc)*100).toFixed(1).replace('.',',')+' %':'—';
     document.getElementById('funilConvConversa').textContent=tcv>0?((tp/tcv)*100).toFixed(1).replace('.',',')+' %':'—';
     document.getElementById('funilConvProposta').textContent=tp>0?((tvr/tp)*100).toFixed(1).replace('.',',')+' %':'—';
 
-    var hc=relatoriosRecords.reduce(function(s,r){return s+r.contatos;},0),hcv=relatoriosRecords.reduce(function(s,r){return s+r.conversas;},0),hp=relatoriosRecords.reduce(function(s,r){return s+r.propostas;},0),hvr=relatoriosRecords.reduce(function(s,r){return s+r.vendas;},0);
+    // Fallback histórico (sem filtro de período/vendedor) pra quando o período
+    // selecionado não tem dado suficiente pra calcular uma taxa — mesma lógica
+    // de antes, só que a fonte agora é o funil inteiro em vez do histórico de
+    // relatórios manuais.
+    var hc=funilRecords.length;
+    var todasTransicoesHist=[];
+    funilRecords.forEach(function(f){ (f.transicoes||[]).forEach(function(t){ todasTransicoesHist.push((t.Etapa||'').trim()); }); });
+    var hcv=todasTransicoesHist.filter(function(e){return e!=='Tentativa de Contato';}).length;
+    var hp=todasTransicoesHist.filter(function(e){return ETAPAS_PROPOSTA_VENDAS.indexOf(e)!==-1;}).length;
+    var hvr=vendasRecordsFaturamento.length;
     var tvpp=tp>0?tvr/tp:null,tpc=tcv>0?tp/tcv:null,tcc=tc>0?tcv/tc:null;
     var tvph=hp>0?hvr/hp:null,tpch=hcv>0?hp/hcv:null,tcch=hc>0?hcv/hc:null;
     var tax1=tvpp!==null?tvpp:tvph,tax2=tpc!==null?tpc:tpch,tax3=tcc!==null?tcc:tcch;
@@ -803,7 +869,7 @@
   function aplicarDadosVendas(resp){
     var vVendedores=window.SGAuth?window.SGAuth.filterByOwner(resp.vendedores||[],'IdVendedor'):(resp.vendedores||[]);
     var vVendas=window.SGAuth?window.SGAuth.filterByOwner(resp.vendas||[],'IdVendedor'):(resp.vendas||[]);
-    var vRelatorios=window.SGAuth?window.SGAuth.filterByOwner(resp.relatorios||[],'IdVendedor'):(resp.relatorios||[]);
+    var vFunil=window.SGAuth?window.SGAuth.filterByOwner(resp.funil||[],'IdVendedor'):(resp.funil||[]);
     processVendedores(vVendedores);
     vendedoresTodosMapVendas={};(resp.vendedores||[]).forEach(function(v){if(v.IdVendedor)vendedoresTodosMapVendas[v.IdVendedor]=v;});
     metasIndividuaisMap={};(resp.metasIndividuais||[]).forEach(function(m){
@@ -812,7 +878,7 @@
       metasIndividuaisMap[chave]={id:m.IdMetaIndividual,valor:parseBRNumber(m.ValorMeta)};
     });
     clientesMap={};(resp.clientes||[]).forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
-    vendasRecords=processVendas(vVendas);metasRecords=processMetas(resp.metas||[]);relatoriosRecords=processRelatorios(vRelatorios);custosVendaRecords=processCustosVenda(resp.custosVenda||[]);servicosMap=processServicos(resp.servicos||[]);
+    vendasRecords=processVendas(vVendas);metasRecords=processMetas(resp.metas||[]);funilRecords=processFunilVendas(vFunil);custosVendaRecords=processCustosVenda(resp.custosVenda||[]);servicosMap=processServicos(resp.servicos||[]);
     // As vendas do "Cliente Teste 1" (da6dbd89) são aporte de sócios, não faturamento
     // de verdade — continuam aparecendo na lista/histórico, mas não entram em
     // nenhuma conta de faturamento, ticket médio ou meta.
