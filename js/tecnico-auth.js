@@ -64,19 +64,30 @@ var SGAuth=(function(){
       var db=firebase.firestore();
       var ref=db.collection('vendedores').doc(uid);
       return ref.get().then(function(doc){
-        if(doc.exists)return doc.data();
+        if(doc.exists)return {ref:ref, dados:doc.data()};
         // Mesmo caso do painel admin (js/sg-auth.js): 1o login desse uid,
         // mas o técnico pode já existir com o ID antigo da planilha (todo
         // histórico de ponto/agendamentos já referencia esse ID) - procura
         // por e-mail antes de criar um registro em branco.
         return db.collection('vendedores').where('Email','==',cred.user.email).limit(1).get().then(function(snap){
-          if(!snap.empty)return snap.docs[0].data();
+          if(!snap.empty)return {ref:snap.docs[0].ref, dados:snap.docs[0].data()};
           var novo={IdVendedor:uid,Nome:(cred.user.email||'').split('@')[0],Email:cred.user.email||email,Tipo:'tecnico',Status:'Ativo'};
-          return ref.set(novo).then(function(){ return novo; });
+          return ref.set(novo).then(function(){ return {ref:ref, dados:novo}; });
         });
       });
-    }).then(function(dados){
+    }).then(function(achado){
       loginBtn.disabled=false; loginBtn.textContent='Entrar';
+      var dados=achado.dados;
+      // SenhaTemporaria: true = conta criada com a senha padrão da empresa
+      // — trava o acesso normal até criar a senha própria (mesmo mecanismo
+      // do painel admin).
+      if(dados.SenhaTemporaria){
+        pendingPrimeiro={ref:achado.ref, usuario:{idVendedor:dados.IdVendedor,nome:dados.Nome,email:dados.Email,tipo:dados.Tipo}};
+        document.getElementById('in-primeiro1').value='';
+        document.getElementById('in-primeiro2').value='';
+        goStep('step-primeiro');
+        return;
+      }
       SGAuth.setSession({idVendedor:dados.IdVendedor,nome:dados.Nome,email:dados.Email,tipo:dados.Tipo});
       location.reload();
     }).catch(function(err){
@@ -94,15 +105,16 @@ var SGAuth=(function(){
     if(s1!==s2){ showMsg('msg-primeiro','As senhas não coincidem.','error'); return; }
     if(s1.length<6){ showMsg('msg-primeiro','A senha deve ter pelo menos 6 caracteres.','error'); return; }
     primeiroBtn.disabled=true; primeiroBtn.textContent='Salvando…';
-    SGAuth.apiCall('trocarSenha',{idVendedor:pendingPrimeiro.usuario.idVendedor,senhaAtual:pendingPrimeiro.senhaAtual,novaSenha:s1}).then(function(resp){
+    firebase.auth().currentUser.updatePassword(s1).then(function(){
+      return pendingPrimeiro.ref.set({SenhaTemporaria:false},{merge:true});
+    }).then(function(){
       primeiroBtn.disabled=false; primeiroBtn.textContent='Salvar e entrar';
-      if(!resp||!resp.ok){ showMsg('msg-primeiro',(resp&&resp.erro)||'Não foi possível salvar a senha.','error'); return; }
       SGAuth.setSession(pendingPrimeiro.usuario);
       pendingPrimeiro=null;
       location.reload();
     }).catch(function(err){
       primeiroBtn.disabled=false; primeiroBtn.textContent='Salvar e entrar';
-      showMsg('msg-primeiro','Erro de conexão: '+err.message,'error');
+      showMsg('msg-primeiro','Não foi possível salvar: '+(err.message||err.code||err),'error');
     });
   });
 
