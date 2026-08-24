@@ -61,6 +61,9 @@ service cloud.firestore {
     match /metas/{id} {
       allow read, write: if isSignedIn();
     }
+    match /metas_individuais/{id} {
+      allow read, write: if isSignedIn();
+    }
     match /permissoes/{id} {
       allow read, write: if isSignedIn();
     }
