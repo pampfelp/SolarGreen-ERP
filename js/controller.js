@@ -67,3 +67,18 @@
   // tela e o menu continua aberto por cima, tampando o conteúdo.
   sidebarEl.querySelectorAll('nav a').forEach(function(a){ a.addEventListener('click',fecharMenuMobile); });
 })();
+
+// ── Esc fecha qualquer modal/painel de detalhe aberto no sistema ──
+// Todo .modal-overlay e o backdrop compartilhado dos painéis de detalhe já
+// fecham ao clicar fora (checam e.target.id===<próprio id>) — simular um
+// clique no próprio elemento aciona esse mesmo fechamento, sem precisar
+// duplicar a lógica de "qual função fechar" em cada tela.
+(function(){
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='Escape')return;
+    var overlay=document.querySelector('.modal-overlay:not(.hidden)');
+    if(overlay){ overlay.click(); return; }
+    var backdrop=document.getElementById('adBackdrop');
+    if(backdrop&&backdrop.classList.contains('active')){ backdrop.click(); }
+  });
+})();

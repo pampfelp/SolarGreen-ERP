@@ -338,8 +338,18 @@
     document.getElementById('cv-fecharBtn').addEventListener('click',fecharModal);
     document.getElementById('cv-salvarBtn').addEventListener('click',salvar);
     document.getElementById('cv-excluirBtn').addEventListener('click',excluir);
-    document.getElementById('cv-dateFrom').addEventListener('change',function(){ paginaAtual=1; render(); });
-    document.getElementById('cv-dateTo').addEventListener('change',function(){ paginaAtual=1; render(); });
+    document.getElementById('cv-dateFrom').addEventListener('change',function(){ paginaAtual=1; document.querySelectorAll('.qr-btn[data-cvrange]').forEach(function(b){b.classList.remove('active');}); render(); });
+    document.getElementById('cv-dateTo').addEventListener('change',function(){ paginaAtual=1; document.querySelectorAll('.qr-btn[data-cvrange]').forEach(function(b){b.classList.remove('active');}); render(); });
+    document.querySelectorAll('.qr-btn[data-cvrange]').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        document.querySelectorAll('.qr-btn[data-cvrange]').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');
+        var range=btn.getAttribute('data-cvrange'),now=new Date();
+        function dk(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+        if(range==='month'){var f=new Date(now.getFullYear(),now.getMonth(),1),l=new Date(now.getFullYear(),now.getMonth()+1,0);document.getElementById('cv-dateFrom').value=dk(f);document.getElementById('cv-dateTo').value=dk(l);}
+        else{var n=parseInt(range,10),fr=new Date(now);fr.setDate(fr.getDate()-(n-1));document.getElementById('cv-dateFrom').value=dk(fr);document.getElementById('cv-dateTo').value=dk(now);}
+        paginaAtual=1; render();
+      });
+    });
     document.getElementById('cv-selStatus').addEventListener('change',function(){ paginaAtual=1; render(); });
     document.getElementById('cv-buscaGeral').addEventListener('input',function(){ paginaAtual=1; render(); });
     document.querySelectorAll('#view-custosvenda .kpi-clickable').forEach(function(k){
@@ -353,6 +363,7 @@
     document.getElementById('cv-resetFiltros').addEventListener('click',function(){
       document.getElementById('cv-dateFrom').value='';document.getElementById('cv-dateTo').value='';
       document.getElementById('cv-selStatus').value='__all__';document.getElementById('cv-buscaGeral').value='';
+      document.querySelectorAll('.qr-btn[data-cvrange]').forEach(function(b){b.classList.remove('active');});
       paginaAtual=1; render();
     });
     document.querySelectorAll('#view-custosvenda th.sortable').forEach(function(th){
