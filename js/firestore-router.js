@@ -57,13 +57,11 @@
     // escrita própria na parte 20) — corrigido pra ler de verdade, senão
     // "Meta do período"/"Previsão de funil"/"Custos de operação" nessa tela
     // ficam zerados pra sempre, mesmo com meta e custo cadastrados.
-    // metasIndividuais/relatorios continuam vazios de propósito: relatorios
-    // é lançamento manual diário, não usado mais nessa tela (ver
-    // funil-crm.md); metasIndividuais (sobreposição de meta por vendedor)
-    // ainda não tem coleção/tela própria migrada.
-    return Promise.all([getColecao('vendedores'),getColecao('vendas'),getColecao('clientes'),getColecao('servicos'),getColecao('funil'),getColecao('metas'),getColecao('custos_venda')]).then(function(r){
+    // relatorios continua vazio de propósito: é o lançamento manual diário,
+    // não usado mais nessa tela (ver funil-crm.md).
+    return Promise.all([getColecao('vendedores'),getColecao('vendas'),getColecao('clientes'),getColecao('servicos'),getColecao('funil'),getColecao('metas'),getColecao('custos_venda'),getColecao('metas_individuais')]).then(function(r){
       return {ok:true, vendedores:r[0], vendas:r[1], clientes:r[2], servicos:r[3], funil:r[4],
-        metas:r[5], metasIndividuais:[], relatorios:[], custosVenda:r[6]};
+        metas:r[5], metasIndividuais:r[7], relatorios:[], custosVenda:r[6]};
     }).catch(function(err){ return {ok:false, erro:err.message}; });
   }
 
@@ -433,6 +431,25 @@
       .catch(function(err){ return {ok:false,erro:err.message}; });
   }
 
+  // Meta individual (sobreposição da meta padrão pra 1 vendedor num mês
+  // específico, definida na própria tela Vendas) — chave composta
+  // idVendedor_ano_mes, mesmo padrão de upsert-por-chave-natural já usado
+  // em ponto_overrides (garante 1 doc só por vendedor+mês, salvar de novo
+  // substitui em vez de duplicar).
+  function chaveMetaIndividual(idVendedor,ano,mes){ return idVendedor+'_'+ano+'_'+mes; }
+  function salvarMetaIndividual(p){
+    var id=chaveMetaIndividual(p.idVendedor,p.ano,p.mes);
+    var doc={IdMetaIndividual:id,IdVendedor:p.idVendedor,Ano:paraNumero(p.ano),Mes:paraNumero(p.mes),ValorMeta:paraNumero(p.valorMeta)};
+    return db().collection('metas_individuais').doc(id).set(doc,{merge:true})
+      .then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+  function excluirMetaIndividual(p){
+    return db().collection('metas_individuais').doc(chaveMetaIndividual(p.idVendedor,p.ano,p.mes)).delete()
+      .then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+
   // Permissões: "telas" é a lista fixa de telas cobertas pelo controle de
   // acesso (mesma lista que window.SGPermissoes.aplicarNoMenu usa em
   // sg-auth.js — se uma tela nova entrar nesse controle, adicionar aqui
@@ -576,6 +593,9 @@
     getMetasData:comAuthPronto(getMetasData),
     salvarMeta:comSync('metas',function(p){return (p.mes||'')+'/'+(p.ano||'');},comAuthPronto(salvarMeta)),
     excluirMeta:comSync('metas',function(p){return 'excluir '+p.idMeta;},comAuthPronto(excluirMeta)),
+
+    salvarMetaIndividual:comSync('metas_individuais',function(p){return 'meta individual '+(p.mes||'')+'/'+(p.ano||'');},comAuthPronto(salvarMetaIndividual)),
+    excluirMetaIndividual:comSync('metas_individuais',function(p){return 'remover meta individual '+(p.mes||'')+'/'+(p.ano||'');},comAuthPronto(excluirMetaIndividual)),
 
     getPermissoesData:comAuthPronto(getPermissoesData),
     salvarPermissoes:comSync('permissoes',function(){return 'atualização de permissões';},comAuthPronto(salvarPermissoes)),
