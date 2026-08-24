@@ -305,16 +305,21 @@
      *   Contato" — mover/criar um lead ali não conta como conversa de verdade.
      * - Propostas: toda transição dentro do período cujo destino é Negociação/
      *   Serviço Agendado/Ganho (equivalente a "proposta apresentada").
-     * Escopo do vendedor: como uma transição pode acontecer bem depois da
-     * criação do lead, filtra pelo idVendedor do LEAD (dono do funil), não
-     * pela data de criação — por isso itera sobre TODOS os funilRecords do
-     * vendedor (não só os "novos contatos" do período) e filtra cada
-     * transição pela própria data dela.
+     * IMPORTANTE — mesmo COORTE de "Novos Contatos", não "todo mundo que se
+     * mexeu": só entram transições de leads que TAMBÉM foram criados dentro
+     * desse período (mesmo filtro de filtered.funilNovosContatos). Antes essa
+     * lista somava a movimentação de QUALQUER lead (inclusive os 700+ leads
+     * antigos que continuam ativos), o que inflava Conversas/Propostas muito
+     * além dos Novos Contatos do período (ex.: 343 conversas pra 199
+     * contatos = 172% — parecia "quebrado" porque comparava coisas de
+     * cohortes diferentes). Restringindo à mesma cohorte, a taxa volta a
+     * medir "quanto do que entrou esse mês avançou esse mês", que é o que a
+     * projeção de meta (projetarFunil) precisa pra fazer sentido.
+     * Escopo do vendedor: mantido pelo idVendedor do LEAD, igual antes.
      */
     var tc=filtered.funilNovosContatos.length;
     var todasTransicoesPeriodo=[];
-    funilRecords.forEach(function(f){
-      if(filtered.vendedor!=='__all__'&&f.idVendedor!==filtered.vendedor)return;
+    filtered.funilNovosContatos.forEach(function(f){
       (f.transicoes||[]).forEach(function(t){
         var dk=dateKeyFromISO(t.Em);
         if(!dk)return;
@@ -326,7 +331,11 @@
     var ETAPAS_PROPOSTA_VENDAS=['Negociação','Serviço Agendado','Ganho'];
     var tcv=todasTransicoesPeriodo.filter(function(e){return e!=='Tentativa de Contato';}).length;
     var tp=todasTransicoesPeriodo.filter(function(e){return ETAPAS_PROPOSTA_VENDAS.indexOf(e)!==-1;}).length;
-    var tvr=filtered.vendas.length;
+    // mesma exclusão do CEO que já vale pra Faturado/Ticket/Vendas feitas
+    // (vendasKPI acima) — sem isso a Taxa de conversão "Vendas" contava
+    // 4 vendas a mais que o card "Vendas feitas" logo acima, um número
+    // batendo com outro na mesma tela.
+    var tvr=vendasKPI.length;
     document.getElementById('funilContatos').textContent=tc;document.getElementById('funilConversas').textContent=tcv;document.getElementById('funilPropostas').textContent=tp;document.getElementById('funilVendas').textContent=tvr;
     document.getElementById('funilConvContato').textContent=tc>0?((tcv/tc)*100).toFixed(1).replace('.',',')+' %':'—';
     document.getElementById('funilConvConversa').textContent=tcv>0?((tp/tcv)*100).toFixed(1).replace('.',',')+' %':'—';
@@ -341,7 +350,9 @@
     funilRecords.forEach(function(f){ (f.transicoes||[]).forEach(function(t){ todasTransicoesHist.push((t.Etapa||'').trim()); }); });
     var hcv=todasTransicoesHist.filter(function(e){return e!=='Tentativa de Contato';}).length;
     var hp=todasTransicoesHist.filter(function(e){return ETAPAS_PROPOSTA_VENDAS.indexOf(e)!==-1;}).length;
-    var hvr=vendasRecordsFaturamento.length;
+    // esse fallback é sempre agregado (não filtra por vendedor), então segue
+    // a mesma regra de vendasKPI: nunca conta venda do CEO aqui.
+    var hvr=vendasRecordsFaturamento.filter(function(v){return !vendaEhDeCEO(v);}).length;
     var tvpp=tp>0?tvr/tp:null,tpc=tcv>0?tp/tcv:null,tcc=tc>0?tcv/tc:null;
     var tvph=hp>0?hvr/hp:null,tpch=hcv>0?hp/hcv:null,tcch=hc>0?hcv/hc:null;
     var tax1=tvpp!==null?tvpp:tvph,tax2=tpc!==null?tpc:tpch,tax3=tcc!==null?tcc:tcch;
