@@ -408,6 +408,11 @@
      no lugar do confirm()/prompt() nativo do navegador. */
   .danger-btn{background:var(--debit);color:#fff;border:none;border-radius:9px;padding:11px 18px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:var(--unbounded);}
   .danger-btn:hover{background:#b91c1c;}
+  /* SGConfirm precisa ficar ACIMA de qualquer coisa que possa estar aberta
+     por trás (side-panel z-index:150 é o caso mais comum — excluir a partir
+     de um painel de detalhe já aberto, ex.: Agendamentos/Clientes/Funil —
+     sem isso o modal de confirmação renderiza escondido atrás do painel). */
+  #sgConfirmModal{z-index:1000;}
   #sgConfirmModal .modal-card{max-width:400px;}
   #sgc-mensagem{font-size:13px;color:var(--ink-soft);line-height:1.5;margin:10px 0 16px;}
   #sgc-inputWrap{margin-bottom:16px;}
