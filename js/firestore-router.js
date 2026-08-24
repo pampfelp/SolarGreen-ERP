@@ -49,8 +49,11 @@
   }
 
   function getVendasData(){
-    return Promise.all([getColecao('vendedores'),getColecao('vendas'),getColecao('clientes'),getColecao('servicos')]).then(function(r){
-      return {ok:true, vendedores:r[0], vendas:r[1], clientes:r[2], servicos:r[3],
+    // funil entra aqui pra alimentar as taxas de conversão médias (Novos
+    // Contatos/Conversas/Propostas) direto da movimentação real do funil, em
+    // vez do lançamento manual diário que existia antes (ver funil-crm.md).
+    return Promise.all([getColecao('vendedores'),getColecao('vendas'),getColecao('clientes'),getColecao('servicos'),getColecao('funil')]).then(function(r){
+      return {ok:true, vendedores:r[0], vendas:r[1], clientes:r[2], servicos:r[3], funil:r[4],
         metas:[], metasIndividuais:[], relatorios:[], custosVenda:[]};
     }).catch(function(err){ return {ok:false, erro:err.message}; });
   }
