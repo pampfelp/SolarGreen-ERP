@@ -47,7 +47,7 @@
 
 (function(){
   var sidebar=document.querySelector('.sidebar'),btn=document.getElementById('sidebarToggle'),ico=document.getElementById('toggleIco'),KEY='sg_sidebar_collapsed';
-  function apply(collapsed,animate){if(!animate){sidebar.style.transition='none';requestAnimationFrame(function(){sidebar.style.transition='';});}sidebar.classList.toggle('collapsed',collapsed);ico.textContent=collapsed?'▶':'◀';btn.title=collapsed?'Expandir menu':'Recolher menu';}
+  function apply(collapsed,animate){if(!animate){sidebar.style.transition='none';requestAnimationFrame(function(){sidebar.style.transition='';});}sidebar.classList.toggle('collapsed',collapsed);ico.classList.toggle('collapsed-ico',collapsed);btn.title=collapsed?'Expandir menu':'Recolher menu';}
   apply(localStorage.getItem(KEY)==='1',false);
   btn.addEventListener('click',function(){var c=!sidebar.classList.contains('collapsed');apply(c,true);localStorage.setItem(KEY,c?'1':'0');});
   // Em telas ≤760px a sidebar vira gaveta lateral (ver CSS) e o botão de recolher fica oculto — não é necessário nesse layout.

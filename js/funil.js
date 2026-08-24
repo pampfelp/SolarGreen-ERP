@@ -175,7 +175,7 @@
       var col=th.getAttribute('data-sort');
       th.classList.toggle('sort-active',col===sortState.col);
       var arrow=th.querySelector('.arrow-sort');if(!arrow)return;
-      arrow.textContent=(col===sortState.col)?(sortState.dir==='asc'?'▴':'▾'):'▾';
+      arrow.classList.toggle('asc',col===sortState.col&&sortState.dir==='asc');
     });
   }
 

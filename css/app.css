@@ -150,7 +150,12 @@
   /* ── Empty state ── */
   .empty{text-align:center;padding:80px 20px;color:var(--ink-faint);}
   .empty .glyph{font-size:48px;color:var(--accent);opacity:.3;margin-bottom:14px;}
+  .empty .glyph svg{width:48px;height:48px;}
   .empty p{font-size:14px;max-width:380px;margin:6px auto 0;line-height:1.7;}
+
+  /* ── Ícone SVG dentro de botão com texto (nunca emoji, ver segundo-cerebro) ── */
+  .inline-ico{display:inline-flex;width:14px;height:14px;vertical-align:-2px;margin-right:5px;flex:none;}
+  .inline-ico svg{width:100%;height:100%;}
 
   /* ── KPIs ── */
   .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px;}
@@ -318,6 +323,9 @@
   .side-panel .ad-top .ad-trashbtn:hover{background:rgba(220,38,38,.32);}
   .side-panel .ad-top .ad-editbtn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);color:#fff;border-radius:9px;width:34px;height:34px;font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;}
   .side-panel .ad-top .ad-editbtn:hover{background:rgba(255,255,255,.2);}
+  .side-panel .ad-top .ad-backbtn svg,
+  .side-panel .ad-top .ad-editbtn svg,
+  .side-panel .ad-top .ad-trashbtn svg{width:18px;height:18px;}
   .side-panel .ad-body{flex:1;overflow-y:auto;padding:18px;}
   .side-panel .ad-section{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:15px 16px;margin-bottom:14px;}
   .side-panel .ad-section h4{font-family:var(--unbounded);font-size:11.5px;font-weight:700;color:var(--ink);margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em;}
@@ -458,7 +466,9 @@
     transition:color .12s;margin-bottom:4px;
   }
   .sidebar-toggle:hover{ color:#fff; }
-  .sidebar-toggle .ico{ width:20px;text-align:center;flex:none;font-size:14px; }
+  .sidebar-toggle .ico{ width:20px;height:16px;text-align:center;flex:none;font-size:14px;display:inline-flex;align-items:center;justify-content:center; }
+  .sidebar-toggle .ico svg{width:16px;height:16px;transition:transform .15s;}
+  .sidebar-toggle .ico.collapsed-ico svg{transform:rotate(180deg);}
 
   /* ── View switching ── */
   .view{ display:none; min-width:0; flex:1; }
@@ -477,6 +487,7 @@
   .meta-step .num{font-family:var(--unbounded);font-size:20px;font-weight:700;margin-top:9px;color:var(--ink);letter-spacing:-.01em;}
   .meta-step .sub{font-size:11px;color:var(--ink-soft);margin-top:5px;line-height:1.45;}
   .meta-step .arrow{position:absolute;right:-10px;top:50%;transform:translateY(-50%);width:20px;height:20px;background:var(--bg);border:1px solid var(--line);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--accent);z-index:2;}
+  .meta-step .arrow svg,.funnel-step .arrow svg{width:12px;height:12px;}
   .meta-step.highlight{background:var(--accent-soft);}
   .meta-step.highlight .num{color:var(--accent);}
   .progress-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 22px;margin-top:16px;}
@@ -500,7 +511,9 @@
   .mini-fill{height:100%;background:var(--accent);}
   thead th.sortable{cursor:pointer;user-select:none;transition:color .12s;}
   thead th.sortable:hover{color:var(--accent);}
-  thead th.sortable .arrow-sort{display:inline-block;margin-left:4px;font-size:9px;color:var(--ink-faint);}
+  thead th.sortable .arrow-sort{display:inline-flex;margin-left:4px;color:var(--ink-faint);vertical-align:-2px;}
+  thead th.sortable .arrow-sort svg{width:11px;height:11px;transition:transform .12s;}
+  thead th.sortable .arrow-sort.asc svg{transform:rotate(180deg);}
   thead th.sortable.sort-active{color:var(--accent);}
   thead th.sortable.sort-active .arrow-sort{color:var(--accent);}
   .funnel{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;}
@@ -733,7 +746,8 @@
   /* ── Banner de instalação do app (PWA) ── */
   #sg-install-banner{position:fixed;left:14px;right:14px;bottom:14px;max-width:480px;margin:0 auto;background:#003122;color:#fff;padding:14px 16px;border-radius:13px;font-size:13px;z-index:500;box-shadow:0 10px 30px rgba(0,0,0,.35);display:none;align-items:center;gap:12px;}
   #sg-install-banner.show{display:flex;}
-  #sg-install-banner .sg-ib-icon{font-size:22px;flex:none;}
+  #sg-install-banner .sg-ib-icon{font-size:22px;flex:none;width:22px;height:22px;display:inline-flex;}
+  #sg-install-banner .sg-ib-icon svg{width:100%;height:100%;}
   #sg-install-banner .sg-ib-text{flex:1;line-height:1.4;}
   #sg-install-banner .sg-ib-text b{display:block;font-size:13.5px;margin-bottom:2px;}
   #sg-install-banner .sg-ib-actions{display:flex;flex-direction:column;gap:6px;flex:none;}
