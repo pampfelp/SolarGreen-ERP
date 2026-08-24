@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=20260823u">
+<link rel="stylesheet" href="css/app.css?v=20260823v">
 </head>
 <body>
 
@@ -115,7 +115,7 @@
 </div>
 
 <div class="mobile-topbar">
-  <button class="hamburger" id="btn-abrir-menu" aria-label="Abrir menu">☰</button>
+  <button class="hamburger" id="btn-abrir-menu" aria-label="Abrir menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
   <div class="mobile-topbar-brand"><span class="sg-solar">SOLAR <span class="sg-green">GREEN</span></span></div>
 </div>
 <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
@@ -152,7 +152,7 @@
     <span class="foot-text" style="font-family:var(--mono);font-size:10px;color:rgba(255,255,255,0.3);">v<span id="appVersionFoot">2026-07-16-1</span></span>
   </div>
   <button class="sidebar-toggle" id="sidebarToggle" title="Recolher menu">
-    <span class="ico" id="toggleIco">◀</span>
+    <span class="ico" id="toggleIco"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></span>
     <span class="toggle-label">Recolher</span>
   </button>
 </aside>
@@ -192,7 +192,7 @@
   </div>
 
   <div class="dash-insight" id="db-insight" style="margin-bottom:24px;">
-    <div class="dash-insight-title">📌 Leitura automática do período</div>
+    <div class="dash-insight-title"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="16" x2="12" y2="11"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>Leitura automática do período</div>
     <div id="db-insightText">Carregando dados…</div>
   </div>
 
@@ -216,7 +216,7 @@
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;" id="db-funilConversao"></div>
 
   <div class="empty" id="db-emptyState" style="display:none;">
-    <div class="glyph">📊</div>
+    <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
     <p>Carregando o dashboard…</p>
   </div>
 </div>
@@ -332,7 +332,7 @@
   </div>
 
   <div class="empty" id="p-emptyState">
-    <div class="glyph">⧗</div>
+    <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></div>
     <p>Envie as duas planilhas acima — Vendedores e Ponto Eletrônico — para gerar o relatório.</p>
   </div>
 </div>
@@ -382,9 +382,9 @@
     </div>
     <div class="section-head"><h2>Meta do <span>período</span></h2><div class="hint" id="metaHint">distribuída entre vendedores ativos e dias úteis</div></div>
     <div class="meta-flow">
-      <div class="meta-step"><div class="tag">Meta do mês (empresa)</div><div class="num" id="metaEmpresa">R$ 0,00</div><div class="sub" id="metaEmpresaSub">cadastrada na aba Metas</div><div class="arrow">→</div></div>
-      <div class="meta-step"><div class="tag">Meta individual</div><div class="num" id="metaIndividual">R$ 0,00</div><div class="sub" id="metaIndividualSub">÷ vendedores ativos</div><div class="arrow">→</div></div>
-      <div class="meta-step"><div class="tag">Meta diária individual</div><div class="num" id="metaDiaria">R$ 0,00</div><div class="sub" id="metaDiariaSub">por vendedor, ÷ dias úteis</div><div class="arrow">→</div></div>
+      <div class="meta-step"><div class="tag">Meta do mês (empresa)</div><div class="num" id="metaEmpresa">R$ 0,00</div><div class="sub" id="metaEmpresaSub">cadastrada na aba Metas</div><div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div></div>
+      <div class="meta-step"><div class="tag">Meta individual</div><div class="num" id="metaIndividual">R$ 0,00</div><div class="sub" id="metaIndividualSub">÷ vendedores ativos</div><div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div></div>
+      <div class="meta-step"><div class="tag">Meta diária individual</div><div class="num" id="metaDiaria">R$ 0,00</div><div class="sub" id="metaDiariaSub">por vendedor, ÷ dias úteis</div><div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div></div>
       <div class="meta-step highlight"><div class="tag">Meta até hoje</div><div class="num" id="metaAteHoje">R$ 0,00</div><div class="sub" id="metaAteHojeSub">acumulada nos dias úteis decorridos</div></div>
     </div>
     <div class="progress-card">
@@ -407,15 +407,15 @@
       <table>
         <thead>
           <tr>
-            <th class="sortable" data-sort="vendedor">Vendedor<span class="arrow-sort">▾</span></th>
-            <th class="num sortable" data-sort="meta">Meta<span class="arrow-sort">▾</span></th>
-            <th class="num sortable" data-sort="faturado">Faturado<span class="arrow-sort">▾</span></th>
-            <th class="num sortable" data-sort="metaAteHoje">Meta até hoje<span class="arrow-sort">▾</span></th>
-            <th class="num sortable" data-sort="ritmo">Ritmo até hoje<span class="arrow-sort">▾</span></th>
-            <th class="num sortable" data-sort="vendas">Vendas feitas<span class="arrow-sort">▾</span></th>
-            <th class="num sortable" data-sort="ticket">Ticket médio<span class="arrow-sort">▾</span></th>
-            <th class="num sortable" data-sort="necessarias">Vendas p/ meta<span class="arrow-sort">▾</span></th>
-            <th class="sortable" data-sort="progresso">Progresso<span class="arrow-sort">▾</span></th>
+            <th class="sortable" data-sort="vendedor">Vendedor<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+            <th class="num sortable" data-sort="meta">Meta<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+            <th class="num sortable" data-sort="faturado">Faturado<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+            <th class="num sortable" data-sort="metaAteHoje">Meta até hoje<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+            <th class="num sortable" data-sort="ritmo">Ritmo até hoje<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+            <th class="num sortable" data-sort="vendas">Vendas feitas<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+            <th class="num sortable" data-sort="ticket">Ticket médio<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+            <th class="num sortable" data-sort="necessarias">Vendas p/ meta<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+            <th class="sortable" data-sort="progresso">Progresso<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
           </tr>
         </thead>
         <tbody id="tbodyVendedores"></tbody>
@@ -431,11 +431,11 @@
     <div class="table-wrap" id="tblVendasIndividuais">
       <table>
         <thead><tr>
-          <th class="sortable" data-sort="data">Data<span class="arrow-sort">▾</span></th>
-          <th class="sortable" data-sort="cliente">Cliente<span class="arrow-sort">▾</span></th>
-          <th class="sortable" data-sort="servico">Serviço<span class="arrow-sort">▾</span></th>
-          <th class="sortable" data-sort="vendedor">Vendedor<span class="arrow-sort">▾</span></th>
-          <th class="num sortable" data-sort="valor">Valor<span class="arrow-sort">▾</span></th>
+          <th class="sortable" data-sort="data">Data<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+          <th class="sortable" data-sort="cliente">Cliente<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+          <th class="sortable" data-sort="servico">Serviço<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+          <th class="sortable" data-sort="vendedor">Vendedor<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+          <th class="num sortable" data-sort="valor">Valor<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
         </tr></thead>
         <tbody id="v-vendasTbody"></tbody>
       </table>
@@ -444,9 +444,9 @@
 
     <div class="section-head"><h2>Taxas de <span>conversão</span> médias</h2><div class="hint">a partir da aba Relatórios</div></div>
     <div class="funnel">
-      <div class="funnel-step"><div class="tag">Novos contatos</div><div class="num" id="funilContatos">0</div><div class="arrow">→</div></div>
-      <div class="funnel-step"><div class="tag">Conversas</div><div class="num" id="funilConversas">0</div><div class="conv" id="funilConvContato">0%</div><div class="arrow">→</div></div>
-      <div class="funnel-step"><div class="tag">Propostas</div><div class="num" id="funilPropostas">0</div><div class="conv" id="funilConvConversa">0%</div><div class="arrow">→</div></div>
+      <div class="funnel-step"><div class="tag">Novos contatos</div><div class="num" id="funilContatos">0</div><div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div></div>
+      <div class="funnel-step"><div class="tag">Conversas</div><div class="num" id="funilConversas">0</div><div class="conv" id="funilConvContato">0%</div><div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div></div>
+      <div class="funnel-step"><div class="tag">Propostas</div><div class="num" id="funilPropostas">0</div><div class="conv" id="funilConvConversa">0%</div><div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div></div>
       <div class="funnel-step"><div class="tag">Vendas</div><div class="num" id="funilVendas">0</div><div class="conv" id="funilConvProposta">0%</div></div>
     </div>
     <div class="section-head"><h2>Previsão de funil para <span>bater a meta</span></h2><div class="hint">aplicando as taxas de conversão médias</div></div>
@@ -466,7 +466,7 @@
     </div>
     <footer class="note">Meta diária considera apenas dias úteis (seg–sex). A meta individual é a meta do mês dividida pelos vendedores Ativos do tipo Vendedor.</footer>
   </div>
-  <div class="empty" id="v-emptyState"><div class="glyph">◆</div><p>Carregando o relatório de vendas…</p></div>
+  <div class="empty" id="v-emptyState"><div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 7-8"/><path d="M15 7h5v5"/></svg></div><p>Carregando o relatório de vendas…</p></div>
 </div>
 </div>
 
@@ -565,26 +565,26 @@
       <div class="hint" id="f-tableHint">ordenados por data da última movimentação (mais recente primeiro)</div>
       <div class="spacer"></div>
       <div class="view-toggle">
-        <button type="button" class="view-toggle-btn active" id="f-viewLista">☰ Lista</button>
-        <button type="button" class="view-toggle-btn" id="f-viewKanban">▦ Kanban</button>
+        <button type="button" class="view-toggle-btn active" id="f-viewLista"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></span>Lista</button>
+        <button type="button" class="view-toggle-btn" id="f-viewKanban"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="5" height="16" rx="1"/><rect x="9.5" y="4" width="5" height="10" rx="1"/><rect x="16" y="4" width="5" height="13" rx="1"/></svg></span>Kanban</button>
       </div>
       <input type="text" id="f-buscaGeral" placeholder="Buscar cliente, vendedor, etapa, data…" style="margin-left:10px;font-size:13px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;min-width:220px;">
-      <button class="secondary-btn" id="f-relatorioBtn" style="margin-left:10px;">📊 Relatório</button>
+      <button class="secondary-btn" id="f-relatorioBtn" style="margin-left:10px;"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="20" x2="6" y2="12"/><line x1="12" y1="20" x2="12" y2="6"/><line x1="18" y1="20" x2="18" y2="15"/></svg></span>Relatório</button>
       <button class="connect-btn" id="f-novoLeadBtn" style="margin-left:10px;">+ Novo lead</button>
     </div>
     <div class="funil-table-wrap" id="f-listaWrap">
       <table>
         <thead>
           <tr>
-            <th class="sortable" data-sort="dataProcesso">Data<span class="arrow-sort">▾</span></th>
-            <th class="sortable" data-sort="dias">Dias<span class="arrow-sort">▾</span></th>
-            <th class="sortable" data-sort="cliente">Cliente<span class="arrow-sort">▾</span></th>
+            <th class="sortable" data-sort="dataProcesso">Data<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+            <th class="sortable" data-sort="dias">Dias<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+            <th class="sortable" data-sort="cliente">Cliente<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
             <th>Telefone</th>
-            <th class="sortable" data-sort="vendedor">Vendedor<span class="arrow-sort">▾</span></th>
-            <th class="sortable" data-sort="etapa">Etapa<span class="arrow-sort">▾</span></th>
-            <th class="sortable" data-sort="obs">Observação<span class="arrow-sort">▾</span></th>
-            <th class="num sortable" data-sort="valor">Valor<span class="arrow-sort">▾</span></th>
-            <th class="sortable" data-sort="motivoPerda">Motivo perda<span class="arrow-sort">▾</span></th>
+            <th class="sortable" data-sort="vendedor">Vendedor<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+            <th class="sortable" data-sort="etapa">Etapa<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+            <th class="sortable" data-sort="obs">Observação<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+            <th class="num sortable" data-sort="valor">Valor<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+            <th class="sortable" data-sort="motivoPerda">Motivo perda<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
           </tr>
         </thead>
         <tbody id="f-tbody"></tbody>
@@ -600,7 +600,7 @@
   </div>
 
   <div class="empty" id="f-emptyState">
-    <div class="glyph">◈</div>
+    <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16l-6 8v6l-4 2v-8L4 4z"/></svg></div>
     <p>Carregando o funil de vendas…</p>
   </div>
 
@@ -677,12 +677,12 @@
     <table>
       <thead>
         <tr>
-          <th class="sortable" data-sort="cliente">Cliente<span class="arrow-sort">▾</span></th>
-          <th class="sortable" data-sort="servico">Serviço<span class="arrow-sort">▾</span></th>
+          <th class="sortable" data-sort="cliente">Cliente<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+          <th class="sortable" data-sort="servico">Serviço<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
           <th>Valor</th>
-          <th class="sortable" data-sort="tecnico">Técnico<span class="arrow-sort">▾</span></th>
-          <th class="sortable" data-sort="data">Data / Horário<span class="arrow-sort">▾</span></th>
-          <th class="sortable" data-sort="status">Status<span class="arrow-sort">▾</span></th>
+          <th class="sortable" data-sort="tecnico">Técnico<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+          <th class="sortable" data-sort="data">Data / Horário<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+          <th class="sortable" data-sort="status">Status<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
           <th></th>
         </tr>
       </thead>
@@ -693,7 +693,7 @@
   <div id="ag-paginacao" class="paginacao"></div>
 
   <div class="empty" id="ag-emptyState">
-    <div class="glyph">🛠</div>
+    <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></div>
     <p>Carregando os agendamentos…</p>
   </div>
 
@@ -788,7 +788,7 @@
 
 <div class="modal-overlay hidden" id="osEnviadaModal">
   <div class="modal-card" style="max-width:440px;">
-    <h3>Ordem de Serviço enviada ✓</h3>
+    <h3>Ordem de Serviço enviada <span class="inline-ico" style="margin-right:0;margin-left:4px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span></h3>
     <div class="lstep-sub" style="font-size:12.5px;color:var(--ink-faint);margin-bottom:14px;">Documento enviado pro e-mail <strong id="osEnviada-email"></strong> com sucesso.</div>
     <div class="uform-field">
       <label>Link de assinatura</label>
@@ -796,7 +796,7 @@
     </div>
     <div class="lstep-sub" style="font-size:12px;color:var(--ink-faint);margin-top:-4px;">Se preferir, copie o link acima e mande direto pro cliente assinar pelo WhatsApp — ele também continua disponível depois, no painel deste agendamento.</div>
     <div class="modal-actions">
-      <button class="reset-btn" id="osEnviada-copiarBtn">📋 Copiar link</button>
+      <button class="reset-btn" id="osEnviada-copiarBtn"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/><path d="M9 12h6M9 16h6"/></svg></span>Copiar link</button>
       <button class="connect-btn" id="osEnviada-okBtn">OK</button>
     </div>
   </div>
@@ -805,33 +805,33 @@
 <div class="ad-backdrop" id="adBackdrop"></div>
 <div id="viewDetalhe" class="side-panel">
   <div class="ad-top">
-    <button class="ad-backbtn" id="vw-fecharBtn">←</button>
+    <button class="ad-backbtn" id="vw-fecharBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button>
     <div class="ad-title" id="vw-title">Detalhes</div>
-    <button class="ad-editbtn" id="vw-editarBtn" title="Editar">✎</button>
-    <button class="ad-trashbtn" id="vw-excluirBtn" title="Excluir">🗑</button>
+    <button class="ad-editbtn" id="vw-editarBtn" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
+    <button class="ad-trashbtn" id="vw-excluirBtn" title="Excluir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
   </div>
   <div class="ad-body" id="vw-body"></div>
 </div>
 <div id="agendamentoDetalhe" class="side-panel">
   <div class="ad-top">
-    <button class="ad-backbtn" id="ad-fecharBtn">←</button>
+    <button class="ad-backbtn" id="ad-fecharBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button>
     <div class="ad-title" id="ad-title">Agendamento</div>
-    <button class="ad-trashbtn" id="ad-excluirBtn" title="Excluir agendamento">🗑</button>
+    <button class="ad-trashbtn" id="ad-excluirBtn" title="Excluir agendamento"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
   </div>
   <div class="ad-body" id="ad-body"></div>
   <div class="ad-actions">
     <button class="reset-btn" id="ad-editarBtn">Editar agendamento</button>
-    <button class="connect-btn" id="ad-pdfBtn">🖨 Gerar PDF</button>
-    <button class="connect-btn" id="ad-assinaturaBtn">✍️ Enviar para assinatura digital</button>
+    <button class="connect-btn" id="ad-pdfBtn"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg></span>Gerar PDF</button>
+    <button class="connect-btn" id="ad-assinaturaBtn"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span>Enviar para assinatura digital</button>
     <p class="hint" id="ad-osIndisponivelHint" style="display:none;margin-top:2px;">A Ordem de Serviço (PDF e assinatura digital) só fica disponível depois que o atendimento é marcado como Concluído.</p>
   </div>
 </div>
 
 <div id="funilDetalhe" class="side-panel">
   <div class="ad-top">
-    <button class="ad-backbtn" id="fd-fecharBtn">←</button>
+    <button class="ad-backbtn" id="fd-fecharBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button>
     <div class="ad-title" id="fd-title">Lead</div>
-    <button class="ad-trashbtn" id="fd-excluirBtn" title="Excluir lead">🗑</button>
+    <button class="ad-trashbtn" id="fd-excluirBtn" title="Excluir lead"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
   </div>
   <div class="ad-body" id="fd-body"></div>
   <div class="ad-actions">
@@ -841,7 +841,7 @@
 
 <div id="clienteRapidoDetalhe" class="side-panel" style="z-index:160;">
   <div class="ad-top">
-    <button class="ad-backbtn" id="cr-fecharBtn">←</button>
+    <button class="ad-backbtn" id="cr-fecharBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button>
     <div class="ad-title">Cadastrar cliente</div>
   </div>
   <div class="ad-body">
@@ -879,7 +879,7 @@
     </div>
     <div class="uform-msg" id="cr-msg"></div>
     <div id="cr-avisoDuplicado" class="hidden" style="background:#fef2f2;border:1px solid var(--debit);border-radius:10px;padding:12px 14px;margin-top:4px;">
-      <div style="font-size:12.5px;color:var(--debit);font-weight:700;margin-bottom:4px;">⚠️ Já existe um contato cadastrado para esse número</div>
+      <div style="font-size:12.5px;color:var(--debit);font-weight:700;margin-bottom:4px;"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>Já existe um contato cadastrado para esse número</div>
       <div id="cr-avisoDuplicadoDetalhe" style="font-size:11.5px;color:var(--ink-faint);margin-bottom:8px;"></div>
       <label style="font-size:12px;color:var(--ink-soft);display:flex;align-items:flex-start;gap:7px;cursor:pointer;">
         <input type="checkbox" id="cr-confirmarDiferente" style="margin-top:2px;">
@@ -944,9 +944,9 @@
 
 <div id="vendaDetalhe" class="side-panel">
   <div class="ad-top">
-    <button class="ad-backbtn" id="vd-fecharBtn">←</button>
+    <button class="ad-backbtn" id="vd-fecharBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button>
     <div class="ad-title" id="vd-title">Venda</div>
-    <button class="ad-trashbtn" id="vd-excluirBtn" title="Excluir venda">🗑</button>
+    <button class="ad-trashbtn" id="vd-excluirBtn" title="Excluir venda"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
   </div>
   <div class="ad-body" id="vd-body"></div>
   <div class="ad-actions">
@@ -979,12 +979,12 @@
   <div class="table-wrap">
     <table>
       <thead><tr>
-        <th class="sortable" data-sort="nome">Nome<span class="arrow-sort">▾</span></th>
-        <th class="sortable" data-sort="tipo">Tipo<span class="arrow-sort">▾</span></th>
-        <th class="sortable" data-sort="telefone">Telefone<span class="arrow-sort">▾</span></th>
-        <th class="sortable" data-sort="email">E-mail<span class="arrow-sort">▾</span></th>
-        <th class="sortable" data-sort="vendedor">Vendedor<span class="arrow-sort">▾</span></th>
-        <th class="sortable" data-sort="status">Status<span class="arrow-sort">▾</span></th>
+        <th class="sortable" data-sort="nome">Nome<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="sortable" data-sort="tipo">Tipo<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="sortable" data-sort="telefone">Telefone<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="sortable" data-sort="email">E-mail<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="sortable" data-sort="vendedor">Vendedor<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="sortable" data-sort="status">Status<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
       </tr></thead>
       <tbody id="cl-tbody"></tbody>
     </table>
@@ -992,7 +992,7 @@
   <div id="cl-paginacao" class="paginacao"></div>
 
   <div class="empty" id="cl-emptyState" style="display:none;">
-    <div class="glyph">👤</div>
+    <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1"/><circle cx="10" cy="8" r="3.2"/><path d="M20.5 20v-1a3.8 3.8 0 0 0-2.7-3.6"/><path d="M15 4.2a3.2 3.2 0 0 1 0 6.2"/></svg></div>
     <p>Carregando os clientes…</p>
   </div>
 </div>
@@ -1035,7 +1035,7 @@
     <div class="uform-field"><label>Data de nascimento do titular Equatorial</label><input type="date" id="cm-dataNascimentoEquatorial"></div>
     <div class="uform-msg" id="cm-msg"></div>
     <div id="cm-avisoDuplicado" class="hidden" style="background:#fef2f2;border:1px solid var(--debit);border-radius:10px;padding:12px 14px;margin-bottom:14px;">
-      <div style="font-size:12.5px;color:var(--debit);font-weight:700;margin-bottom:4px;">⚠️ Já existe um contato cadastrado para esse número</div>
+      <div style="font-size:12.5px;color:var(--debit);font-weight:700;margin-bottom:4px;"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>Já existe um contato cadastrado para esse número</div>
       <div id="cm-avisoDuplicadoDetalhe" style="font-size:11.5px;color:var(--ink-faint);margin-bottom:8px;"></div>
       <label style="font-size:12px;color:var(--ink-soft);display:flex;align-items:flex-start;gap:7px;cursor:pointer;">
         <input type="checkbox" id="cm-confirmarDiferente" style="margin-top:2px;">
@@ -1043,7 +1043,7 @@
       </label>
     </div>
     <div class="modal-actions">
-      <button class="reset-btn" id="cm-excluirBtn" style="color:var(--debit);">🗑 Excluir cliente</button>
+      <button class="reset-btn" id="cm-excluirBtn" style="color:var(--debit);"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></span>Excluir cliente</button>
       <div style="display:flex;gap:8px;">
         <button class="reset-btn" id="cm-cancelarBtn">Cancelar</button>
         <button class="connect-btn" id="cm-salvarBtn">Salvar</button>
@@ -1077,13 +1077,13 @@
   <div class="table-wrap">
     <table>
       <thead><tr>
-        <th class="sortable" data-sort="cliente">Cliente<span class="arrow-sort">▾</span></th>
-        <th class="sortable" data-sort="vendedor">Vendedor<span class="arrow-sort">▾</span></th>
-        <th class="sortable" data-sort="tipo">Tipo<span class="arrow-sort">▾</span></th>
-        <th class="num sortable" data-sort="valor">Valor<span class="arrow-sort">▾</span></th>
-        <th class="sortable" data-sort="vencimento">Vencimento<span class="arrow-sort">▾</span></th>
+        <th class="sortable" data-sort="cliente">Cliente<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="sortable" data-sort="vendedor">Vendedor<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="sortable" data-sort="tipo">Tipo<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="num sortable" data-sort="valor">Valor<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="sortable" data-sort="vencimento">Vencimento<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
         <th>Serviços inclusos</th>
-        <th class="sortable" data-sort="status">Status<span class="arrow-sort">▾</span></th>
+        <th class="sortable" data-sort="status">Status<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
       </tr></thead>
       <tbody id="pl-tbody"></tbody>
     </table>
@@ -1091,7 +1091,7 @@
   <div id="pl-paginacao" class="paginacao"></div>
 
   <div class="empty" id="pl-emptyState" style="display:none;">
-    <div class="glyph">📋</div>
+    <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3.5h6a1 1 0 0 1 1 1V6H8V4.5a1 1 0 0 1 1-1z"/><path d="M9 11h6M9 15h6"/></svg></div>
     <p>Carregando os planos…</p>
   </div>
 </div>
@@ -1124,7 +1124,7 @@
     </div>
     <div class="uform-msg" id="pm-msg"></div>
     <div class="modal-actions">
-      <button class="reset-btn" id="pm-excluirBtn" style="color:var(--debit);">🗑 Excluir plano</button>
+      <button class="reset-btn" id="pm-excluirBtn" style="color:var(--debit);"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></span>Excluir plano</button>
       <div style="display:flex;gap:8px;">
         <button class="reset-btn" id="pm-cancelarBtn">Cancelar</button>
         <button class="connect-btn" id="pm-salvarBtn">Salvar</button>
@@ -1172,7 +1172,7 @@
   </div>
 
   <div class="empty" id="u-emptyState">
-    <div class="glyph">⚙</div>
+    <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20v-1a8 8 0 0 1 16 0v1"/></svg></div>
     <p>Carregando usuários…</p>
   </div>
 
@@ -1240,12 +1240,12 @@
   <div class="table-wrap">
     <table>
       <thead><tr>
-        <th class="sortable" data-sort="data">Data<span class="arrow-sort">▾</span></th>
-        <th class="sortable" data-sort="vendedor" id="rl-thVendedor" style="display:none;">Vendedor<span class="arrow-sort">▾</span></th>
-        <th class="num sortable" data-sort="contatos">Novos contatos<span class="arrow-sort">▾</span></th>
-        <th class="num sortable" data-sort="conversas">Conversas<span class="arrow-sort">▾</span></th>
-        <th class="num sortable" data-sort="propostas">Propostas<span class="arrow-sort">▾</span></th>
-        <th class="num sortable" data-sort="vendas">Vendas<span class="arrow-sort">▾</span></th>
+        <th class="sortable" data-sort="data">Data<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="sortable" data-sort="vendedor" id="rl-thVendedor" style="display:none;">Vendedor<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="num sortable" data-sort="contatos">Novos contatos<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="num sortable" data-sort="conversas">Conversas<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="num sortable" data-sort="propostas">Propostas<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="num sortable" data-sort="vendas">Vendas<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
         <th></th>
       </tr></thead>
       <tbody id="rl-tbody"></tbody>
@@ -1254,7 +1254,7 @@
   <div id="rl-paginacao" class="paginacao"></div>
 
   <div class="empty" id="rl-emptyState" style="display:none;">
-    <div class="glyph">📝</div>
+    <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l4 4v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v4h4"/><path d="M9 13h6M9 17h6M9 9h2"/></svg></div>
     <p>Carregando os relatórios…</p>
   </div>
 </div>
@@ -1290,11 +1290,11 @@
   <div class="table-wrap" id="tblCustosVenda">
     <table>
       <thead><tr>
-        <th class="sortable" data-sort="data">Data<span class="arrow-sort">▾</span></th>
-        <th class="sortable" data-sort="descricao">Descrição<span class="arrow-sort">▾</span></th>
-        <th class="sortable" data-sort="venda">Venda (cliente/serviço)<span class="arrow-sort">▾</span></th>
-        <th class="num sortable" data-sort="valor">Valor<span class="arrow-sort">▾</span></th>
-        <th class="sortable" data-sort="status">Status<span class="arrow-sort">▾</span></th>
+        <th class="sortable" data-sort="data">Data<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="sortable" data-sort="descricao">Descrição<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="sortable" data-sort="venda">Venda (cliente/serviço)<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="num sortable" data-sort="valor">Valor<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="sortable" data-sort="status">Status<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
         <th></th>
       </tr></thead>
       <tbody id="cv-tbody"></tbody>
@@ -1303,7 +1303,7 @@
   <div id="cv-paginacao" class="paginacao"></div>
 
   <div class="empty" id="cv-emptyState" style="display:none;">
-    <div class="glyph">💸</div>
+    <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-2.5-1.5L13 21l-2.5-1.5L8 21l-2-1.5V3z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></div>
     <p>Carregando os custos…</p>
   </div>
 </div>
@@ -1311,9 +1311,9 @@
 
 <div id="custoVendaDetalhe" class="side-panel">
   <div class="ad-top">
-    <button class="ad-backbtn" id="cv-fecharBtn">←</button>
+    <button class="ad-backbtn" id="cv-fecharBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button>
     <div class="ad-title" id="cvModalTitle">Novo custo</div>
-    <button class="ad-trashbtn" id="cv-excluirBtn" title="Excluir custo" style="display:none;">🗑</button>
+    <button class="ad-trashbtn" id="cv-excluirBtn" title="Excluir custo" style="display:none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
   </div>
   <div class="ad-body">
     <div class="uform-msg" id="cv-modalMsg"></div>
@@ -1363,11 +1363,11 @@
   <div class="table-wrap" id="tblCustoRecorrente">
     <table>
       <thead><tr>
-        <th class="sortable" data-sort="descricao">Descrição<span class="arrow-sort">▾</span></th>
-        <th class="sortable" data-sort="categoria">Categoria<span class="arrow-sort">▾</span></th>
-        <th class="sortable" data-sort="vencimento">Dia vencimento<span class="arrow-sort">▾</span></th>
-        <th class="num sortable" data-sort="valor">Valor<span class="arrow-sort">▾</span></th>
-        <th class="sortable" data-sort="status">Status<span class="arrow-sort">▾</span></th>
+        <th class="sortable" data-sort="descricao">Descrição<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="sortable" data-sort="categoria">Categoria<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="sortable" data-sort="vencimento">Dia vencimento<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="num sortable" data-sort="valor">Valor<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="sortable" data-sort="status">Status<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
         <th></th>
       </tr></thead>
       <tbody id="crec-tbody"></tbody>
@@ -1376,7 +1376,7 @@
   <div id="crec-paginacao" class="paginacao"></div>
 
   <div class="empty" id="crec-emptyState" style="display:none;">
-    <div class="glyph">🔁</div>
+    <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></div>
     <p>Carregando os custos recorrentes…</p>
   </div>
 </div>
@@ -1384,9 +1384,9 @@
 
 <div id="custoRecorrenteDetalhe" class="side-panel">
   <div class="ad-top">
-    <button class="ad-backbtn" id="crec-fecharBtn">←</button>
+    <button class="ad-backbtn" id="crec-fecharBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button>
     <div class="ad-title" id="crModalTitle">Novo custo recorrente</div>
-    <button class="ad-trashbtn" id="crec-excluirBtn" title="Excluir custo recorrente" style="display:none;">🗑</button>
+    <button class="ad-trashbtn" id="crec-excluirBtn" title="Excluir custo recorrente" style="display:none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
   </div>
   <div class="ad-body">
     <div class="uform-msg" id="crec-modalMsg"></div>
@@ -1421,19 +1421,19 @@
   <div class="table-wrap" id="tblServicos">
     <table>
       <thead><tr>
-        <th class="sortable" data-sort="nome">Nome<span class="arrow-sort">▾</span></th>
-        <th class="sortable" data-sort="cobranca">Cobrança<span class="arrow-sort">▾</span></th>
-        <th class="sortable" data-sort="tipo">Tipo<span class="arrow-sort">▾</span></th>
-        <th class="num sortable" data-sort="valor">Valor<span class="arrow-sort">▾</span></th>
-        <th class="num sortable" data-sort="valormodulo">Valor/módulo<span class="arrow-sort">▾</span></th>
-        <th class="sortable" data-sort="perguntas">Perguntas<span class="arrow-sort">▾</span></th>
+        <th class="sortable" data-sort="nome">Nome<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="sortable" data-sort="cobranca">Cobrança<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="sortable" data-sort="tipo">Tipo<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="num sortable" data-sort="valor">Valor<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="num sortable" data-sort="valormodulo">Valor/módulo<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="sortable" data-sort="perguntas">Perguntas<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
       </tr></thead>
       <tbody id="sv-tbody"></tbody>
     </table>
   </div>
 
   <div class="empty" id="sv-emptyState" style="display:none;">
-    <div class="glyph">🛠</div>
+    <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.8 2.8-2-2z"/></svg></div>
     <p>Carregando os serviços…</p>
   </div>
 </div>
@@ -1441,9 +1441,9 @@
 
 <div id="servicoDetalhe" class="side-panel" style="width:560px;">
   <div class="ad-top">
-    <button class="ad-backbtn" id="sv-fecharBtn">←</button>
+    <button class="ad-backbtn" id="sv-fecharBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button>
     <div class="ad-title" id="sv-title">Serviço</div>
-    <button class="ad-trashbtn" id="sv-excluirBtn" title="Excluir serviço">🗑</button>
+    <button class="ad-trashbtn" id="sv-excluirBtn" title="Excluir serviço"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
   </div>
   <div class="ad-body" id="sv-body">
     <div class="uform-field"><label>Nome do serviço</label><input type="text" id="sv-nome"></div>
@@ -1510,7 +1510,7 @@
   </div>
 
   <div class="empty" id="cat-emptyState" style="display:none;">
-    <div class="glyph">☀</div>
+    <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="7" rx="1"/><rect x="14" y="4" width="7" height="7" rx="1"/><path d="M3 17h7M6.5 13.5v7M14 15h7M17.5 11.5v7"/></svg></div>
     <p>Carregando o catálogo…</p>
   </div>
 </div>
@@ -1518,9 +1518,9 @@
 
 <div id="moduloDetalhe" class="side-panel" style="width:480px;">
   <div class="ad-top">
-    <button class="ad-backbtn" id="mod-fecharBtn">←</button>
+    <button class="ad-backbtn" id="mod-fecharBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button>
     <div class="ad-title" id="mod-title">Módulo</div>
-    <button class="ad-trashbtn" id="mod-excluirBtn" title="Excluir módulo">🗑</button>
+    <button class="ad-trashbtn" id="mod-excluirBtn" title="Excluir módulo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
   </div>
   <div class="ad-body" id="mod-body">
     <div class="uform-field"><label>Marca</label><input type="text" id="mod-marca"></div>
@@ -1542,9 +1542,9 @@
 
 <div id="inversorDetalhe" class="side-panel" style="width:560px;">
   <div class="ad-top">
-    <button class="ad-backbtn" id="inv-fecharBtn">←</button>
+    <button class="ad-backbtn" id="inv-fecharBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button>
     <div class="ad-title" id="inv-title">Inversor</div>
-    <button class="ad-trashbtn" id="inv-excluirBtn" title="Excluir inversor">🗑</button>
+    <button class="ad-trashbtn" id="inv-excluirBtn" title="Excluir inversor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
   </div>
   <div class="ad-body" id="inv-body">
     <div class="uform-field"><label>Marca</label><input type="text" id="inv-marca"></div>
@@ -1599,16 +1599,16 @@
   <div class="table-wrap">
     <table>
       <thead><tr>
-        <th class="sortable" data-sort="ano">Ano<span class="arrow-sort">▾</span></th>
-        <th class="sortable" data-sort="mes">Mês<span class="arrow-sort">▾</span></th>
-        <th class="num sortable" data-sort="valor">Valor<span class="arrow-sort">▾</span></th>
+        <th class="sortable" data-sort="ano">Ano<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="sortable" data-sort="mes">Mês<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="num sortable" data-sort="valor">Valor<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
       </tr></thead>
       <tbody id="mt-tbody"></tbody>
     </table>
   </div>
 
   <div class="empty" id="mt-emptyState" style="display:none;">
-    <div class="glyph">🎯</div>
+    <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg></div>
     <p>Carregando as metas…</p>
   </div>
 </div>
@@ -1616,9 +1616,9 @@
 
 <div id="metaDetalhe" class="side-panel">
   <div class="ad-top">
-    <button class="ad-backbtn" id="mt-fecharBtn">←</button>
+    <button class="ad-backbtn" id="mt-fecharBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button>
     <div class="ad-title" id="metaModalTitle">Nova meta</div>
-    <button class="ad-trashbtn" id="mt-excluirBtn" title="Excluir meta" style="display:none;">🗑</button>
+    <button class="ad-trashbtn" id="mt-excluirBtn" title="Excluir meta" style="display:none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
   </div>
   <div class="ad-body">
     <div class="uform-field"><label>Ano</label><input type="number" id="mt-ano" min="2020" max="2100" step="1"></div>
@@ -1658,7 +1658,7 @@
   </div>
 
   <div style="font-size:12.5px;color:var(--ink-faint);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:16px;">
-    💡 Toda tela nova que a gente adicionar no sistema começa <strong>liberada</strong> pra todo mundo por padrão — se quiser restringir, é só desmarcar aqui. Nada trava sozinho sem você decidir.
+    <span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2z"/></svg></span>Toda tela nova que a gente adicionar no sistema começa <strong>liberada</strong> pra todo mundo por padrão — se quiser restringir, é só desmarcar aqui. Nada trava sozinho sem você decidir.
   </div>
 
   <div class="table-wrap" id="perm-tableWrap">
@@ -1674,7 +1674,7 @@
   </div>
 
   <div class="empty" id="perm-emptyState">
-    <div class="glyph">🔐</div>
+    <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg></div>
     <p>Carregando permissões…</p>
   </div>
 
@@ -1684,29 +1684,29 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="js/firebase-init.js?v=20260823u"></script>
-<script src="js/firestore-router.js?v=20260823u"></script>
-<script src="js/stub-router.js?v=20260823u"></script>
-<script src="js/sg-auth.js?v=20260823u"></script>
-<script src="js/dashboard.js?v=20260823u"></script>
-<script src="js/ponto.js?v=20260823u"></script>
-<script src="js/vendas.js?v=20260823u"></script>
-<script src="js/funil.js?v=20260823u"></script>
-<script src="js/agendamentos.js?v=20260823u"></script>
-<script src="js/clientes.js?v=20260823u"></script>
-<script src="js/relatorios.js?v=20260823u"></script>
-<script src="js/custos-venda.js?v=20260823u"></script>
-<script src="js/custo-recorrente.js?v=20260823u"></script>
-<script src="js/servicos.js?v=20260823u"></script>
-<script src="js/catalogo.js?v=20260823u"></script>
-<script src="js/metas.js?v=20260823u"></script>
-<script src="js/planos.js?v=20260823u"></script>
-<script src="js/usuarios.js?v=20260823u"></script>
-<script src="js/permissoes.js?v=20260823u"></script>
-<script src="js/controller.js?v=20260823u"></script>
+<script src="js/firebase-init.js?v=20260823v"></script>
+<script src="js/firestore-router.js?v=20260823v"></script>
+<script src="js/stub-router.js?v=20260823v"></script>
+<script src="js/sg-auth.js?v=20260823v"></script>
+<script src="js/dashboard.js?v=20260823v"></script>
+<script src="js/ponto.js?v=20260823v"></script>
+<script src="js/vendas.js?v=20260823v"></script>
+<script src="js/funil.js?v=20260823v"></script>
+<script src="js/agendamentos.js?v=20260823v"></script>
+<script src="js/clientes.js?v=20260823v"></script>
+<script src="js/relatorios.js?v=20260823v"></script>
+<script src="js/custos-venda.js?v=20260823v"></script>
+<script src="js/custo-recorrente.js?v=20260823v"></script>
+<script src="js/servicos.js?v=20260823v"></script>
+<script src="js/catalogo.js?v=20260823v"></script>
+<script src="js/metas.js?v=20260823v"></script>
+<script src="js/planos.js?v=20260823v"></script>
+<script src="js/usuarios.js?v=20260823v"></script>
+<script src="js/permissoes.js?v=20260823v"></script>
+<script src="js/controller.js?v=20260823v"></script>
 
 <div id="sg-install-banner">
-  <span class="sg-ib-icon">📲</span>
+  <span class="sg-ib-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
   <div class="sg-ib-text"><b>Instalar app</b><span id="sg-ib-msg">Adicione este app à tela inicial do seu celular — abre direto, sem navegador.</span></div>
   <div class="sg-ib-actions">
     <button type="button" class="sg-ib-instalar" id="sg-ib-instalar">Instalar</button>

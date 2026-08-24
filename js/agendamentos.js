@@ -262,7 +262,7 @@
       (vend?'<div class="ad-row"><span class="dl">Vendedor</span><span class="dv">'+escapeHtml(vend.Nome||'—')+'</span></div>':'')+
       (vend&&vend.Telefone?'<div class="ad-row"><span class="dl">Telefone do Vendedor</span><span class="dv">'+escapeHtml(vend.Telefone)+'</span></div>':'')+
       '<div class="ad-row"><span class="dl">Serviço</span><span class="dv">'+escapeHtml(nomeServico(a.IdServico))+'</span></div>'+
-      '<div class="ad-row"><span class="dl">Valor</span><span class="dv">'+(a.Valor?window.SGUtil.fmtMoney(a.Valor):'<span style="color:var(--debit);font-weight:600;">⚠ sem valor definido</span>')+'</span></div>'+
+      '<div class="ad-row"><span class="dl">Valor</span><span class="dv">'+(a.Valor?window.SGUtil.fmtMoney(a.Valor):'<span style="color:var(--debit);font-weight:600;"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>sem valor definido</span>')+'</span></div>'+
       '<div class="ad-row"><span class="dl">Técnico</span><span class="dv">'+escapeHtml(nomeVendedor(a.TecnicoResponsavel))+'</span></div>'+
       '<div class="ad-row"><span class="dl">Data</span><span class="dv">'+dataFmt+'</span></div>'+
       '<div class="ad-row"><span class="dl">Horário</span><span class="dv">'+escapeHtml((a['Hora inicio']||'—')+' – '+(a['Hora Fim']||'—'))+'</span></div>'+
@@ -304,9 +304,9 @@
         (a.EnviadoAssinaturaOSEm?'<div class="ad-row"><span class="dl">Enviado em</span><span class="dv">'+escapeHtml(a.EnviadoAssinaturaOSEm)+'</span></div>':'')+
         '<p class="hint" style="margin:8px 0 10px;">Se o cliente não receber o e-mail (caixa cheia, filtro de spam etc), copie o link abaixo e mande direto por WhatsApp.</p>'+
         '<div style="display:flex;gap:8px;flex-wrap:wrap;">'+
-          '<a class="connect-btn" id="ad-abrirLinkOSBtn" href="'+escapeHtml(a.LinkAssinaturaOS)+'" target="_blank" rel="noopener" style="text-decoration:none;font-size:12.5px;padding:9px 14px;">🔗 Abrir link</a>'+
-          '<button type="button" class="reset-btn" id="ad-copiarLinkOSBtn" style="font-size:12.5px;padding:9px 14px;">📋 Copiar link</button>'+
-          '<button type="button" class="reset-btn" id="ad-verificarStatusOSBtn" style="font-size:12.5px;padding:9px 14px;">🔄 Verificar status</button>'+
+          '<a class="connect-btn" id="ad-abrirLinkOSBtn" href="'+escapeHtml(a.LinkAssinaturaOS)+'" target="_blank" rel="noopener" style="text-decoration:none;font-size:12.5px;padding:9px 14px;"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>Abrir link</a>'+
+          '<button type="button" class="reset-btn" id="ad-copiarLinkOSBtn" style="font-size:12.5px;padding:9px 14px;"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/><path d="M9 12h6M9 16h6"/></svg></span>Copiar link</button>'+
+          '<button type="button" class="reset-btn" id="ad-verificarStatusOSBtn" style="font-size:12.5px;padding:9px 14px;"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></span>Verificar status</button>'+
         '</div>'+
       '</div>';
     }
@@ -333,7 +333,7 @@
           a.StatusAssinaturaOS=resp.status;
           var statusEl=document.getElementById('ad-osStatusValor');
           if(statusEl)statusEl.textContent=resp.status;
-          if(resp.refused)showAgToast('⚠️ '+resp.status+' — copie o link e mande manualmente por WhatsApp.',true);
+          if(resp.refused)showAgToast(resp.status+' — copie o link e mande manualmente por WhatsApp.',true);
           else showAgToast('Status atualizado: '+resp.status);
         }).catch(function(err){
           verificarStatusOSBtn.disabled=false; verificarStatusOSBtn.textContent=textoOriginal;
@@ -414,8 +414,8 @@
 
   // Monta o HTML completo da Ordem de Serviço (relatório de atendimento +
   // a página de aceite/cláusula no final, com espaço pra assinatura) — é
-  // reaproveitado tanto pelo botão "🖨 Gerar PDF" (abre e imprime na hora)
-  // quanto pelo botão "✍️ Enviar para assinatura digital" (o MESMO html vai
+  // reaproveitado tanto pelo botão "Gerar PDF" (abre e imprime na hora)
+  // quanto pelo botão "Enviar para assinatura digital" (o MESMO html vai
   // pro servidor virar um PDF de verdade e ser mandado pra Autentique).
   function montarHtmlOS(a){
     var idAgendamento=a.IdAgendamento;
@@ -464,7 +464,7 @@
           '<div style="margin-top:14px;"><strong>'+escapeHtml(EMPRESA_RAZAO_SOCIAL)+'</strong></div>'+
           '<div style="margin-top:4px;">CNPJ: '+escapeHtml(EMPRESA_CNPJ)+'</div>'+
           '<div style="margin-top:4px;">'+escapeHtml(EMPRESA_EMAIL)+'</div>'+
-          '<div style="margin-top:8px;color:#2c6e00;">✓ Assinado eletronicamente em '+dataFmt+'</div>'+
+          '<div style="margin-top:8px;color:#2c6e00;"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Assinado eletronicamente em '+dataFmt+'</div>'+
         '</div>'+
         '<div style="flex:1;">'+
           '<div style="border-top:1px solid #1E1E1E;padding-top:6px;">Assinatura do cliente</div>'+
@@ -524,7 +524,7 @@
     });
   }
 
-  // Gera o PDF de verdade no servidor (a partir do MESMO html do "🖨 Gerar
+  // Gera o PDF de verdade no servidor (a partir do MESMO html do "Gerar
   // PDF") e manda pra Autentique assinar — encadeado num só clique porque
   // o fileId do PDF só existe depois que ele é criado no Drive.
   function enviarOSParaAssinatura(){
@@ -631,7 +631,7 @@
       var col=th.getAttribute('data-sort');
       th.classList.toggle('sort-active',col===sortStateAg.col);
       var a=th.querySelector('.arrow-sort');
-      a.textContent=(col===sortStateAg.col)?(sortStateAg.dir==='asc'?'▴':'▾'):'▾';
+      a.classList.toggle('asc',col===sortStateAg.col&&sortStateAg.dir==='asc');
     });
   }
 
@@ -930,7 +930,7 @@
     var cliente=clientesMap[idCliente];
     if(cliente&&!enderecoDoCliente(cliente)){
       msgEl.className='uform-msg error sg-msg-fix';
-      msgEl.innerHTML='⚠️ Este cliente não possui endereço cadastrado — <strong>clique aqui pra atualizar o cadastro do cliente</strong>.';
+      msgEl.innerHTML='<span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>Este cliente não possui endereço cadastrado — <strong>clique aqui pra atualizar o cadastro do cliente</strong>.';
       msgEl.onclick=function(){
         if(window.clientesApp&&window.clientesApp.abrirEdicao)window.clientesApp.abrirEdicao(idCliente);
       };
@@ -938,7 +938,7 @@
     }
     if(cliente&&!String(cliente.Email||'').trim()){
       msgEl.className='uform-msg error sg-msg-fix';
-      msgEl.innerHTML='⚠️ Este cliente não possui e-mail cadastrado (necessário pra enviar a Ordem de Serviço pra assinatura digital) — <strong>clique aqui pra atualizar o cadastro do cliente</strong>.';
+      msgEl.innerHTML='<span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>Este cliente não possui e-mail cadastrado (necessário pra enviar a Ordem de Serviço pra assinatura digital) — <strong>clique aqui pra atualizar o cadastro do cliente</strong>.';
       msgEl.onclick=function(){
         if(window.clientesApp&&window.clientesApp.abrirEdicao)window.clientesApp.abrirEdicao(idCliente);
       };

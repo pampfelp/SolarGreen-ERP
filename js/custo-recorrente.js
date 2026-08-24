@@ -30,7 +30,7 @@
       var col=th.getAttribute('data-sort');
       th.classList.toggle('sort-active',col===sortState.col);
       var a=th.querySelector('.arrow-sort');
-      a.textContent=(col===sortState.col)?(sortState.dir==='asc'?'▴':'▾'):'▾';
+      a.classList.toggle('asc',col===sortState.col&&sortState.dir==='asc');
     });
   }
 

@@ -36,7 +36,7 @@
       var col=th.getAttribute('data-sort');
       th.classList.toggle('sort-active',col===sortState.col);
       var a=th.querySelector('.arrow-sort');
-      a.textContent=(col===sortState.col)?(sortState.dir==='asc'?'▴':'▾'):'▾';
+      a.classList.toggle('asc',col===sortState.col&&sortState.dir==='asc');
     });
   }
 
@@ -205,7 +205,7 @@
     if(String(idVendedorAlvo)===String(vendedorSelecionado)&&dataVal===dateKeyHoje())meuRegistroDeHoje=idAlvo;
     _epoca.marcar();
 
-    msgEl.className='uform-msg'; msgEl.style.color='var(--accent-deep)'; msgEl.textContent='Relatório salvo ✓';
+    msgEl.className='uform-msg'; msgEl.style.color='var(--accent-deep)'; msgEl.textContent='Relatório salvo <span class="inline-ico" style="margin-right:0;margin-left:4px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>';
     editandoId=null;
     render();
 

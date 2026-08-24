@@ -257,8 +257,8 @@
       var rc=row.ritmo>0.4?'pos':(row.ritmo<-0.4?'neg':'zero');
       var inactiveTag=row.ativo?'':' <span class="inactive-tag">inativo</span>';
       var metaCellHtml=row.ativo
-        ?(fmtMoney(row.meta)+(row.temOverride?' <span title="Meta individual definida manualmente" style="color:var(--accent-deep);">✎</span>':'')+
-          ' <button type="button" class="meta-edit-btn" data-id="'+escapeHtml(row.id)+'" data-nome="'+escapeHtml(row.nome)+'" data-meta="'+row.meta+'" data-override="'+(row.temOverride?'1':'0')+'" title="Definir meta individual">⚙</button>')
+        ?(fmtMoney(row.meta)+(row.temOverride?' <span title="Meta individual definida manualmente" style="color:var(--accent-deep);"><span class="inline-ico" style="margin-right:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span></span>':'')+
+          ' <button type="button" class="meta-edit-btn" data-id="'+escapeHtml(row.id)+'" data-nome="'+escapeHtml(row.nome)+'" data-meta="'+row.meta+'" data-override="'+(row.temOverride?'1':'0')+'" title="Definir meta individual"><span class="inline-ico" style="margin-right:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span></button>')
         :'—';
       rh+='<tr><td class="person-name">'+escapeHtml(row.nome)+inactiveTag+'</td><td class="num">'+metaCellHtml+'</td><td class="num">'+fmtMoney(row.faturado)+'</td><td class="num">'+(row.ativo?fmtMoney(row.metaAteHoje):'—')+'</td><td class="num bal '+(row.ativo?rc:'zero')+'">'+(row.ativo?((row.ritmo>=0?'+':'-')+fmtMoney(Math.abs(row.ritmo))):'—')+'</td><td class="num">'+row.vendas+'</td><td class="num">'+fmtMoney(row.ticket)+(row.ticketProjetado?' <span title="Projetado" style="color:var(--ink-faint);">*</span>':'')+'</td><td class="num">'+(row.necessarias===-1?'—':row.necessarias)+'</td><td>'+(row.ativo?('<span class="mini-track"><span class="mini-fill" style="width:'+row.progresso.toFixed(0)+'%;"></span></span><span style="font-size:11.5px;color:var(--ink-soft);">'+row.progresso.toFixed(0)+'%</span>'):'<span style="font-size:11.5px;color:var(--ink-faint);">—</span>')+'</td></tr>';
     });
@@ -356,7 +356,7 @@
       var col=th.getAttribute('data-sort');
       th.classList.toggle('sort-active',col===sortStateVendasTbl.col);
       var a=th.querySelector('.arrow-sort');
-      a.textContent=(col===sortStateVendasTbl.col)?(sortStateVendasTbl.dir==='asc'?'▴':'▾'):'▾';
+      a.classList.toggle('asc',col===sortStateVendasTbl.col&&sortStateVendasTbl.dir==='asc');
     });
   }
 
@@ -575,7 +575,7 @@
           '</div>'+
           '<div style="text-align:right;flex:none;">'+
             '<div style="font-weight:700;font-size:13px;">'+fmtMoney(c.valor)+'</div>'+
-            '<button type="button" class="custo-del-btn" data-custo-id="'+escapeHtml(c.id)+'" title="Excluir custo" style="color:var(--debit);background:none;border:none;font-size:15px;cursor:pointer;padding:2px 4px;">🗑</button>'+
+            '<button type="button" class="custo-del-btn" data-custo-id="'+escapeHtml(c.id)+'" title="Excluir custo" style="color:var(--debit);background:none;border:none;font-size:15px;cursor:pointer;padding:2px 4px;"><span class="inline-ico" style="margin-right:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></span></button>'+
           '</div>'+
         '</div>'+
       '</div>';
@@ -605,7 +605,7 @@
         '<div class="uform-field"><label>Status</label><select id="vc-status"><option value="Pago">Pago</option><option value="Aguardando Pagamento">Aguardando Pagamento</option></select></div>'+
         '<div class="uform-field"><label>Data</label><input type="date" id="vc-data"></div>'+
         '<div style="display:flex;gap:8px;">'+
-          '<button type="button" class="reset-btn" id="vc-excluirBtn" style="color:var(--debit);display:none;">🗑 Excluir</button>'+
+          '<button type="button" class="reset-btn" id="vc-excluirBtn" style="color:var(--debit);display:none;"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></span>Excluir</button>'+
           '<button type="button" class="reset-btn" id="vc-cancelarBtn" style="display:none;flex:1;">Cancelar</button>'+
           '<button type="button" class="connect-btn" id="vc-salvarBtn" style="flex:1;">Salvar custo</button>'+
         '</div>'+
@@ -864,7 +864,7 @@
   document.getElementById('vd-editarBtn').addEventListener('click',function(){ if(vendaAtual)abrirModalVenda(vendaAtual.idVenda); });
   var adBackdropVendas=document.getElementById('adBackdrop');
   if(adBackdropVendas)adBackdropVendas.addEventListener('click',fecharPainelVenda);
-  function updateSortHeaders(){document.querySelectorAll('#tblTicketVendedor th.sortable').forEach(function(th){var col=th.getAttribute('data-sort');th.classList.toggle('sort-active',col===sortState.col);var a=th.querySelector('.arrow-sort');if(col===sortState.col){a.textContent=sortState.dir==='asc'?'▴':'▾';}else{a.textContent='▾';}});}
+  function updateSortHeaders(){document.querySelectorAll('#tblTicketVendedor th.sortable').forEach(function(th){var col=th.getAttribute('data-sort');th.classList.toggle('sort-active',col===sortState.col);var a=th.querySelector('.arrow-sort');a.classList.toggle('asc',col===sortState.col&&sortState.dir==='asc');});}
   document.querySelectorAll('#tblTicketVendedor th.sortable').forEach(function(th){th.addEventListener('click',function(){var col=th.getAttribute('data-sort');if(sortState.col===col){sortState.dir=sortState.dir==='asc'?'desc':'asc';}else{sortState.col=col;sortState.dir=col==='vendedor'?'asc':'desc';}updateSortHeaders();render();});});
   document.querySelectorAll('#tblVendasIndividuais th.sortable').forEach(function(th){th.addEventListener('click',function(){var col=th.getAttribute('data-sort');if(sortStateVendasTbl.col===col){sortStateVendasTbl.dir=sortStateVendasTbl.dir==='asc'?'desc':'asc';}else{sortStateVendasTbl.col=col;sortStateVendasTbl.dir=(col==='cliente'||col==='servico'||col==='vendedor')?'asc':'desc';}render();});});
   updateSortHeaders();
