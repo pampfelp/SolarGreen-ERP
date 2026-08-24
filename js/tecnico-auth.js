@@ -43,7 +43,7 @@ var SGAuth=(function(){
   function goStep(id){
     document.querySelectorAll('#login-screen .lstep').forEach(function(s){s.classList.remove('active');});
     document.getElementById(id).classList.add('active');
-    ['msg-login','msg-esqueci','msg-redefinir','msg-primeiro'].forEach(function(m){showMsg(m,'');});
+    ['msg-login','msg-esqueci','msg-primeiro'].forEach(function(m){showMsg(m,'');});
   }
 
   var pendingPrimeiro=null;
@@ -61,11 +61,19 @@ var SGAuth=(function(){
     // app assume o papel de quem normalmente entra por ele nesse piloto).
     firebase.auth().signInWithEmailAndPassword(email,senha).then(function(cred){
       var uid=cred.user.uid;
-      var ref=firebase.firestore().collection('vendedores').doc(uid);
+      var db=firebase.firestore();
+      var ref=db.collection('vendedores').doc(uid);
       return ref.get().then(function(doc){
         if(doc.exists)return doc.data();
-        var novo={IdVendedor:uid,Nome:(cred.user.email||'').split('@')[0],Email:cred.user.email||email,Tipo:'tecnico',Status:'Ativo'};
-        return ref.set(novo).then(function(){ return novo; });
+        // Mesmo caso do painel admin (js/sg-auth.js): 1o login desse uid,
+        // mas o técnico pode já existir com o ID antigo da planilha (todo
+        // histórico de ponto/agendamentos já referencia esse ID) - procura
+        // por e-mail antes de criar um registro em branco.
+        return db.collection('vendedores').where('Email','==',cred.user.email).limit(1).get().then(function(snap){
+          if(!snap.empty)return snap.docs[0].data();
+          var novo={IdVendedor:uid,Nome:(cred.user.email||'').split('@')[0],Email:cred.user.email||email,Tipo:'tecnico',Status:'Ativo'};
+          return ref.set(novo).then(function(){ return novo; });
+        });
       });
     }).then(function(dados){
       loginBtn.disabled=false; loginBtn.textContent='Entrar';
@@ -103,47 +111,24 @@ var SGAuth=(function(){
     goStep('step-esqueci');
   });
   document.getElementById('back-login-1').addEventListener('click',function(){ goStep('step-login'); });
-  document.getElementById('back-login-2').addEventListener('click',function(){ goStep('step-login'); });
 
+  // "Esqueci minha senha" usa o mecanismo próprio do Firebase Auth
+  // (sendPasswordResetEmail) — manda um LINK de verdade por e-mail, não um
+  // código pra digitar aqui. Mesma correção do painel admin (js/sg-auth.js);
+  // esqueciSenha/redefinirSenha nunca foram implementadas no Firestore, só
+  // existiam no Apps Script antigo.
   var esqueciBtn=document.getElementById('btn-esqueci');
   esqueciBtn.addEventListener('click',function(){
     var email=document.getElementById('in-esqueci-email').value.trim();
     if(!email){ showMsg('msg-esqueci','Informe seu e-mail.','error'); return; }
     esqueciBtn.disabled=true; esqueciBtn.textContent='Enviando…';
-    SGAuth.apiCall('esqueciSenha',{email:email}).then(function(resp){
-      esqueciBtn.disabled=false; esqueciBtn.textContent='Enviar código';
-      if(!resp||!resp.ok){ showMsg('msg-esqueci',(resp&&resp.erro)||'Não foi possível enviar o código.','error'); return; }
-      document.getElementById('in-token').value='';
-      document.getElementById('in-senha1').value='';
-      document.getElementById('in-senha2').value='';
-      document.getElementById('step-redefinir').dataset.email=email;
-      goStep('step-redefinir');
-      showMsg('msg-redefinir','Código enviado! Confira seu e-mail (e o spam).','success');
+    firebase.auth().sendPasswordResetEmail(email).then(function(){
+      esqueciBtn.disabled=false; esqueciBtn.textContent='Enviar link de redefinição';
+      showMsg('msg-esqueci','Link enviado! Confira seu e-mail (e a caixa de spam) e clique nele pra criar sua senha nova.','success');
     }).catch(function(err){
-      esqueciBtn.disabled=false; esqueciBtn.textContent='Enviar código';
-      showMsg('msg-esqueci','Erro de conexão: '+err.message,'error');
-    });
-  });
-
-  var redefinirBtn=document.getElementById('btn-redefinir');
-  redefinirBtn.addEventListener('click',function(){
-    var email=document.getElementById('step-redefinir').dataset.email||document.getElementById('in-esqueci-email').value.trim();
-    var token=document.getElementById('in-token').value.trim();
-    var s1=document.getElementById('in-senha1').value,s2=document.getElementById('in-senha2').value;
-    if(!token||!s1||!s2){ showMsg('msg-redefinir','Preencha o código e a nova senha.','error'); return; }
-    if(s1!==s2){ showMsg('msg-redefinir','As senhas não coincidem.','error'); return; }
-    if(s1.length<6){ showMsg('msg-redefinir','A senha deve ter pelo menos 6 caracteres.','error'); return; }
-    redefinirBtn.disabled=true; redefinirBtn.textContent='Salvando…';
-    SGAuth.apiCall('redefinirSenha',{email:email,token:token,novaSenha:s1}).then(function(resp){
-      redefinirBtn.disabled=false; redefinirBtn.textContent='Salvar nova senha';
-      if(!resp||!resp.ok){ showMsg('msg-redefinir',(resp&&resp.erro)||'Não foi possível redefinir a senha.','error'); return; }
-      document.getElementById('in-email').value=email;
-      document.getElementById('in-senha').value='';
-      goStep('step-login');
-      showMsg('msg-login','Senha criada! Faça login com a nova senha.','success');
-    }).catch(function(err){
-      redefinirBtn.disabled=false; redefinirBtn.textContent='Salvar nova senha';
-      showMsg('msg-redefinir','Erro de conexão: '+err.message,'error');
+      esqueciBtn.disabled=false; esqueciBtn.textContent='Enviar link de redefinição';
+      var msg=err.code==='auth/user-not-found'?'Não existe conta com esse e-mail — confira com quem cadastrou seu acesso.':'Não foi possível enviar: '+(err.message||err.code);
+      showMsg('msg-esqueci',msg,'error');
     });
   });
 
