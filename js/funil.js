@@ -500,21 +500,43 @@
    * mesmo princípio já usado no KPI "Novos leads no funil" do Dashboard,
    * que conta por data de criação, não por etapa atual.
    *
-   * Sobre a lista INTEIRA carregada, sem filtro de período/busca (relatório
-   * é uma foto geral, não do recorte).
+   * Respeita o período/vendedor ativos no filtro da tela (f-dateFrom/
+   * f-dateTo/f-selVendedor) — filtra QUAIS leads entram no relatório (pela
+   * data de CRIAÇÃO, r.dateKey, nunca pela última movimentação, que é o que
+   * o filtro da tela usa pro Kanban) e por idVendedor. Com o filtro vazio
+   * (período "Tudo" e vendedor "Todos"), o comportamento é idêntico a antes
+   * — a lista inteira. Continua sendo uma FOTO acumulada do recorte, não um
+   * fluxo por dia dentro do recorte (mesmo princípio de sempre, só que
+   * agora sobre um subconjunto de leads em vez de todos).
    */
   function abrirRelatorioFunil(){
-    var totalCriados=funilRecords.length;
+    var from=(document.getElementById('f-dateFrom')||{}).value||'';
+    var to=(document.getElementById('f-dateTo')||{}).value||'';
+    var vend=(document.getElementById('f-selVendedor')||{}).value||'__all__';
+    var registros=funilRecords.filter(function(r){
+      if(from&&r.dateKey<from)return false;
+      if(to&&r.dateKey>to)return false;
+      if(vend!=='__all__'&&r.idVendedor!==vend)return false;
+      return true;
+    });
+    var filtroInfoEl=document.getElementById('f-relatorioFiltroInfo');
+    if(filtroInfoEl){
+      var partes=[];
+      partes.push((from||to)?('Período: '+(from?fmtDateBR(new Date(from+'T00:00:00')):'início')+' a '+(to?fmtDateBR(new Date(to+'T00:00:00')):'hoje')):'Período: tudo');
+      partes.push(vend!=='__all__'?('Vendedor: '+nomeFor(vend)):'Vendedor: todos');
+      filtroInfoEl.textContent=partes.join(' · ');
+    }
+    var totalCriados=registros.length;
     var agoraTs=new Date();
     var tbody=document.getElementById('f-relatorioTbody');
     tbody.innerHTML=ETAPAS.map(function(etapa){
       var ehNovoLead=(etapa==='Novo Lead');
-      var agora=ehNovoLead?totalCriados:funilRecords.filter(function(r){return r.etapa===etapa;}).length;
-      var jaPassaram=ehNovoLead?totalCriados:funilRecords.filter(function(r){return (r.etapasPassadas||[]).indexOf(etapa)!==-1;}).length;
+      var agora=ehNovoLead?totalCriados:registros.filter(function(r){return r.etapa===etapa;}).length;
+      var jaPassaram=ehNovoLead?totalCriados:registros.filter(function(r){return (r.etapasPassadas||[]).indexOf(etapa)!==-1;}).length;
       var conversao=totalCriados>0?(jaPassaram/totalCriados*100):0;
 
       var duracoesDias=[];
-      funilRecords.forEach(function(r){
+      registros.forEach(function(r){
         var trans=(r.transicoes||[]).slice().sort(function(a,b){return new Date(a.Em)-new Date(b.Em);});
         for(var i=0;i<trans.length;i++){
           if(trans[i].Etapa!==etapa)continue;
@@ -1062,9 +1084,14 @@
         if(leadAtual&&String(leadAtual.id)===String(id))leadAtual.id=resp.idOportunidade;
         render(); // redesenha AGORA — senão a linha na tela continua com o data-id antigo
       }
-      // sincroniza em segundo plano, sem interromper o usuário, pra pegar
-      // dataProcesso/dias na etapa/SLA calculados de verdade a partir do log.
-      setTimeout(function(){ fetchData(false); },600);
+      // NÃO re-buscar do servidor aqui de propósito (bug real, existia até no
+      // sistema antigo em Sheets/Apps Script): fetchData() aplica o CACHE
+      // local primeiro (window.SGCache), que nesse momento ainda é o de ANTES
+      // dessa edição — a tela "voltava" pra etapa antiga por causa do cache
+      // stale, e só se corrigia de novo quando o fetch de verdade chegava.
+      // Nesse piloto o Firestore não tem nenhum campo calculado no servidor
+      // que o cliente não já tenha (diferente do antigo Code.gs) — o registro
+      // otimista acima já é o estado final, não precisa confirmar de novo.
     }).catch(function(err){ desfazer('Erro de conexão — a alteração foi desfeita: '+err.message); });
   }
 
