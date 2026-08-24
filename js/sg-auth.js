@@ -597,7 +597,7 @@
         var db=firebase.firestore();
         var ref=db.collection('vendedores').doc(uid);
         return ref.get().then(function(doc){
-          if(doc.exists)return doc.data();
+          if(doc.exists)return {ref:ref, dados:doc.data()};
           // Não achou doc com esse uid — é a PRIMEIRA vez que essa conta do
           // Firebase Auth loga. Antes de criar um registro em branco, procura
           // se já existe um vendedor de verdade com esse e-mail, ainda com o
@@ -609,13 +609,25 @@
           // (vendas/funil/agendamentos/ponto/metas individuais) continua
           // batendo, sem precisar mover nem reescrever nenhuma outra coleção.
           return db.collection('vendedores').where('Email','==',cred.user.email).limit(1).get().then(function(snap){
-            if(!snap.empty)return snap.docs[0].data();
+            if(!snap.empty)return {ref:snap.docs[0].ref, dados:snap.docs[0].data()};
             var novo={IdVendedor:uid,Nome:(cred.user.email||'').split('@')[0],Email:cred.user.email||email,Tipo:'admin',Status:'Ativo'};
-            return ref.set(novo).then(function(){ return novo; });
+            return ref.set(novo).then(function(){ return {ref:ref, dados:novo}; });
           });
         });
-      }).then(function(dados){
+      }).then(function(achado){
         loginBtn.disabled=false; loginBtn.textContent='Entrar';
+        var dados=achado.dados;
+        // SenhaTemporaria: true = conta criada com a senha padrão da
+        // empresa (ver js/firestore-router.js / criação manual) — trava o
+        // acesso normal até a pessoa criar a senha própria. Zerado depois
+        // que ela salva a nova senha (ver botão "Salvar e entrar" abaixo).
+        if(dados.SenhaTemporaria){
+          pendingPrimeiroAcesso={ref:achado.ref, usuario:{idVendedor:dados.IdVendedor,nome:dados.Nome,email:dados.Email,tipo:dados.Tipo}};
+          document.getElementById('sg-primeiro-senha1').value='';
+          document.getElementById('sg-primeiro-senha2').value='';
+          goStep('sg-step-primeiro-acesso');
+          return;
+        }
         setSession({idVendedor:dados.IdVendedor,nome:dados.Nome,email:dados.Email,tipo:dados.Tipo});
         location.reload();
       }).catch(function(err){
@@ -625,6 +637,12 @@
     });
     document.getElementById('sg-login-senha').addEventListener('keydown',function(e){ if(e.key==='Enter') loginBtn.click(); });
 
+    // Troca de senha usa o próprio Firebase Auth (updatePassword) — a
+    // pessoa já está autenticada nesse ponto (acabou de logar com a senha
+    // padrão), não precisa de nenhum backend nosso pra isso. Só depois de
+    // confirmar a troca é que a sessão de verdade é liberada
+    // (SenhaTemporaria volta pra false, ninguém fica preso nessa tela de
+    // novo no próximo login).
     var primeiroBtn=document.getElementById('sg-primeiro-btn');
     primeiroBtn.addEventListener('click',function(){
       if(!pendingPrimeiroAcesso){ goStep('sg-step-login'); return; }
@@ -634,15 +652,16 @@
       if(s1!==s2){ showMsg('sg-primeiro-msg','As senhas não coincidem.','error'); return; }
       if(s1.length<6){ showMsg('sg-primeiro-msg','A senha deve ter pelo menos 6 caracteres.','error'); return; }
       primeiroBtn.disabled=true; primeiroBtn.textContent='Salvando…';
-      authCall('trocarSenha',{idVendedor:pendingPrimeiroAcesso.usuario.idVendedor,senhaAtual:pendingPrimeiroAcesso.senhaAtual,novaSenha:s1}).then(function(resp){
+      firebase.auth().currentUser.updatePassword(s1).then(function(){
+        return pendingPrimeiroAcesso.ref.set({SenhaTemporaria:false},{merge:true});
+      }).then(function(){
         primeiroBtn.disabled=false; primeiroBtn.textContent='Salvar e entrar';
-        if(!resp||!resp.ok){ showMsg('sg-primeiro-msg',(resp&&resp.erro)||'Não foi possível salvar a senha.','error'); return; }
         setSession(pendingPrimeiroAcesso.usuario);
         pendingPrimeiroAcesso=null;
         location.reload();
       }).catch(function(err){
         primeiroBtn.disabled=false; primeiroBtn.textContent='Salvar e entrar';
-        showMsg('sg-primeiro-msg','Erro de conexão: '+err.message,'error');
+        showMsg('sg-primeiro-msg','Não foi possível salvar: '+(err.message||err.code||err),'error');
       });
     });
 
