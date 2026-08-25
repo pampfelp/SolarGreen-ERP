@@ -330,9 +330,14 @@
     // 4 vendas a mais que o card "Vendas feitas" logo acima, um número
     // batendo com outro na mesma tela.
     var tvr=vendasKPI.length;
-    document.getElementById('funilContatos').textContent=tc;document.getElementById('funilConversas').textContent=tcv;document.getElementById('funilPropostas').textContent=tp;document.getElementById('funilVendas').textContent=tvr;
-    document.getElementById('funilConversasTotal').textContent=kpisFunilVendasTotal.conversas+' no total';
-    document.getElementById('funilPropostasTotal').textContent=kpisFunilVendasTotal.propostas+' no total';
+    document.getElementById('funilContatos').textContent=tc;document.getElementById('funilVendas').textContent=tvr;
+    // 2026-08-25 (pedido do Felipe): número GRANDE do card = total (sem
+    // restrição de cohorte); número pequeno = restrito ao período (o que
+    // alimenta a %, que continua vindo só dele).
+    document.getElementById('funilConversas').textContent=tcv+' no período';
+    document.getElementById('funilPropostas').textContent=tp+' no período';
+    document.getElementById('funilConversasTotal').textContent=kpisFunilVendasTotal.conversas;
+    document.getElementById('funilPropostasTotal').textContent=kpisFunilVendasTotal.propostas;
     document.getElementById('funilConvContato').textContent=tc>0?((tcv/tc)*100).toFixed(1).replace('.',',')+' %':'—';
     document.getElementById('funilConvConversa').textContent=tcv>0?((tp/tcv)*100).toFixed(1).replace('.',',')+' %':'—';
     document.getElementById('funilConvProposta').textContent=tp>0?((tvr/tp)*100).toFixed(1).replace('.',',')+' %':'—';
