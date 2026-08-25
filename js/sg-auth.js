@@ -356,8 +356,16 @@
      * leads que contam como "Novos Contatos" do período, ver funil-
      * crm.md) — essa função só decide, dentro dessas transições, quantos
      * dias-com-conversa/dias-com-proposta existem no total.
+     *
+     * Ajustado em 2026-08-24 (segunda rodada, o próprio Felipe percebeu):
+     * "Novo Lead" também NÃO é uma conversa — é só a entrada do lead no
+     * funil (criado por salvarLead), sem nenhuma interação de verdade
+     * ainda acontecer. Mesma razão de excluir "Tentativa de Contato":
+     * contar a etapa de entrada como se fosse conversa infla a taxa de
+     * conversão. ETAPAS_SEM_CONVERSA_ lista as duas.
      */
     calcularConversasPropostas:function(leads,from,to,etapasProposta){
+      var ETAPAS_SEM_CONVERSA_=['Novo Lead','Tentativa de Contato'];
       var conversaDias={},propostaDias={};
       (leads||[]).forEach(function(f){
         (f.transicoes||[]).forEach(function(t){
@@ -368,7 +376,7 @@
           if(to&&dk>to)return;
           var etapa=(t.Etapa||'').trim();
           var chave=f.id+'|'+dk;
-          if(etapa!=='Tentativa de Contato')conversaDias[chave]=true;
+          if(ETAPAS_SEM_CONVERSA_.indexOf(etapa)===-1)conversaDias[chave]=true;
           if(etapasProposta.indexOf(etapa)!==-1)propostaDias[chave]=true;
         });
       });
