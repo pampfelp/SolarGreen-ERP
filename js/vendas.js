@@ -319,16 +319,24 @@
     var kpisFunilVendas=window.SGUtil.calcularConversasPropostas(filtered.funilNovosContatos,filtered.from,filtered.to,ETAPAS_PROPOSTA_VENDAS);
     var tcv=kpisFunilVendas.conversas;
     var tp=kpisFunilVendas.propostas;
+    // "Total" (2026-08-25, pedido do Felipe) — mesmo princípio do Funil:
+    // conta conversa/proposta de QUALQUER lead do vendedor filtrado, sem
+    // restringir aos criados no período. Só informativo — a % continua
+    // vindo do número restrito (kpisFunilVendas) acima.
+    var todosDoVendedorVendas=funilRecords.filter(function(f){return filtered.vendedor==='__all__'||f.idVendedor===filtered.vendedor;});
+    var kpisFunilVendasTotal=window.SGUtil.calcularConversasPropostas(todosDoVendedorVendas,filtered.from,filtered.to,ETAPAS_PROPOSTA_VENDAS);
     // mesma exclusão do CEO que já vale pra Faturado/Ticket/Vendas feitas
     // (vendasKPI acima) — sem isso a Taxa de conversão "Vendas" contava
     // 4 vendas a mais que o card "Vendas feitas" logo acima, um número
     // batendo com outro na mesma tela.
     var tvr=vendasKPI.length;
     document.getElementById('funilContatos').textContent=tc;document.getElementById('funilConversas').textContent=tcv;document.getElementById('funilPropostas').textContent=tp;document.getElementById('funilVendas').textContent=tvr;
+    document.getElementById('funilConversasTotal').textContent=kpisFunilVendasTotal.conversas+' no total';
+    document.getElementById('funilPropostasTotal').textContent=kpisFunilVendasTotal.propostas+' no total';
     document.getElementById('funilConvContato').textContent=tc>0?((tcv/tc)*100).toFixed(1).replace('.',',')+' %':'—';
     document.getElementById('funilConvConversa').textContent=tcv>0?((tp/tcv)*100).toFixed(1).replace('.',',')+' %':'—';
     document.getElementById('funilConvProposta').textContent=tp>0?((tvr/tp)*100).toFixed(1).replace('.',',')+' %':'—';
-    ligarDrillDownKpisVendas(filtered.funilNovosContatos,kpisFunilVendas,vendasKPI);
+    ligarDrillDownKpisVendas(filtered.funilNovosContatos,kpisFunilVendas,todosDoVendedorVendas,kpisFunilVendasTotal,vendasKPI);
 
     // Fallback histórico (sem filtro de período/vendedor) pra quando o período
     // selecionado não tem dado suficiente pra calcular uma taxa — mesma lógica
@@ -383,9 +391,11 @@
    * "Vendas" aqui já vem com valor de verdade (vendasKPI tem `.valor`,
    * diferente do funil.js que só sabe idVenda/idCliente/idVendedor/data).
    */
-  function ligarDrillDownKpisVendas(novosContatos,kpisFunilVendas,vendasKPI){
+  function ligarDrillDownKpisVendas(novosContatos,kpisFunilVendas,todosDoVendedorVendas,kpisFunilVendasTotal,vendasKPI){
     var leadsById={};
     (novosContatos||[]).forEach(function(r){ leadsById[r.id]=r; });
+    var todosLeadsById={};
+    (todosDoVendedorVendas||[]).forEach(function(r){ todosLeadsById[r.id]=r; });
 
     document.getElementById('funilContatos').onclick=function(){
       var linhas=(novosContatos||[]).map(function(r){
@@ -406,6 +416,20 @@
         return [r?nomeClienteVenda(r.idCliente):'—',r?nomeFor(r.idVendedor):'—',fmtDateBRVendas(new Date(item.dia+'T00:00:00')),item.etapa];
       });
       window.SGListaModal.abrir({titulo:'Propostas',subtitulo:linhas.length+' proposta(s) — no máx. 1 por lead, por dia',colunas:['Cliente','Vendedor','Dia da proposta','Etapa'],linhas:linhas});
+    };
+    document.getElementById('funilConversasTotal').onclick=function(){
+      var linhas=kpisFunilVendasTotal.conversaLista.map(function(item){
+        var r=todosLeadsById[item.leadId];
+        return [r?nomeClienteVenda(r.idCliente):'—',r?nomeFor(r.idVendedor):'—',fmtDateBRVendas(new Date(item.dia+'T00:00:00')),item.etapa];
+      });
+      window.SGListaModal.abrir({titulo:'Conversas — total do período',subtitulo:linhas.length+' conversa(s), qualquer lead (não só os criados no período)',colunas:['Cliente','Vendedor','Dia da conversa','Etapa'],linhas:linhas});
+    };
+    document.getElementById('funilPropostasTotal').onclick=function(){
+      var linhas=kpisFunilVendasTotal.propostaLista.map(function(item){
+        var r=todosLeadsById[item.leadId];
+        return [r?nomeClienteVenda(r.idCliente):'—',r?nomeFor(r.idVendedor):'—',fmtDateBRVendas(new Date(item.dia+'T00:00:00')),item.etapa];
+      });
+      window.SGListaModal.abrir({titulo:'Propostas — total do período',subtitulo:linhas.length+' proposta(s), qualquer lead (não só os criados no período)',colunas:['Cliente','Vendedor','Dia da proposta','Etapa'],linhas:linhas});
     };
     document.getElementById('funilVendas').onclick=function(){
       var linhas=(vendasKPI||[]).map(function(v){
