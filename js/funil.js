@@ -2,7 +2,6 @@
 (function(){
 
   var funilRecords  = [];
-  var funilLogRecords = [];   // ← log de transições de etapa
   var funilSLAMap   = {};     // ← regras de SLA por etapa { etapa: { diasAmarelo, diasVermelho } }
   var vendedoresMap = {};
   var vendedoresTodosMap = {}; // sem filtro por dono — pro dropdown de atribuição
@@ -46,16 +45,6 @@
 
   function parseBRDate(str){ return window.SGUtil.parseBRDate(str); }
 
-  // parseia data E hora para comparar logs corretamente
-  function parseBRDateTime(str){
-    if(!str)return null; str=str.toString().trim();
-    var m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/);
-    if(m)return new Date(+m[3],+m[2]-1,+m[1],+m[4],+m[5],m[6]?+m[6]:0);
-    var m2=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-    if(m2)return new Date(+m2[3],+m2[2]-1,+m2[1]);
-    var d=new Date(str); return isNaN(d)?null:d;
-  }
-
   function dateKey(d){ return window.SGUtil.dateKey(d); }
   function fmtDateBR(d){ return window.SGUtil.fmtDateBR(d); }
   function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
@@ -78,17 +67,6 @@
   }
   function nomeServicoFunil(id){ if(!id)return'—'; var s=servicosMapFunil[id]; return(s&&s['Nome Servico'])||String(id).slice(0,8); }
 
-  // ─────────────────────────────────────────────────────────────
-  // FunilLog: processa e calcula DataDoProcesso
-  // ─────────────────────────────────────────────────────────────
-
-  function processFunilLog(list){
-    return list.map(function(o){
-      var dt=parseBRDateTime(o.Datahora||o.DataHora||'');
-      return{idOportunidade:o.IdOportunidade||'',etapaAnterior:(o.EtapaAnterior||'').trim(),etapaNova:(o.EtapaNova||'').trim(),dt:dt};
-    }).filter(function(r){return !!r.dt;});
-  }
-
   // processa regras SLA
   function processFunilSLA(list){
     var map={};
@@ -102,16 +80,32 @@
     return map;
   }
 
-  // data mais recente no log onde o lead transitou para a etapa atual.
-  // Fallback: data de criação do lead.
-  function computeDataProcesso(lead,logRecords){
-    var matching=logRecords.filter(function(l){
-      return l.idOportunidade===lead.id && l.etapaNova===lead.etapa;
+  /**
+   * Data mais recente em que o lead entrou na etapa ATUAL — fallback: data
+   * de criação do lead. Corrigido em 2026-08-25 (bug real, achado pelo
+   * Felipe movendo um lead "hoje" e vendo a data ficar presa em "ontem"):
+   * essa função lia de `logRecords` (FunilLog), que desde a migração pro
+   * Firestore SEMPRE chega vazio (`getFunilData` devolve `funilLog:[]`
+   * fixo — a aba FunilLog só foi usada UMA VEZ, pra reconstruir o
+   * histórico na migração inicial, nunca ficou "ligada" de verdade nesse
+   * piloto). Ou seja: TODO lead, sempre, caía no fallback (`lead.dt`,
+   * data de CRIAÇÃO) — mover de etapa nunca atualizava "Data"/"dias na
+   * etapa"/o filtro de período, não importa quantas vezes fosse movido.
+   * Corrigido pra usar `lead.transicoes` (que É real e SEMPRE atualizado
+   * a cada mudança de etapa de verdade, por salvarLead e
+   * moverLeadParaEtapa) em vez do log morto.
+   */
+  function computeDataProcesso(lead){
+    var matching=(lead.transicoes||[]).filter(function(t){
+      return (t.Etapa||'').trim()===lead.etapa;
     });
     if(!matching.length)return lead.dt;
-    var best=matching[0];
-    for(var i=1;i<matching.length;i++){if(matching[i].dt>best.dt)best=matching[i];}
-    return best.dt;
+    var best=new Date(matching[0].Em);
+    for(var i=1;i<matching.length;i++){
+      var d=new Date(matching[i].Em);
+      if(d>best)best=d;
+    }
+    return best;
   }
 
   // dias corridos entre dataProcesso e hoje (meia-noite para meia-noite)
@@ -187,7 +181,7 @@
   // enriquece cada lead com dataProcesso, dataProcessoKey, diasNaEtapa e slaColor
   function enriquecerComSLA(records){
     records.forEach(function(r){
-      r.dataProcesso = computeDataProcesso(r,funilLogRecords);
+      r.dataProcesso = computeDataProcesso(r);
       r.dataProcessoKey = r.dataProcesso ? dateKey(r.dataProcesso) : r.dateKey; // ← chave usada para o filtro de período
       r.temLog = r.dataProcesso !== r.dt; // se diverge de dt, veio do log
       r.diasNaEtapa = getDiasNaEtapa(r.dataProcesso);
@@ -1426,8 +1420,7 @@
     clientesMap={};(resp.clientes||[]).forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
     servicosMapFunil={};(resp.servicos||[]).forEach(function(s){if(s.IdServico)servicosMapFunil[s.IdServico]=s;});
 
-    // carrega log e SLA antes de processar os leads
-    funilLogRecords = processFunilLog(resp.funilLog||[]);
+    // carrega SLA antes de processar os leads
     funilSLAMap     = processFunilSLA(resp.funilSLA||[]);
 
     funilRecords=processFunil(fFunil);
