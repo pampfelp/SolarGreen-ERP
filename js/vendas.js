@@ -5,6 +5,9 @@
   var _epoca=window.SGEpoca.criar();
   var vendedoresMap={},sortState={col:'faturado',dir:'desc'},vendedoresAtivosVenda=[],vendasRecords=[],metasRecords=[],funilRecords=[],custosVendaRecords=[],servicosMap={};
   var clientesMap={};
+  // Cliente cadastrado via "+ Cadastrar cliente" no Funil, na mesma sessão —
+  // sem isso, essa tela só enxergaria ele depois de recarregar a página.
+  document.addEventListener('sg:cliente-criado',function(e){ if(e.detail&&e.detail.IdCliente)clientesMap[e.detail.IdCliente]=e.detail; });
   var vendedoresTodosMapVendas={};
   var metasIndividuaisMap={}; // 'idVendedor|ano|mes' -> valor da sobreposição
   var vendaAtual=null;

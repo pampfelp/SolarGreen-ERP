@@ -3,6 +3,14 @@
   var _initialized=false;
   var _epoca=window.SGEpoca.criar();
   var clientes=[], vendedoresMap={};
+  // Cliente cadastrado via "+ Cadastrar cliente" no Funil, na mesma sessão —
+  // sem isso, essa tela só mostraria ele depois de recarregar a página.
+  document.addEventListener('sg:cliente-criado',function(e){
+    if(!e.detail||!e.detail.IdCliente)return;
+    if(clientes.some(function(c){return c.IdCliente===e.detail.IdCliente;}))return;
+    clientes.push(e.detail);
+    render();
+  });
   var editandoId=null;
   var paginaAtual=1, ITENS_POR_PAGINA=10;
   var buscaFiltro='';
