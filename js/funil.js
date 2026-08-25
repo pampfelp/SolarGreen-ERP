@@ -281,6 +281,48 @@
     document.getElementById('f-convContatoConversa').textContent=tc>0?((tcv/tc)*100).toFixed(1).replace('.',',')+' %':'—';
     document.getElementById('f-convConversaProposta').textContent=tcv>0?((tp/tcv)*100).toFixed(1).replace('.',',')+' %':'—';
     document.getElementById('f-convPropostaVenda').textContent=tp>0?((tvr/tp)*100).toFixed(1).replace('.',',')+' %':'—';
+
+    ligarDrillDownKpisFunil(novosContatos,kpis,vendasNoPeriodo);
+  }
+
+  /**
+   * Clique nos números do widget "Taxas de conversão" abre a lista exata de
+   * clientes/leads por trás daquele KPI (2026-08-24, pedido do Felipe — os
+   * números eram "opacos", sem jeito de conferir quem entrou na conta).
+   * "Conversas"/"Propostas" vêm de `kpis.conversaLista`/`propostaLista`
+   * (cada item é {leadId,dia,etapa} — ver SGUtil.calcularConversasPropostas),
+   * então precisa de um lookup leadId->lead pra achar cliente/vendedor.
+   */
+  function ligarDrillDownKpisFunil(novosContatos,kpis,vendasNoPeriodo){
+    var leadsById={};
+    novosContatos.forEach(function(r){ leadsById[r.id]=r; });
+
+    document.getElementById('f-convContatos').onclick=function(){
+      var linhas=novosContatos.map(function(r){
+        return [nomeClienteFor(r.idCliente),nomeFor(r.idVendedor),r.dt?fmtDateBR(r.dt):'—',r.etapa];
+      });
+      window.SGListaModal.abrir({titulo:'Novos contatos',subtitulo:linhas.length+' lead(s) criado(s) no período/vendedor filtrados',colunas:['Cliente','Vendedor','Criado em','Etapa atual'],linhas:linhas});
+    };
+    document.getElementById('f-convConversas').onclick=function(){
+      var linhas=kpis.conversaLista.map(function(item){
+        var r=leadsById[item.leadId];
+        return [r?nomeClienteFor(r.idCliente):'—',r?nomeFor(r.idVendedor):'—',fmtDateBR(new Date(item.dia+'T00:00:00')),item.etapa];
+      });
+      window.SGListaModal.abrir({titulo:'Conversas',subtitulo:linhas.length+' conversa(s) — no máx. 1 por lead, por dia',colunas:['Cliente','Vendedor','Dia da conversa','Etapa'],linhas:linhas});
+    };
+    document.getElementById('f-convPropostas').onclick=function(){
+      var linhas=kpis.propostaLista.map(function(item){
+        var r=leadsById[item.leadId];
+        return [r?nomeClienteFor(r.idCliente):'—',r?nomeFor(r.idVendedor):'—',fmtDateBR(new Date(item.dia+'T00:00:00')),item.etapa];
+      });
+      window.SGListaModal.abrir({titulo:'Propostas',subtitulo:linhas.length+' proposta(s) — no máx. 1 por lead, por dia',colunas:['Cliente','Vendedor','Dia da proposta','Etapa'],linhas:linhas});
+    };
+    document.getElementById('f-convVendas').onclick=function(){
+      var linhas=vendasNoPeriodo.map(function(v){
+        return [nomeClienteFor(v.idCliente),nomeFor(v.idVendedor),v.dt?fmtDateBR(v.dt):'—'];
+      });
+      window.SGListaModal.abrir({titulo:'Vendas',subtitulo:linhas.length+' venda(s) no período/vendedor filtrados',colunas:['Cliente','Vendedor','Data da venda'],linhas:linhas});
+    };
   }
 
   function refreshKpisAndTable(){

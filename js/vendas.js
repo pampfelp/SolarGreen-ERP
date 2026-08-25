@@ -69,7 +69,11 @@
       if(!id)return;
       var dt=parseBRDate(o.DataCriacao||o['Data Criacao']||'');
       if(!dt)return;
-      out.push({id:id,idVendedor:o.IdVendedor,dateKey:dateKey(dt),transicoes:o.Transicoes||[]});
+      // idCliente/dt/etapa adicionados em 2026-08-24 pro drill-down dos KPIs
+      // clicáveis (ver ligarDrillDownKpisVendas) — antes esse registro só
+      // trazia o mínimo pras contas de conversão, sem dar pra identificar
+      // QUEM é o lead por trás do número.
+      out.push({id:id,idCliente:o.IdCliente,idVendedor:o.IdVendedor,etapa:(o.Etapa||'').trim(),dt:dt,dateKey:dateKey(dt),transicoes:o.Transicoes||[]});
     });
     return out;
   }
@@ -324,6 +328,7 @@
     document.getElementById('funilConvContato').textContent=tc>0?((tcv/tc)*100).toFixed(1).replace('.',',')+' %':'—';
     document.getElementById('funilConvConversa').textContent=tcv>0?((tp/tcv)*100).toFixed(1).replace('.',',')+' %':'—';
     document.getElementById('funilConvProposta').textContent=tp>0?((tvr/tp)*100).toFixed(1).replace('.',',')+' %':'—';
+    ligarDrillDownKpisVendas(filtered.funilNovosContatos,kpisFunilVendas,vendasKPI);
 
     // Fallback histórico (sem filtro de período/vendedor) pra quando o período
     // selecionado não tem dado suficiente pra calcular uma taxa — mesma lógica
@@ -370,6 +375,45 @@
 
   function nomeClienteVenda(id){var c=clientesMap[id];return c?(c['Nome Razao Social']||c.Nome||id):id;}
   function fmtDateBRVendas(d){ return d?(String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()):'—'; }
+
+  /**
+   * Clique nos números do widget "Taxas de conversão" abre a lista exata de
+   * clientes/leads por trás daquele KPI (2026-08-24, pedido do Felipe —
+   * mesmo recurso adicionado no Funil, ver js/funil.js:ligarDrillDownKpisFunil).
+   * "Vendas" aqui já vem com valor de verdade (vendasKPI tem `.valor`,
+   * diferente do funil.js que só sabe idVenda/idCliente/idVendedor/data).
+   */
+  function ligarDrillDownKpisVendas(novosContatos,kpisFunilVendas,vendasKPI){
+    var leadsById={};
+    (novosContatos||[]).forEach(function(r){ leadsById[r.id]=r; });
+
+    document.getElementById('funilContatos').onclick=function(){
+      var linhas=(novosContatos||[]).map(function(r){
+        return [nomeClienteVenda(r.idCliente),nomeFor(r.idVendedor),r.dt?fmtDateBRVendas(r.dt):'—',r.etapa];
+      });
+      window.SGListaModal.abrir({titulo:'Novos contatos',subtitulo:linhas.length+' lead(s) criado(s) no período/vendedor filtrados',colunas:['Cliente','Vendedor','Criado em','Etapa atual'],linhas:linhas});
+    };
+    document.getElementById('funilConversas').onclick=function(){
+      var linhas=kpisFunilVendas.conversaLista.map(function(item){
+        var r=leadsById[item.leadId];
+        return [r?nomeClienteVenda(r.idCliente):'—',r?nomeFor(r.idVendedor):'—',fmtDateBRVendas(new Date(item.dia+'T00:00:00')),item.etapa];
+      });
+      window.SGListaModal.abrir({titulo:'Conversas',subtitulo:linhas.length+' conversa(s) — no máx. 1 por lead, por dia',colunas:['Cliente','Vendedor','Dia da conversa','Etapa'],linhas:linhas});
+    };
+    document.getElementById('funilPropostas').onclick=function(){
+      var linhas=kpisFunilVendas.propostaLista.map(function(item){
+        var r=leadsById[item.leadId];
+        return [r?nomeClienteVenda(r.idCliente):'—',r?nomeFor(r.idVendedor):'—',fmtDateBRVendas(new Date(item.dia+'T00:00:00')),item.etapa];
+      });
+      window.SGListaModal.abrir({titulo:'Propostas',subtitulo:linhas.length+' proposta(s) — no máx. 1 por lead, por dia',colunas:['Cliente','Vendedor','Dia da proposta','Etapa'],linhas:linhas});
+    };
+    document.getElementById('funilVendas').onclick=function(){
+      var linhas=(vendasKPI||[]).map(function(v){
+        return [nomeClienteVenda(v.idCliente),nomeFor(v.idVendedor),v.dt?fmtDateBRVendas(v.dt):'—',fmtMoney(v.valor)];
+      });
+      window.SGListaModal.abrir({titulo:'Vendas',subtitulo:linhas.length+' venda(s) no período/vendedor filtrados',colunas:['Cliente','Vendedor','Data da venda','Valor'],linhas:linhas});
+    };
+  }
 
   /**
    * Chamado pelo módulo de Clientes quando um cliente é salvo em outro

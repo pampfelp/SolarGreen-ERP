@@ -242,6 +242,46 @@
   })();
 
   /**
+   * Modal genérico de "lista por trás de um número" — 2026-08-24, pedido do
+   * Felipe: poder clicar num KPI (Novos Contatos/Conversas/Propostas/Vendas,
+   * tanto no Funil quanto em Vendas) e ver exatamente quais clientes/leads
+   * entraram naquela contagem, em vez do número ficar "opaco". Um único
+   * modal reaproveitado por qualquer tela (mesmo padrão do SGConfirm acima)
+   * — o modal não conhece clientesMap/vendedoresMap de ninguém, cada tela
+   * monta as linhas já formatadas (nome, data, etc.) com os próprios dados
+   * e só manda texto pronto: `SGListaModal.abrir({titulo, subtitulo,
+   * colunas:[...], linhas:[[...],...]})`.
+   */
+  window.SGListaModal=(function(){
+    function el(id){ return document.getElementById(id); }
+    function escapeHtmlLista(s){ var d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
+    function fechar(){ var modal=el('sgListaModal'); if(modal)modal.classList.add('hidden'); }
+    function abrir(opts){
+      var modal=el('sgListaModal');
+      if(!modal)return; // tela sem esse modal (defensivo, mesmo padrão do SGConfirm)
+      el('sgl-titulo').textContent=(opts&&opts.titulo)||'Detalhes';
+      el('sgl-subtitulo').textContent=(opts&&opts.subtitulo)||'';
+      var colunas=(opts&&opts.colunas)||[];
+      var linhas=(opts&&opts.linhas)||[];
+      el('sgl-thead').innerHTML=colunas.map(function(c){
+        return '<th style="text-align:left;padding:8px;border-bottom:1px solid var(--line);color:var(--ink-faint);font-size:11px;text-transform:uppercase;letter-spacing:.04em;">'+escapeHtmlLista(c)+'</th>';
+      }).join('');
+      el('sgl-tbody').innerHTML=linhas.length?linhas.map(function(linha){
+        return '<tr>'+linha.map(function(v){ return '<td style="padding:8px;border-bottom:1px solid var(--line);">'+escapeHtmlLista(v)+'</td>'; }).join('')+'</tr>';
+      }).join(''):('<tr><td colspan="'+(colunas.length||1)+'" style="text-align:center;color:var(--ink-faint);padding:30px;">Nenhum registro nesse recorte.</td></tr>');
+      modal.classList.remove('hidden');
+    }
+    document.addEventListener('DOMContentLoaded',function(){
+      var modal=el('sgListaModal');
+      if(!modal)return; // tela sem esse modal (ex.: app do técnico)
+      el('sgl-fecharBtn').addEventListener('click',fechar);
+      modal.addEventListener('click',function(e){ if(e.target===modal)fechar(); });
+      document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&!modal.classList.contains('hidden'))fechar(); });
+    });
+    return {abrir:abrir,fechar:fechar};
+  })();
+
+  /**
    * Indicador global de sincronização (bolinha no canto superior direito).
    * Diferente do padrão com onSnapshot/hasPendingWrites (documentado em
    * segundo-cerebro/padroes/javascript-patterns.md) — esse piloto do
@@ -363,6 +403,13 @@
      * ainda acontecer. Mesma razão de excluir "Tentativa de Contato":
      * contar a etapa de entrada como se fosse conversa infla a taxa de
      * conversão. ETAPAS_SEM_CONVERSA_ lista as duas.
+     *
+     * Ajustado em 2026-08-24 (terceira rodada, KPI clicável): além dos
+     * totais, agora também devolve `conversaLista`/`propostaLista` — um
+     * item por combinação lead+dia que contou (com leadId/dia/etapa) — pra
+     * quem chamou poder mostrar EXATAMENTE quais leads/clientes formam
+     * aquele número (ver SGListaModal). Não quebra quem só usava
+     * `.conversas`/`.propostas` (campos novos, não removeu nenhum antigo).
      */
     calcularConversasPropostas:function(leads,from,to,etapasProposta){
       var ETAPAS_SEM_CONVERSA_=['Novo Lead','Tentativa de Contato'];
@@ -376,11 +423,13 @@
           if(to&&dk>to)return;
           var etapa=(t.Etapa||'').trim();
           var chave=f.id+'|'+dk;
-          if(ETAPAS_SEM_CONVERSA_.indexOf(etapa)===-1)conversaDias[chave]=true;
-          if(etapasProposta.indexOf(etapa)!==-1)propostaDias[chave]=true;
+          if(ETAPAS_SEM_CONVERSA_.indexOf(etapa)===-1)conversaDias[chave]={leadId:f.id,dia:dk,etapa:etapa};
+          if(etapasProposta.indexOf(etapa)!==-1)propostaDias[chave]={leadId:f.id,dia:dk,etapa:etapa};
         });
       });
-      return {conversas:Object.keys(conversaDias).length, propostas:Object.keys(propostaDias).length};
+      var conversaLista=Object.keys(conversaDias).map(function(k){return conversaDias[k];});
+      var propostaLista=Object.keys(propostaDias).map(function(k){return propostaDias[k];});
+      return {conversas:conversaLista.length, propostas:propostaLista.length, conversaLista:conversaLista, propostaLista:propostaLista};
     },
     // Pega só os dígitos do telefone (ignora hífen, espaço, parênteses, +55…)
     // e devolve os últimos 8 — é o "miolo" do número, sem DDD nem 9 na frente,
