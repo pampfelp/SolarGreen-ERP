@@ -339,6 +339,41 @@
   // (não existir mais) já está garantido, então não faz sentido desfazer.
   window.SGUtil={
     ehNaoEncontrado:function(erro){ return !!(erro&&/n[aã]o encontrad[oa]/i.test(String(erro))); },
+    /**
+     * Conversas/Propostas a partir da movimentação do funil — compartilhado
+     * entre Vendas e Funil (as duas telas mostram o mesmo widget "Taxas de
+     * conversão médias", cada uma com seu próprio filtro de período/
+     * vendedor, mas com a MESMA lógica de contagem por baixo).
+     *
+     * Corrigido em 2026-08-24 (achado pelo Felipe testando o funil de
+     * verdade): antes contava toda TRANSIÇÃO isolada como uma "conversa"
+     * nova — um lead que passa por Tentativa→Negociação→Retomar
+     * Contato→Ganho no MESMO DIA (uma sequência rápida durante uma única
+     * ligação/visita de verdade) inflava a contagem em várias "conversas"
+     * separadas, quando na prática foi 1 interação só. Regra corrigida:
+     * no máximo 1 conversa e 1 proposta por LEAD, por DIA — não por
+     * transição. `leads` já deve vir filtrado pra cohorte certa (mesmos
+     * leads que contam como "Novos Contatos" do período, ver funil-
+     * crm.md) — essa função só decide, dentro dessas transições, quantos
+     * dias-com-conversa/dias-com-proposta existem no total.
+     */
+    calcularConversasPropostas:function(leads,from,to,etapasProposta){
+      var conversaDias={},propostaDias={};
+      (leads||[]).forEach(function(f){
+        (f.transicoes||[]).forEach(function(t){
+          var dt=new Date(t.Em);
+          if(isNaN(dt))return;
+          var dk=window.SGUtil.dateKey(dt);
+          if(from&&dk<from)return;
+          if(to&&dk>to)return;
+          var etapa=(t.Etapa||'').trim();
+          var chave=f.id+'|'+dk;
+          if(etapa!=='Tentativa de Contato')conversaDias[chave]=true;
+          if(etapasProposta.indexOf(etapa)!==-1)propostaDias[chave]=true;
+        });
+      });
+      return {conversas:Object.keys(conversaDias).length, propostas:Object.keys(propostaDias).length};
+    },
     // Pega só os dígitos do telefone (ignora hífen, espaço, parênteses, +55…)
     // e devolve os últimos 8 — é o "miolo" do número, sem DDD nem 9 na frente,
     // que costuma ser igual mesmo quando a pessoa digita o número de formas

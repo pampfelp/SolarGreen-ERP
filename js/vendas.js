@@ -73,10 +73,6 @@
     });
     return out;
   }
-  // Transicoes[].Em é um timestamp ISO completo (agora.toISOString()), não uma
-  // data "crua" tipo DataCriacao — usar new Date(iso) direto (correto pra
-  // timestamp completo) e não o parseBRDate (que é pro bug de data SEM hora).
-  function dateKeyFromISO(iso){ var d=new Date(iso); return isNaN(d)?null:dateKey(d); }
   function processCustosVenda(list){var out=[];list.forEach(function(o){if(!o.IdCusto)return;var dt=parseBRDate(o.Data);out.push({id:o.IdCusto,idVenda:o.IdVenda,descricao:(o.Descricao||'').trim(),status:(o.Status||'').trim(),dt:dt,dateKey:dt?dateKey(dt):null,valor:parseBRNumber(o.Valor)});});return out;}
   function processServicos(list){var map={};list.forEach(function(o){if(!o.IdServico)return;map[o.IdServico]=o['Nome Servico']||o.IdServico;});return map;}
 
@@ -303,37 +299,22 @@
      * lançamento manual diário, ver funil-crm.md):
      * - Novos Contatos: leads criados no período (filtered.funilNovosContatos,
      *   já filtrado por dateKey de criação + vendedor acima em getFiltered).
-     * - Conversas: toda TRANSIÇÃO (criação inclusive, já que criar um lead já
-     *   grava a 1ª transição) dentro do período, EXCETO pra "Tentativa de
-     *   Contato" — mover/criar um lead ali não conta como conversa de verdade.
-     * - Propostas: toda transição dentro do período cujo destino é Negociação/
+     * - Conversas: no máximo 1 por LEAD por DIA (não por transição — ver
+     *   SGUtil.calcularConversasPropostas), contando qualquer transição
+     *   EXCETO "Tentativa de Contato".
+     * - Propostas: no máximo 1 por LEAD por DIA cujo destino foi Negociação/
      *   Serviço Agendado/Ganho (equivalente a "proposta apresentada").
-     * IMPORTANTE — mesmo COORTE de "Novos Contatos", não "todo mundo que se
+     * IMPORTANTE — mesma COORTE de "Novos Contatos", não "todo mundo que se
      * mexeu": só entram transições de leads que TAMBÉM foram criados dentro
-     * desse período (mesmo filtro de filtered.funilNovosContatos). Antes essa
-     * lista somava a movimentação de QUALQUER lead (inclusive os 700+ leads
-     * antigos que continuam ativos), o que inflava Conversas/Propostas muito
-     * além dos Novos Contatos do período (ex.: 343 conversas pra 199
-     * contatos = 172% — parecia "quebrado" porque comparava coisas de
-     * cohortes diferentes). Restringindo à mesma cohorte, a taxa volta a
-     * medir "quanto do que entrou esse mês avançou esse mês", que é o que a
-     * projeção de meta (projetarFunil) precisa pra fazer sentido.
+     * desse período (mesmo filtro de filtered.funilNovosContatos) — ver
+     * funil-crm.md pra explicação completa de por que isso importa.
      * Escopo do vendedor: mantido pelo idVendedor do LEAD, igual antes.
      */
     var tc=filtered.funilNovosContatos.length;
-    var todasTransicoesPeriodo=[];
-    filtered.funilNovosContatos.forEach(function(f){
-      (f.transicoes||[]).forEach(function(t){
-        var dk=dateKeyFromISO(t.Em);
-        if(!dk)return;
-        if(filtered.from&&dk<filtered.from)return;
-        if(filtered.to&&dk>filtered.to)return;
-        todasTransicoesPeriodo.push((t.Etapa||'').trim());
-      });
-    });
     var ETAPAS_PROPOSTA_VENDAS=['Negociação','Serviço Agendado','Ganho'];
-    var tcv=todasTransicoesPeriodo.filter(function(e){return e!=='Tentativa de Contato';}).length;
-    var tp=todasTransicoesPeriodo.filter(function(e){return ETAPAS_PROPOSTA_VENDAS.indexOf(e)!==-1;}).length;
+    var kpisFunilVendas=window.SGUtil.calcularConversasPropostas(filtered.funilNovosContatos,filtered.from,filtered.to,ETAPAS_PROPOSTA_VENDAS);
+    var tcv=kpisFunilVendas.conversas;
+    var tp=kpisFunilVendas.propostas;
     // mesma exclusão do CEO que já vale pra Faturado/Ticket/Vendas feitas
     // (vendasKPI acima) — sem isso a Taxa de conversão "Vendas" contava
     // 4 vendas a mais que o card "Vendas feitas" logo acima, um número
@@ -349,10 +330,9 @@
     // de antes, só que a fonte agora é o funil inteiro em vez do histórico de
     // relatórios manuais.
     var hc=funilRecords.length;
-    var todasTransicoesHist=[];
-    funilRecords.forEach(function(f){ (f.transicoes||[]).forEach(function(t){ todasTransicoesHist.push((t.Etapa||'').trim()); }); });
-    var hcv=todasTransicoesHist.filter(function(e){return e!=='Tentativa de Contato';}).length;
-    var hp=todasTransicoesHist.filter(function(e){return ETAPAS_PROPOSTA_VENDAS.indexOf(e)!==-1;}).length;
+    var kpisFunilHist=window.SGUtil.calcularConversasPropostas(funilRecords,null,null,ETAPAS_PROPOSTA_VENDAS);
+    var hcv=kpisFunilHist.conversas;
+    var hp=kpisFunilHist.propostas;
     // esse fallback é sempre agregado (não filtra por vendedor), então segue
     // a mesma regra de vendasKPI: nunca conta venda do CEO aqui.
     var hvr=vendasRecordsFaturamento.filter(function(v){return !vendaEhDeCEO(v);}).length;

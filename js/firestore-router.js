@@ -84,8 +84,11 @@
   }
 
   function getFunilData(){
-    return Promise.all([getColecao('vendedores'),getColecao('funil'),getColecao('clientes'),getColecao('servicos')]).then(function(r){
-      return {ok:true, vendedores:r[0], funil:r[1], clientes:r[2], servicos:r[3], funilLog:[], funilSLA:[]};
+    // vendas entra só pra alimentar o widget "Taxas de conversão médias"
+    // dentro do próprio Funil (2026-08-24) — mesmo widget que já existia
+    // em Vendas, agora também na tela onde o vendedor passa o dia.
+    return Promise.all([getColecao('vendedores'),getColecao('funil'),getColecao('clientes'),getColecao('servicos'),getColecao('vendas')]).then(function(r){
+      return {ok:true, vendedores:r[0], funil:r[1], clientes:r[2], servicos:r[3], vendas:r[4], funilLog:[], funilSLA:[]};
     }).catch(function(err){ return {ok:false, erro:err.message}; });
   }
 
