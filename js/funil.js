@@ -15,6 +15,15 @@
   var visaoAtual    = localStorage.getItem('sg_funil_visao')||'lista';
   var leadAtual     = null; // lead aberto no painel lateral (null = criando um novo)
 
+  // ── Colaboração ao vivo (2026-08-25, escopo só Funil pra testar o padrão) ──
+  var unsubFunilAoVivo=null;     // escuta a coleção 'funil' inteira e mantém funilRecords sincronizado
+  var unsubPresencaAoVivo=null;  // escuta 'funil_presenca' pro indicador "sendo editado"
+  var presencaMap={};            // leadId -> {uid,nome,em(ms)}
+  var presencaAtualLeadId=null;  // lead que EU estou editando agora (null = nenhum)
+  var presencaHeartbeatTimer=null;
+  var PRESENCA_HEARTBEAT_MS=15000;
+  var PRESENCA_EXPIRA_MS=40000;  // presença mais velha que isso é tratada como abandonada (aba fechada sem avisar)
+
   var ETAPAS = ['Novo Lead','Tentativa de Contato','Retomar Contato','Gerar Proposta','Negociação','Serviço Agendado','Ganho','Perdido'];
 
   var DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA34xrlLTVUUNhKBIlguJT3ectH7Yus-VW1n41GcCclc5q_Yj0Di2O7g/exec';
@@ -375,6 +384,7 @@
     });
 
     renderKanban(f.allPeriod);
+    aplicarIndicadoresPresenca(); // redesenhar troca o HTML inteiro — reaplica os indicadores de presença por cima
 
     document.getElementById('f-tableTitle').textContent=etapa==='__all__'?'no período':'— '+etapa;
     document.getElementById('f-tableHint').textContent=count+' lead(s) encontrado(s) · ordenado por data da última movimentação';
@@ -723,6 +733,99 @@
   }
 
   /**
+   * Colaboração ao vivo dentro do Funil (2026-08-25, pedido do Felipe —
+   * teste escopado só nessa tela antes de pensar em levar pro resto do
+   * sistema). Duas coisas, deliberadamente SEM bloqueio — só indicação:
+   *
+   * 1. `iniciarEscutaAoVivoFunil`: em vez de carregar a coleção 'funil' uma
+   *    vez só (padrão do resto do piloto, ver segundo-cerebro), aqui fica um
+   *    onSnapshot permanente — quando QUALQUER usuário move/edita um lead, a
+   *    tela de todo mundo redesenha sozinha (Kanban "andando" e lista
+   *    atualizando), sem precisar de F5. Reprocessa a coleção INTEIRA a cada
+   *    mudança (em vez de mesclar só o doc alterado) de propósito — é bem
+   *    mais simples de acertar que um merge incremental, e com a escala
+   *    atual (~1000 leads) o custo de reprocessar em JS é imperceptível.
+   * 2. `iniciarPresenca`/`pararPresenca`: enquanto o painel de EDIÇÃO de um
+   *    lead está aberto, grava um "estou editando isso" em
+   *    `funil_presenca/{leadId}` com heartbeat a cada 15s. Quem mais estiver
+   *    olhando o Funil (via `iniciarEscutaPresencaFunil`) vê o card daquele
+   *    lead com uma borda tracejada verde pulsando. Não trava nada — é só
+   *    aviso, dois vendedores PODEM editar o mesmo lead ao mesmo tempo, só
+   *    ficam sabendo um do outro. Sem TTL no servidor: cada leitor ignora
+   *    sozinho qualquer presença com mais de `PRESENCA_EXPIRA_MS` (aba
+   *    fechada/sem internet não deixa o indicador "preso" pra sempre).
+   */
+  function iniciarEscutaAoVivoFunil(){
+    if(unsubFunilAoVivo)return; // já está escutando, não duplica
+    if(typeof firebase==='undefined'||!firebase.firestore)return;
+    unsubFunilAoVivo=firebase.firestore().collection('funil').onSnapshot(function(snap){
+      var brutos=[]; snap.forEach(function(doc){ brutos.push(doc.data()); });
+      var filtrados=window.SGAuth?window.SGAuth.filterByOwner(brutos,'IdVendedor'):brutos;
+      funilRecords=processFunil(filtrados);
+      enriquecerComSLA(funilRecords);
+      populateVendedorSelect();
+      // Não interrompe um arrasto em andamento no Kanban — o próprio drag
+      // termina de atualizar a tela sozinho quando soltar.
+      if(!(arrastarKanbanEstado&&arrastarKanbanEstado.dragging))render();
+    },function(err){ console.error('Escuta ao vivo do funil falhou:',err); });
+  }
+
+  function iniciarEscutaPresencaFunil(){
+    if(unsubPresencaAoVivo)return;
+    if(typeof firebase==='undefined'||!firebase.firestore)return;
+    unsubPresencaAoVivo=firebase.firestore().collection('funil_presenca').onSnapshot(function(snap){
+      var novoMapa={};
+      snap.forEach(function(doc){
+        var d=doc.data();
+        novoMapa[doc.id]={uid:d.Uid,nome:d.Nome,em:Date.parse(d.Em)||0};
+      });
+      presencaMap=novoMapa;
+      aplicarIndicadoresPresenca();
+    },function(err){ console.error('Escuta de presença do funil falhou:',err); });
+    // Reavalia expiração mesmo sem nenhuma escrita nova chegar (ex.: alguém
+    // fechou a aba sem avisar — sem isso o indicador só some quando outra
+    // presença qualquer mudar em algum lugar da coleção).
+    setInterval(aplicarIndicadoresPresenca,10000);
+  }
+
+  function aplicarIndicadoresPresenca(){
+    var agora=Date.now();
+    var meuIdAtual=window.SGUtil.meuId?window.SGUtil.meuId():null;
+    var alvos=document.querySelectorAll('#f-kanbanWrap .kanban-card[data-id], #f-tbody tr[data-id]');
+    alvos.forEach(function(el){
+      var id=el.getAttribute('data-id');
+      var p=presencaMap[id];
+      var ativo=!!(p&&(agora-p.em)<PRESENCA_EXPIRA_MS&&String(p.uid)!==String(meuIdAtual));
+      el.classList.toggle('sendo-editado',ativo);
+      el.title=ativo?(p.nome+' está editando este lead agora…'):'';
+    });
+  }
+
+  function escreverPresenca(leadId){
+    if(!leadId||typeof firebase==='undefined'||!firebase.firestore)return;
+    var sessao=window.SG_SESSION||{};
+    firebase.firestore().collection('funil_presenca').doc(leadId).set({
+      Uid:sessao.idVendedor||'', Nome:sessao.nome||'Alguém', Em:new Date().toISOString()
+    }).catch(function(){}); // cosmético — uma falha aqui nunca deve travar a edição de verdade
+  }
+
+  function iniciarPresenca(leadId){
+    pararPresenca(); // nunca deixa 2 presenças abertas ao mesmo tempo por mim
+    if(!leadId)return; // lead novo (ainda sem salvar) não tem card pra marcar
+    presencaAtualLeadId=leadId;
+    escreverPresenca(leadId);
+    presencaHeartbeatTimer=setInterval(function(){ escreverPresenca(leadId); },PRESENCA_HEARTBEAT_MS);
+  }
+
+  function pararPresenca(){
+    if(presencaHeartbeatTimer){ clearInterval(presencaHeartbeatTimer); presencaHeartbeatTimer=null; }
+    if(presencaAtualLeadId&&typeof firebase!=='undefined'&&firebase.firestore){
+      firebase.firestore().collection('funil_presenca').doc(presencaAtualLeadId).delete().catch(function(){});
+    }
+    presencaAtualLeadId=null;
+  }
+
+  /**
    * Painel de VISUALIZAÇÃO do lead — é o que abre ao clicar numa linha da
    * tabela ou num card do Kanban. Só leitura; o lápis no topo é que chama
    * abrirPainelLead(id) pra editar de verdade, e a lixeira exclui direto.
@@ -768,6 +871,7 @@
   function abrirPainelLead(idOportunidade){
     var r=idOportunidade?funilRecords.filter(function(x){return String(x.id)===String(idOportunidade);})[0]:null;
     leadAtual=r;
+    iniciarPresenca(idOportunidade||null);
 
     document.getElementById('fd-title').textContent=r?nomeClienteFor(r.idCliente):'Novo lead';
     document.getElementById('fd-excluirBtn').style.display=r?'flex':'none';
@@ -1120,6 +1224,7 @@
     document.getElementById('funilDetalhe').classList.remove('active');
     document.getElementById('adBackdrop').classList.remove('active');
     leadAtual=null;
+    pararPresenca();
   }
 
   function salvarLead(){
@@ -1352,6 +1457,13 @@
     if(_initialized)return;
     if(!window.SG_SESSION)return;
     _initialized=true;
+    iniciarEscutaAoVivoFunil();
+    iniciarEscutaPresencaFunil();
+    // Best-effort: libera minha presença se eu fechar/recarregar a aba com o
+    // painel de edição aberto — não é garantido (o navegador pode matar a
+    // aba antes do delete terminar), mas o PRESENCA_EXPIRA_MS acima é a rede
+    // de segurança real pra isso nunca ficar "preso" pros outros.
+    window.addEventListener('pagehide',pararPresenca);
     document.getElementById('f-appVersion').textContent='v'+APP_VERSION;
     document.getElementById('f-dateFrom').addEventListener('change',render);
     document.getElementById('f-dateTo').addEventListener('change',render);
