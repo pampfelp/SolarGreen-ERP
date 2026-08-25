@@ -332,12 +332,18 @@
     if(verificarStatusOSBtn){
       verificarStatusOSBtn.addEventListener('click',function(){
         verificarStatusOSBtn.disabled=true; var textoOriginal=verificarStatusOSBtn.textContent; verificarStatusOSBtn.textContent='Verificando…';
-        apiCall('verificarStatusOS',{solicitanteId:meuId(),idAgendamento:a.IdAgendamento}).then(function(resp){
+        var clienteOS=clientesMap[a.IdCliente]||{};
+        // Cai sozinha no Apps Script antigo (mesma lógica de gerarPdfOS/
+        // enviarOSParaAssinatura) — manda o que o Firestore já tem
+        // guardado (AutentiqueDocId, e-mail do cliente) em vez de deixar o
+        // servidor procurar numa planilha que não é mais a fonte de dado.
+        apiCall('verificarStatusOS',{autentiqueDocId:a.AutentiqueDocId||'',clienteEmail:clienteOS.Email||''}).then(function(resp){
           verificarStatusOSBtn.disabled=false; verificarStatusOSBtn.textContent=textoOriginal;
           if(!resp||!resp.ok){ showAgToast((resp&&resp.erro)||'Não foi possível verificar o status.',true); return; }
           a.StatusAssinaturaOS=resp.status;
           var statusEl=document.getElementById('ad-osStatusValor');
           if(statusEl)statusEl.textContent=resp.status;
+          apiCall('salvarAssinaturaOS',{idAgendamento:a.IdAgendamento,statusAssinaturaOS:resp.status});
           if(resp.refused)showAgToast(resp.status+' — copie o link e mande manualmente por WhatsApp.',true);
           else showAgToast('Status atualizado: '+resp.status);
         }).catch(function(err){
@@ -542,22 +548,35 @@
     garantirRespostas(a.IdAgendamento).then(function(){
       btn.textContent='Gerando PDF…';
       var html=montarHtmlOS(a);
-      apiCall('gerarPdfOS',{solicitanteId:meuId(),idAgendamento:a.IdAgendamento,html:html}).then(function(resp){
+      // gerarPdfOS/enviarOSParaAssinatura não vão pro Firestore — caem
+      // sozinhas no Apps Script antigo (é lá que mora o token da
+      // Autentique, com segurança). Por isso não mandam solicitanteId
+      // (não tem checagem de permissão do lado de lá pra essas 2 ações
+      // mais — ver js/firestore-router.js).
+      apiCall('gerarPdfOS',{idAgendamento:a.IdAgendamento,html:html}).then(function(resp){
         if(!resp||!resp.ok){ btn.disabled=false; btn.textContent=textoOriginal; showAgToast((resp&&resp.erro)||'Não foi possível gerar o PDF.',true); return; }
         btn.textContent='Enviando pra assinatura…';
         return apiCall('enviarOSParaAssinatura',{
-          solicitanteId:meuId(),idAgendamento:a.IdAgendamento,fileId:resp.fileId,
+          fileId:resp.fileId,
           clienteNome:nomeCliente(a.IdCliente),clienteEmail:cliente.Email,
           nomeDocumento:'Ordem de Serviço - '+nomeCliente(a.IdCliente)
         }).then(function(resp2){
-          btn.disabled=false; btn.textContent=textoOriginal;
-          if(!resp2||!resp2.ok){ showAgToast((resp2&&resp2.erro)||'PDF gerado, mas não foi possível enviar pra assinatura.',true); return; }
+          if(!resp2||!resp2.ok){ btn.disabled=false; btn.textContent=textoOriginal; showAgToast((resp2&&resp2.erro)||'PDF gerado, mas não foi possível enviar pra assinatura.',true); return; }
           // Atualiza localmente (mesmo objeto referenciado em "agendamentos")
           // e reabre o painel pra seção "Assinatura digital da OS" (com o
           // link/status) já aparecer na hora, sem precisar fechar e reabrir.
           a.LinkAssinaturaOS=resp2.link||'';
           a.StatusAssinaturaOS='Enviado';
           a.EnviadoAssinaturaOSEm=new Date().toLocaleString('pt-BR');
+          a.AutentiqueDocId=resp2.autentiqueDocId||'';
+          // Persiste no Firestore — sem isso, essa informação some se a
+          // página recarregar (o resultado só existia na memória local).
+          apiCall('salvarAssinaturaOS',{
+            idAgendamento:a.IdAgendamento,linkAssinaturaOS:a.LinkAssinaturaOS,
+            statusAssinaturaOS:a.StatusAssinaturaOS,enviadoAssinaturaOSEm:a.EnviadoAssinaturaOSEm,
+            autentiqueDocId:a.AutentiqueDocId
+          });
+          btn.disabled=false; btn.textContent=textoOriginal;
           abrirPainelDetalhe(a.IdAgendamento);
           abrirModalOSEnviada(cliente.Email,resp2.link||'');
         });

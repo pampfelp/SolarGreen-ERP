@@ -311,12 +311,25 @@
       .then(function(){ return {ok:true}; })
       .catch(function(err){ return {ok:false,erro:err.message}; });
   }
-  // PDF e assinatura digital (Autentique) dependem de integrações externas
-  // que não fazem parte desse piloto — sem Apps Script real por trás, não
-  // tem como gerar PDF nem mandar pra assinatura de verdade. Erro claro em
-  // vez de fingir sucesso.
-  function semIntegracaoNessePiloto(){
-    return Promise.resolve({ok:false,erro:'Geração de PDF/assinatura digital ainda não faz parte desse piloto Firestore.'});
+  // PDF (gerarPdfOS) e assinatura digital (enviarOSParaAssinatura/
+  // verificarStatusOS) continuam batendo no Apps Script antigo de propósito
+  // (2026-08-24) — é ele quem tem o token da Autentique guardado com
+  // segurança do lado do servidor (Script Properties); replicar isso aqui
+  // exigiria expor o token direto no navegador ou Cloud Functions (exige
+  // plano pago, não disponível nesse projeto). Como essas 3 ações não estão
+  // em window.SGFireActions, apiCall() já cai sozinho no Apps Script (ver
+  // js/sg-auth.js) — só o RESULTADO (link/status/docId) precisa ser
+  // persistido aqui no Firestore, que é a função abaixo.
+  function salvarAssinaturaOS(p){
+    var id=p.idAgendamento;
+    if(!id) return Promise.resolve({ok:false,erro:'idAgendamento é obrigatório.'});
+    var patch=semUndefined({
+      LinkAssinaturaOS:p.linkAssinaturaOS, StatusAssinaturaOS:p.statusAssinaturaOS,
+      EnviadoAssinaturaOSEm:p.enviadoAssinaturaOSEm, AutentiqueDocId:p.autentiqueDocId
+    });
+    return db().collection('agendamentos').doc(id).set(patch,{merge:true})
+      .then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
   }
 
   // Converte data ISO (yyyy-mm-dd, vinda de <input type="date">) pro formato
@@ -570,9 +583,11 @@
     salvarAgendamento:comSync('agendamentos',function(p){return 'agendamento de '+(p.idCliente||'');},comAuthPronto(salvarAgendamento)),
     atualizarStatusAgendamento:comSync('agendamentos',function(p){return 'status → '+(p.status||'');},comAuthPronto(atualizarStatusAgendamento)),
     excluirAgendamento:comSync('agendamentos',function(p){return 'excluir '+p.idAgendamento;},comAuthPronto(excluirAgendamento)),
-    gerarPdfOS:semIntegracaoNessePiloto,
-    enviarOSParaAssinatura:semIntegracaoNessePiloto,
-    verificarStatusOS:semIntegracaoNessePiloto,
+    // gerarPdfOS/enviarOSParaAssinatura/verificarStatusOS NÃO entram aqui de
+    // propósito — apiCall() cai sozinho no Apps Script antigo pra essas 3
+    // (é lá que mora o token da Autentique, ver comentário acima de
+    // salvarAssinaturaOS). Só o resultado é persistido no Firestore:
+    salvarAssinaturaOS:comAuthPronto(salvarAssinaturaOS),
 
     getCustosVendaData:comAuthPronto(getCustosVendaData),
     salvarCustoVenda:comSync('custos_venda',function(p){return p.descricao||p.idCusto;},comAuthPronto(salvarCustoVenda)),
