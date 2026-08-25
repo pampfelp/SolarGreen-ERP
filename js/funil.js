@@ -291,11 +291,15 @@
 
     var tc=novosContatos.length,tcv=kpis.conversas,tp=kpis.propostas,tvr=vendasNoPeriodo.length;
     document.getElementById('f-convContatos').textContent=tc;
-    document.getElementById('f-convConversas').textContent=tcv;
-    document.getElementById('f-convPropostas').textContent=tp;
     document.getElementById('f-convVendas').textContent=tvr;
-    document.getElementById('f-convConversasTotal').textContent=kpisTotal.conversas+' no total';
-    document.getElementById('f-convPropostasTotal').textContent=kpisTotal.propostas+' no total';
+    // 2026-08-25 (pedido do Felipe): o número GRANDE do card agora é o
+    // TOTAL (sem restrição de cohorte) — o restrito ao período vira o
+    // número pequeno, com a % sempre por baixo dos dois (só a % continua
+    // vindo do restrito, nunca do total).
+    document.getElementById('f-convConversas').textContent=tcv+' no período';
+    document.getElementById('f-convPropostas').textContent=tp+' no período';
+    document.getElementById('f-convConversasTotal').textContent=kpisTotal.conversas;
+    document.getElementById('f-convPropostasTotal').textContent=kpisTotal.propostas;
     document.getElementById('f-convContatoConversa').textContent=tc>0?((tcv/tc)*100).toFixed(1).replace('.',',')+' %':'—';
     document.getElementById('f-convConversaProposta').textContent=tcv>0?((tp/tcv)*100).toFixed(1).replace('.',',')+' %':'—';
     document.getElementById('f-convPropostaVenda').textContent=tp>0?((tvr/tp)*100).toFixed(1).replace('.',',')+' %':'—';
