@@ -8,6 +8,7 @@
   var vendedoresTodosMap = {}; // sem filtro por dono — pro dropdown de atribuição
   var clientesMap   = {};
   var servicosMapFunil = {};
+  var vendasRecords = []; // só pra alimentar "Taxas de conversão médias" (Vendas)
   var _initialized  = false;
   var _epoca=window.SGEpoca.criar();
   var sortState     = { col: 'dataProcesso', dir: 'desc' };
@@ -143,6 +144,21 @@
     });
   }
 
+  // Mesma exclusão de vendas do CEO/aporte de sócios já usada em Vendas
+  // (js/vendas.js) — pra "Vendas" bater igual nas duas telas.
+  var ID_CLIENTE_APORTE_SOCIOS='da6dbd89';
+  function vendaEhDeCEO(v){var vd=vendedoresMap[v.idVendedor];return !!(vd&&(vd.Tipo||'').trim().toLowerCase()==='ceo');}
+  function processVendasFunil(list){
+    var out=[];
+    list.forEach(function(o){
+      if(!o.IdVenda||o.IdCliente===ID_CLIENTE_APORTE_SOCIOS)return;
+      var dt=parseBRDate(o.DataVenda);
+      if(!dt)return;
+      out.push({idVenda:o.IdVenda,idCliente:o.IdCliente,idVendedor:o.IdVendedor,dt:dt,dateKey:dateKey(dt)});
+    });
+    return out;
+  }
+
   function processFunil(list){
     return list.map(function(o){
       var dt=parseBRDate(o.DataCriacao||o['Data Criacao']||o.Data||'');
@@ -221,7 +237,54 @@
     return{allPeriod:allPeriod,byStage:byStage};
   }
 
+  /**
+   * "Taxas de conversão médias" dentro do próprio Funil (2026-08-24, pedido
+   * do Felipe) — mesmo widget que já existia só em Vendas, agora também
+   * aqui, pro vendedor ver Novos Contatos/Conversas/Propostas/Vendas do
+   * PERÍODO/VENDEDOR filtrados nesta tela (f-dateFrom/f-dateTo/
+   * f-selVendedor), sem precisar trocar de tela.
+   *
+   * "Novos Contatos" filtra por r.dateKey (data de CRIAÇÃO do lead) — não
+   * por dataProcessoKey (que é o que o filtro dessa tela usa pro Kanban/
+   * tabela, baseado na ÚLTIMA movimentação) — mesma regra de sempre pra
+   * essa métrica (ver funil-crm.md). Por isso essa função lê o filtro
+   * direto dos inputs, em vez de reaproveitar getFiltered().
+   */
+  function renderKpisConversaoFunil(){
+    var widget=document.getElementById('f-conversaoWidget');
+    if(!widget)return; // tela ainda sem esse bloco no HTML (defensivo)
+    var from=(document.getElementById('f-dateFrom')||{}).value||'';
+    var to=(document.getElementById('f-dateTo')||{}).value||'';
+    var vend=(document.getElementById('f-selVendedor')||{}).value||'__all__';
+    var ETAPAS_PROPOSTA_VENDAS=['Negociação','Serviço Agendado','Ganho'];
+
+    var novosContatos=funilRecords.filter(function(r){
+      if(from&&r.dateKey<from)return false;
+      if(to&&r.dateKey>to)return false;
+      if(vend!=='__all__'&&r.idVendedor!==vend)return false;
+      return true;
+    });
+    var kpis=window.SGUtil.calcularConversasPropostas(novosContatos,from,to,ETAPAS_PROPOSTA_VENDAS);
+    var vendasNoPeriodo=vendasRecords.filter(function(v){
+      if(from&&v.dateKey<from)return false;
+      if(to&&v.dateKey>to)return false;
+      if(vend!=='__all__'){ if(v.idVendedor!==vend)return false; }
+      else if(vendaEhDeCEO(v))return false; // agregado nunca conta venda do CEO, igual em Vendas
+      return true;
+    });
+
+    var tc=novosContatos.length,tcv=kpis.conversas,tp=kpis.propostas,tvr=vendasNoPeriodo.length;
+    document.getElementById('f-convContatos').textContent=tc;
+    document.getElementById('f-convConversas').textContent=tcv;
+    document.getElementById('f-convPropostas').textContent=tp;
+    document.getElementById('f-convVendas').textContent=tvr;
+    document.getElementById('f-convContatoConversa').textContent=tc>0?((tcv/tc)*100).toFixed(1).replace('.',',')+' %':'—';
+    document.getElementById('f-convConversaProposta').textContent=tcv>0?((tp/tcv)*100).toFixed(1).replace('.',',')+' %':'—';
+    document.getElementById('f-convPropostaVenda').textContent=tp>0?((tvr/tp)*100).toFixed(1).replace('.',',')+' %':'—';
+  }
+
   function refreshKpisAndTable(){
+    renderKpisConversaoFunil();
     var f=getFiltered(),etapa=getEtapaAtiva(),etapaLabel=etapa==='__all__'?'todas as etapas':etapa;
     var total=f.allPeriod.length,count=f.byStage.length;
     var valor=f.byStage.reduce(function(s,r){return s+r.valor;},0);
@@ -1208,6 +1271,7 @@
   function aplicarDadosFunil(resp){
     var fVendedores=window.SGAuth?window.SGAuth.filterByOwner(resp.vendedores||[],'IdVendedor'):(resp.vendedores||[]);
     var fFunil=window.SGAuth?window.SGAuth.filterByOwner(resp.funil||[],'IdVendedor'):(resp.funil||[]);
+    var fVendas=window.SGAuth?window.SGAuth.filterByOwner(resp.vendas||[],'IdVendedor'):(resp.vendas||[]);
     vendedoresMap={};fVendedores.forEach(function(v){if(v.IdVendedor)vendedoresMap[v.IdVendedor]=v;});
     // Sem filtro por dono — usado só pro dropdown "atribuir a" no painel de edição,
     // já que qualquer vendedor pode passar um lead pra outro colega.
@@ -1221,6 +1285,7 @@
 
     funilRecords=processFunil(fFunil);
     enriquecerComSLA(funilRecords); // calcula dataProcesso/dataProcessoKey/dias/slaColor
+    vendasRecords=processVendasFunil(fVendas);
 
     populateVendedorSelect();setDefaultRange();
     document.getElementById('f-emptyState').style.display='none';document.getElementById('f-mainContent').style.display='block';
