@@ -17,6 +17,27 @@
   var sortState={col:'nome',dir:'asc'};
   var APP_VERSION='2026-07-16-1';
 
+  /**
+   * Escuta ao vivo da lista inteira (2026-08-25, mesmo padrão já testado no
+   * Funil e em Agendamentos no mesmo dia — ver segundo-cerebro/padroes/
+   * javascript-patterns.md, "Tela carrega uma vez, nunca mais atualiza
+   * sozinha"). Sem isso, editar/cadastrar um cliente por OUTRA sessão (outro
+   * admin, ou o próprio evento `sg:cliente-criado` de uma aba diferente) só
+   * aparecia aqui depois de um F5. Reprocessa a coleção inteira a cada
+   * mudança, não só o doc alterado — mais simples de acertar, custo
+   * desprezível na escala atual (pouco mais de 1000 clientes).
+   */
+  var unsubClientesAoVivo=null;
+  function iniciarEscutaAoVivoClientes(){
+    if(unsubClientesAoVivo)return;
+    if(typeof firebase==='undefined'||!firebase.firestore)return;
+    unsubClientesAoVivo=firebase.firestore().collection('clientes').onSnapshot(function(snap){
+      var lista=[]; snap.forEach(function(doc){ lista.push(doc.data()); });
+      clientes=lista;
+      render();
+    },function(err){ console.error('Escuta ao vivo de clientes falhou:',err); });
+  }
+
   function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
   function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
   function nomeVendedor(id){ var v=vendedoresMap[id]; return v?v.Nome:'—'; }
@@ -440,6 +461,7 @@
       });
     });
     carregar();
+    iniciarEscutaAoVivoClientes();
   }
 
   /**
