@@ -4,6 +4,9 @@
   var _epoca=window.SGEpoca.criar();
   var vendasRecords=[],custosVendaRecords=[],relatoriosRecords=[],funilRecords=[];
   var vendedoresMap={},clientesMap={},servicosMap={};
+  // Cliente cadastrado via "+ Cadastrar cliente" no Funil, na mesma sessão —
+  // sem isso, essa tela só enxergaria ele depois de recarregar a página.
+  document.addEventListener('sg:cliente-criado',function(e){ if(e.detail&&e.detail.IdCliente)clientesMap[e.detail.IdCliente]=e.detail; });
   var ID_VENDA_CUSTOS_ESCRITORIO='2b45b472';
   var ID_CLIENTE_APORTE_SOCIOS='da6dbd89';
   var APP_VERSION='2026-07-16-1';

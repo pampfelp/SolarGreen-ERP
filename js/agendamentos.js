@@ -3,6 +3,11 @@
   var _initialized=false;
   var _epoca=window.SGEpoca.criar();
   var agendamentos=[],clientesMap={},vendedoresMap={},servicosMap={},templatesPorServico={},templatesPorId={},respostasPorAgendamento={};
+  // Cliente cadastrado via "+ Cadastrar cliente" no Funil, na mesma sessão —
+  // bug real reportado (2026-08-24): sem isso, o cliente criado lá não
+  // aparecia pra selecionar num agendamento novo até recarregar a página,
+  // mesmo já estando salvo de verdade no Firestore.
+  document.addEventListener('sg:cliente-criado',function(e){ if(e.detail&&e.detail.IdCliente)clientesMap[e.detail.IdCliente]=e.detail; });
   var editandoId=null;
   var servicoOriginalEdicao=null;
   var paginaAtual=1;

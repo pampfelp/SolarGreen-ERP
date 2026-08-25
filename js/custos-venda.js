@@ -3,6 +3,9 @@
   var _initialized=false;
   var _epoca=window.SGEpoca.criar();
   var custos=[],vendas=[],clientesMap={},servicosMap={};
+  // Cliente cadastrado via "+ Cadastrar cliente" no Funil, na mesma sessão —
+  // sem isso, essa tela só enxergaria ele depois de recarregar a página.
+  document.addEventListener('sg:cliente-criado',function(e){ if(e.detail&&e.detail.IdCliente)clientesMap[e.detail.IdCliente]=e.detail; });
   var editandoId=null;
   var paginaAtual=1, ITENS_POR_PAGINA=10;
   var sortState={col:'data',dir:'desc'};

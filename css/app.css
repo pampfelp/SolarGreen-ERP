@@ -234,7 +234,7 @@
   .modal-overlay{position:fixed;inset:0;background:rgba(30,30,30,0.5);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px;}
   .hidden{display:none;}
   .modal-overlay.hidden{display:none;}
-  .modal-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);max-width:420px;width:100%;padding:26px 28px;box-shadow:0 20px 60px rgba(0,0,0,0.5);max-height:90vh;overflow-y:auto;}
+  .modal-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);max-width:520px;width:100%;padding:26px 28px;box-shadow:0 20px 60px rgba(0,0,0,0.5);max-height:90vh;overflow-y:auto;}
   .modal-card h3{font-family:var(--unbounded);font-size:16px;font-weight:700;margin-bottom:2px;color:var(--ink);}
   .modal-sub{font-size:12px;color:var(--ink-soft);margin-bottom:20px;}
   .modal-toggle-row{display:flex;align-items:center;justify-content:space-between;background:#f2f7f2;border-radius:8px;padding:12px 14px;margin-bottom:18px;border:1px solid var(--line);}
@@ -319,7 +319,7 @@
      só pra mobile, em vez de herdar o modal central. ── */
   .ad-backdrop{position:fixed;inset:0;background:rgba(0,20,10,.35);z-index:140;display:none;}
   .ad-backdrop.active{display:block;}
-  .side-panel{position:fixed;top:50%;left:50%;width:460px;max-width:calc(100vw - 40px);max-height:85vh;background:var(--panel);z-index:150;border-radius:var(--radius);box-shadow:0 20px 60px rgba(0,0,0,.5);transform:translate(-50%,-50%) scale(.96);opacity:0;pointer-events:none;transition:transform .18s ease,opacity .18s ease;display:flex;flex-direction:column;overflow:hidden;}
+  .side-panel{position:fixed;top:50%;left:50%;width:640px;max-width:calc(100vw - 40px);max-height:85vh;background:var(--panel);z-index:150;border-radius:var(--radius);box-shadow:0 20px 60px rgba(0,0,0,.5);transform:translate(-50%,-50%) scale(.96);opacity:0;pointer-events:none;transition:transform .18s ease,opacity .18s ease;display:flex;flex-direction:column;overflow:hidden;}
   .side-panel.active{transform:translate(-50%,-50%) scale(1);opacity:1;pointer-events:auto;}
   .side-panel .ad-top{background:var(--sidebar-bg);color:#fff;padding:16px 18px;display:flex;align-items:center;gap:12px;flex:none;}
   .side-panel .ad-top .ad-backbtn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);color:#fff;border-radius:9px;width:34px;height:34px;font-size:15px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;}
@@ -745,8 +745,15 @@
     .chart-wrap{height:150px;}
     .chart-card{padding:16px 16px;}
 
-    /* ── Modal de edição de ponto ── */
-    .modal-card{padding:20px 18px;max-width:100%;}
+    /* ── Modais de formulário (agendamento, cliente, venda, etc.) — tela
+       cheia no celular, mesmo tratamento do .side-panel (mais espaço pra
+       preencher formulário, igual combinado). Ficam de FORA de propósito
+       os diálogos pequenos e rápidos (confirmar exclusão, motivo de
+       cancelamento, aviso de OS enviada, meta individual) — não fazem
+       sentido esticados a tela inteira, continuam como um cartão
+       flutuante centralizado, só um pouco mais estreitos no celular. */
+    .modal-overlay:not(#sgConfirmModal):not(#motivoCancelamentoModal):not(#osEnviadaModal):not(#metaIndividualModal){padding:0;}
+    .modal-overlay:not(#sgConfirmModal):not(#motivoCancelamentoModal):not(#osEnviadaModal):not(#metaIndividualModal) .modal-card{width:100%;max-width:100%;height:100vh;max-height:100vh;border-radius:0;padding:20px 18px;}
   }
 
   @media(max-width:420px){

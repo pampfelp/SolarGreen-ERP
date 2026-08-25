@@ -955,6 +955,13 @@
 
     // adiciona na memória local e já seleciona no lead — sem esperar o servidor
     clientesMap[idCliente]={IdCliente:idCliente,Nome:nome,'Nome Razao Social':nome,Telefone:telefone,'Tipo Pessoa':tipoPessoa,CPFEquatorial:cpfEquatorial};
+    // Cliente criado aqui só existe no clientesMap PRÓPRIO do funil — Agendamentos/
+    // Planos/Vendas/Custos da Venda/Dashboard já carregaram a lista deles antes
+    // (cada tela busca uma vez só, sem escutar mudança de outra) e não iam
+    // enxergar esse cliente novo até a página recarregar (bug real: cliente
+    // criado aqui "sumia" na hora de agendar, só aparecia indo cadastrar nele
+    // de novo pela tela de Clientes). Avisa todo mundo que já estiver aberto.
+    document.dispatchEvent(new CustomEvent('sg:cliente-criado',{detail:clientesMap[idCliente]}));
     _epoca.marcar();
     document.getElementById('fd-cliente').value=idCliente;
     document.getElementById('fd-clienteBusca').value=nome;
