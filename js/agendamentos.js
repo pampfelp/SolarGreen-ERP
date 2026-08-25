@@ -55,6 +55,32 @@
     if(unsubDetalheAoVivo){ unsubDetalheAoVivo(); unsubDetalheAoVivo=null; }
   }
 
+  /**
+   * Escuta ao vivo da LISTA inteira (2026-08-25, bug real reportado pelo
+   * Felipe): o técnico marca uma OS como Concluído pelo app dele, o painel
+   * de detalhe (que já escutava ao vivo, função acima) mostrava "Concluído"
+   * certinho — mas a LISTA por trás continuava "Agendado", porque nada
+   * mandava a tabela redesenhar; ela só era montada uma vez, no carregamento
+   * da tela. Sintoma geral que o Felipe relatou ("precisamos apertar F5 com
+   * muita frequência") é esse mesmo problema, só que sem precisar abrir o
+   * painel de detalhe pra perceber. Corrigido com um onSnapshot permanente
+   * na coleção inteira (mesmo padrão já testado no Funil) — qualquer
+   * mudança, de qualquer origem (técnico, outro admin), atualiza a lista
+   * sozinha. Reprocessa a coleção INTEIRA a cada mudança, não só o doc
+   * alterado — mais simples de acertar, custo desprezível na escala atual
+   * (poucas centenas de agendamentos).
+   */
+  var unsubListaAoVivo=null;
+  function iniciarEscutaAoVivoLista(){
+    if(unsubListaAoVivo)return;
+    if(typeof firebase==='undefined'||!firebase.firestore)return;
+    unsubListaAoVivo=firebase.firestore().collection('agendamentos').onSnapshot(function(snap){
+      var lista=[]; snap.forEach(function(doc){ lista.push(doc.data()); });
+      agendamentos=lista;
+      render();
+    },function(err){ console.error('Escuta ao vivo da lista de agendamentos falhou:',err); });
+  }
+
   function apiCall(action,payload){ return window.SGAuth.apiCall(action,payload); }
   function meuId(){ return window.SGUtil.meuId(); }
   function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
@@ -1197,6 +1223,7 @@
     });
 
     carregar();
+    iniciarEscutaAoVivoLista();
   }
 
   /**
