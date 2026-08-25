@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=20260824j">
+<link rel="stylesheet" href="css/app.css?v=20260824k">
 </head>
 <body>
 
@@ -1167,27 +1167,41 @@
 
 <div class="modal-overlay hidden" id="usuarioModal">
   <div class="modal-card">
-    <h3 id="usuarioModalTitle">Editar usuário</h3>
-    <div class="modal-sub">Dados cadastrais e função de acesso.</div>
-    <div class="uform-msg" id="u-modalMsg"></div>
-    <div class="uform-field"><label>Nome</label><input type="text" id="u-nome" placeholder="Nome completo"></div>
-    <div class="uform-field"><label>E-mail</label><input type="email" id="u-email" placeholder="pessoa@solargreen.com.br"></div>
-    <div class="uform-field"><label>Telefone</label><input type="text" id="u-telefone" placeholder="(91) 90000-0000"></div>
-    <div class="uform-field">
-      <label>Função (Tipo)</label>
-      <input type="text" id="u-tipo" list="u-tipo-sugestoes" placeholder="Vendedor, Técnico, Admin, CEO…">
-      <datalist id="u-tipo-sugestoes">
-        <option value="Vendedor"><option value="Técnico"><option value="Admin"><option value="CEO"><option value="Gestor">
-      </datalist>
+    <div id="u-formWrap">
+      <h3 id="usuarioModalTitle">Editar usuário</h3>
+      <div class="modal-sub">Dados cadastrais e função de acesso.</div>
+      <div class="uform-msg" id="u-modalMsg"></div>
+      <div class="uform-field"><label>Nome</label><input type="text" id="u-nome" placeholder="Nome completo"></div>
+      <div class="uform-field"><label>E-mail</label><input type="email" id="u-email" placeholder="pessoa@solargreen.com.br"></div>
+      <div class="uform-field"><label>Telefone</label><input type="text" id="u-telefone" placeholder="(91) 90000-0000"></div>
+      <div class="uform-field">
+        <label>Função (Tipo)</label>
+        <input type="text" id="u-tipo" list="u-tipo-sugestoes" placeholder="Vendedor, Técnico, Admin, CEO…">
+        <datalist id="u-tipo-sugestoes">
+          <option value="Vendedor"><option value="Técnico"><option value="Admin"><option value="CEO"><option value="Gestor">
+        </datalist>
+      </div>
+      <div class="uform-field">
+        <label>Status</label>
+        <select id="u-status"><option value="Ativo">Ativo</option><option value="Inativo">Inativo</option></select>
+      </div>
+      <p class="modal-note" id="u-notaSenha">A senha não é editada aqui — cada pessoa cria a própria pelo login (senha padrão ou "Esqueci minha senha").</p>
+      <div class="modal-actions">
+        <button class="reset-btn" id="u-cancelBtn">Cancelar</button>
+        <button class="connect-btn" id="u-salvarBtn">Salvar</button>
+      </div>
     </div>
-    <div class="uform-field">
-      <label>Status</label>
-      <select id="u-status"><option value="Ativo">Ativo</option><option value="Inativo">Inativo</option></select>
-    </div>
-    <p class="modal-note">A senha não é editada aqui — cada pessoa cria a própria pelo login (senha padrão ou "Esqueci minha senha").</p>
-    <div class="modal-actions">
-      <button class="reset-btn" id="u-cancelBtn">Cancelar</button>
-      <button class="connect-btn" id="u-salvarBtn">Salvar</button>
+    <div id="u-sucessoWrap" class="hidden">
+      <h3>Usuário criado</h3>
+      <p class="modal-note" id="u-sucessoTexto" style="font-size:14px;color:var(--ink);margin:14px 0;"></p>
+      <div class="modal-note" style="background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:14px 16px;text-align:center;margin-bottom:16px;">
+        <div style="font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;">Senha de primeiro acesso</div>
+        <div id="u-sucessoSenha" style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--ink);"></div>
+      </div>
+      <p class="modal-note">Repasse essa senha pra pessoa — no primeiro login o sistema já vai pedir pra ela criar a própria senha.</p>
+      <div class="modal-actions">
+        <button class="connect-btn" id="u-sucessoFecharBtn" style="width:100%;">Entendi</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1671,25 +1685,25 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="js/firebase-init.js?v=20260824j"></script>
-<script src="js/firestore-router.js?v=20260824j"></script>
-<script src="js/sg-auth.js?v=20260824j"></script>
-<script src="js/dashboard.js?v=20260824j"></script>
-<script src="js/ponto.js?v=20260824j"></script>
-<script src="js/vendas.js?v=20260824j"></script>
-<script src="js/funil.js?v=20260824j"></script>
-<script src="js/agendamentos.js?v=20260824j"></script>
-<script src="js/clientes.js?v=20260824j"></script>
-<script src="js/relatorios.js?v=20260824j"></script>
-<script src="js/custos-venda.js?v=20260824j"></script>
-<script src="js/custo-recorrente.js?v=20260824j"></script>
-<script src="js/servicos.js?v=20260824j"></script>
-<script src="js/catalogo.js?v=20260824j"></script>
-<script src="js/metas.js?v=20260824j"></script>
-<script src="js/planos.js?v=20260824j"></script>
-<script src="js/usuarios.js?v=20260824j"></script>
-<script src="js/permissoes.js?v=20260824j"></script>
-<script src="js/controller.js?v=20260824j"></script>
+<script src="js/firebase-init.js?v=20260824k"></script>
+<script src="js/firestore-router.js?v=20260824k"></script>
+<script src="js/sg-auth.js?v=20260824k"></script>
+<script src="js/dashboard.js?v=20260824k"></script>
+<script src="js/ponto.js?v=20260824k"></script>
+<script src="js/vendas.js?v=20260824k"></script>
+<script src="js/funil.js?v=20260824k"></script>
+<script src="js/agendamentos.js?v=20260824k"></script>
+<script src="js/clientes.js?v=20260824k"></script>
+<script src="js/relatorios.js?v=20260824k"></script>
+<script src="js/custos-venda.js?v=20260824k"></script>
+<script src="js/custo-recorrente.js?v=20260824k"></script>
+<script src="js/servicos.js?v=20260824k"></script>
+<script src="js/catalogo.js?v=20260824k"></script>
+<script src="js/metas.js?v=20260824k"></script>
+<script src="js/planos.js?v=20260824k"></script>
+<script src="js/usuarios.js?v=20260824k"></script>
+<script src="js/permissoes.js?v=20260824k"></script>
+<script src="js/controller.js?v=20260824k"></script>
 
 <div id="sg-install-banner">
   <span class="sg-ib-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>

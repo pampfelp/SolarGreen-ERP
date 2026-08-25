@@ -70,6 +70,8 @@
   function openModal(idVendedor){
     editandoId=idVendedor||null;
     showMsg('');
+    document.getElementById('u-formWrap').classList.remove('hidden');
+    document.getElementById('u-sucessoWrap').classList.add('hidden');
     var u=idVendedor?usuarios.filter(function(x){return String(x.IdVendedor)===String(idVendedor);})[0]:null;
     document.getElementById('usuarioModalTitle').textContent=u?'Editar usuário':'Novo usuário';
     document.getElementById('u-nome').value=u?(u.Nome||''):'';
@@ -77,9 +79,68 @@
     document.getElementById('u-telefone').value=u?(u.Telefone||''):'';
     document.getElementById('u-tipo').value=u?(u.Tipo||''):'';
     document.getElementById('u-status').value=(u&&u.Status)||'Ativo';
+    document.getElementById('u-notaSenha').style.display=u?'block':'none';
     document.getElementById('usuarioModal').classList.remove('hidden');
   }
   function closeModal(){ document.getElementById('usuarioModal').classList.add('hidden'); editandoId=null; }
+
+  // Senha compartilhada de primeiro acesso — mesma usada nas 8 contas
+  // criadas em 2026-08-24 (ver segundo cérebro). Todo mundo passa pela
+  // tela "Crie sua senha" no primeiro login (SenhaTemporaria:true),
+  // então não precisa ser secreta nem única por pessoa.
+  var SENHA_PADRAO='SolarGreen@2026';
+
+  // Cria a conta de login (Firebase Auth) e o cadastro (Firestore) juntos —
+  // pedido do Felipe (2026-08-24): antes, "Novo usuário" só gravava o
+  // Firestore, sem nenhuma conta de verdade pra pessoa entrar (só editar
+  // um usuário JÁ existente funcionava). Usa uma instância SECUNDÁRIA do
+  // Firebase pra criar a conta sem derrubar a sessão de quem tá logado
+  // criando (senão o createUserWithEmailAndPassword trocaria a sessão
+  // ativa pra da pessoa recém-criada).
+  function criarNovoUsuarioComLogin(nome,email,telefone,tipo,status){
+    var salvarBtn=document.getElementById('u-salvarBtn');
+    salvarBtn.disabled=true; salvarBtn.textContent='Criando…';
+    var db=firebase.firestore();
+    db.collection('vendedores').where('Email','==',email).limit(1).get().then(function(snap){
+      var legado=snap.empty?null:snap.docs[0];
+      var appSecundario=firebase.apps.filter(function(a){return a.name==='sg-criar-usuario';})[0]
+        ||firebase.initializeApp(firebase.app().options,'sg-criar-usuario');
+      var authSecundario=appSecundario.auth();
+      return authSecundario.createUserWithEmailAndPassword(email,SENHA_PADRAO).then(function(cred){
+        var uid=cred.user.uid;
+        return authSecundario.signOut().then(function(){
+          if(legado){
+            // Já existe cadastro com esse e-mail (ex.: vendedor migrado da
+            // planilha, nunca tinha logado) — não duplica nem move: só
+            // marca SenhaTemporaria, o login já sabe achar esse registro
+            // pelo e-mail e usar o ID dele (ver js/sg-auth.js), preservando
+            // todo o histórico que já referencia esse ID antigo.
+            return legado.ref.set({Nome:nome,Telefone:telefone,Tipo:tipo,Status:status,SenhaTemporaria:true},{merge:true})
+              .then(function(){ return {reaproveitou:true}; });
+          }
+          var doc={IdVendedor:uid,Nome:nome,Email:email,Telefone:telefone,Tipo:tipo,Status:status,SenhaTemporaria:true};
+          return db.collection('vendedores').doc(uid).set(doc).then(function(){ return {reaproveitou:false}; });
+        });
+      });
+    }).then(function(resultado){
+      salvarBtn.disabled=false; salvarBtn.textContent='Salvar';
+      document.getElementById('u-formWrap').classList.add('hidden');
+      document.getElementById('u-sucessoWrap').classList.remove('hidden');
+      document.getElementById('u-sucessoTexto').textContent=resultado.reaproveitou
+        ?('Já existia um cadastro de '+nome+' (histórico mantido) — agora com login habilitado.')
+        :(nome+' já pode entrar no sistema.');
+      document.getElementById('u-sucessoSenha').textContent=SENHA_PADRAO;
+      carregar();
+    }).catch(function(err){
+      salvarBtn.disabled=false; salvarBtn.textContent='Salvar';
+      var msg=err.code==='auth/email-already-in-use'
+        ?'Já existe uma CONTA DE LOGIN com esse e-mail — a pessoa já consegue entrar, não precisa criar de novo.'
+        :err.code==='auth/invalid-email'
+        ?'E-mail inválido.'
+        :'Não foi possível criar: '+(err.message||err.code);
+      showMsg(msg,'error');
+    });
+  }
 
   function salvar(){
     var nome=document.getElementById('u-nome').value.trim();
@@ -89,39 +150,37 @@
     var status=document.getElementById('u-status').value;
     if(!nome||!email){ showMsg('Nome e e-mail são obrigatórios.','error'); return; }
 
-    var ehNovo=!editandoId;
-    var idAlvo=editandoId||window.SGId.gerar();
-    var registroAnteriorCopia=!ehNovo?Object.assign({},usuarios.filter(function(x){return String(x.IdVendedor)===String(idAlvo);})[0]):null;
+    if(!editandoId){ criarNovoUsuarioComLogin(nome,email,telefone,tipo,status); return; }
+
+    // Edição de usuário já existente — otimista, igual ao resto do sistema
+    // (criar conta nova é o caso especial acima, tratado à parte porque
+    // depende do Firebase Auth responder antes de saber o ID de verdade).
+    var idAlvo=editandoId;
+    var registroAnteriorCopia=Object.assign({},usuarios.filter(function(x){return String(x.IdVendedor)===String(idAlvo);})[0]);
 
     var registroNovo={IdVendedor:idAlvo,Nome:nome,Email:email,Telefone:telefone,Tipo:tipo,Status:status};
     var indice=usuarios.findIndex(function(x){return String(x.IdVendedor)===String(idAlvo);});
-    if(indice===-1)usuarios.push(registroNovo);
-    else usuarios[indice]=registroNovo;
+    if(indice!==-1)usuarios[indice]=registroNovo;
     _epoca.marcar();
 
     closeModal();
     render();
-    (window.SGToast?window.SGToast.mostrar:function(t){})(ehNovo?'Usuário criado.':'Usuário atualizado.');
+    (window.SGToast?window.SGToast.mostrar:function(t){})('Usuário atualizado.');
 
     apiCall('salvarVendedor',{
       solicitanteId:meuId(), idVendedor:idAlvo,
       nome:nome, email:email, telefone:telefone, tipo:tipo, status:status
     }).then(function(resp){
       if(!resp||!resp.ok){
-        if(ehNovo)usuarios=usuarios.filter(function(x){return String(x.IdVendedor)!==String(idAlvo);});
-        else{ var idx=usuarios.findIndex(function(x){return String(x.IdVendedor)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)usuarios[idx]=registroAnteriorCopia; }
+        var idx=usuarios.findIndex(function(x){return String(x.IdVendedor)===String(idAlvo);});
+        if(idx!==-1)usuarios[idx]=registroAnteriorCopia;
         _epoca.marcar();
         render();
         (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})((resp&&resp.erro)||'Não foi possível salvar — a alteração foi desfeita.',true);
-        return;
-      }
-      if(resp.idVendedor&&String(resp.idVendedor)!==String(idAlvo)){
-        var idx2=usuarios.findIndex(function(x){return String(x.IdVendedor)===String(idAlvo);});
-        if(idx2!==-1){ usuarios[idx2].IdVendedor=resp.idVendedor; render(); }
       }
     }).catch(function(err){
-      if(ehNovo)usuarios=usuarios.filter(function(x){return String(x.IdVendedor)!==String(idAlvo);});
-      else{ var idx=usuarios.findIndex(function(x){return String(x.IdVendedor)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)usuarios[idx]=registroAnteriorCopia; }
+      var idx=usuarios.findIndex(function(x){return String(x.IdVendedor)===String(idAlvo);});
+      if(idx!==-1)usuarios[idx]=registroAnteriorCopia;
       render();
       (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Erro de conexão — a alteração foi desfeita: '+err.message,true);
     });
@@ -135,6 +194,7 @@
     document.getElementById('u-novoBtn').addEventListener('click',function(){ openModal(null); });
     document.getElementById('u-cancelBtn').addEventListener('click',closeModal);
     document.getElementById('u-salvarBtn').addEventListener('click',salvar);
+    document.getElementById('u-sucessoFecharBtn').addEventListener('click',closeModal);
     document.getElementById('usuarioModal').addEventListener('click',function(e){ if(e.target.id==='usuarioModal')closeModal(); });
     carregar();
   }
