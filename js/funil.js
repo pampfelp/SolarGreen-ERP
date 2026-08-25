@@ -268,6 +268,19 @@
       return true;
     });
     var kpis=window.SGUtil.calcularConversasPropostas(novosContatos,from,to,ETAPAS_PROPOSTA_VENDAS);
+    // "Total" (2026-08-25, pedido do Felipe): mesma conta, só que sem
+    // restringir aos leads CRIADOS no período — qualquer lead (de qualquer
+    // data de criação) que teve uma conversa/proposta de verdade dentro do
+    // período filtrado entra aqui. A % continua vindo só do número
+    // restrito (kpis) — o total é só informativo, pra mostrar "quanto o
+    // time trabalhou no período", sem virar taxa (virar taxa é o que
+    // inflava o percentual pra mais de 100% em períodos curtos, ver
+    // funil-crm.md).
+    var todosDoVendedor=funilRecords.filter(function(r){
+      if(vend!=='__all__'&&r.idVendedor!==vend)return false;
+      return true;
+    });
+    var kpisTotal=window.SGUtil.calcularConversasPropostas(todosDoVendedor,from,to,ETAPAS_PROPOSTA_VENDAS);
     var vendasNoPeriodo=vendasRecords.filter(function(v){
       if(from&&v.dateKey<from)return false;
       if(to&&v.dateKey>to)return false;
@@ -281,11 +294,13 @@
     document.getElementById('f-convConversas').textContent=tcv;
     document.getElementById('f-convPropostas').textContent=tp;
     document.getElementById('f-convVendas').textContent=tvr;
+    document.getElementById('f-convConversasTotal').textContent=kpisTotal.conversas+' no total';
+    document.getElementById('f-convPropostasTotal').textContent=kpisTotal.propostas+' no total';
     document.getElementById('f-convContatoConversa').textContent=tc>0?((tcv/tc)*100).toFixed(1).replace('.',',')+' %':'—';
     document.getElementById('f-convConversaProposta').textContent=tcv>0?((tp/tcv)*100).toFixed(1).replace('.',',')+' %':'—';
     document.getElementById('f-convPropostaVenda').textContent=tp>0?((tvr/tp)*100).toFixed(1).replace('.',',')+' %':'—';
 
-    ligarDrillDownKpisFunil(novosContatos,kpis,vendasNoPeriodo);
+    ligarDrillDownKpisFunil(novosContatos,kpis,todosDoVendedor,kpisTotal,vendasNoPeriodo);
   }
 
   /**
@@ -295,10 +310,15 @@
    * "Conversas"/"Propostas" vêm de `kpis.conversaLista`/`propostaLista`
    * (cada item é {leadId,dia,etapa} — ver SGUtil.calcularConversasPropostas),
    * então precisa de um lookup leadId->lead pra achar cliente/vendedor.
+   * `kpisTotal`/`todosDoVendedor` alimentam o número "X no total" (2026-08-25)
+   * — mesmo drill-down, só que sobre TODOS os leads, não só os criados no
+   * período.
    */
-  function ligarDrillDownKpisFunil(novosContatos,kpis,vendasNoPeriodo){
+  function ligarDrillDownKpisFunil(novosContatos,kpis,todosDoVendedor,kpisTotal,vendasNoPeriodo){
     var leadsById={};
     novosContatos.forEach(function(r){ leadsById[r.id]=r; });
+    var todosLeadsById={};
+    todosDoVendedor.forEach(function(r){ todosLeadsById[r.id]=r; });
 
     document.getElementById('f-convContatos').onclick=function(){
       var linhas=novosContatos.map(function(r){
@@ -311,14 +331,28 @@
         var r=leadsById[item.leadId];
         return [r?nomeClienteFor(r.idCliente):'—',r?nomeFor(r.idVendedor):'—',fmtDateBR(new Date(item.dia+'T00:00:00')),item.etapa];
       });
-      window.SGListaModal.abrir({titulo:'Conversas',subtitulo:linhas.length+' conversa(s) — no máx. 1 por lead, por dia',colunas:['Cliente','Vendedor','Dia da conversa','Etapa'],linhas:linhas});
+      window.SGListaModal.abrir({titulo:'Conversas',subtitulo:linhas.length+' conversa(s) — só leads criados no período (no máx. 1 por lead, por dia)',colunas:['Cliente','Vendedor','Dia da conversa','Etapa'],linhas:linhas});
     };
     document.getElementById('f-convPropostas').onclick=function(){
       var linhas=kpis.propostaLista.map(function(item){
         var r=leadsById[item.leadId];
         return [r?nomeClienteFor(r.idCliente):'—',r?nomeFor(r.idVendedor):'—',fmtDateBR(new Date(item.dia+'T00:00:00')),item.etapa];
       });
-      window.SGListaModal.abrir({titulo:'Propostas',subtitulo:linhas.length+' proposta(s) — no máx. 1 por lead, por dia',colunas:['Cliente','Vendedor','Dia da proposta','Etapa'],linhas:linhas});
+      window.SGListaModal.abrir({titulo:'Propostas',subtitulo:linhas.length+' proposta(s) — só leads criados no período (no máx. 1 por lead, por dia)',colunas:['Cliente','Vendedor','Dia da proposta','Etapa'],linhas:linhas});
+    };
+    document.getElementById('f-convConversasTotal').onclick=function(){
+      var linhas=kpisTotal.conversaLista.map(function(item){
+        var r=todosLeadsById[item.leadId];
+        return [r?nomeClienteFor(r.idCliente):'—',r?nomeFor(r.idVendedor):'—',fmtDateBR(new Date(item.dia+'T00:00:00')),item.etapa];
+      });
+      window.SGListaModal.abrir({titulo:'Conversas — total do período',subtitulo:linhas.length+' conversa(s), qualquer lead (não só os criados no período)',colunas:['Cliente','Vendedor','Dia da conversa','Etapa'],linhas:linhas});
+    };
+    document.getElementById('f-convPropostasTotal').onclick=function(){
+      var linhas=kpisTotal.propostaLista.map(function(item){
+        var r=todosLeadsById[item.leadId];
+        return [r?nomeClienteFor(r.idCliente):'—',r?nomeFor(r.idVendedor):'—',fmtDateBR(new Date(item.dia+'T00:00:00')),item.etapa];
+      });
+      window.SGListaModal.abrir({titulo:'Propostas — total do período',subtitulo:linhas.length+' proposta(s), qualquer lead (não só os criados no período)',colunas:['Cliente','Vendedor','Dia da proposta','Etapa'],linhas:linhas});
     };
     document.getElementById('f-convVendas').onclick=function(){
       var linhas=vendasNoPeriodo.map(function(v){

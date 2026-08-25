@@ -541,6 +541,9 @@
   .funnel-step .num.clicavel{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:4px;}
   .funnel-step .num.clicavel:hover{color:var(--accent-deep,var(--accent));}
   .funnel-step .conv{font-size:12px;color:var(--accent);margin-top:6px;font-weight:600;}
+  .funnel-step .num-total{font-size:11px;color:var(--ink-faint);margin-top:4px;}
+  .funnel-step .num-total.clicavel{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;}
+  .funnel-step .num-total.clicavel:hover{color:var(--accent-deep,var(--accent));}
   .funnel-step .arrow{position:absolute;right:-10px;top:50%;transform:translateY(-50%);width:20px;height:20px;background:var(--bg);border:1px solid var(--line);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--accent);z-index:2;}
   .forecast-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
   .forecast-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;}
