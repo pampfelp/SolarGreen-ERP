@@ -16,9 +16,9 @@
   var API_URL_KEY='ponto_api_url',API_KEY_KEY='ponto_api_key';
   var DEFAULT_API_URL='https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA34xrlLTVUUNhKBIlguJT3ectH7Yus-VW1n41GcCclc5q_Yj0Di2O7g/exec';
   var DEFAULT_API_KEY='1234';
-  var ID_VENDA_CUSTOS_ESCRITORIO='2b45b472';
   var ID_CLIENTE_APORTE_SOCIOS='da6dbd89'; // Cliente Teste 1 — aporte de sócios, não conta como faturamento/meta
   var vendasRecordsFaturamento=[];
+  var vendasEscritorioIds={}; // idVenda -> true, pra qualquer venda "gaveta" do Cliente Teste 1 (custo de escritório lançado nela)
   var APP_VERSION='2026-07-16-1';
   document.getElementById('v-appVersion').textContent='v'+APP_VERSION;
   document.getElementById('appVersionFoot').textContent=APP_VERSION;
@@ -190,14 +190,14 @@
     // Custos de OPERAÇÃO pertencem a uma venda — então seguem o vendedor/serviço/data
     // DESSA venda (cada serviço/vendedor carrega o custo do que ele mesmo gerou).
     var custosOperacao=custosVendaRecords.filter(function(c){
-      if(c.idVenda===ID_VENDA_CUSTOS_ESCRITORIO)return false;
+      if(vendasEscritorioIds[c.idVenda])return false;
       if((c.status||'').trim().toLowerCase()!=='pago')return false;
       return !!vendaIds[c.idVenda];
     });
     // Custo de ESCRITÓRIO é despesa geral da empresa — não pertence a nenhum
     // vendedor/serviço específico, então só respeita o filtro de data.
     var custosEscritorio=custosVendaRecords.filter(function(c){
-      if(c.idVenda!==ID_VENDA_CUSTOS_ESCRITORIO)return false;
+      if(!vendasEscritorioIds[c.idVenda])return false;
       if((c.status||'').trim().toLowerCase()!=='pago')return false;
       if(c.dateKey){if(from&&c.dateKey<from)return false;if(to&&c.dateKey>to)return false;}
       return true;
@@ -950,6 +950,10 @@
     // de verdade — continuam aparecendo na lista/histórico, mas não entram em
     // nenhuma conta de faturamento, ticket médio ou meta.
     vendasRecordsFaturamento=vendasRecords.filter(function(v){return v.idCliente!==ID_CLIENTE_APORTE_SOCIOS;});
+    // Qualquer venda lançada sob o Cliente Teste 1 é uma "gaveta" de custo de
+    // escritório, não só uma canônica — sem isso, custo lançado numa
+    // venda-gaveta diferente contava como custo de venda real.
+    vendasEscritorioIds={};vendasRecords.forEach(function(v){if(v.idCliente===ID_CLIENTE_APORTE_SOCIOS)vendasEscritorioIds[v.idVenda]=true;});
     populateSelects();setDefaultDateRange();
     document.getElementById('v-emptyState').style.display='none';document.getElementById('v-mainContent').style.display='block';render();
     setSyncPill('ok','Sincronizado');

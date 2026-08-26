@@ -7,8 +7,8 @@
   // Cliente cadastrado via "+ Cadastrar cliente" no Funil, na mesma sessão —
   // sem isso, essa tela só enxergaria ele depois de recarregar a página.
   document.addEventListener('sg:cliente-criado',function(e){ if(e.detail&&e.detail.IdCliente)clientesMap[e.detail.IdCliente]=e.detail; });
-  var ID_VENDA_CUSTOS_ESCRITORIO='2b45b472';
   var ID_CLIENTE_APORTE_SOCIOS='da6dbd89';
+  var vendasEscritorioIds={}; // idVenda -> true, pra qualquer venda "gaveta" do Cliente Teste 1 (custo de escritório lançado nela)
   var APP_VERSION='2026-07-16-1';
   var chartAnchorDay=null;
 
@@ -36,9 +36,9 @@
     var vendasTodas=vendasRecords.filter(passa);
     var vendasFat=vendasTodas.filter(function(v){return v.idCliente!==ID_CLIENTE_APORTE_SOCIOS;});
     var vendaIds={}; vendasTodas.forEach(function(v){vendaIds[v.idVenda]=true;});
-    var custosOp=custosVendaRecords.filter(function(c){ return c.idVenda!==ID_VENDA_CUSTOS_ESCRITORIO && c.status.toLowerCase()==='pago' && vendaIds[c.idVenda]; });
+    var custosOp=custosVendaRecords.filter(function(c){ return !vendasEscritorioIds[c.idVenda] && c.status.toLowerCase()==='pago' && vendaIds[c.idVenda]; });
     var custosEsc=custosVendaRecords.filter(function(c){
-      if(c.idVenda!==ID_VENDA_CUSTOS_ESCRITORIO)return false;
+      if(!vendasEscritorioIds[c.idVenda])return false;
       if(c.status.toLowerCase()!=='pago')return false;
       if(c.dateKey){ if(from&&c.dateKey<from)return false; if(to&&c.dateKey>to)return false; }
       return true;
@@ -299,6 +299,10 @@
     clientesMap={}; (vendasResp.clientes||[]).forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
     servicosMap={}; (vendasResp.servicos||[]).forEach(function(s){if(s.IdServico)servicosMap[s.IdServico]=s;});
     vendasRecords=processVendas(vendasResp.vendas||[]);
+    // Qualquer venda lançada sob o Cliente Teste 1 é uma "gaveta" de custo de
+    // escritório, não só uma canônica — sem isso, custo lançado numa
+    // venda-gaveta diferente contava como custo de venda real.
+    vendasEscritorioIds={};vendasRecords.forEach(function(v){if(v.idCliente===ID_CLIENTE_APORTE_SOCIOS)vendasEscritorioIds[v.idVenda]=true;});
     custosVendaRecords=processCustosVenda(vendasResp.custosVenda||[]);
     relatoriosRecords=processRelatorios((relatoriosResp&&relatoriosResp.relatorios)||[]);
     funilRecords=processFunil((funilResp&&funilResp.funil)||[]);
