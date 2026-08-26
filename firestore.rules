@@ -80,6 +80,11 @@ service cloud.firestore {
     match /ponto_overrides/{id} {
       allow read, write: if isSignedIn();
     }
+    // Gerador de Proposta (legado/proposta.html) — 2026-08-25, passou a ler
+    // o Firestore de verdade em vez do Apps Script antigo (desativado).
+    match /propostas/{id} {
+      allow read, write: if isSignedIn();
+    }
 
     // Tudo o que não faz parte desse piloto fica fechado por padrão.
     match /{document=**} {
