@@ -48,6 +48,30 @@
       .catch(function(err){ return {ok:false,erro:err.message}; });
   }
 
+  /**
+   * Usada só pelo Gerador de Proposta (legado/proposta.html, 2026-08-25) —
+   * ele conhece só um subconjunto dos campos do cliente (nome/cpf/endereco/
+   * email/cpfEquatorial/dataNascimentoEquatorial, sem telefone/tipoPessoa/
+   * statusCliente/vendedorResponsavel). Por isso usa `{merge:true}` em vez
+   * do `.set()` sem merge de salvarCliente — salvarCliente sobrescreveria o
+   * doc inteiro e apagaria os campos que essa tela nem conhece.
+   */
+  function updateCliente(p){
+    var id=p.idCliente;
+    if(!id) return Promise.resolve({ok:false,erro:'idCliente é obrigatório.'});
+    var patch=semUndefined({
+      'Nome Razao Social':p.nome,
+      'CPF ou CNPJ':p.cpf,
+      Endereco:p.endereco,
+      Email:p.email,
+      CPFEquatorial:p.cpfEquatorial,
+      DataNascimentoEquatorial:p.dataNascimentoEquatorial
+    });
+    return db().collection('clientes').doc(id).set(patch,{merge:true})
+      .then(function(){ return {ok:true,idCliente:id}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+
   function getVendasData(){
     // funil entra aqui pra alimentar as taxas de conversão médias (Novos
     // Contatos/Conversas/Propostas) direto da movimentação real do funil, em
@@ -134,6 +158,41 @@
     return db().collection('funil').doc(p.idOportunidade).delete()
       .then(function(){ return {ok:true}; })
       .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+
+  /**
+   * Propostas (legado/proposta.html, 2026-08-25 — coleção nova, a aba
+   * "Propostas" da planilha nunca tinha sido migrada porque não existia
+   * tela nenhuma que a usasse de verdade até agora). `Blocos` é gravado
+   * como STRING (JSON.stringify) porque é assim que o gerador de proposta
+   * já lê de volta (JSON.parse(p.Blocos||'[]')) — manter esse formato em
+   * vez de virar array de verdade evita ter que mexer na tela também.
+   */
+  function getPropostas(p){
+    if(p&&p.id){
+      return db().collection('propostas').doc(p.id).get().then(function(doc){
+        return {ok:true, proposta:doc.exists?doc.data():null};
+      }).catch(function(err){ return {ok:false, erro:err.message}; });
+    }
+    return getColecao('propostas').then(function(lista){
+      return {ok:true, propostas:lista};
+    }).catch(function(err){ return {ok:false, erro:err.message}; });
+  }
+
+  function salvarProposta(p){
+    var criando=!p.id;
+    var id=p.id||(window.SGId?window.SGId.gerar():String(Date.now()));
+    var ref=db().collection('propostas').doc(id);
+    var doc=semUndefined({
+      IdProposta:id, Numero:p.numero, Data:p.data, IdOportunidade:p.idOportunidade,
+      NomeCliente:p.nomeCliente, IdVendedor:p.idVendedor, NomeVendedor:p.nomeVendedor,
+      TotalServicos:p.totalServicos, TotalDeslocamento:p.totalDeslocamento, Total:p.total,
+      Blocos:JSON.stringify(p.blocos||[]), Observacoes:p.observacoes, Status:p.status,
+      LinkProposta:(p.baseUrl||'')+'?propostaId='+id
+    });
+    return ref.set(doc,{merge:true})
+      .then(function(){ return {ok:true, id:id, link:doc.LinkProposta, acao:criando?'criado':'atualizado'}; })
+      .catch(function(err){ return {ok:false, erro:err.message}; });
   }
 
   function paraNumero(v){
@@ -558,6 +617,7 @@
   window.SGFireActions={
     getClientesData:comAuthPronto(getClientesData),
     salvarCliente:comSync('clientes',function(p){return p.nome||p.idCliente;},comAuthPronto(salvarCliente)),
+    updateCliente:comSync('clientes',function(p){return p.nome||p.idCliente;},comAuthPronto(updateCliente)),
     excluirCliente:comSync('clientes',function(p){return 'excluir '+p.idCliente;},comAuthPronto(excluirCliente)),
     getVendasData:comAuthPronto(getVendasData),
     salvarVenda:comSync('vendas',function(p){return 'venda de R$ '+(p.valor||0);},comAuthPronto(salvarVenda)),
@@ -565,6 +625,8 @@
     getFunilData:comAuthPronto(getFunilData),
     salvarFunil:comSync('funil',function(p){return 'lead ('+(p.etapa||'')+')';},comAuthPronto(salvarFunil)),
     excluirFunil:comSync('funil',function(p){return 'excluir '+p.idOportunidade;},comAuthPronto(excluirFunil)),
+    getProposals:comAuthPronto(getPropostas),
+    saveProposal:comSync('propostas',function(p){return p.nomeCliente||p.numero||'';},comAuthPronto(salvarProposta)),
 
     listVendedoresAdmin:comAuthPronto(listVendedoresAdmin),
     salvarVendedor:comSync('vendedores',function(p){return p.nome||p.idVendedor;},comAuthPronto(salvarVendedor)),

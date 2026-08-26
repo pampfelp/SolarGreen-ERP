@@ -314,12 +314,29 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 </head>
 <body>
 
+<script>
+// Trava/redireciona ANTES do resto renderizar — essa página não tem tela de
+// login própria (2026-08-25: passou a ler o Firestore, mesma sessão do
+// painel principal, em vez do link+chave do Apps Script antigo, que já foi
+// desativado). Sem sessão válida, manda pro login de verdade em vez de
+// mostrar a tela vazia/quebrada.
+(function(){
+  try{
+    var raw=localStorage.getItem('sg_auth_session');
+    var session=raw?JSON.parse(raw):null;
+    var valido=session&&session.idVendedor&&session.expiresAt&&Date.now()<session.expiresAt;
+    if(valido){ window.SG_SESSION=session; }
+    else{ window.location.replace('../index.html'); }
+  }catch(e){ window.location.replace('../index.html'); }
+})();
+</script>
+
 <div class="pg-header">
   <div>
     <h1>Gerador de <span>Proposta</span></h1>
     <div class="sub">Solar Green Suporte · Plano Anual, serviços avulsos, cálculo de perda</div>
   </div>
-  <a class="back-link" href="index.html">&#8592; Voltar ao Dashboard</a>
+  <a class="back-link" href="../index.html">&#8592; Voltar ao Dashboard</a>
 </div>
 
 <div class="tab-bar">
@@ -331,14 +348,8 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 
 <div id="connectWrap" class="connect-wrap-pad">
   <div class="connect-card">
-    <h2>Conectar à planilha</h2>
-    <div class="sub">Mesmas credenciais do dashboard principal</div>
-    <div class="connect-row">
-      <div class="connect-field"><label>Link da web app</label><input type="text" id="apiUrl" placeholder="https://script.google.com/macros/s/.../exec"></div>
-      <div class="connect-field" style="max-width:220px;"><label>Chave secreta</label><input type="password" id="apiKey" placeholder="sua chave"></div>
-      <button class="btn btn-primary" id="connectBtn" style="align-self:flex-end;">Conectar</button>
-    </div>
-    <div class="connect-status" id="connectStatus" style="display:none;"><span class="dot"></span><span id="connectStatusText"></span></div>
+    <h2>Solar Green Suporte</h2>
+    <div class="connect-status" id="connectStatus" style="display:flex;"><span class="dot"></span><span id="connectStatusText">Conectando…</span></div>
   </div>
 </div>
 
@@ -540,6 +551,13 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 
 <div class="toast" id="toast"><span id="toastIcon">✓</span><span id="toastMsg"></span></div>
 
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="../js/firebase-init.js?v=20260825h"></script>
+<script src="../js/firestore-router.js?v=20260825h"></script>
+<script src="../js/sg-auth.js?v=20260825h"></script>
+
 <script>
 (function(){
 'use strict';
@@ -596,20 +614,14 @@ function inferFromService(svc) {
 }
 
 // ── API ───────────────────────────────────────────────────────────────
-var BASE_URL        = window.location.origin + window.location.pathname;
-var DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA34xrlLTVUUNhKBIlguJT3ectH7Yus-VW1n41GcCclc5q_Yj0Di2O7g/exec';
-var DEFAULT_API_KEY = '1234';
-var API_URL_KEY     = 'ponto_api_url';
-var API_KEY_KEY     = 'ponto_api_key';
-
-function getApiUrl(){ return (localStorage.getItem(API_URL_KEY)||'').trim()||DEFAULT_API_URL; }
-function getApiKey(){ return (localStorage.getItem(API_KEY_KEY)||'').trim()||DEFAULT_API_KEY; }
-function setApiCreds(u,k){ localStorage.setItem(API_URL_KEY,u.trim()); localStorage.setItem(API_KEY_KEY,k.trim()); }
-
-function apiCall(action,extra){
-  var body=Object.assign({action:action,chave:getApiKey()},extra||{});
-  return fetch(getApiUrl(),{method:'POST',cache:'no-store',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)}).then(function(r){return r.json();});
-}
+// 2026-08-25: passou a ler o Firestore de verdade (mesmo painel/sessão do
+// dashboard principal), em vez de bater direto no Apps Script antigo (já
+// desativado pelo Felipe). getFunilData/updateCliente/getProposals/
+// saveProposal são atendidas por js/firestore-router.js;
+// enviarContratoParaAssinatura cai sozinha no Apps Script (SGAuth.apiCall
+// já sabe fazer essa ponte, mesmo mecanismo da Ordem de Serviço).
+var BASE_URL = window.location.origin + window.location.pathname;
+function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
 
 // ── Utilitários ────────────────────────────────────────────────────────
 function fmtMoney(n){ return 'R$\u00a0'+(Math.abs(parseFloat(n)||0)).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
@@ -1850,9 +1862,7 @@ document.getElementById('perdaToggle').addEventListener('change',function(){
 function fetchData(){
   var st=document.getElementById('connectStatus'),txt=document.getElementById('connectStatusText');
   st.style.display='flex'; st.className='connect-status'; txt.textContent='Conectando…';
-  document.getElementById('connectBtn').disabled=true;
   apiCall('getFunilData').then(function(resp){
-    document.getElementById('connectBtn').disabled=false;
     if(!resp||!resp.ok){ st.className='connect-status error'; txt.textContent=(resp&&resp.erro)||'Erro ao conectar'; return; }
     buildMaps(resp); populateLeads(); populateClientesContrato();
     document.getElementById('dataProp').value=dateKey(new Date());
@@ -1861,14 +1871,10 @@ function fetchData(){
     updateSummary(); loadHistory();
     st.className='connect-status online';
     txt.textContent='Conectado · '+S.funilRecords.length+' leads · '+S.servicosArray.length+' serviços';
-  }).catch(function(err){document.getElementById('connectBtn').disabled=false;document.getElementById('connectStatus').className='connect-status error';document.getElementById('connectStatusText').textContent='Erro: '+err.message;});
+  }).catch(function(err){document.getElementById('connectStatus').className='connect-status error';document.getElementById('connectStatusText').textContent='Erro: '+err.message;});
 }
 
 // ── Eventos ─────────────────────────────────────────────────────────────
-document.getElementById('connectBtn').addEventListener('click',function(){
-  var u=document.getElementById('apiUrl').value.trim(),k=document.getElementById('apiKey').value.trim();
-  if(!u||!k)return; setApiCreds(u,k); fetchData();
-});
 document.getElementById('selLead').addEventListener('change',onLeadChange);
 document.getElementById('addBlockBtn').addEventListener('click',function(){ var b=newBlock('avulso'); S.blocks.push(b); renderBlock(b); updateSummary(); });
 document.getElementById('addPlanoBtn').addEventListener('click',function(){ var b=newBlock('plano'); S.blocks.push(b); renderBlock(b); updateSummary(); });
@@ -1888,10 +1894,12 @@ document.getElementById('ctrSyncBtnBottom').addEventListener('click',syncCliente
 
 // ── Boot ─────────────────────────────────────────────────────────────────
 (function(){
-  var u=getApiUrl(),k=getApiKey();
-  document.getElementById('apiUrl').value=u; document.getElementById('apiKey').value=k;
   renderCtypeGrid();
-  if(u&&k)fetchData();
+  // Espera o Firebase Auth restaurar a sessão (mesmo Promise usado no resto
+  // do painel) antes de ler o Firestore — sem isso, ler logo após F5 dá
+  // "Missing or insufficient permissions" mesmo a pessoa estando logada.
+  if(window.SGFireReady)window.SGFireReady.then(fetchData);
+  else fetchData();
 })();
 
 })();

@@ -666,14 +666,24 @@
   function paintUserChip(){
     var s=getSession();
     if(!s) return;
-    document.getElementById('sg-user-name').textContent=s.nome||s.email;
-    document.getElementById('sg-user-role').textContent=isAdmin()?'Administrador':(s.tipo||'Usuário');
+    // Páginas sem o cabeçalho/sidebar completo do painel principal (ex.:
+    // legado/proposta.html) não têm esses elementos — guarda evita exceção
+    // não tratada, mesmo espírito da guarda em initLoginScreen acima.
+    var nomeEl=document.getElementById('sg-user-name');
+    if(nomeEl)nomeEl.textContent=s.nome||s.email;
+    var papelEl=document.getElementById('sg-user-role');
+    if(papelEl)papelEl.textContent=isAdmin()?'Administrador':(s.tipo||'Usuário');
   }
 
   function initLoginScreen(){
     var pendingPrimeiroAcesso=null; // {usuario, senhaAtual} enquanto aguarda criação da senha própria
 
     var loginBtn=document.getElementById('sg-login-btn');
+    // Páginas sem tela de login própria (2026-08-25: legado/proposta.html
+    // passou a reaproveitar a sessão já aberta no painel principal em vez
+    // de logar de novo) não têm esse botão — sem essa guarda, o
+    // addEventListener seguinte derrubava com exceção não tratada.
+    if(!loginBtn)return;
     loginBtn.addEventListener('click',function(){
       var email=document.getElementById('sg-login-email').value.trim();
       var senha=document.getElementById('sg-login-senha').value;
@@ -793,7 +803,8 @@
 
   function initLoggedUI(){
     paintUserChip();
-    document.getElementById('sg-logout-btn').addEventListener('click',function(){
+    var logoutBtn=document.getElementById('sg-logout-btn');
+    if(logoutBtn)logoutBtn.addEventListener('click',function(){
       clearSession();
       location.reload();
     });
