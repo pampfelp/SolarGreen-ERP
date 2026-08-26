@@ -7,6 +7,7 @@
   // sem isso, essa tela só enxergaria ele depois de recarregar a página.
   document.addEventListener('sg:cliente-criado',function(e){ if(e.detail&&e.detail.IdCliente)clientesMap[e.detail.IdCliente]=e.detail; });
   var editandoId=null;
+  var ID_CLIENTE_APORTE_SOCIOS='da6dbd89'; // Cliente Teste 1 — gaveta de custo de escritório, não é venda real
   var paginaAtual=1, ITENS_POR_PAGINA=10;
   var sortState={col:'data',dir:'desc'};
   var APP_VERSION='2026-07-16-1';
@@ -34,10 +35,12 @@
   }
 
   function vendaPorId(idVenda){ return vendas.filter(function(v){return String(v.IdVenda)===String(idVenda);})[0]; }
+  function ehVendaEscritorio(v){ return v&&v.IdCliente===ID_CLIENTE_APORTE_SOCIOS; }
   function labelDaVenda(idVenda){
     var v=vendaPorId(idVenda);
     if(!v)return idVenda?('Venda '+String(idVenda).slice(0,8)):'—';
     var dt=parseBRDate(v.DataVenda);
+    if(ehVendaEscritorio(v))return 'Custo de Escritório — '+fmtDateBRcv(dt)+' — '+fmtMoney(v.Valor);
     return nomeCliente(v.IdCliente)+' — '+nomeServico(v.IdServico)+' — '+fmtDateBRcv(dt)+' — '+fmtMoney(v.Valor);
   }
   function gerarDescricaoAutomaticaCv(idVenda,valorAtual){
@@ -45,6 +48,7 @@
     if(!v)return '';
     var dt=parseBRDate(v.DataVenda);
     var valorFmt=valorAtual!==undefined&&valorAtual!==''?valorAtual:'';
+    if(ehVendaEscritorio(v))return 'Referente a custo de escritório (despesa geral da empresa) em '+fmtDateBRcv(dt)+'. Valor: R$'+valorFmt;
     return 'Referente aos custos de operação do serviço de '+nomeServico(v.IdServico)+' no cliente '+nomeCliente(v.IdCliente)+' em '+fmtDateBRcv(dt)+'. Valor: R$'+valorFmt;
   }
 
