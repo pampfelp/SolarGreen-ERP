@@ -205,9 +205,14 @@
   // criação do lead). Isso replica o comportamento "Ultima Atualização" do AppSheet.
   function normalizaBuscaFunil(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
   function textoBuscavelLead(r){
+    // Telefone entra 2x (2026-08-26, pedido do Felipe): com a formatação
+    // original (bate se a busca também tiver parênteses/traço) e só com os
+    // dígitos (bate quando a busca é digitada sem formatação nenhuma, o
+    // caso mais comum — "98510" ou "91985106043").
+    var telefone=telefoneClienteFor(r.idCliente);
     return normalizaBuscaFunil([
       nomeClienteFor(r.idCliente), nomeFor(r.idVendedor), nomeServicoFunil(r.idServico),
-      r.etapa, r.obs, r.motivoPerda, r.dt?fmtDateBR(r.dt):''
+      r.etapa, r.obs, r.motivoPerda, r.dt?fmtDateBR(r.dt):'', telefone, telefone.replace(/\D/g,'')
     ].join(' | '));
   }
 

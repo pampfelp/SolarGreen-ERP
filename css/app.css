@@ -346,11 +346,21 @@
       top:0;left:auto;right:0;
       width:100%;max-width:100vw;height:100vh;max-height:100vh;
       border-radius:0;
-      box-shadow:-10px 0 34px rgba(0,0,0,.18);
+      /* Sombra ZERADA por padrão (2026-08-26, bug real reportado pelo
+         Felipe — "mancha lateral" em toda tela no celular). Com o painel
+         "escondido" fora da tela via translateX(100%), a caixa em si sai
+         da view, mas qualquer box-shadow com blur suficiente continua
+         pintando — o blur sozinho já alcança de volta a borda direita da
+         tela visível, mesmo o painel estando "fora" (box-shadow não é
+         recortado pelo translateX do elemento). Só declarar `none` aqui
+         não bastava: sem NENHUMA declaração nessa regra, a cascata caía de
+         volta pro box-shadow do desktop (0 20px 60px, ainda pior, mais
+         blur) — por isso precisa ficar explícito `none`.*/
+      box-shadow:none;
       transform:translateX(100%);opacity:1;pointer-events:auto;
       transition:transform .2s ease;
     }
-    .side-panel.active{transform:translateX(0);}
+    .side-panel.active{transform:translateX(0);box-shadow:-10px 0 34px rgba(0,0,0,.18);}
   }
   .ag-row-click{cursor:pointer;}
   .ag-row-click:hover td{background:var(--bg);}
