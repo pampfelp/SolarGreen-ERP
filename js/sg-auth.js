@@ -380,6 +380,44 @@
   window.SGUtil={
     ehNaoEncontrado:function(erro){ return !!(erro&&/n[aã]o encontrad[oa]/i.test(String(erro))); },
     /**
+     * onSnapshot com auto-retry (2026-08-27, achado pelo Felipe: "escuta ao
+     * vivo" falhava com permission-denied logo após um login novo, mesmo já
+     * esperando `SGFireReady` — reproduzido repetidas vezes com contas de
+     * teste descartáveis). Causa: mesmo com `SGFireReady` esperando o
+     * PRIMEIRO `onAuthStateChanged` (e o ID token já pronto logo em seguida),
+     * o stream de Listen do Firestore pode abrir antes do token terminar de
+     * propagar pro canal de rede que ele usa por baixo — uma corrida bem
+     * mais estreita que a de get()/set() (que buscam o token de novo a cada
+     * chamada). Diferente de get/set, um Listen que nasce negado NÃO se
+     * recupera sozinho depois (fica morto até recarregar a página) — então
+     * a correção certa não é só esperar mais, é também tentar de novo se
+     * essa negação acontecer, já que ela é quase sempre esse timing, não
+     * uma permissão de verdade faltando.
+     *
+     * `criarQuery` é uma função (não a query pronta) porque cada nova
+     * tentativa precisa pedir a coleção de novo (a mesma instância de
+     * função funciona, só reexecuta). Devolve uma função pra parar de vez
+     * (cancela a escuta atual e qualquer nova tentativa já agendada).
+     */
+    escutarComRetry:function(criarQuery,aoReceber,nomeDebug){
+      var parado=false,unsubAtual=null,timer=null,tentativas=0;
+      var MAX_TENTATIVAS=4;
+      function tentar(){
+        if(parado)return;
+        tentativas++;
+        unsubAtual=criarQuery().onSnapshot(aoReceber,function(err){
+          if(parado)return;
+          if(err&&err.code==='permission-denied'&&tentativas<MAX_TENTATIVAS){
+            timer=setTimeout(tentar,1200*tentativas);
+            return;
+          }
+          console.error('Escuta ao vivo falhou ('+(nomeDebug||'?')+'):',err);
+        });
+      }
+      tentar();
+      return function pararEscuta(){ parado=true; if(timer)clearTimeout(timer); if(unsubAtual)unsubAtual(); };
+    },
+    /**
      * Conversas/Propostas a partir da movimentação do funil — compartilhado
      * entre Vendas e Funil (as duas telas mostram o mesmo widget "Taxas de
      * conversão médias", cada uma com seu próprio filtro de período/

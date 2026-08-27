@@ -27,17 +27,19 @@
     pararEscutaAoVivo();
     if(typeof firebase==='undefined'||!firebase.firestore)return;
     var db=firebase.firestore();
-    var unsubRespostas=db.collection('agendamentos_respostas').where('IdAgendamento','==',idAgendamento)
-      .onSnapshot(function(snap){
+    var unsubRespostas=window.SGUtil.escutarComRetry(function(){
+      return db.collection('agendamentos_respostas').where('IdAgendamento','==',idAgendamento);
+    },function(snap){
         if(!agendamentoAtual||agendamentoAtual.IdAgendamento!==idAgendamento)return;
         var lista=[]; snap.forEach(function(doc){ lista.push(doc.data()); });
         respostasPorAgendamento[idAgendamento]=lista;
         respostasCarregadasPara[idAgendamento]=true;
         var secao=document.getElementById('ad-respostas');
         if(secao)secao.innerHTML=renderRespostasHtml(agendamentoAtual);
-      }, function(){ /* silencioso — mantém o que já carregou via garantirRespostas */ });
-    var unsubAgendamento=db.collection('agendamentos').doc(idAgendamento)
-      .onSnapshot(function(doc){
+    },'respostas do agendamento');
+    var unsubAgendamento=window.SGUtil.escutarComRetry(function(){
+      return db.collection('agendamentos').doc(idAgendamento);
+    },function(doc){
         if(!doc.exists||!agendamentoAtual||agendamentoAtual.IdAgendamento!==idAgendamento)return;
         var dados=doc.data();
         var indice=agendamentos.findIndex(function(x){return String(x.IdAgendamento)===String(idAgendamento);});
@@ -48,7 +50,7 @@
         if(badge){ badge.className='ag-status-tag '+statusSlug(novoStatus); badge.textContent=novoStatus; }
         var sel=document.getElementById('ad-statusSelect');
         if(sel)sel.value=novoStatus;
-      }, function(){ /* silencioso */ });
+    },'agendamento (detalhe)');
     unsubDetalheAoVivo=function(){ unsubRespostas(); unsubAgendamento(); };
   }
   function pararEscutaAoVivo(){
@@ -74,11 +76,11 @@
   function iniciarEscutaAoVivoLista(){
     if(unsubListaAoVivo)return;
     if(typeof firebase==='undefined'||!firebase.firestore)return;
-    unsubListaAoVivo=firebase.firestore().collection('agendamentos').onSnapshot(function(snap){
+    unsubListaAoVivo=window.SGUtil.escutarComRetry(function(){ return firebase.firestore().collection('agendamentos'); },function(snap){
       var lista=[]; snap.forEach(function(doc){ lista.push(doc.data()); });
       agendamentos=lista;
       render();
-    },function(err){ console.error('Escuta ao vivo da lista de agendamentos falhou:',err); });
+    },'lista de agendamentos');
   }
 
   function apiCall(action,payload){ return window.SGAuth.apiCall(action,payload); }
@@ -413,7 +415,9 @@
     // #ad-respostas sozinho no primeiro snapshot (e ao vivo depois disso) —
     // chamar os dois juntos duplicava cada resposta (um populava com
     // replace, o outro com push por cima).
-    iniciarEscutaAoVivo(idAgendamento);
+    // Mesmo cuidado do listener da lista (ver init()): espera a sessão do
+    // Firebase Auth terminar de restaurar antes de abrir o onSnapshot.
+    window.SGFireReady.then(function(){ iniciarEscutaAoVivo(idAgendamento); });
   }
 
   function fecharPainelDetalhe(){
@@ -1223,7 +1227,11 @@
     });
 
     carregar();
-    iniciarEscutaAoVivoLista();
+    // Espera a sessão do Firebase Auth terminar de restaurar (assíncrono)
+    // antes de abrir o listener — senão dá "permission-denied" (request.auth
+    // ainda null) e, diferente de get/set, o onSnapshot não se recupera
+    // sozinho depois (ver mesmo cuidado em js/funil.js:init).
+    window.SGFireReady.then(iniciarEscutaAoVivoLista);
   }
 
   /**

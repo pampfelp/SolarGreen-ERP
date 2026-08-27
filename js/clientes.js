@@ -31,11 +31,11 @@
   function iniciarEscutaAoVivoClientes(){
     if(unsubClientesAoVivo)return;
     if(typeof firebase==='undefined'||!firebase.firestore)return;
-    unsubClientesAoVivo=firebase.firestore().collection('clientes').onSnapshot(function(snap){
+    unsubClientesAoVivo=window.SGUtil.escutarComRetry(function(){ return firebase.firestore().collection('clientes'); },function(snap){
       var lista=[]; snap.forEach(function(doc){ lista.push(doc.data()); });
       clientes=lista;
       render();
-    },function(err){ console.error('Escuta ao vivo de clientes falhou:',err); });
+    },'clientes');
   }
 
   function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
@@ -461,7 +461,11 @@
       });
     });
     carregar();
-    iniciarEscutaAoVivoClientes();
+    // Espera a sessão do Firebase Auth terminar de restaurar (assíncrono)
+    // antes de abrir o listener — senão dá "permission-denied" (request.auth
+    // ainda null) e, diferente de get/set, o onSnapshot não se recupera
+    // sozinho depois (ver mesmo cuidado em js/funil.js:init).
+    window.SGFireReady.then(iniciarEscutaAoVivoClientes);
   }
 
   /**
