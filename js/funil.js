@@ -756,11 +756,39 @@
    * só que direto, sem precisar abrir o painel. Otimista: atualiza a tela
    * na hora, salva por trás, desfaz sozinho se o servidor recusar.
    */
-  function moverLeadParaEtapa(idLead,novaEtapa){
+  function moverLeadParaEtapa(idLead,novaEtapa,aoCancelar){
     var indice=funilRecords.findIndex(function(x){return String(x.id)===String(idLead);});
     if(indice===-1)return;
     var leadOriginal=funilRecords[indice];
     if(leadOriginal.etapa===novaEtapa)return; // soltou na mesma coluna, não faz nada
+
+    // Mover direto (arrastar no Kanban, ou o select do painel de
+    // visualização) pulava o campo "Motivo da perda" — só o formulário
+    // completo (editar/+Novo lead) pedia isso. Pedido do Felipe: pedir o
+    // motivo aqui também antes de mover pra "Perdido". `aoCancelar` é opcional
+    // — só o select do painel de visualização usa, pra desfazer a escolha
+    // visual do <select> se a pessoa cancelar/deixar em branco (o drag do
+    // Kanban não precisa: o card nunca chega a sair do lugar antes disso).
+    if(novaEtapa==='Perdido'){
+      window.SGConfirm.pedirTexto({
+        titulo:'Motivo da perda',
+        mensagem:'Por que "'+nomeClienteFor(leadOriginal.idCliente)+'" foi perdido?',
+        placeholder:'Ex: Contratou outra empresa',
+        valorInicial:leadOriginal.motivoPerda||'',
+        textoConfirmar:'Mover para Perdido'
+      }).then(function(motivo){
+        if(!motivo){ if(aoCancelar)aoCancelar(); return; } // cancelou ou deixou em branco — não move
+        executarMovimentoEtapa(idLead,novaEtapa,motivo);
+      });
+      return;
+    }
+    executarMovimentoEtapa(idLead,novaEtapa,leadOriginal.motivoPerda);
+  }
+
+  function executarMovimentoEtapa(idLead,novaEtapa,motivoPerda){
+    var indice=funilRecords.findIndex(function(x){return String(x.id)===String(idLead);});
+    if(indice===-1)return;
+    var leadOriginal=funilRecords[indice];
 
     var registroAnterior=Object.assign({},leadOriginal);
     var agora=new Date();
@@ -769,7 +797,8 @@
     var transicoesNovo=(leadOriginal.transicoes||[]).concat([{Etapa:novaEtapa,Em:agora.toISOString()}]);
     var registroNovo=Object.assign({},leadOriginal,{
       etapa:novaEtapa, dataProcesso:agora, dataProcessoKey:dateKey(agora),
-      diasNaEtapa:0, slaColor:'green', temLog:true, etapasPassadas:etapasPassadasNovo, transicoes:transicoesNovo
+      diasNaEtapa:0, slaColor:'green', temLog:true, etapasPassadas:etapasPassadasNovo, transicoes:transicoesNovo,
+      motivoPerda:motivoPerda||''
     });
     funilRecords[indice]=registroNovo;
     garantirDataVisivelNoFiltro(registroNovo.dataProcessoKey);
@@ -784,7 +813,7 @@
       etapa: novaEtapa,
       observacoes: leadOriginal.obs,
       valorEstimado: leadOriginal.valor,
-      motivoPerda: leadOriginal.motivoPerda
+      motivoPerda: motivoPerda||''
     }).then(function(resp){
       if(!resp||!resp.ok){
         var idx=funilRecords.findIndex(function(x){return String(x.id)===String(idLead);});
@@ -1046,7 +1075,10 @@
       onEditar:function(){ abrirPainelLead(idOportunidade); },
       onExcluir:function(){ leadAtual=r; excluirLead(); },
       onAbrir:function(){
-        document.getElementById('fv-etapaSelect').addEventListener('change',function(e){ moverLeadParaEtapa(r.id,e.target.value); });
+        document.getElementById('fv-etapaSelect').addEventListener('change',function(e){
+          var etapaAnterior=r.etapa;
+          moverLeadParaEtapa(r.id,e.target.value,function(){ e.target.value=etapaAnterior; });
+        });
         document.getElementById('fv-prioridadeToggle').addEventListener('change',function(e){ atualizarPrioridade(r.id,e.target.checked); });
         document.getElementById('fv-inserirAtividadeBtn').addEventListener('click',function(){ abrirModalAtividade(r.id); });
       }
