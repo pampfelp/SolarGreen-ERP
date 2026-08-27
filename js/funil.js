@@ -1031,7 +1031,7 @@
     if(r.obs){
       html+='<div class="ad-section"><h4>Observações</h4><p style="font-size:13px;color:var(--ink);line-height:1.5;">'+escapeHtml(r.obs)+'</p></div>';
     }
-    html+='<div class="ad-section"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><h4 style="margin:0;">Atividades</h4><button type="button" id="fv-inserirAtividadeBtn" class="reset-btn" style="width:auto;padding:5px 12px;font-size:12px;white-space:nowrap;">+ Inserir Atividade</button></div>'+
+    html+='<div class="ad-section"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><h4 style="margin:0;">Atividades</h4><button type="button" id="fv-inserirAtividadeBtn" class="connect-btn" style="padding:7px 14px;font-size:12px;">+ Inserir Atividade</button></div>'+
       renderListaAtividadesFunil(r.atividades)+
     '</div>';
     html+='<div class="ad-section"><h4>Histórico</h4>'+
