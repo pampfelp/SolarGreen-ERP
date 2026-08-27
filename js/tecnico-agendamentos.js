@@ -113,7 +113,11 @@
       return true;
     }).sort(function(a,b){
       var da=parseBRDate(a['Data Inicio']),db=parseBRDate(b['Data Inicio']);
-      return (db?db.getTime():0)-(da?da.getTime():0);
+      var diaA=da?da.getTime():0,diaB=db?db.getTime():0;
+      if(diaA!==diaB)return diaB-diaA;
+      // Mesmo dia: desempata por Hora Fim decrescente — mesmo critério do
+      // painel admin (js/agendamentos.js).
+      return String(b['Hora Fim']||'').localeCompare(String(a['Hora Fim']||''));
     });
   }
 
