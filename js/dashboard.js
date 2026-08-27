@@ -2,7 +2,7 @@
 (function(){
   var _initialized=false;
   var _epoca=window.SGEpoca.criar();
-  var vendasRecords=[],custosVendaRecords=[],relatoriosRecords=[],funilRecords=[];
+  var vendasRecords=[],custosVendaRecords=[],funilRecords=[];
   var vendedoresMap={},clientesMap={},servicosMap={};
   // Cliente cadastrado via "+ Cadastrar cliente" no Funil, na mesma sessão —
   // sem isso, essa tela só enxergaria ele depois de recarregar a página.
@@ -26,8 +26,8 @@
 
   function processVendas(list){var out=[];list.forEach(function(o){if(!o.IdVenda)return;var dt=parseBRDate(o.DataVenda);if(!dt)return;out.push({idVenda:o.IdVenda,idCliente:o.IdCliente,idServico:o.IdServico,idVendedor:o.IdVendedor,dt:dt,dateKey:dateKey(dt),valor:parseBRNumber(o.Valor)});});return out;}
   function processCustosVenda(list){var out=[];list.forEach(function(o){if(!o.IdCusto)return;var dt=parseBRDate(o.Data);out.push({idCusto:o.IdCusto,idVenda:o.IdVenda,status:String(o.Status||''),dt:dt,dateKey:dt?dateKey(dt):null,valor:parseBRNumber(o.Valor)});});return out;}
-  function processRelatorios(list){var out=[];list.forEach(function(o){if(!o.IdRelatorio)return;var dt=parseBRDate(o.Data);if(!dt)return;out.push({idVendedor:o.IdVendedor,dt:dt,dateKey:dateKey(dt),contatos:parseBRNumber(o['Novos Contatos']),conversas:parseBRNumber(o.Conversas),propostas:parseBRNumber(o['Propostas Apresentadas']),vendas:parseBRNumber(o.Vendas)});});return out;}
-  function processFunil(list){var out=[];list.forEach(function(o){var id=o.IdOportunidade||o.IdFunil;if(!id)return;var dt=parseBRDate(o.DataCriacao||o['Data Criacao']||'');out.push({id:id,idCliente:o.IdCliente,idVendedor:o.IdVendedor,idServico:o.IdServico,etapa:o.Etapa,dt:dt,dateKey:dt?dateKey(dt):null});});return out;}
+  function processFunil(list){var out=[];list.forEach(function(o){var id=o.IdOportunidade||o.IdFunil;if(!id)return;var dt=parseBRDate(o.DataCriacao||o['Data Criacao']||'');out.push({id:id,idCliente:o.IdCliente,idVendedor:o.IdVendedor,idServico:o.IdServico,etapa:o.Etapa,dt:dt,dateKey:dt?dateKey(dt):null,transicoes:o.Transicoes||[]});});return out;}
+  var ETAPAS_PROPOSTA_VENDAS=['Negociação','Serviço Agendado','Ganho'];
 
   function getFiltered(){
     var from=document.getElementById('db-dateFrom').value,to=document.getElementById('db-dateTo').value;
@@ -43,9 +43,8 @@
       if(c.dateKey){ if(from&&c.dateKey<from)return false; if(to&&c.dateKey>to)return false; }
       return true;
     });
-    var relatorios=relatoriosRecords.filter(function(r){ if(from&&r.dateKey<from)return false; if(to&&r.dateKey>to)return false; if(vendedor!=='__all__'&&r.idVendedor!==vendedor)return false; return true; });
     var leads=funilRecords.filter(function(l){ if(!l.dateKey)return false; if(from&&l.dateKey<from)return false; if(to&&l.dateKey>to)return false; if(vendedor!=='__all__'&&l.idVendedor!==vendedor)return false; if(servico!=='__all__'&&l.idServico!==servico)return false; return true; });
-    return {vendasTodas:vendasTodas,vendasFat:vendasFat,custosOp:custosOp,custosEsc:custosEsc,relatorios:relatorios,leads:leads};
+    return {vendasTodas:vendasTodas,vendasFat:vendasFat,custosOp:custosOp,custosEsc:custosEsc,leads:leads,from:from,to:to};
   }
 
   /** Custo de escritório é despesa geral — rateado proporcional à fatia de
@@ -195,11 +194,8 @@
     });
   }
 
-  function renderFunilConversao(relatorios){
-    var contatos=relatorios.reduce(function(s,r){return s+r.contatos;},0);
-    var conversas=relatorios.reduce(function(s,r){return s+r.conversas;},0);
-    var propostas=relatorios.reduce(function(s,r){return s+r.propostas;},0);
-    var vendas=relatorios.reduce(function(s,r){return s+r.vendas;},0);
+  function renderFunilConversao(funilKpis){
+    var contatos=funilKpis.contatos,conversas=funilKpis.conversas,propostas=funilKpis.propostas,vendas=funilKpis.vendas;
     var etapas=[{label:'Novos contatos',valor:contatos,cor:'#3b82f6'},{label:'Conversas',valor:conversas,cor:'var(--accent)'},{label:'Propostas apresentadas',valor:propostas,cor:'var(--warn)'},{label:'Vendas fechadas',valor:vendas,cor:'var(--accent-deep)'}];
     var maxV=Math.max(contatos,1);
     document.getElementById('db-funilConversao').innerHTML=etapas.map(function(e){
@@ -214,7 +210,7 @@
 
   function renderInsight(f,faturamento,custosTotais,lucro,ticketMedio,conversao,novosLeads){
     var el=document.getElementById('db-insightText');
-    if(!f.vendasFat.length&&!f.relatorios.length&&!f.leads.length){ el.textContent='Sem dados no período/filtro selecionado.'; return; }
+    if(!f.vendasFat.length&&!f.leads.length){ el.textContent='Sem dados no período/filtro selecionado.'; return; }
     var partes=[];
     var from=document.getElementById('db-dateFrom').value,to=document.getElementById('db-dateTo').value;
     var periodoTexto=(from&&to)?('entre '+fmtDateBRDoISO(from)+' e '+fmtDateBRDoISO(to)):'no período selecionado';
@@ -236,7 +232,7 @@
       partes.push('<strong>'+escapeHtml(nomeVendedor(liderId))+'</strong> liderou o período, respondendo por '+fatiaLider.toFixed(0)+'% do faturamento.');
     }
 
-    if(f.relatorios.length){
+    if(f.leads.length){
       partes.push('A taxa de conversão de propostas em vendas ficou em <strong>'+conversao.toFixed(1).replace('.',',')+'%</strong>, com '+novosLeads+' novo(s) lead(s) entrando no funil.');
     }
 
@@ -265,8 +261,9 @@
     var custosTotais=custosOpTotal+custosEscProporcional;
     var lucro=faturamento-custosTotais;
     var ticketMedio=f.vendasFat.length>0?faturamento/f.vendasFat.length:0;
-    var propostasTotal=f.relatorios.reduce(function(s,r){return s+r.propostas;},0);
-    var vendasRelTotal=f.relatorios.reduce(function(s,r){return s+r.vendas;},0);
+    var kpisFunil=window.SGUtil.calcularConversasPropostas(f.leads,f.from,f.to,ETAPAS_PROPOSTA_VENDAS);
+    var propostasTotal=kpisFunil.propostas;
+    var vendasRelTotal=f.vendasFat.length;
     var conversao=propostasTotal>0?(vendasRelTotal/propostasTotal*100):0;
     var novosLeads=f.leads.length;
 
@@ -278,7 +275,7 @@
     document.getElementById('db-kpiTicket').textContent=fmtMoney(ticketMedio);
     document.getElementById('db-kpiTicketSub').textContent='faturamento ÷ nº de vendas';
     document.getElementById('db-kpiConversao').textContent=conversao.toFixed(1).replace('.',',')+'%';
-    document.getElementById('db-kpiConversaoSub').textContent=vendasRelTotal+' vendas / '+propostasTotal+' propostas (Relatórios)';
+    document.getElementById('db-kpiConversaoSub').textContent=vendasRelTotal+' vendas / '+propostasTotal+' propostas (Funil)';
     document.getElementById('db-kpiLeads').textContent=novosLeads;
     document.getElementById('db-kpiLeadsSub').textContent='criados no período, no Funil';
 
@@ -288,13 +285,13 @@
     renderLineChart(f.vendasFat);
     renderHBars('db-barVendedores',porVendedor,nomeVendedor,'db-selVendedor');
     renderHBars('db-barServicos',porServico,nomeServico,'db-selServico');
-    renderFunilConversao(f.relatorios);
+    renderFunilConversao({contatos:novosLeads,conversas:kpisFunil.conversas,propostas:propostasTotal,vendas:vendasRelTotal});
     renderInsight(f,faturamento,custosTotais,lucro,ticketMedio,conversao,novosLeads);
 
     document.getElementById('db-lastUpdate').textContent='Atualizado em '+new Date().toLocaleDateString('pt-BR')+' às '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   }
 
-  function aplicarDados(vendasResp,funilResp,relatoriosResp){
+  function aplicarDados(vendasResp,funilResp){
     vendedoresMap={}; (vendasResp.vendedores||[]).forEach(function(v){if(v.IdVendedor)vendedoresMap[v.IdVendedor]=v;});
     clientesMap={}; (vendasResp.clientes||[]).forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
     servicosMap={}; (vendasResp.servicos||[]).forEach(function(s){if(s.IdServico)servicosMap[s.IdServico]=s;});
@@ -304,7 +301,6 @@
     // venda-gaveta diferente contava como custo de venda real.
     vendasEscritorioIds={};vendasRecords.forEach(function(v){if(v.idCliente===ID_CLIENTE_APORTE_SOCIOS)vendasEscritorioIds[v.idVenda]=true;});
     custosVendaRecords=processCustosVenda(vendasResp.custosVenda||[]);
-    relatoriosRecords=processRelatorios((relatoriosResp&&relatoriosResp.relatorios)||[]);
     funilRecords=processFunil((funilResp&&funilResp.funil)||[]);
     popularSelects();
     if(!document.getElementById('db-dateFrom').value&&!document.getElementById('db-dateTo').value)setRangeTudo();
@@ -317,18 +313,18 @@
     var cacheKey='dashboard_comercial';
     var cache=window.SGCache&&window.SGCache.get(cacheKey);
     var temCache=!!(cache&&cache.dados);
-    if(temCache)aplicarDados(cache.dados.vendas,cache.dados.funil,cache.dados.relatorios);
+    if(temCache)aplicarDados(cache.dados.vendas,cache.dados.funil);
 
     var epocaInicio=_epoca.atual();
-    Promise.all([apiCall('getVendasData',{}),apiCall('getFunilData',{}),apiCall('getRelatoriosData',{})]).then(function(resps){
-      var vendasResp=resps[0],funilResp=resps[1],relatoriosResp=resps[2];
+    Promise.all([apiCall('getVendasData',{}),apiCall('getFunilData',{})]).then(function(resps){
+      var vendasResp=resps[0],funilResp=resps[1];
       if(!vendasResp||!vendasResp.ok){
         if(!temCache){ document.getElementById('db-emptyState').style.display='block'; document.getElementById('db-emptyState').querySelector('p').textContent=(vendasResp&&vendasResp.erro)||'Não foi possível carregar.'; }
         return;
       }
-      if(window.SGCache)window.SGCache.set(cacheKey,{vendas:vendasResp,funil:funilResp,relatorios:relatoriosResp});
+      if(window.SGCache)window.SGCache.set(cacheKey,{vendas:vendasResp,funil:funilResp});
       if(_epoca.atual()!==epocaInicio)return;
-      aplicarDados(vendasResp,funilResp,relatoriosResp);
+      aplicarDados(vendasResp,funilResp);
     }).catch(function(err){
       if(!temCache){ document.getElementById('db-emptyState').style.display='block'; document.getElementById('db-emptyState').querySelector('p').textContent='Erro de conexão: '+err.message; }
     });

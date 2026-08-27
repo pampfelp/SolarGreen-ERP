@@ -129,6 +129,10 @@
   function sortLeadRows(rows){
     var col=sortState.col,dir=sortState.dir,mult=dir==='asc'?1:-1;
     rows.sort(function(a,b){
+      // Prioridade sempre vem primeiro, não importa a coluna clicada — dentro
+      // de cada bloco (prioritário/não-prioritário) continua ordenando pela
+      // coluna escolhida (pedido do Felipe: vale no Kanban E na Lista).
+      if(!!b.prioridade!==!!a.prioridade)return(b.prioridade?1:0)-(a.prioridade?1:0);
       var av,bv;
       switch(col){
         case 'data':        av=a.dt.getTime();                       bv=b.dt.getTime();                       break;
@@ -172,10 +176,28 @@
         valor:parseFloat(String((o['Valor Estimado']!==undefined&&o['Valor Estimado']!=='')?o['Valor Estimado']:(o.Valor||'0')).replace(',','.'))||0,
         etapasPassadas:o.EtapasPassadas||[],
         transicoes:o.Transicoes||[],
+        atividades:o.Atividades||[],
+        prioridade:!!o.Prioridade,
         // Campos calculados após enriquecimento com log/SLA
-        dataProcesso:null,dataProcessoKey:null,diasNaEtapa:0,slaColor:'green',temLog:false
+        dataProcesso:null,dataProcessoKey:null,diasNaEtapa:0,slaColor:'green',temLog:false,ultimaConversaEm:null
       };
     }).filter(function(r){return !!r.dt;});
+  }
+
+  // "Conversa no WhatsApp"/"Ligação" contam como interação de verdade pra
+  // efeito de reordenar o Kanban/Lista — "Tentativa de Contato" não conta
+  // (é só um registro de tentativa, mesma distinção já usada em
+  // SGUtil.calcularConversasPropostas, ver funil-crm.md).
+  var TIPOS_ATIVIDADE_CONVERSA=['Conversa no WhatsApp','Ligação'];
+  function computeUltimaConversaEm(atividades){
+    var best=null;
+    (atividades||[]).forEach(function(a){
+      if(TIPOS_ATIVIDADE_CONVERSA.indexOf(a.Tipo)===-1)return;
+      var d=new Date(a.Em);
+      if(isNaN(d))return;
+      if(!best||d>best)best=d;
+    });
+    return best;
   }
 
   // enriquece cada lead com dataProcesso, dataProcessoKey, diasNaEtapa e slaColor
@@ -186,6 +208,7 @@
       r.temLog = r.dataProcesso !== r.dt; // se diverge de dt, veio do log
       r.diasNaEtapa = getDiasNaEtapa(r.dataProcesso);
       r.slaColor = getSLAColor(r.diasNaEtapa,r.etapa);
+      r.ultimaConversaEm = computeUltimaConversaEm(r.atividades);
     });
   }
 
@@ -409,10 +432,11 @@
         '<td class="obs-cell" title="'+escapeHtml(r.obs)+'">'+escapeHtml(r.obs||'—')+'</td>'+
         '<td class="num">'+fmtMoney(r.valor)+'</td>'+
         '<td style="font-size:12px;color:var(--ink-soft);">'+escapeHtml(r.motivoPerda||'—')+'</td>'+
+        '<td style="text-align:right;">'+(r.prioridade?'<span class="kcard-medalha" title="Prioridade" style="position:static;">&#9733;</span>':'')+'</td>'+
         '</tr>';
     });
     document.getElementById('f-tbody').innerHTML=rows||
-      '<tr><td colspan="9" style="text-align:center;color:var(--ink-faint);padding:30px;">Nenhum lead nesta etapa/período.</td></tr>';
+      '<tr><td colspan="10" style="text-align:center;color:var(--ink-faint);padding:30px;">Nenhum lead nesta etapa/período.</td></tr>';
     document.getElementById('f-tbody').querySelectorAll('.ag-row-click').forEach(function(tr){
       tr.addEventListener('click',function(){ try{ abrirVisualizacaoLead(tr.getAttribute('data-id')); }catch(err){ console.error('abrirVisualizacaoLead falhou:',err); (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Não foi possível abrir esse registro (erro: '+err.message+'). Atualize a página e tente de novo.',true); } });
     });
@@ -447,12 +471,21 @@
     });
     wrap.innerHTML=ETAPAS.map(function(etapa){
       var lista=(porEtapa[etapa]||[]).slice();
-      lista.sort(function(a,b){return (b.dataProcesso?b.dataProcesso.getTime():0)-(a.dataProcesso?a.dataProcesso.getTime():0);});
+      lista.sort(function(a,b){
+        // Prioridade sempre no topo da coluna; dentro de cada bloco, quem
+        // mudou de etapa OU teve uma conversa (WhatsApp/ligação) mais
+        // recente sobe — sem precisar mudar de etapa pra subir.
+        if(!!b.prioridade!==!!a.prioridade)return(b.prioridade?1:0)-(a.prioridade?1:0);
+        var av=Math.max(a.dataProcesso?a.dataProcesso.getTime():0,a.ultimaConversaEm?a.ultimaConversaEm.getTime():0);
+        var bv=Math.max(b.dataProcesso?b.dataProcesso.getTime():0,b.ultimaConversaEm?b.ultimaConversaEm.getTime():0);
+        return bv-av;
+      });
       var valorTotal=lista.reduce(function(s,r){return s+r.valor;},0);
       var esmaecido=(etapaAtiva!=='__all__'&&etapaAtiva!==etapa)?'opacity:.4;':'';
       var cardsHtml=lista.length?lista.map(function(r){
         var slaHtml='<span class="sla-cell sla-'+r.slaColor+'"><span class="sla-dot"></span>'+r.diasNaEtapa+'d</span>';
-        return '<div class="kanban-card" data-id="'+escapeHtml(r.id)+'">'+
+        var medalhaHtml=r.prioridade?'<span class="kcard-medalha" title="Prioridade">&#9733;</span>':'';
+        return '<div class="kanban-card" data-id="'+escapeHtml(r.id)+'">'+medalhaHtml+
           '<div class="kcard-nome">'+escapeHtml(nomeClienteFor(r.idCliente))+'</div>'+
           '<div class="kcard-vend">'+escapeHtml(nomeFor(r.idVendedor))+'</div>'+
           '<div class="kcard-foot"><span class="kcard-valor">'+fmtMoney(r.valor)+'</span>'+slaHtml+'</div>'+
@@ -770,6 +803,97 @@
   }
 
   /**
+   * Chave "Prioridade" (medalha verde + fica sempre no topo, Kanban e
+   * Lista) — separada de moverLeadParaEtapa/salvarLead de propósito: não
+   * deve gerar uma Transicao nem mexer em etapa, só marcar/desmarcar.
+   */
+  function atualizarPrioridade(idLead,valor){
+    var indice=funilRecords.findIndex(function(x){return String(x.id)===String(idLead);});
+    if(indice===-1)return;
+    var anterior=funilRecords[indice].prioridade;
+    funilRecords[indice].prioridade=!!valor;
+    _epoca.marcar();
+    render();
+    apiCall('atualizarPrioridadeFunil',{idOportunidade:idLead,prioridade:!!valor}).then(function(resp){
+      if(!resp||!resp.ok){
+        var idx=funilRecords.findIndex(function(x){return String(x.id)===String(idLead);});
+        if(idx!==-1)funilRecords[idx].prioridade=anterior;
+        _epoca.marcar();
+        render();
+        mostrarToastFunil((resp&&resp.erro)||'Não foi possível salvar a prioridade — desfeito.',true);
+      }
+    }).catch(function(err){
+      var idx=funilRecords.findIndex(function(x){return String(x.id)===String(idLead);});
+      if(idx!==-1)funilRecords[idx].prioridade=anterior;
+      _epoca.marcar();
+      render();
+      mostrarToastFunil('Erro de conexão — desfeito: '+err.message,true);
+    });
+  }
+
+  /**
+   * Modal "Inserir Atividade" — 3 tipos fixos (Tentativa de Contato/Conversa
+   * no WhatsApp/Ligação), data/hora automática (não editável), observação
+   * livre. Salvar acrescenta em `Atividades` (arrayUnion, mesmo padrão de
+   * Transicoes) e redesenha a seção de Atividades do painel de visualização
+   * se ainda estiver aberto no mesmo lead.
+   */
+  function abrirModalAtividade(idLead){
+    var modal=document.getElementById('fAtividadeModal');
+    if(!modal)return;
+    document.getElementById('fat-tipo').value='Tentativa de Contato';
+    document.getElementById('fat-obs').value='';
+    document.getElementById('fat-msg').textContent='';
+    var agora=new Date();
+    document.getElementById('fat-quando').textContent='Registrado agora: '+agora.toLocaleDateString('pt-BR')+' às '+agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    modal.classList.remove('hidden');
+
+    function fechar(){ modal.classList.add('hidden'); }
+    document.getElementById('fat-cancelarBtn').onclick=fechar;
+    modal.onclick=function(e){ if(e.target===modal)fechar(); };
+
+    document.getElementById('fat-salvarBtn').onclick=function(){
+      var tipo=document.getElementById('fat-tipo').value;
+      var obs=document.getElementById('fat-obs').value.trim();
+      var indice=funilRecords.findIndex(function(x){return String(x.id)===String(idLead);});
+      if(indice===-1){ fechar(); return; }
+      var novaAtividade={Tipo:tipo,Em:new Date().toISOString(),Observacao:obs};
+      var atividadesAntes=funilRecords[indice].atividades||[];
+      funilRecords[indice].atividades=atividadesAntes.concat([novaAtividade]);
+      funilRecords[indice].ultimaConversaEm=computeUltimaConversaEm(funilRecords[indice].atividades);
+      _epoca.marcar();
+      fechar();
+      render();
+      mostrarToastFunil('Atividade registrada.');
+      if(leadAtual&&String(leadAtual.id)===String(idLead))abrirVisualizacaoLead(idLead);
+
+      apiCall('registrarAtividadeFunil',{idOportunidade:idLead,tipo:tipo,observacao:obs}).then(function(resp){
+        if(!resp||!resp.ok){
+          var idx=funilRecords.findIndex(function(x){return String(x.id)===String(idLead);});
+          if(idx!==-1){
+            funilRecords[idx].atividades=atividadesAntes;
+            funilRecords[idx].ultimaConversaEm=computeUltimaConversaEm(atividadesAntes);
+          }
+          _epoca.marcar();
+          render();
+          if(leadAtual&&String(leadAtual.id)===String(idLead))abrirVisualizacaoLead(idLead);
+          mostrarToastFunil((resp&&resp.erro)||'Não foi possível salvar a atividade — desfeito.',true);
+        }
+      }).catch(function(err){
+        var idx=funilRecords.findIndex(function(x){return String(x.id)===String(idLead);});
+        if(idx!==-1){
+          funilRecords[idx].atividades=atividadesAntes;
+          funilRecords[idx].ultimaConversaEm=computeUltimaConversaEm(atividadesAntes);
+        }
+        _epoca.marcar();
+        render();
+        if(leadAtual&&String(leadAtual.id)===String(idLead))abrirVisualizacaoLead(idLead);
+        mostrarToastFunil('Erro de conexão — desfeito: '+err.message,true);
+      });
+    };
+  }
+
+  /**
    * Colaboração ao vivo dentro do Funil (2026-08-25, pedido do Felipe —
    * teste escopado só nessa tela antes de pensar em levar pro resto do
    * sistema). Duas coisas, deliberadamente SEM bloqueio — só indicação:
@@ -867,18 +991,38 @@
    * tabela ou num card do Kanban. Só leitura; o lápis no topo é que chama
    * abrirPainelLead(id) pra editar de verdade, e a lixeira exclui direto.
    */
+  function renderListaAtividadesFunil(atividades){
+    var lista=(atividades||[]).slice().sort(function(a,b){return new Date(b.Em)-new Date(a.Em);});
+    if(!lista.length)return '<p style="font-size:12.5px;color:var(--ink-faint);margin:8px 0 0;">Nenhuma atividade registrada ainda.</p>';
+    return '<div style="margin-top:8px;">'+lista.map(function(a){
+      var d=new Date(a.Em);
+      var quando=isNaN(d)?'—':(d.toLocaleDateString('pt-BR')+' às '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
+      return '<div style="padding:8px 0;border-bottom:1px solid var(--line);">'+
+        '<div style="display:flex;justify-content:space-between;gap:8px;font-size:12.5px;"><strong>'+escapeHtml(a.Tipo)+'</strong><span style="color:var(--ink-faint);white-space:nowrap;">'+quando+'</span></div>'+
+        (a.Observacao?'<div style="font-size:12.5px;color:var(--ink-soft);margin-top:3px;">'+escapeHtml(a.Observacao)+'</div>':'')+
+      '</div>';
+    }).join('')+'</div>';
+  }
+
   function abrirVisualizacaoLead(idOportunidade){
     var r=funilRecords.filter(function(x){return String(x.id)===String(idOportunidade);})[0];
     if(!r)return;
     leadAtual=r;
     var c=clientesMap[r.idCliente]||{};
-    var badgeClass=r.etapa==='Ganho'?'ganho':(r.etapa==='Perdido'?'perdido':'ativo');
+    var etapasOpts=ETAPAS.map(function(e){return '<option value="'+escapeHtml(e)+'" '+(e===r.etapa?'selected':'')+'>'+escapeHtml(e)+'</option>';}).join('');
     var html='<div class="ad-section">'+
-      '<span class="stage-badge '+badgeClass+'">'+escapeHtml(r.etapa)+'</span>'+
+      '<div class="ad-row" style="margin-top:0;align-items:center;">'+
+        '<span class="dl">Etapa</span>'+
+        '<select id="fv-etapaSelect" style="font-family:var(--sans);font-size:12px;font-weight:600;border:1px solid var(--line);border-radius:20px;padding:4px 10px;background:#fff;color:var(--ink);cursor:pointer;">'+etapasOpts+'</select>'+
+      '</div>'+
+      '<div class="ad-row" style="align-items:center;"><span class="dl">Prioridade</span><label class="switch"><input type="checkbox" id="fv-prioridadeToggle" '+(r.prioridade?'checked':'')+'><span class="slider"></span></label></div>'+
       '<div class="ad-row" style="margin-top:10px;"><span class="dl">Cliente</span><span class="dv">'+escapeHtml(nomeClienteFor(r.idCliente))+'</span></div>'+
       (c.Telefone?'<div class="ad-row"><span class="dl">Telefone</span><span class="dv">'+escapeHtml(c.Telefone)+'</span></div>':'')+
       (c.Email?'<div class="ad-row"><span class="dl">E-mail</span><span class="dv">'+escapeHtml(c.Email)+'</span></div>':'')+
+      (c['CPF ou CNPJ']?'<div class="ad-row"><span class="dl">CPF/CNPJ</span><span class="dv">'+escapeHtml(c['CPF ou CNPJ'])+'</span></div>':'')+
+      (c['Tipo Pessoa']?'<div class="ad-row"><span class="dl">Tipo</span><span class="dv">'+escapeHtml(c['Tipo Pessoa'])+'</span></div>':'')+
       (c.Endereco?'<div class="ad-row"><span class="dl">Endereço</span><span class="dv">'+escapeHtml(c.Endereco)+'</span></div>':'')+
+      (c['Status Cliente']?'<div class="ad-row"><span class="dl">Status do cliente</span><span class="dv">'+escapeHtml(c['Status Cliente'])+'</span></div>':'')+
       '<div class="ad-row"><span class="dl">Vendedor</span><span class="dv">'+escapeHtml(nomeFor(r.idVendedor))+'</span></div>'+
       '<div class="ad-row"><span class="dl">Serviço</span><span class="dv">'+escapeHtml(nomeServicoFunil(r.idServico))+'</span></div>'+
       '<div class="ad-row"><span class="dl">Valor estimado</span><span class="dv">'+fmtMoney(r.valor)+'</span></div>'+
@@ -887,6 +1031,9 @@
     if(r.obs){
       html+='<div class="ad-section"><h4>Observações</h4><p style="font-size:13px;color:var(--ink);line-height:1.5;">'+escapeHtml(r.obs)+'</p></div>';
     }
+    html+='<div class="ad-section"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><h4 style="margin:0;">Atividades</h4><button type="button" id="fv-inserirAtividadeBtn" class="reset-btn" style="width:auto;padding:5px 12px;font-size:12px;white-space:nowrap;">+ Inserir Atividade</button></div>'+
+      renderListaAtividadesFunil(r.atividades)+
+    '</div>';
     html+='<div class="ad-section"><h4>Histórico</h4>'+
       '<div class="ad-row"><span class="dl">Criado em</span><span class="dv">'+(r.dt?fmtDateBR(r.dt):'—')+'</span></div>'+
       '<div class="ad-row"><span class="dl">Nessa etapa desde</span><span class="dv">'+(r.dataProcesso?fmtDateBR(r.dataProcesso):'—')+'</span></div>'+
@@ -897,7 +1044,12 @@
       titulo:nomeClienteFor(r.idCliente),
       html:html,
       onEditar:function(){ abrirPainelLead(idOportunidade); },
-      onExcluir:function(){ leadAtual=r; excluirLead(); }
+      onExcluir:function(){ leadAtual=r; excluirLead(); },
+      onAbrir:function(){
+        document.getElementById('fv-etapaSelect').addEventListener('change',function(e){ moverLeadParaEtapa(r.id,e.target.value); });
+        document.getElementById('fv-prioridadeToggle').addEventListener('change',function(e){ atualizarPrioridade(r.id,e.target.checked); });
+        document.getElementById('fv-inserirAtividadeBtn').addEventListener('click',function(){ abrirModalAtividade(r.id); });
+      }
     });
   }
 
