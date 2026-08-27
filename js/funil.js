@@ -919,7 +919,7 @@
   function iniciarEscutaAoVivoFunil(){
     if(unsubFunilAoVivo)return; // já está escutando, não duplica
     if(typeof firebase==='undefined'||!firebase.firestore)return;
-    unsubFunilAoVivo=firebase.firestore().collection('funil').onSnapshot(function(snap){
+    unsubFunilAoVivo=window.SGUtil.escutarComRetry(function(){ return firebase.firestore().collection('funil'); },function(snap){
       var brutos=[]; snap.forEach(function(doc){ brutos.push(doc.data()); });
       var filtrados=window.SGAuth?window.SGAuth.filterByOwner(brutos,'IdVendedor'):brutos;
       funilRecords=processFunil(filtrados);
@@ -928,13 +928,13 @@
       // Não interrompe um arrasto em andamento no Kanban — o próprio drag
       // termina de atualizar a tela sozinho quando soltar.
       if(!(arrastarKanbanEstado&&arrastarKanbanEstado.dragging))render();
-    },function(err){ console.error('Escuta ao vivo do funil falhou:',err); });
+    },'funil');
   }
 
   function iniciarEscutaPresencaFunil(){
     if(unsubPresencaAoVivo)return;
     if(typeof firebase==='undefined'||!firebase.firestore)return;
-    unsubPresencaAoVivo=firebase.firestore().collection('funil_presenca').onSnapshot(function(snap){
+    unsubPresencaAoVivo=window.SGUtil.escutarComRetry(function(){ return firebase.firestore().collection('funil_presenca'); },function(snap){
       var novoMapa={};
       snap.forEach(function(doc){
         var d=doc.data();
@@ -942,7 +942,7 @@
       });
       presencaMap=novoMapa;
       aplicarIndicadoresPresenca();
-    },function(err){ console.error('Escuta de presença do funil falhou:',err); });
+    },'presença do funil');
     // Reavalia expiração mesmo sem nenhuma escrita nova chegar (ex.: alguém
     // fechou a aba sem avisar — sem isso o indicador só some quando outra
     // presença qualquer mudar em algum lugar da coleção).
@@ -1645,8 +1645,16 @@
     if(_initialized)return;
     if(!window.SG_SESSION)return;
     _initialized=true;
-    iniciarEscutaAoVivoFunil();
-    iniciarEscutaPresencaFunil();
+    // Espera o Firebase Auth terminar de restaurar a sessão (assíncrono,
+    // IndexedDB) antes de abrir os listeners — mesmo cuidado que o resto do
+    // app já toma via comAuthPronto/SGFireReady pra get/set, mas que
+    // onSnapshot nunca teve: abrir o listener cedo demais (request.auth
+    // ainda null) dá "permission-denied" e, diferente de get/set, o
+    // listener NÃO se recupera sozinho depois — fica morto até recarregar.
+    window.SGFireReady.then(function(){
+      iniciarEscutaAoVivoFunil();
+      iniciarEscutaPresencaFunil();
+    });
     // Best-effort: libera minha presença se eu fechar/recarregar a aba com o
     // painel de edição aberto — não é garantido (o navegador pode matar a
     // aba antes do delete terminar), mas o PRESENCA_EXPIRA_MS acima é a rede
