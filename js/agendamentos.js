@@ -670,7 +670,15 @@
     var col=sortStateAg.col,dir=sortStateAg.dir,mult=dir==='asc'?1:-1;
     lista.sort(function(a,b){
       var va,vb;
-      if(col==='data'){va=parseBRDateTime(a['Data Inicio']);vb=parseBRDateTime(b['Data Inicio']);return mult*((va?va.getTime():0)-(vb?vb.getTime():0));}
+      if(col==='data'){
+        va=parseBRDateTime(a['Data Inicio']);vb=parseBRDateTime(b['Data Inicio']);
+        var diaA=va?va.getTime():0,diaB=vb?vb.getTime():0;
+        if(diaA!==diaB)return mult*(diaA-diaB);
+        // Mesmo dia: desempata por Hora Fim (pedido do Felipe — quem termina
+        // mais tarde aparece primeiro no padrão desc, junto com o dia mais
+        // recente primeiro).
+        return mult*String(a['Hora Fim']||'').localeCompare(String(b['Hora Fim']||''));
+      }
       if(col==='cliente'){va=nomeCliente(a.IdCliente);vb=nomeCliente(b.IdCliente);return mult*va.localeCompare(vb,'pt-BR');}
       if(col==='servico'){va=nomeServico(a.IdServico);vb=nomeServico(b.IdServico);return mult*va.localeCompare(vb,'pt-BR');}
       if(col==='tecnico'){va=nomeVendedor(a.TecnicoResponsavel);vb=nomeVendedor(b.TecnicoResponsavel);return mult*va.localeCompare(vb,'pt-BR');}
