@@ -160,6 +160,23 @@
       .catch(function(err){ return {ok:false,erro:err.message}; });
   }
 
+  // Atividade do Funil (2026-08-26): mesmo padrão de Transicoes (arrayUnion
+  // direto no doc, sem subcoleção) — Tipo/Em/Observacao por registro.
+  function registrarAtividadeFunil(p){
+    return db().collection('funil').doc(p.idOportunidade).update({
+      Atividades: firebase.firestore.FieldValue.arrayUnion({Tipo:p.tipo,Em:new Date().toISOString(),Observacao:p.observacao||''})
+    }).then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+
+  // Chave "Prioridade" — separada de salvarFunil de propósito: não deve
+  // gerar uma Transicao nem mexer em Etapa, só marcar/desmarcar.
+  function atualizarPrioridadeFunil(p){
+    return db().collection('funil').doc(p.idOportunidade).set({Prioridade:!!p.prioridade},{merge:true})
+      .then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+
   /**
    * Propostas (legado/proposta.html, 2026-08-25 — coleção nova, a aba
    * "Propostas" da planilha nunca tinha sido migrada porque não existia
@@ -625,6 +642,8 @@
     getFunilData:comAuthPronto(getFunilData),
     salvarFunil:comSync('funil',function(p){return 'lead ('+(p.etapa||'')+')';},comAuthPronto(salvarFunil)),
     excluirFunil:comSync('funil',function(p){return 'excluir '+p.idOportunidade;},comAuthPronto(excluirFunil)),
+    registrarAtividadeFunil:comSync('funil',function(p){return 'atividade ('+(p.tipo||'')+')';},comAuthPronto(registrarAtividadeFunil)),
+    atualizarPrioridadeFunil:comSync('funil',function(p){return 'prioridade';},comAuthPronto(atualizarPrioridadeFunil)),
     getProposals:comAuthPronto(getPropostas),
     saveProposal:comSync('propostas',function(p){return p.nomeCliente||p.numero||'';},comAuthPronto(salvarProposta)),
 

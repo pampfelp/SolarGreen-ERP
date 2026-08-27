@@ -377,7 +377,8 @@
   .kanban-col-head .kc-nome{font-family:var(--unbounded);font-size:12px;font-weight:700;color:var(--ink);}
   .kanban-col-head .kc-sub{font-size:11px;color:var(--ink-faint);margin-top:4px;}
   .kanban-col-body{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:9px;}
-  .kanban-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 13px;cursor:grab;transition:box-shadow .12s,border-color .12s,opacity .12s;touch-action:pan-y;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+  .kanban-card{position:relative;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 13px;cursor:grab;transition:box-shadow .12s,border-color .12s,opacity .12s;touch-action:pan-y;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+  .kcard-medalha{position:absolute;top:-7px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;line-height:20px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.25);}
   @media(max-width:900px){ .kanban-col{width:240px;} }
   .kanban-card:active{cursor:grabbing;}
   .kanban-card.kcard-dragging{opacity:.35;}
