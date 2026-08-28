@@ -3368,15 +3368,17 @@ function getOrCreatePastaContratosProposta_() {
   return DriveApp.createFolder(nomePasta);
 }
 
-var TIPOS_CONTRATO_ASSINAVEIS_ = { monitoramento: true, manutencao: true };
+var TIPOS_CONTRATO_ASSINAVEIS_ = { monitoramento: true, manutencao: true, recibo: true, procuracao: true };
 
 /**
  * action: enviarContratoParaAssinatura — body { idCliente, clienteNome,
  *   clienteEmail, tipoContrato, html, nomeDocumento }
  * "html" é o MESMO documento que a tela já monta pro botão "Imprimir/PDF"
- * do Contrato (composeMonitoramento/composeManutencao). Só os tipos em
- * TIPOS_CONTRATO_ASSINAVEIS_ podem ser mandados pra assinatura (Recibo e
- * Procuração continuam só com impressão).
+ * do Contrato (compose* de cada tipo). Só os tipos em
+ * TIPOS_CONTRATO_ASSINAVEIS_ podem ser mandados pra assinatura — liberado
+ * pra Recibo e Procuração em 2026-08-27 (pedido do Felipe; antes só
+ * monitoramento/manutenção, sem motivo técnico pra excluir os outros dois,
+ * o fluxo já é genérico).
  */
 function actionEnviarContratoParaAssinatura(body) {
   var tipoContrato = body.tipoContrato, html = body.html,
