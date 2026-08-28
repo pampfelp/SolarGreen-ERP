@@ -282,6 +282,32 @@
   })();
 
   /**
+   * Foto ampliada (2026-08-27) — clicar numa foto (link do Drive OU base64
+   * do Firestore) abre em tela cheia aqui, em vez de tentar `window.open`
+   * numa aba nova. Precisou existir porque `window.open(dataURI,'_blank')`
+   * é bloqueado silenciosamente pelo Chrome (proteção contra phishing via
+   * data: URI) — funcionava com link do Drive (http), parou de funcionar
+   * assim que a foto passou a vir em base64 direto do Firestore, sem
+   * nenhum erro visível (só não abria nada).
+   */
+  window.SGFotoModal=(function(){
+    function fechar(){ var m=document.getElementById('sgFotoModal'); if(m)m.classList.add('hidden'); }
+    function abrir(url){
+      var modal=document.getElementById('sgFotoModal'),img=document.getElementById('sgFoto-img');
+      if(!modal||!img||!url)return;
+      img.src=url;
+      modal.classList.remove('hidden');
+    }
+    document.addEventListener('DOMContentLoaded',function(){
+      var modal=document.getElementById('sgFotoModal');
+      if(!modal)return; // tela sem esse modal (ex.: app do técnico)
+      modal.addEventListener('click',fechar);
+      document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&!modal.classList.contains('hidden'))fechar(); });
+    });
+    return {abrir:abrir,fechar:fechar};
+  })();
+
+  /**
    * Indicador global de sincronização (bolinha no canto superior direito).
    * Diferente do padrão com onSnapshot/hasPendingWrites (documentado em
    * segundo-cerebro/padroes/javascript-patterns.md) — esse piloto do
