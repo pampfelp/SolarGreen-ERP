@@ -144,6 +144,23 @@
     }).catch(function(err){ return {ok:false,erro:err.message}; });
   }
 
+  // Remover foto (2026-08-27, pedido do Felipe): até aqui só dava pra
+  // TROCAR a foto de um campo, nunca deixar vazio de novo. Mesmo doc/id da
+  // upload (idAgendamento_idTemplate) — só zera o campo, não apaga o
+  // registro (ele pode ter outras respostas — texto, quantidade — que
+  // continuam valendo).
+  function removerFotoResposta(p){
+    var idAgendamento=p.idAgendamento, idTemplate=p.idTemplate;
+    if(!idAgendamento||!idTemplate) return Promise.resolve({ok:false,erro:'Dados incompletos.'});
+    var idDoc=idAgendamento+'_'+idTemplate;
+    return db().collection('agendamentos_respostas').doc(idDoc).set({RespostaFoto:''},{merge:true})
+      .then(function(){
+        return atualizarStatusAutomatico(idAgendamento);
+      }).then(function(novoStatus){
+        return {ok:true, novoStatus:novoStatus};
+      }).catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+
   function atualizarStatusAgendamento(p){
     var idAgendamento=p.idAgendamento, status=p.status;
     if(!idAgendamento||!status) return Promise.resolve({ok:false,erro:'Dados incompletos.'});
@@ -227,6 +244,7 @@
     getRespostasAgendamentos:comAuthPronto(getRespostasAgendamentos),
     salvarRespostasAgendamento:comSync('agendamentos_respostas',function(p){return 'checklist da OS '+p.idAgendamento;},comAuthPronto(salvarRespostasAgendamento)),
     uploadFotoResposta:comSync('agendamentos_respostas',function(p){return 'foto da OS '+p.idAgendamento;},comAuthPronto(uploadFotoResposta)),
+    removerFotoResposta:comSync('agendamentos_respostas',function(p){return 'remover foto da OS '+p.idAgendamento;},comAuthPronto(removerFotoResposta)),
     atualizarStatusAgendamento:comSync('agendamentos',function(p){return 'status da OS '+p.idAgendamento+' → '+p.status;},comAuthPronto(atualizarStatusAgendamento)),
     getCatalogoProdutos:comAuthPronto(getCatalogoProdutos),
     salvarModulo:comSync('produtos_modulos',function(p){return p.modelo||p.idModulo;},comAuthPronto(salvarModulo)),

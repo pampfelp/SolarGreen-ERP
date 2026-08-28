@@ -178,6 +178,10 @@
   .photo-field .ph-btn-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
   .photo-field input[type=file]{display:none;}
   .photo-field .ph-status{font-size:11px;color:var(--ink-faint);margin-top:6px;}
+  .photo-field .ph-btn-remover{display:block;width:100%;text-align:center;background:none;border:none;color:var(--debit);font-size:12px;font-weight:700;cursor:pointer;padding:8px 0 2px;}
+  .photo-field .ph-confirma-remover{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:8px;font-size:12.5px;color:var(--ink-soft);}
+  .photo-field .ph-confirma-remover button{border-radius:8px;padding:7px 14px;font-size:12.5px;font-weight:700;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink-soft);}
+  .photo-field .ph-confirma-remover button.ph-confirma-sim{background:var(--debit);border-color:var(--debit);color:#fff;}
   .field-status{font-size:11px;color:var(--ink-faint);margin-top:5px;min-height:14px;}
   .field-status.ok{color:var(--accent-deep);}
   .field-status.error{color:var(--debit);cursor:pointer;text-decoration:underline;}
