@@ -405,7 +405,7 @@
       salvarStatusOtimista(a,novoStatus,btn);
     });
     document.getElementById('ad-body').addEventListener('click',function(e){
-      if(e.target.tagName==='IMG')window.open(e.target.src,'_blank');
+      if(e.target.tagName==='IMG'&&window.SGFotoModal)window.SGFotoModal.abrir(e.target.src);
     });
 
     document.getElementById('agendamentoDetalhe').classList.add('active');
