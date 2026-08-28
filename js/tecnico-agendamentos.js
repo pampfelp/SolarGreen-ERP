@@ -373,6 +373,12 @@
           (temFoto?'<div class="ph-status" style="margin-top:4px;">Trocar: escolha uma opção acima</div>':'')+
           '<input type="file" accept="image/*" capture="environment" id="'+fid+'_cam" data-target="'+fid+'">'+
           '<input type="file" accept="image/*" id="'+fid+'_gal" data-target="'+fid+'">'+
+          (temFoto?('<button type="button" class="ph-btn-remover" data-target="'+fid+'" data-tpl="'+escapeHtml(tpl.IdTemplate)+'">🗑 Remover foto</button>'+
+            '<div class="ph-confirma-remover hidden" id="phc-'+fid+'">'+
+              '<span>Remover esta foto?</span>'+
+              '<button type="button" class="ph-confirma-sim" data-target="'+fid+'" data-tpl="'+escapeHtml(tpl.IdTemplate)+'">Sim, remover</button>'+
+              '<button type="button" class="ph-confirma-nao" data-target="'+fid+'">Cancelar</button>'+
+            '</div>'):'')+
           '<div class="ph-status" id="phs-'+fid+'"></div>'+
         '</div>'+
       '</div>';
@@ -579,6 +585,85 @@
           tentarEnviar();
         }).catch(function(err){
           statusEl.textContent='Erro ao preparar a foto: '+err.message;
+        });
+      });
+    });
+    // "Remover foto" — pedido do Felipe: até aqui só dava pra TROCAR a foto
+    // (escolher outra), não dava pra deixar o campo vazio de novo. Confirma
+    // inline (sem confirm() nativo, ver segundo-cerebro/padroes/design-
+    // system.md) antes de remover de verdade.
+    raiz.querySelectorAll('.ph-btn-remover').forEach(function(btn){
+      if(btn.getAttribute('data-wired'))return;
+      btn.setAttribute('data-wired','1');
+      btn.addEventListener('click',function(){
+        var target=btn.getAttribute('data-target');
+        btn.classList.add('hidden');
+        var confirma=document.getElementById('phc-'+target);
+        if(confirma)confirma.classList.remove('hidden');
+      });
+    });
+    raiz.querySelectorAll('.ph-confirma-nao').forEach(function(btn){
+      if(btn.getAttribute('data-wired'))return;
+      btn.setAttribute('data-wired','1');
+      btn.addEventListener('click',function(){
+        var target=btn.getAttribute('data-target');
+        var confirma=document.getElementById('phc-'+target);
+        if(confirma)confirma.classList.add('hidden');
+        var removerBtn=document.querySelector('.ph-btn-remover[data-target="'+target+'"]');
+        if(removerBtn)removerBtn.classList.remove('hidden');
+      });
+    });
+    raiz.querySelectorAll('.ph-confirma-sim').forEach(function(btn){
+      if(btn.getAttribute('data-wired'))return;
+      btn.setAttribute('data-wired','1');
+      btn.addEventListener('click',function(){
+        var idTemplate=btn.getAttribute('data-tpl');
+        var row=btn.closest('.form-field');
+        var tpl=templatesPorId[idTemplate];
+        if(!row||!tpl)return;
+        var chave=idAgendamento+'|'+idTemplate;
+        var respostaAnterior=respostasMap[chave]?Object.assign({},respostasMap[chave]):null;
+
+        // Redesenha o campo do zero a partir do respostasMap atual — mesma
+        // função que já monta o campo na primeira vez (campoHtml), só que
+        // chamada de novo depois de mudar a resposta em memória. Usada tanto
+        // pro otimista (sem foto) quanto pra desfazer se o servidor recusar
+        // (respostaAnterior de volta).
+        function redesenhar(){
+          var alvo=document.querySelector('.form-field[data-tpl="'+idTemplate+'"]')||row;
+          var wrapper=document.createElement('div');
+          wrapper.innerHTML=campoHtml(tpl,idAgendamento);
+          var novoNode=wrapper.firstElementChild;
+          alvo.replaceWith(novoNode);
+          wireCampoEvents(idAgendamento,novoNode);
+          return novoNode;
+        }
+
+        // Otimista: já troca pro estado "sem foto" na tela.
+        var atual=respostasMap[chave]||{};
+        atual.RespostaFoto='';
+        respostasMap[chave]=atual;
+        redesenhar();
+        atualizarProgressoObrigatorios();
+
+        SGAuth.apiCall('removerFotoResposta',{
+          solicitanteId:session.idVendedor,idAgendamento:idAgendamento,idTemplate:idTemplate
+        }).then(function(resp){
+          if(!resp||!resp.ok){
+            respostasMap[chave]=respostaAnterior;
+            var novoNode=redesenhar();
+            atualizarProgressoObrigatorios();
+            var statusEl=novoNode.querySelector('.ph-status');
+            if(statusEl)statusEl.textContent=(resp&&resp.erro)||'Não foi possível remover — foto restaurada.';
+            return;
+          }
+          if(resp.novoStatus)aplicarNovoStatusLocal(resp.novoStatus);
+        }).catch(function(err){
+          respostasMap[chave]=respostaAnterior;
+          var novoNode=redesenhar();
+          atualizarProgressoObrigatorios();
+          var statusEl=novoNode.querySelector('.ph-status');
+          if(statusEl)statusEl.textContent='Erro de conexão — foto restaurada.';
         });
       });
     });
