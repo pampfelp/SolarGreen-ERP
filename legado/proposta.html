@@ -1462,7 +1462,7 @@ function renderCtypeGrid(){
   });
 }
 
-var TIPOS_CONTRATO_ASSINAVEIS={monitoramento:true,manutencao:true};
+var TIPOS_CONTRATO_ASSINAVEIS={monitoramento:true,manutencao:true,recibo:true,procuracao:true};
 
 function selectContractType(id){
   CT.selectedId=id; CT.values={};
@@ -1775,10 +1775,12 @@ function printContrato(){
   setTimeout(function(){win.print();},500);
 }
 
-// Mesmo HTML do "Imprimir/PDF" (composeMonitoramento/composeManutencao),
+// Mesmo HTML do "Imprimir/PDF" (compose* de cada tipo de contrato),
 // mandado pro servidor pra virar PDF de verdade e ser enviado pra
 // Autentique — mesmo fluxo já usado na Ordem de Serviço, adaptado aqui
 // porque essa tela não tem login (só a chave já validada no roteador).
+// Genérico: funciona pra qualquer tipo listado em
+// TIPOS_CONTRATO_ASSINAVEIS, não só monitoramento/manutenção.
 function enviarContratoParaAssinatura(){
   var t=CONTRACT_TYPES.find(function(x){return x.id===CT.selectedId;});
   if(!t||!t.compose){ showToast('Selecione um tipo de contrato',false); return; }
