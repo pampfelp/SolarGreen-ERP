@@ -98,6 +98,20 @@
     if(iso)return new Date(parseInt(iso[1],10),parseInt(iso[2],10)-1,parseInt(iso[3],10));
     var d=new Date(str); return isNaN(d.getTime())?null:d;
   }
+  /**
+   * "Criado em" (2026-08-27): DataCriacao é gravado como timestamp ISO
+   * COMPLETO em UTC. NÃO dá pra reusar parseBRDateTime aqui: ela casa só a
+   * parte YYYY-MM-DD e remonta como data local, jogando o horário fora —
+   * isso erraria o DIA toda vez que a criação caísse entre 21h e meia-noite
+   * no horário de Brasília (em UTC já é o dia seguinte). Justamente o caso
+   * que mais importa numa promoção que vira à meia-noite. new Date(iso)
+   * converte de UTC pro fuso local corretamente.
+   */
+  function parseCriadoEm(iso){
+    if(!iso)return null;
+    var d=new Date(iso);
+    return isNaN(d.getTime())?null:d;
+  }
   function dateKey(d){ return window.SGUtil.dateKey(d); }
   function statusSlug(s){return (s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'-');}
 
@@ -679,6 +693,17 @@
         // recente primeiro).
         return mult*String(a['Hora Fim']||'').localeCompare(String(b['Hora Fim']||''));
       }
+      if(col==='criacao'){
+        var ca=parseCriadoEm(a.DataCriacao),cb=parseCriadoEm(b.DataCriacao);
+        var ta=ca?ca.getTime():null, tb=cb?cb.getTime():null;
+        // Agendamento sem data de criação (migrado da planilha antiga) vai
+        // sempre pro fim, nas duas direções — senão ordenar por "mais
+        // recente" encheria a primeira página só de traço.
+        if(ta===null&&tb===null)return 0;
+        if(ta===null)return 1;
+        if(tb===null)return -1;
+        return mult*(ta-tb);
+      }
       if(col==='cliente'){va=nomeCliente(a.IdCliente);vb=nomeCliente(b.IdCliente);return mult*va.localeCompare(vb,'pt-BR');}
       if(col==='servico'){va=nomeServico(a.IdServico);vb=nomeServico(b.IdServico);return mult*va.localeCompare(vb,'pt-BR');}
       if(col==='tecnico'){va=nomeVendedor(a.TecnicoResponsavel);vb=nomeVendedor(b.TecnicoResponsavel);return mult*va.localeCompare(vb,'pt-BR');}
@@ -741,7 +766,13 @@
       var dataFmt=dt?String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0')+'/'+dt.getFullYear():'—';
       var horario=(a['Hora inicio']||'—')+' – '+(a['Hora Fim']||'—');
       var status=(a['Status Agendamento']||'Agendado').trim();
+      var criado=parseCriadoEm(a.DataCriacao);
+      var criadoFmt=criado
+        ?(String(criado.getDate()).padStart(2,'0')+'/'+String(criado.getMonth()+1).padStart(2,'0')+'/'+criado.getFullYear()
+          +'<br><span style="color:var(--ink-faint);font-size:11px;">'+String(criado.getHours()).padStart(2,'0')+':'+String(criado.getMinutes()).padStart(2,'0')+'</span>')
+        :'<span style="color:var(--ink-faint);" title="Agendamento anterior ao registro automático de data de criação">—</span>';
       return '<tr class="ag-row-click" data-id="'+escapeHtml(a.IdAgendamento)+'">'+
+        '<td>'+criadoFmt+'</td>'+
         '<td>'+escapeHtml(nomeCliente(a.IdCliente))+'</td>'+
         '<td>'+escapeHtml(nomeServico(a.IdServico))+'</td>'+
         '<td>'+(a.Valor?window.SGUtil.fmtMoney(a.Valor):'<span style="color:var(--debit);font-weight:600;">sem valor</span>')+'</td>'+

@@ -364,17 +364,28 @@
   function salvarAgendamento(p){
     var id=p.idAgendamento;
     if(!id) return Promise.resolve({ok:false,erro:'idAgendamento é obrigatório.'});
-    var doc=semUndefined({
-      IdAgendamento:id, IdCliente:p.idCliente||'', IdServico:p.idServico||'',
-      TecnicoResponsavel:p.tecnicoResponsavel||'', Valor:paraNumero(p.valor),
-      'Data Inicio':p.dataInicio||'', 'Hora inicio':p.horaInicio||'', 'Hora Fim':p.horaFim||'',
-      'Status Agendamento':p.statusAgendamento||'Agendado', 'Motivo Cancelamento':p.motivoCancelamento||'',
-      'Observacao Comercial':p.observacaoComercial||'',
-      'Quantidade de Modulos':p.quantidadeModulos||'', 'Modelo Modulos':p.modeloModulos||'',
-      'Quantidade Inversores':p.quantidadeInversores||'', 'Modelo Inversores':p.modeloInversores||''
-    });
-    return db().collection('agendamentos').doc(id).set(doc,{merge:true})
-      .then(function(){ return {ok:true,idAgendamento:id}; })
+    var ref=db().collection('agendamentos').doc(id);
+    // Confere se o documento JÁ EXISTE antes de decidir se grava DataCriacao
+    // (mesmo padrão de salvarFunil): o front sempre manda idAgendamento —
+    // inclusive pra agendamento novo, que já nasce com id gerado no
+    // navegador — então "veio id?" não serve pra saber se é criação.
+    // semUndefined tira o campo quando é edição, então editar um agendamento
+    // existente nunca sobrescreve a data de criação original.
+    return ref.get().then(function(snap){
+      var doc=semUndefined({
+        IdAgendamento:id, IdCliente:p.idCliente||'', IdServico:p.idServico||'',
+        TecnicoResponsavel:p.tecnicoResponsavel||'', Valor:paraNumero(p.valor),
+        'Data Inicio':p.dataInicio||'', 'Hora inicio':p.horaInicio||'', 'Hora Fim':p.horaFim||'',
+        'Status Agendamento':p.statusAgendamento||'Agendado', 'Motivo Cancelamento':p.motivoCancelamento||'',
+        'Observacao Comercial':p.observacaoComercial||'',
+        'Quantidade de Modulos':p.quantidadeModulos||'', 'Modelo Modulos':p.modeloModulos||'',
+        'Quantidade Inversores':p.quantidadeInversores||'', 'Modelo Inversores':p.modeloInversores||'',
+        // Timestamp completo (não só a data): numa promoção que vira no fim
+        // de semana, saber se foi sábado 23h ou domingo 0h faz diferença.
+        DataCriacao: snap.exists?undefined:new Date().toISOString()
+      });
+      return ref.set(doc,{merge:true});
+    }).then(function(){ return {ok:true,idAgendamento:id}; })
       .catch(function(err){ return {ok:false,erro:err.message}; });
   }
   function atualizarStatusAgendamento(p){
