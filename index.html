@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=20260829a">
+<link rel="stylesheet" href="css/app.css?v=20260829b">
 </head>
 <body>
 
@@ -1051,10 +1051,17 @@
     <div class="uform-field"><label>Tipo de pessoa <span class="req">*</span></label>
       <select id="cm-tipoPessoa"><option value="Física">Física</option><option value="Jurídica">Jurídica</option></select>
     </div>
+    <div class="uform-field"><label>Nome da mãe</label><input type="text" id="cm-nomeMae"></div>
+    <div class="uform-field"><label>RG</label><input type="text" id="cm-rg"></div>
+    <div class="uform-field"><label>Data de expedição do RG</label><input type="date" id="cm-dataExpedicaoRg"></div>
+    <div class="uform-field"><label>Data de nascimento</label><input type="date" id="cm-dataNascimento"></div>
     <div class="uform-field"><label>Telefone <span class="req">*</span></label><input type="text" id="cm-telefone" maxlength="15" inputmode="numeric"></div>
     <div class="uform-field"><label>CPF ou CNPJ</label><input type="text" id="cm-cpfCnpj" maxlength="18" inputmode="numeric"></div>
     <div class="uform-field"><label>E-mail</label><input type="email" id="cm-email"></div>
     <div class="uform-field"><label>Endereço</label><input type="text" id="cm-endereco"></div>
+    <div class="uform-field"><label>CEP</label><input type="text" id="cm-cep" maxlength="9" inputmode="numeric"></div>
+    <div class="uform-field"><label>Ocupação</label><input type="text" id="cm-ocupacao"></div>
+    <div class="uform-field"><label>Renda</label><input type="number" id="cm-renda" step="0.01" min="0"></div>
     <div class="uform-field"><label>Status</label>
       <select id="cm-status"><option value="Lead">Lead</option><option value="Cliente">Cliente</option><option value="Inativo">Inativo</option></select>
     </div>
@@ -1079,6 +1086,12 @@
     </div>
     <div class="uform-field"><label>CPF do titular Equatorial</label><input type="text" id="cm-cpfEquatorial" placeholder="Necessário pra cadastrar Planos" maxlength="18" inputmode="numeric"></div>
     <div class="uform-field"><label>Data de nascimento do titular Equatorial</label><input type="date" id="cm-dataNascimentoEquatorial"></div>
+    <div class="uform-field"><label>Número da Unidade Geradora</label><input type="text" id="cm-numeroUnidadeGeradora"></div>
+    <div class="uform-field">
+      <label>Unidades consumidoras beneficiárias</label>
+      <div id="cm-beneficiariasList"></div>
+      <button type="button" class="reset-btn" id="cm-addBeneficiariaBtn" style="width:100%;margin-top:6px;">+ Adicionar beneficiária</button>
+    </div>
     <div class="uform-msg" id="cm-msg"></div>
     <div id="cm-avisoDuplicado" class="hidden" style="background:#fef2f2;border:1px solid var(--debit);border-radius:10px;padding:12px 14px;margin-bottom:14px;">
       <div style="font-size:12.5px;color:var(--debit);font-weight:700;margin-bottom:4px;"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>Já existe um contato cadastrado para esse número</div>
@@ -1745,25 +1758,25 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="js/firebase-init.js?v=20260829a"></script>
-<script src="js/firestore-router.js?v=20260829a"></script>
-<script src="js/sg-auth.js?v=20260829a"></script>
-<script src="js/dashboard.js?v=20260829a"></script>
-<script src="js/ponto.js?v=20260829a"></script>
-<script src="js/vendas.js?v=20260829a"></script>
-<script src="js/funil.js?v=20260829a"></script>
-<script src="js/agendamentos.js?v=20260829a"></script>
-<script src="js/clientes.js?v=20260829a"></script>
-<script src="js/relatorios.js?v=20260829a"></script>
-<script src="js/custos-venda.js?v=20260829a"></script>
-<script src="js/custo-recorrente.js?v=20260829a"></script>
-<script src="js/servicos.js?v=20260829a"></script>
-<script src="js/catalogo.js?v=20260829a"></script>
-<script src="js/metas.js?v=20260829a"></script>
-<script src="js/planos.js?v=20260829a"></script>
-<script src="js/usuarios.js?v=20260829a"></script>
-<script src="js/permissoes.js?v=20260829a"></script>
-<script src="js/controller.js?v=20260829a"></script>
+<script src="js/firebase-init.js?v=20260829b"></script>
+<script src="js/firestore-router.js?v=20260829b"></script>
+<script src="js/sg-auth.js?v=20260829b"></script>
+<script src="js/dashboard.js?v=20260829b"></script>
+<script src="js/ponto.js?v=20260829b"></script>
+<script src="js/vendas.js?v=20260829b"></script>
+<script src="js/funil.js?v=20260829b"></script>
+<script src="js/agendamentos.js?v=20260829b"></script>
+<script src="js/clientes.js?v=20260829b"></script>
+<script src="js/relatorios.js?v=20260829b"></script>
+<script src="js/custos-venda.js?v=20260829b"></script>
+<script src="js/custo-recorrente.js?v=20260829b"></script>
+<script src="js/servicos.js?v=20260829b"></script>
+<script src="js/catalogo.js?v=20260829b"></script>
+<script src="js/metas.js?v=20260829b"></script>
+<script src="js/planos.js?v=20260829b"></script>
+<script src="js/usuarios.js?v=20260829b"></script>
+<script src="js/permissoes.js?v=20260829b"></script>
+<script src="js/controller.js?v=20260829b"></script>
 
 <div id="sg-install-banner">
   <span class="sg-ib-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>

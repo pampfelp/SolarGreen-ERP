@@ -303,7 +303,7 @@
     var html='';
     html+='<div class="ad-section">'+
       '<span class="ag-status-tag '+statusSlug(status)+'">'+escapeHtml(status)+'</span>'+
-      '<div class="ad-row" style="margin-top:10px;"><span class="dl">Cliente</span><span class="dv">'+escapeHtml(nomeCliente(a.IdCliente))+'</span></div>'+
+      '<div class="ad-row" style="margin-top:10px;"><span class="dl">Cliente</span><span class="dv"><button type="button" id="ad-clienteLink" class="link-btn">'+escapeHtml(nomeCliente(a.IdCliente))+'</button></span></div>'+
       (cliente.Endereco?'<div class="ad-row"><span class="dl">Endereço</span><span class="dv">'+escapeHtml(cliente.Endereco)+'</span></div>':'')+
       (cliente.Telefone?'<div class="ad-row"><span class="dl">Telefone</span><span class="dv">'+escapeHtml(cliente.Telefone)+'</span></div>':'')+
       (vend?'<div class="ad-row"><span class="dl">Vendedor</span><span class="dv">'+escapeHtml(vend.Nome||'—')+'</span></div>':'')+
@@ -359,6 +359,13 @@
     }
 
     document.getElementById('ad-body').innerHTML=html;
+
+    var clienteLink=document.getElementById('ad-clienteLink');
+    if(clienteLink){
+      clienteLink.addEventListener('click',function(){
+        if(window.clientesApp&&window.clientesApp.abrirEdicao)window.clientesApp.abrirEdicao(a.IdCliente);
+      });
+    }
 
     var copiarLinkOSBtn=document.getElementById('ad-copiarLinkOSBtn');
     if(copiarLinkOSBtn){

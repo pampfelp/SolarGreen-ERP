@@ -586,6 +586,10 @@
       if(d.length<=10)return d.replace(/^(\d{2})(\d)/,'($1) $2').replace(/(\d{4})(\d{1,4})$/,'$1-$2');
       return d.replace(/^(\d{2})(\d)/,'($1) $2').replace(/(\d{5})(\d{1,4})$/,'$1-$2');
     },
+    formatarCep:function(valor){
+      var d=String(valor==null?'':valor).replace(/\D/g,'').slice(0,8);
+      return d.replace(/^(\d{5})(\d)/,'$1-$2');
+    },
     // Liga a máscara num <input>, preservando a posição do cursor (sem isso
     // o cursor pula pro fim a cada tecla, atrapalhando editar no meio do número).
     aplicarMascara:function(input,formatarFn){

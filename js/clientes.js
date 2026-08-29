@@ -189,6 +189,47 @@
   }
 
   /**
+   * Unidades consumidoras beneficiárias (2026-08-29, pedido do Felipe): um
+   * cliente com Unidade Geradora pode ter outras unidades (endereços/
+   * pessoas diferentes) recebendo o crédito de energia gerado — lista de
+   * tamanho livre, guardada como array de objetos direto no doc do cliente
+   * (mesmo padrão de array-de-mapa já usado em Funil pra Transicoes/
+   * Atividades — sem precisar de subcoleção pra uma lista desse tamanho).
+   */
+  function renderBeneficiarias(lista){
+    var wrap=document.getElementById('cm-beneficiariasList');
+    wrap.innerHTML=(lista||[]).map(function(b,i){
+      return '<div class="beneficiaria-row" data-idx="'+i+'">'+
+        '<input type="text" class="benef-numero" placeholder="Número da UC" value="'+escapeHtml(b.Numero||'')+'">'+
+        '<input type="text" class="benef-obs" placeholder="Observação (opcional)" value="'+escapeHtml(b.Observacao||'')+'">'+
+        '<button type="button" class="benef-remover" title="Remover">✕</button>'+
+      '</div>';
+    }).join('');
+    wrap.querySelectorAll('.benef-remover').forEach(function(btn){
+      btn.addEventListener('click',function(){ btn.closest('.beneficiaria-row').remove(); });
+    });
+  }
+  function lerBeneficiarias(){
+    return Array.from(document.querySelectorAll('#cm-beneficiariasList .beneficiaria-row')).map(function(row){
+      return {
+        Numero:row.querySelector('.benef-numero').value.trim(),
+        Observacao:row.querySelector('.benef-obs').value.trim()
+      };
+    }).filter(function(b){ return b.Numero||b.Observacao; }); // linha em branco (adicionou e não preencheu) não vira registro
+  }
+  function adicionarBeneficiaria(){
+    var wrap=document.getElementById('cm-beneficiariasList');
+    var div=document.createElement('div');
+    div.className='beneficiaria-row';
+    div.innerHTML='<input type="text" class="benef-numero" placeholder="Número da UC">'+
+      '<input type="text" class="benef-obs" placeholder="Observação (opcional)">'+
+      '<button type="button" class="benef-remover" title="Remover">✕</button>';
+    wrap.appendChild(div);
+    div.querySelector('.benef-remover').addEventListener('click',function(){ div.remove(); });
+    div.querySelector('.benef-numero').focus();
+  }
+
+  /**
    * Painel de VISUALIZAÇÃO do cliente — abre ao clicar numa linha da tabela.
    * Só leitura; o lápis abre abrirModalCliente(id) pra editar de verdade.
    */
@@ -197,16 +238,37 @@
     if(!c)return;
     editandoId=idCliente;
     var status=c['Status Cliente']||'Lead';
+    var fmtDataCl=function(v){ var d=v?parseBRDateCl(v):null; return d?window.SGUtil.fmtDateBR(d):''; };
     var html='<div class="ad-section">'+
       '<div class="ad-row"><span class="dl">Nome / Razão Social</span><span class="dv">'+escapeHtml(c['Nome Razao Social']||c.Nome||'—')+'</span></div>'+
       '<div class="ad-row"><span class="dl">Tipo de pessoa</span><span class="dv">'+escapeHtml(c['Tipo Pessoa']||'—')+'</span></div>'+
+      (c.NomeMae?'<div class="ad-row"><span class="dl">Nome da mãe</span><span class="dv">'+escapeHtml(c.NomeMae)+'</span></div>':'')+
+      (c.RG?'<div class="ad-row"><span class="dl">RG</span><span class="dv">'+escapeHtml(c.RG)+'</span></div>':'')+
+      (c.DataExpedicaoRG?'<div class="ad-row"><span class="dl">Data de expedição do RG</span><span class="dv">'+escapeHtml(fmtDataCl(c.DataExpedicaoRG))+'</span></div>':'')+
+      (c.DataNascimento?'<div class="ad-row"><span class="dl">Data de nascimento</span><span class="dv">'+escapeHtml(fmtDataCl(c.DataNascimento))+'</span></div>':'')+
       '<div class="ad-row"><span class="dl">Telefone</span><span class="dv">'+escapeHtml(c.Telefone||'—')+'</span></div>'+
       '<div class="ad-row"><span class="dl">CPF/CNPJ</span><span class="dv">'+escapeHtml(c['CPF ou CNPJ']||'—')+'</span></div>'+
       '<div class="ad-row"><span class="dl">E-mail</span><span class="dv">'+escapeHtml(c.Email||'—')+'</span></div>'+
       '<div class="ad-row"><span class="dl">Endereço</span><span class="dv">'+escapeHtml(c.Endereco||'—')+'</span></div>'+
+      (c.CEP?'<div class="ad-row"><span class="dl">CEP</span><span class="dv">'+escapeHtml(c.CEP)+'</span></div>':'')+
+      (c.Ocupacao?'<div class="ad-row"><span class="dl">Ocupação</span><span class="dv">'+escapeHtml(c.Ocupacao)+'</span></div>':'')+
+      (c.Renda?'<div class="ad-row"><span class="dl">Renda</span><span class="dv">'+window.SGUtil.fmtMoney(c.Renda)+'</span></div>':'')+
       '<div class="ad-row"><span class="dl">Status</span><span class="dv">'+escapeHtml(status)+'</span></div>'+
       '<div class="ad-row"><span class="dl">Vendedor responsável</span><span class="dv">'+escapeHtml(nomeVendedor(c['Vendedor Responsavel']))+'</span></div>'+
     '</div>';
+
+    if(c.NumeroUnidadeGeradora||(c.UnidadesBeneficiarias&&c.UnidadesBeneficiarias.length)){
+      html+='<div class="ad-section"><h4>Conta Equatorial</h4>'+
+        (c.NumeroUnidadeGeradora?'<div class="ad-row"><span class="dl">Nº Unidade Geradora</span><span class="dv">'+escapeHtml(c.NumeroUnidadeGeradora)+'</span></div>':'')+
+      '</div>';
+      if(c.UnidadesBeneficiarias&&c.UnidadesBeneficiarias.length){
+        html+='<div class="ad-section"><h4>Unidades beneficiárias</h4>'+
+          c.UnidadesBeneficiarias.map(function(b){
+            return '<div class="ad-row"><span class="dl">UC '+escapeHtml(b.Numero||'—')+'</span><span class="dv">'+escapeHtml(b.Observacao||'—')+'</span></div>';
+          }).join('')+
+        '</div>';
+      }
+    }
 
     window.SGViewPanel.abrir({
       titulo:c['Nome Razao Social']||c.Nome||'Cliente',
@@ -222,11 +284,20 @@
     document.getElementById('clienteModalTitle').textContent=c?'Editar cliente':'Novo cliente';
     document.getElementById('cm-nome').value=c?(c['Nome Razao Social']||c.Nome||''):'';
     document.getElementById('cm-tipoPessoa').value=c?(c['Tipo Pessoa']||'Física'):'Física';
+    document.getElementById('cm-nomeMae').value=c?(c.NomeMae||''):'';
+    document.getElementById('cm-rg').value=c?(c.RG||''):'';
+    document.getElementById('cm-dataExpedicaoRg').value=c&&c.DataExpedicaoRG?dateKeyDoISOCl(parseBRDateCl(c.DataExpedicaoRG)):'';
+    document.getElementById('cm-dataNascimento').value=c&&c.DataNascimento?dateKeyDoISOCl(parseBRDateCl(c.DataNascimento)):'';
     document.getElementById('cm-telefone').value=c?window.SGUtil.formatarTelefone(c.Telefone||''):'';
     document.getElementById('cm-cpfCnpj').value=c?window.SGUtil.formatarCpfCnpj(c['CPF ou CNPJ']||''):'';
     document.getElementById('cm-email').value=c?(c.Email||''):'';
     document.getElementById('cm-endereco').value=c?(c.Endereco||''):'';
+    document.getElementById('cm-cep').value=c?window.SGUtil.formatarCep(c.CEP||''):'';
+    document.getElementById('cm-ocupacao').value=c?(c.Ocupacao||''):'';
+    document.getElementById('cm-renda').value=c?(c.Renda||''):'';
     document.getElementById('cm-status').value=c?(c['Status Cliente']||'Lead'):'Lead';
+    document.getElementById('cm-numeroUnidadeGeradora').value=c?(c.NumeroUnidadeGeradora||''):'';
+    renderBeneficiarias(c&&c.UnidadesBeneficiarias?c.UnidadesBeneficiarias:[]);
     document.getElementById('cm-excluirBtn').style.display=c?'block':'none';
     document.getElementById('cm-msg').textContent='';
     document.getElementById('cm-avisoDuplicado').classList.add('hidden');
@@ -309,6 +380,15 @@
     var vendedorResponsavel=document.getElementById('cm-vendedor').value;
     var cpfEquatorial=document.getElementById('cm-cpfEquatorial').value.trim();
     var dataNascimentoEquatorialVal=document.getElementById('cm-dataNascimentoEquatorial').value;
+    var nomeMae=document.getElementById('cm-nomeMae').value.trim();
+    var rg=document.getElementById('cm-rg').value.trim();
+    var dataExpedicaoRgVal=document.getElementById('cm-dataExpedicaoRg').value;
+    var dataNascimentoVal=document.getElementById('cm-dataNascimento').value;
+    var cep=document.getElementById('cm-cep').value.trim();
+    var ocupacao=document.getElementById('cm-ocupacao').value.trim();
+    var renda=document.getElementById('cm-renda').value.trim();
+    var numeroUnidadeGeradora=document.getElementById('cm-numeroUnidadeGeradora').value.trim();
+    var unidadesBeneficiarias=lerBeneficiarias();
 
     var ehNovo=!editandoId;
     // Só checa duplicidade em cadastro NOVO — editar um cliente que já existe
@@ -332,7 +412,10 @@
       IdCliente:idCliente, 'Nome Razao Social':nome, 'Tipo Pessoa':tipoPessoa, Telefone:telefone,
       'CPF ou CNPJ':cpfCnpj, Email:email, Endereco:endereco, 'Status Cliente':statusCliente,
       'Vendedor Responsavel':vendedorResponsavel, CPFEquatorial:cpfEquatorial,
-      DataNascimentoEquatorial:dataNascimentoEquatorialVal?dataNascimentoEquatorialVal.split('-').reverse().join('/'):''
+      DataNascimentoEquatorial:dataNascimentoEquatorialVal?dataNascimentoEquatorialVal.split('-').reverse().join('/'):'',
+      NomeMae:nomeMae, RG:rg, DataExpedicaoRG:dataExpedicaoRgVal, DataNascimento:dataNascimentoVal,
+      CEP:cep, Ocupacao:ocupacao, Renda:renda,
+      NumeroUnidadeGeradora:numeroUnidadeGeradora, UnidadesBeneficiarias:unidadesBeneficiarias
     };
     var indice=clientes.findIndex(function(c){return String(c.IdCliente)===String(idCliente);});
     if(indice===-1)clientes.push(registroNovo);
@@ -350,7 +433,10 @@
       cpfCnpj:cpfCnpj, email:email, endereco:endereco,
       statusCliente:statusCliente, vendedorResponsavel:vendedorResponsavel,
       confirmarClienteDiferente:confirmado,
-      cpfEquatorial:cpfEquatorial, dataNascimentoEquatorial:dataNascimentoEquatorialVal
+      cpfEquatorial:cpfEquatorial, dataNascimentoEquatorial:dataNascimentoEquatorialVal,
+      nomeMae:nomeMae, rg:rg, dataExpedicaoRg:dataExpedicaoRgVal, dataNascimento:dataNascimentoVal,
+      cep:cep, ocupacao:ocupacao, renda:renda,
+      numeroUnidadeGeradora:numeroUnidadeGeradora, unidadesBeneficiarias:unidadesBeneficiarias
     }).then(function(resp){
       if(!resp||!resp.ok){
         if(ehNovo)clientes=clientes.filter(function(c){return String(c.IdCliente)!==String(idCliente);});
@@ -445,6 +531,8 @@
     window.SGUtil.aplicarMascara(document.getElementById('cm-telefone'),window.SGUtil.formatarTelefone);
     window.SGUtil.aplicarMascara(document.getElementById('cm-cpfCnpj'),window.SGUtil.formatarCpfCnpj);
     window.SGUtil.aplicarMascara(document.getElementById('cm-cpfEquatorial'),window.SGUtil.formatarCpfCnpj);
+    window.SGUtil.aplicarMascara(document.getElementById('cm-cep'),window.SGUtil.formatarCep);
+    document.getElementById('cm-addBeneficiariaBtn').addEventListener('click',adicionarBeneficiaria);
     document.getElementById('cm-cpfCnpj').addEventListener('input',function(){ if(document.getElementById('cm-titularSim').checked)sincronizarTitularEquatorial(); });
     document.getElementById('cm-excluirBtn').addEventListener('click',excluirCliente);
     document.getElementById('cm-telefone').addEventListener('input',verificarDuplicidadeCliente);
