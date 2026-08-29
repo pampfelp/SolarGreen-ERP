@@ -26,7 +26,7 @@
 
   function processVendas(list){var out=[];list.forEach(function(o){if(!o.IdVenda)return;var dt=parseBRDate(o.DataVenda);if(!dt)return;out.push({idVenda:o.IdVenda,idCliente:o.IdCliente,idServico:o.IdServico,idVendedor:o.IdVendedor,dt:dt,dateKey:dateKey(dt),valor:parseBRNumber(o.Valor)});});return out;}
   function processCustosVenda(list){var out=[];list.forEach(function(o){if(!o.IdCusto)return;var dt=parseBRDate(o.Data);out.push({idCusto:o.IdCusto,idVenda:o.IdVenda,status:String(o.Status||''),dt:dt,dateKey:dt?dateKey(dt):null,valor:parseBRNumber(o.Valor)});});return out;}
-  function processFunil(list){var out=[];list.forEach(function(o){var id=o.IdOportunidade||o.IdFunil;if(!id)return;var dt=parseBRDate(o.DataCriacao||o['Data Criacao']||'');out.push({id:id,idCliente:o.IdCliente,idVendedor:o.IdVendedor,idServico:o.IdServico,etapa:o.Etapa,dt:dt,dateKey:dt?dateKey(dt):null,transicoes:o.Transicoes||[]});});return out;}
+  function processFunil(list){var out=[];list.forEach(function(o){var id=o.IdOportunidade||o.IdFunil;if(!id)return;var dt=parseBRDate(o.DataCriacao||o['Data Criacao']||'');out.push({id:id,idCliente:o.IdCliente,idVendedor:o.IdVendedor,idServico:o.IdServico,etapa:o.Etapa,dt:dt,dateKey:dt?dateKey(dt):null,transicoes:o.Transicoes||[],atividades:o.Atividades||[]});});return out;}
   var ETAPAS_PROPOSTA_VENDAS=['Negociação','Serviço Agendado','Ganho'];
 
   function getFiltered(){
