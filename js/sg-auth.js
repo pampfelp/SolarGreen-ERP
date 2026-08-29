@@ -477,6 +477,15 @@
      */
     calcularConversasPropostas:function(leads,from,to,etapasProposta){
       var ETAPAS_SEM_CONVERSA_=['Novo Lead','Tentativa de Contato'];
+      // Atividade de Conversa no WhatsApp/Ligação (2026-08-27, ver
+      // funil.js:registrarAtividadeFunil) também é uma conversa de verdade
+      // acontecendo, mesmo sem o lead mudar de etapa — achado real
+      // (2026-08-29, Felipe registrou várias e não via o número desse
+      // widget subir): esta função só olhava Transicoes, nunca Atividades,
+      // então logar a atividade não contava aqui (só afetava a ordem do
+      // Kanban/Lista). Mesma distinção já usada lá: Tentativa de Contato
+      // fica de fora, só as outras duas contam.
+      var TIPOS_ATIVIDADE_CONVERSA_=['Conversa no WhatsApp','Ligação'];
       var conversaDias={},propostaDias={};
       (leads||[]).forEach(function(f){
         (f.transicoes||[]).forEach(function(t){
@@ -489,6 +498,16 @@
           var chave=f.id+'|'+dk;
           if(ETAPAS_SEM_CONVERSA_.indexOf(etapa)===-1)conversaDias[chave]={leadId:f.id,dia:dk,etapa:etapa};
           if(etapasProposta.indexOf(etapa)!==-1)propostaDias[chave]={leadId:f.id,dia:dk,etapa:etapa};
+        });
+        (f.atividades||[]).forEach(function(a){
+          if(TIPOS_ATIVIDADE_CONVERSA_.indexOf(a.Tipo)===-1)return;
+          var dt=new Date(a.Em);
+          if(isNaN(dt))return;
+          var dk=window.SGUtil.dateKey(dt);
+          if(from&&dk<from)return;
+          if(to&&dk>to)return;
+          var chave=f.id+'|'+dk;
+          if(!conversaDias[chave])conversaDias[chave]={leadId:f.id,dia:dk,etapa:a.Tipo};
         });
       });
       var conversaLista=Object.keys(conversaDias).map(function(k){return conversaDias[k];});

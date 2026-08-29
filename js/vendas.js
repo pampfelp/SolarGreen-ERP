@@ -73,7 +73,7 @@
       // clicáveis (ver ligarDrillDownKpisVendas) — antes esse registro só
       // trazia o mínimo pras contas de conversão, sem dar pra identificar
       // QUEM é o lead por trás do número.
-      out.push({id:id,idCliente:o.IdCliente,idVendedor:o.IdVendedor,etapa:(o.Etapa||'').trim(),dt:dt,dateKey:dateKey(dt),transicoes:o.Transicoes||[]});
+      out.push({id:id,idCliente:o.IdCliente,idVendedor:o.IdVendedor,etapa:(o.Etapa||'').trim(),dt:dt,dateKey:dateKey(dt),transicoes:o.Transicoes||[],atividades:o.Atividades||[]});
     });
     return out;
   }
