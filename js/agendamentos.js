@@ -959,11 +959,6 @@
     });
   }
 
-  function formatarDataBR(iso){
-    var m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})/);
-    return m?(m[3]+'/'+m[2]+'/'+m[1]):(iso||'');
-  }
-
   /**
    * Regras vindas do AppSheet: hora fim > hora início, e nenhum outro
    * agendamento do MESMO técnico, no MESMO dia, com horário sobreposto.
@@ -995,7 +990,7 @@
     })[0];
     if(conflito){
       msgEl.className='uform-msg error';
-      msgEl.textContent='Conflito! O técnico '+nomeVendedor(tecnico)+' já possui agendamento neste horário no dia '+formatarDataBR(dataInicio)+'.';
+      msgEl.textContent='Conflito! O técnico '+nomeVendedor(tecnico)+' já tem "'+nomeCliente(conflito.IdCliente)+'" agendado nesse dia, das '+conflito['Hora inicio']+' às '+conflito['Hora Fim']+'.';
       return false;
     }
     return true;
