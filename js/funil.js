@@ -1045,7 +1045,7 @@
         '<select id="fv-etapaSelect" style="font-family:var(--sans);font-size:12px;font-weight:600;border:1px solid var(--line);border-radius:20px;padding:4px 10px;background:#fff;color:var(--ink);cursor:pointer;">'+etapasOpts+'</select>'+
       '</div>'+
       '<div class="ad-row" style="align-items:center;"><span class="dl">Prioridade</span><label class="switch"><input type="checkbox" id="fv-prioridadeToggle" '+(r.prioridade?'checked':'')+'><span class="slider"></span></label></div>'+
-      '<div class="ad-row" style="margin-top:10px;"><span class="dl">Cliente</span><span class="dv">'+escapeHtml(nomeClienteFor(r.idCliente))+'</span></div>'+
+      '<div class="ad-row" style="margin-top:10px;"><span class="dl">Cliente</span><span class="dv"><button type="button" id="fv-clienteLink" class="link-btn">'+escapeHtml(nomeClienteFor(r.idCliente))+'</button></span></div>'+
       (c.Telefone?'<div class="ad-row"><span class="dl">Telefone</span><span class="dv">'+escapeHtml(c.Telefone)+'</span></div>':'')+
       (c.Email?'<div class="ad-row"><span class="dl">E-mail</span><span class="dv">'+escapeHtml(c.Email)+'</span></div>':'')+
       (c['CPF ou CNPJ']?'<div class="ad-row"><span class="dl">CPF/CNPJ</span><span class="dv">'+escapeHtml(c['CPF ou CNPJ'])+'</span></div>':'')+
@@ -1081,6 +1081,18 @@
         });
         document.getElementById('fv-prioridadeToggle').addEventListener('change',function(e){ atualizarPrioridade(r.id,e.target.checked); });
         document.getElementById('fv-inserirAtividadeBtn').addEventListener('click',function(){ abrirModalAtividade(r.id); });
+        var clienteLink=document.getElementById('fv-clienteLink');
+        if(clienteLink){
+          clienteLink.addEventListener('click',function(){
+            if(!(window.clientesApp&&window.clientesApp.abrirVisualizacao))return;
+            // Aqui (diferente de Agendamentos) o painel do lead e o do
+            // cliente são o MESMO viewDetalhe compartilhado — abrir o
+            // cliente troca o conteúdo em vez de empilhar de verdade. O
+            // segundo argumento reabre este mesmo lead quando o painel do
+            // cliente for fechado, simulando o "voltar".
+            window.clientesApp.abrirVisualizacao(r.idCliente,function(){ abrirVisualizacaoLead(idOportunidade); });
+          });
+        }
       }
     });
   }
