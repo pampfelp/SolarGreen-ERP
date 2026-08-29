@@ -586,7 +586,64 @@
     },150);
   }
 
-  window.clientesApp={init:init,abrirEdicao:abrirEdicaoExterna};
+  /**
+   * Igual abrirEdicaoExterna acima, mas abre o painel de VISUALIZAÇÃO
+   * (só leitura, com o lápis pra editar de verdade) em vez de já cair
+   * direto no formulário de edição — pedido do Felipe pro link do nome do
+   * cliente no Funil/Agendamentos (diferente do aviso de "cadastro
+   * incompleto", que continua abrindo direto em edição, propositalmente).
+   *
+   * `aoFechar` (opcional) é pro caso do Funil: o painel de visualização de
+   * um LEAD já usa o mesmo `viewDetalhe` compartilhado (não é um painel
+   * separado como o de Agendamento) — abrir o cliente aqui SUBSTITUI o
+   * conteúdo em vez de empilhar por cima. `aoFechar` é chamado quando o
+   * usuário fecha a visualização do cliente (X ou clique fora), pra
+   * "voltar" mostrando o lead de novo, dando a mesma sensação de
+   * empilhamento que o Agendamento tem de verdade.
+   */
+  function abrirVisualizacaoExterna(idCliente,aoFechar){
+    if(window.clientesApp)window.clientesApp.init();
+    function tentar(){
+      if(clientes&&clientes.some(function(c){return String(c.IdCliente)===String(idCliente);})){
+        abrirVisualizacaoCliente(idCliente);
+        // viewDetalhe é um .side-panel — mesmo z-index padrão de
+        // agendamentoDetalhe/funilDetalhe — então sem isso a ordem de
+        // empilhamento ficaria por acaso (decidida pela ordem no DOM, não
+        // por quem abriu por último). Mesmo valor usado por abrirEdicaoExterna.
+        document.getElementById('viewDetalhe').style.zIndex='250';
+        // adBackdrop é COMPARTILHADO por todos os side-panels — SGViewPanel.
+        // fechar() remove o backdrop incondicionalmente, o que apagaria o
+        // fundo escurecido do painel de ORIGEM (Agendamento, um painel
+        // DIFERENTE de viewDetalhe) mesmo ele continuando aberto por baixo.
+        // Restaura nesse caso específico (só quando tem outro side-panel
+        // aberto por baixo — não acontece no caso do Funil, que usa o
+        // próprio viewDetalhe, ver aoFechar acima).
+        var painelOrigemAberto=document.querySelector('.side-panel.active:not(#viewDetalhe)');
+        if(painelOrigemAberto){
+          var backdrop=document.getElementById('adBackdrop');
+          var restaurarBackdrop=function(){ backdrop.classList.add('active'); };
+          document.getElementById('vw-fecharBtn').addEventListener('click',restaurarBackdrop,{once:true});
+          backdrop.addEventListener('click',restaurarBackdrop,{once:true});
+        }
+        if(aoFechar){
+          var chamou=false;
+          var voltar=function(){ if(chamou)return; chamou=true; aoFechar(); };
+          document.getElementById('vw-fecharBtn').addEventListener('click',voltar,{once:true});
+          document.getElementById('adBackdrop').addEventListener('click',voltar,{once:true});
+        }
+        return true;
+      }
+      return false;
+    }
+    if(tentar())return;
+    var tentativas=0;
+    var iv=setInterval(function(){
+      tentativas++;
+      if(tentar()||tentativas>30)clearInterval(iv);
+    },150);
+  }
+
+  window.clientesApp={init:init,abrirEdicao:abrirEdicaoExterna,abrirVisualizacao:abrirVisualizacaoExterna};
 })();
 
 

@@ -363,7 +363,7 @@
     var clienteLink=document.getElementById('ad-clienteLink');
     if(clienteLink){
       clienteLink.addEventListener('click',function(){
-        if(window.clientesApp&&window.clientesApp.abrirEdicao)window.clientesApp.abrirEdicao(a.IdCliente);
+        if(window.clientesApp&&window.clientesApp.abrirVisualizacao)window.clientesApp.abrirVisualizacao(a.IdCliente);
       });
     }
 
