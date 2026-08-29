@@ -257,8 +257,10 @@
       '<div class="ad-row"><span class="dl">Vendedor responsável</span><span class="dv">'+escapeHtml(nomeVendedor(c['Vendedor Responsavel']))+'</span></div>'+
     '</div>';
 
-    if(c.NumeroUnidadeGeradora||(c.UnidadesBeneficiarias&&c.UnidadesBeneficiarias.length)){
+    if(c.CPFEquatorial||c.DataNascimentoEquatorial||c.NumeroUnidadeGeradora||(c.UnidadesBeneficiarias&&c.UnidadesBeneficiarias.length)){
       html+='<div class="ad-section"><h4>Conta Equatorial</h4>'+
+        (c.CPFEquatorial?'<div class="ad-row"><span class="dl">CPF do titular Equatorial</span><span class="dv">'+escapeHtml(window.SGUtil.formatarCpfCnpj(c.CPFEquatorial))+'</span></div>':'')+
+        (c.DataNascimentoEquatorial?'<div class="ad-row"><span class="dl">Nascimento do titular Equatorial</span><span class="dv">'+escapeHtml(fmtDataCl(c.DataNascimentoEquatorial))+'</span></div>':'')+
         (c.NumeroUnidadeGeradora?'<div class="ad-row"><span class="dl">Nº Unidade Geradora</span><span class="dv">'+escapeHtml(c.NumeroUnidadeGeradora)+'</span></div>':'')+
       '</div>';
       if(c.UnidadesBeneficiarias&&c.UnidadesBeneficiarias.length){
