@@ -99,12 +99,20 @@
     var matching=(lead.transicoes||[]).filter(function(t){
       return (t.Etapa||'').trim()===lead.etapa;
     });
-    if(!matching.length)return lead.dt;
-    var best=new Date(matching[0].Em);
+    var best=matching.length?new Date(matching[0].Em):lead.dt;
     for(var i=1;i<matching.length;i++){
       var d=new Date(matching[i].Em);
       if(d>best)best=d;
     }
+    // Atividade de Conversa no WhatsApp/Ligação também conta como "o lead se
+    // moveu" (pedido do Felipe, 2026-08-29): sem isso, registrar uma
+    // conversa só entrava na contagem do widget de Conversão — não
+    // aparecia no gráfico "Movimentações no funil por dia" nem no filtro
+    // por dia da lista abaixo dele, porque os dois usam esta mesma data.
+    // Tentativa de Contato fica de fora (mesma distinção de sempre — não é
+    // uma conversa de verdade acontecendo).
+    var ultimaConversa=computeUltimaConversaEm(lead.atividades);
+    if(ultimaConversa&&ultimaConversa>best)best=ultimaConversa;
     return best;
   }
 
@@ -179,7 +187,7 @@
         atividades:o.Atividades||[],
         prioridade:!!o.Prioridade,
         // Campos calculados após enriquecimento com log/SLA
-        dataProcesso:null,dataProcessoKey:null,diasNaEtapa:0,slaColor:'green',temLog:false,ultimaConversaEm:null
+        dataProcesso:null,dataProcessoKey:null,diasNaEtapa:0,slaColor:'green',temLog:false
       };
     }).filter(function(r){return !!r.dt;});
   }
@@ -208,7 +216,6 @@
       r.temLog = r.dataProcesso !== r.dt; // se diverge de dt, veio do log
       r.diasNaEtapa = getDiasNaEtapa(r.dataProcesso);
       r.slaColor = getSLAColor(r.diasNaEtapa,r.etapa);
-      r.ultimaConversaEm = computeUltimaConversaEm(r.atividades);
     });
   }
 
@@ -474,10 +481,11 @@
       lista.sort(function(a,b){
         // Prioridade sempre no topo da coluna; dentro de cada bloco, quem
         // mudou de etapa OU teve uma conversa (WhatsApp/ligação) mais
-        // recente sobe — sem precisar mudar de etapa pra subir.
+        // recente sobe — sem precisar mudar de etapa pra subir. dataProcesso
+        // já incorpora as duas coisas (ver computeDataProcesso).
         if(!!b.prioridade!==!!a.prioridade)return(b.prioridade?1:0)-(a.prioridade?1:0);
-        var av=Math.max(a.dataProcesso?a.dataProcesso.getTime():0,a.ultimaConversaEm?a.ultimaConversaEm.getTime():0);
-        var bv=Math.max(b.dataProcesso?b.dataProcesso.getTime():0,b.ultimaConversaEm?b.ultimaConversaEm.getTime():0);
+        var av=a.dataProcesso?a.dataProcesso.getTime():0;
+        var bv=b.dataProcesso?b.dataProcesso.getTime():0;
         return bv-av;
       });
       var valorTotal=lista.reduce(function(s,r){return s+r.valor;},0);
@@ -889,7 +897,14 @@
       var novaAtividade={Tipo:tipo,Em:new Date().toISOString(),Observacao:obs};
       var atividadesAntes=funilRecords[indice].atividades||[];
       funilRecords[indice].atividades=atividadesAntes.concat([novaAtividade]);
-      funilRecords[indice].ultimaConversaEm=computeUltimaConversaEm(funilRecords[indice].atividades);
+      // Recalcula dataProcesso/dataProcessoKey/diasNaEtapa/slaColor NA HORA
+      // (mesmo padrão de moverLeadParaEtapa) — sem isso, uma Conversa no
+      // WhatsApp/Ligação só aparecia no gráfico "Movimentações por dia" e no
+      // filtro por dia depois que a escuta ao vivo recarregasse tudo do
+      // servidor (podia demorar, ou nem acontecer se ela tivesse falhado) —
+      // pedido do Felipe pra aparecer na hora, igual mudar de etapa.
+      enriquecerComSLA([funilRecords[indice]]);
+      garantirDataVisivelNoFiltro(funilRecords[indice].dataProcessoKey);
       _epoca.marcar();
       fechar();
       render();
@@ -901,7 +916,7 @@
           var idx=funilRecords.findIndex(function(x){return String(x.id)===String(idLead);});
           if(idx!==-1){
             funilRecords[idx].atividades=atividadesAntes;
-            funilRecords[idx].ultimaConversaEm=computeUltimaConversaEm(atividadesAntes);
+            enriquecerComSLA([funilRecords[idx]]);
           }
           _epoca.marcar();
           render();
@@ -912,7 +927,7 @@
         var idx=funilRecords.findIndex(function(x){return String(x.id)===String(idLead);});
         if(idx!==-1){
           funilRecords[idx].atividades=atividadesAntes;
-          funilRecords[idx].ultimaConversaEm=computeUltimaConversaEm(atividadesAntes);
+          enriquecerComSLA([funilRecords[idx]]);
         }
         _epoca.marcar();
         render();
