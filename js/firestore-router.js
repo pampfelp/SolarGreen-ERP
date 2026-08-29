@@ -28,14 +28,23 @@
       IdCliente:id,
       'Nome Razao Social':p.nome||'',
       'Tipo Pessoa':p.tipoPessoa||'',
+      NomeMae:p.nomeMae||'',
+      RG:p.rg||'',
+      DataExpedicaoRG:p.dataExpedicaoRg||'',
+      DataNascimento:p.dataNascimento||'',
       Telefone:p.telefone||'',
       'CPF ou CNPJ':p.cpfCnpj||'',
       Email:p.email||'',
       Endereco:p.endereco||'',
+      CEP:p.cep||'',
+      Ocupacao:p.ocupacao||'',
+      Renda:p.renda||'',
       'Status Cliente':p.statusCliente||'',
       'Vendedor Responsavel':p.vendedorResponsavel||'',
       CPFEquatorial:p.cpfEquatorial||'',
-      DataNascimentoEquatorial:p.dataNascimentoEquatorial||''
+      DataNascimentoEquatorial:p.dataNascimentoEquatorial||'',
+      NumeroUnidadeGeradora:p.numeroUnidadeGeradora||'',
+      UnidadesBeneficiarias:p.unidadesBeneficiarias||[]
     };
     return db().collection('clientes').doc(id).set(doc)
       .then(function(){ return {ok:true,idCliente:id}; })
