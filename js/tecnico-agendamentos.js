@@ -1174,6 +1174,33 @@
 
   // ── Carregamento ──
 
+  var unsubListaAoVivo=null;
+  var ADMIN_ROLES_=['admin','administrador','ceo','gestor','gerente'];
+  /**
+   * Escuta ao vivo da lista de OS (2026-08-30, bug reportado pelo Felipe):
+   * "carregar()" só busca os agendamentos 1x, no boot da tela (mais o botão
+   * "Atualizar" manual) — se o vendedor criasse ou editasse um agendamento
+   * (por exemplo preenchendo a Observação Comercial) DEPOIS que o técnico já
+   * tinha aberto o app, o dado só aparecia depois de um F5/Atualizar manual;
+   * na tela, na hora, parecia simplesmente que a observação "não aparecia".
+   * Mesmo padrão já usado no painel admin (js/agendamentos.js ·
+   * iniciarEscutaAoVivoLista) — qualquer mudança na coleção inteira, de
+   * qualquer origem, atualiza a lista sozinha, sem precisar recarregar.
+   */
+  function iniciarEscutaAoVivoLista(){
+    if(unsubListaAoVivo)return;
+    if(typeof firebase==='undefined'||!firebase.firestore)return;
+    var souAdmin=ADMIN_ROLES_.indexOf((session.tipo||'').trim().toLowerCase())!==-1;
+    unsubListaAoVivo=window.TecnicoUtil.escutarComRetry(function(){
+      return firebase.firestore().collection('agendamentos');
+    },function(snap){
+      var todos=[]; snap.forEach(function(doc){ todos.push(doc.data()); });
+      agendamentos=souAdmin?todos:todos.filter(function(a){ return String(a.TecnicoResponsavel)===String(session.idVendedor); });
+      renderKPIs();
+      renderLista();
+    },'lista de OS do técnico');
+  }
+
   function carregar(callback){
     SGAuth.apiCall('getAgendamentosTecnico',{solicitanteId:session.idVendedor}).then(function(resp){
       if(!resp||!resp.ok){
@@ -1207,4 +1234,9 @@
   }
 
   carregar();
+  // Espera o Firebase Auth confirmar a sessão restaurada antes de abrir o
+  // listener — senão dá "permission-denied" (request.auth ainda null) e,
+  // diferente de get/set, o onSnapshot não se recupera sozinho depois (ver
+  // mesmo cuidado em js/agendamentos.js do painel admin).
+  window.TecnicoFireReady.then(iniciarEscutaAoVivoLista);
 })();
