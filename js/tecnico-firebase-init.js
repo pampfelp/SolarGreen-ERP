@@ -28,4 +28,32 @@
   window.TecnicoFireReady=new Promise(function(resolve){
     var unsub=firebase.auth().onAuthStateChanged(function(user){ unsub(); resolve(user); });
   });
+
+  /**
+   * Cópia enxuta de SGUtil.escutarComRetry (js/sg-auth.js, painel admin) —
+   * esse HTML é standalone e não carrega aquele arquivo. Necessária porque
+   * um onSnapshot aberto logo após o login pode nascer com "permission-denied"
+   * (o token do Firebase Auth ainda não propagou pra camada de rede) e,
+   * diferente de get()/set(), não se recupera sozinho depois.
+   */
+  window.TecnicoUtil={
+    escutarComRetry:function(criarQuery,aoReceber,nomeDebug){
+      var parado=false,unsubAtual=null,timer=null,tentativas=0;
+      var MAX_TENTATIVAS=4;
+      function tentar(){
+        if(parado)return;
+        tentativas++;
+        unsubAtual=criarQuery().onSnapshot(aoReceber,function(err){
+          if(parado)return;
+          if(err&&err.code==='permission-denied'&&tentativas<MAX_TENTATIVAS){
+            timer=setTimeout(tentar,1200*tentativas);
+            return;
+          }
+          console.error('Escuta ao vivo falhou ('+(nomeDebug||'?')+'):',err);
+        });
+      }
+      tentar();
+      return function pararEscuta(){ parado=true; if(timer)clearTimeout(timer); if(unsubAtual)unsubAtual(); };
+    }
+  };
 })();
