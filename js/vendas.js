@@ -978,12 +978,24 @@
   document.getElementById('v-dateFrom').addEventListener('change',render);document.getElementById('v-dateTo').addEventListener('change',render);document.getElementById('selVendedor').addEventListener('change',render);document.getElementById('selServico').addEventListener('change',render);
   document.getElementById('v-buscaGeral').addEventListener('input',function(){ vPaginaAtual=1; render(); });
   document.getElementById('v-resetFiltros').addEventListener('click',function(){document.getElementById('selVendedor').value='__all__';document.getElementById('selServico').value='__all__';document.getElementById('v-buscaGeral').value='';setDefaultDateRange();document.querySelectorAll('.qr-btn[data-range]').forEach(function(b){b.classList.remove('active');});render();});
+  /**
+   * "Tudo" (2026-08-31, pedido do Felipe): igual ao mesmo atalho já
+   * existente no Funil/Agendamentos — cobre do dia mais antigo ao mais
+   * recente entre TODOS os registros já carregados (vendas + funil),
+   * não só um intervalo fixo de dias.
+   */
+  function setRangeTudoVendas(){
+    var chaves=vendasRecords.map(function(v){return v.dateKey;}).concat(funilRecords.map(function(f){return f.dateKey;})).filter(Boolean).sort();
+    if(!chaves.length){ setDefaultDateRange(); return; }
+    document.getElementById('v-dateFrom').value=chaves[0];
+    document.getElementById('v-dateTo').value=chaves[chaves.length-1];
+  }
   document.querySelectorAll('.qr-btn[data-range]').forEach(function(btn){
     btn.addEventListener('click',function(){
       document.querySelectorAll('.qr-btn[data-range]').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');
       var range=btn.getAttribute('data-range'),now=new Date();
       function dk(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-      if(range==='month'){var f=new Date(now.getFullYear(),now.getMonth(),1),l=new Date(now.getFullYear(),now.getMonth()+1,0);document.getElementById('v-dateFrom').value=dk(f);document.getElementById('v-dateTo').value=dk(l);}else{var n=parseInt(range,10),fr=new Date(now);fr.setDate(fr.getDate()-(n-1));document.getElementById('v-dateFrom').value=dk(fr);document.getElementById('v-dateTo').value=dk(now);}
+      if(range==='all'){setRangeTudoVendas();}else if(range==='month'){var f=new Date(now.getFullYear(),now.getMonth(),1),l=new Date(now.getFullYear(),now.getMonth()+1,0);document.getElementById('v-dateFrom').value=dk(f);document.getElementById('v-dateTo').value=dk(l);}else{var n=parseInt(range,10),fr=new Date(now);fr.setDate(fr.getDate()-(n-1));document.getElementById('v-dateFrom').value=dk(fr);document.getElementById('v-dateTo').value=dk(now);}
       render();
     });
   });
