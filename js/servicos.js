@@ -201,7 +201,10 @@
       '<div class="ad-row"><span class="dl">Valor por módulo</span><span class="dv">'+fmtMoney(s.ValorPorModulo)+'</span></div>'+
       '<div class="ad-row"><span class="dl">Checklist</span><span class="dv">'+nPerg+' pergunta(s)</span></div>'+
     '</div>'+
-    (s.Descricao?'<div class="ad-section"><h4>Descrição</h4><p style="font-size:13px;color:var(--ink);line-height:1.5;">'+escapeHtml(s.Descricao)+'</p></div>':'');
+    (s.Descricao?'<div class="ad-section"><h4>Descrição</h4><p style="font-size:13px;color:var(--ink);line-height:1.5;">'+escapeHtml(s.Descricao)+'</p></div>':'')+
+    ((s.AtividadesAdm&&s.AtividadesAdm.length)?'<div class="ad-section"><h4>Atividades no funil administrativo</h4>'+
+      s.AtividadesAdm.map(function(a){ return '<div class="ad-row"><span class="dl">&#8226;</span><span class="dv">'+escapeHtml(a)+'</span></div>'; }).join('')+
+    '</div>':'');
 
     window.SGViewPanel.abrir({
       titulo:s['Nome Servico']||'Serviço',
@@ -209,6 +212,40 @@
       onEditar:function(){ abrirPainel(idServico); },
       onExcluir:function(){ servicoAtualId=idServico; excluirServico(); }
     });
+  }
+
+  /**
+   * Atividades que uma venda desse serviço gera no funil administrativo
+   * (2026-08-31) — lista livre, mesmo padrão de linha editável já usado em
+   * outras listas do app (beneficiárias do cliente, etapas do pipeline).
+   */
+  function renderAtividadesAdm(lista){
+    var wrap=document.getElementById('sv-atividadesAdmList');
+    if(!wrap)return;
+    wrap.innerHTML=(lista||[]).map(function(a){
+      return '<div class="beneficiaria-row">'+
+        '<input type="text" class="sv-atv-nome" placeholder="Ex: Verificar pagamento" value="'+escapeHtml(a||'')+'">'+
+        '<button type="button" class="benef-remover" title="Remover">&#10005;</button>'+
+      '</div>';
+    }).join('');
+    wrap.querySelectorAll('.benef-remover').forEach(function(btn){
+      btn.addEventListener('click',function(){ btn.closest('.beneficiaria-row').remove(); });
+    });
+  }
+  function lerAtividadesAdm(){
+    return Array.from(document.querySelectorAll('#sv-atividadesAdmList .sv-atv-nome'))
+      .map(function(i){ return i.value.trim(); })
+      .filter(Boolean);
+  }
+  function adicionarAtividadeAdm(){
+    var wrap=document.getElementById('sv-atividadesAdmList');
+    var div=document.createElement('div');
+    div.className='beneficiaria-row';
+    div.innerHTML='<input type="text" class="sv-atv-nome" placeholder="Ex: Verificar pagamento">'+
+      '<button type="button" class="benef-remover" title="Remover">&#10005;</button>';
+    wrap.appendChild(div);
+    div.querySelector('.benef-remover').addEventListener('click',function(){ div.remove(); });
+    div.querySelector('.sv-atv-nome').focus();
   }
 
   function abrirPainel(idServico){
@@ -224,6 +261,7 @@
     document.getElementById('sv-excluirBtn').style.display=s?'block':'none';
     document.getElementById('sv-novaPerguntaBtn').style.display=s?'inline-block':'none';
     document.getElementById('sv-msg').textContent='';
+    renderAtividadesAdm(s?(s.AtividadesAdm||[]):[]);
     renderPerguntas();
     document.getElementById('servicoDetalhe').classList.add('active');
   }
@@ -239,12 +277,13 @@
     var descricao=document.getElementById('sv-descricao').value;
     var valor=document.getElementById('sv-valor').value;
     var valorPorModulo=document.getElementById('sv-valorPorModulo').value;
+    var atividadesAdm=lerAtividadesAdm();
 
     var ehNovo=!servicoAtualId;
     var idAlvo=servicoAtualId||window.SGId.gerar();
     var registroAnteriorCopia=!ehNovo?Object.assign({},servicos.filter(function(x){return String(x.IdServico)===String(idAlvo);})[0]):null;
 
-    var registroNovo={IdServico:idAlvo,'Nome Servico':nome,'Tipo Cobranca':tipoCobranca,TipoServico:tipoServico,Descricao:descricao,Valor:valor,ValorPorModulo:valorPorModulo};
+    var registroNovo={IdServico:idAlvo,'Nome Servico':nome,'Tipo Cobranca':tipoCobranca,TipoServico:tipoServico,Descricao:descricao,Valor:valor,ValorPorModulo:valorPorModulo,AtividadesAdm:atividadesAdm};
     var indice=servicos.findIndex(function(x){return String(x.IdServico)===String(idAlvo);});
     if(indice===-1)servicos.push(registroNovo);
     else servicos[indice]=registroNovo;
@@ -259,7 +298,7 @@
     renderPerguntas();
     (window.SGToast?window.SGToast.mostrar:function(t){})(ehNovo?'Serviço criado.':'Serviço atualizado.');
 
-    apiCall('salvarServico',{idServico:idAlvo,nomeServico:nome,tipoCobranca:tipoCobranca,tipoServico:tipoServico,descricao:descricao,valor:valor,valorPorModulo:valorPorModulo}).then(function(resp){
+    apiCall('salvarServico',{idServico:idAlvo,nomeServico:nome,tipoCobranca:tipoCobranca,tipoServico:tipoServico,descricao:descricao,valor:valor,valorPorModulo:valorPorModulo,atividadesAdm:atividadesAdm}).then(function(resp){
       if(!resp||!resp.ok){
         if(abriaNovo)servicos=servicos.filter(function(x){return String(x.IdServico)!==String(idAlvo);});
         else{ var idx=servicos.findIndex(function(x){return String(x.IdServico)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)servicos[idx]=registroAnteriorCopia; }
@@ -353,6 +392,7 @@
     document.getElementById('sv-salvarBtn').addEventListener('click',salvarServico);
     document.getElementById('sv-excluirBtn').addEventListener('click',excluirServico);
     document.getElementById('sv-novaPerguntaBtn').addEventListener('click',novaPergunta);
+    document.getElementById('sv-addAtividadeAdmBtn').addEventListener('click',adicionarAtividadeAdm);
     document.getElementById('sv-buscaGeral').addEventListener('input',render);
     document.querySelectorAll('#view-servicos th.sortable').forEach(function(th){
       th.addEventListener('click',function(){

@@ -19,7 +19,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=20260829f">
+<link rel="stylesheet" href="css/app.css?v=20260831b">
 </head>
 <body>
 
@@ -92,6 +92,47 @@
     <div class="modal-actions">
       <button class="reset-btn" id="fat-cancelarBtn">Cancelar</button>
       <button class="connect-btn" id="fat-salvarBtn">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Configuração de pipelines do Funil (2026-08-31): o Felipe cria/edita
+     os funis e suas etapas por aqui, sem depender de mudança de código. -->
+<div class="modal-overlay hidden" id="fPipelineModal">
+  <div class="modal-card" style="max-width:640px;">
+    <h3 id="fp-title">Pipelines do Funil</h3>
+
+    <!-- Lista de pipelines -->
+    <div id="fp-listaWrap">
+      <div style="font-size:12.5px;color:var(--ink-faint);margin-bottom:12px;">Cada pipeline é um funil separado, com suas próprias etapas. Os cards de um pipeline não aparecem nos outros.</div>
+      <div id="fp-lista"></div>
+      <button type="button" class="reset-btn" id="fp-novoBtn" style="width:100%;margin-top:10px;">+ Novo pipeline</button>
+    </div>
+
+    <!-- Edição de um pipeline -->
+    <div id="fp-edicaoWrap" class="hidden">
+      <div class="uform-field"><label>Nome do pipeline <span class="req">*</span></label><input type="text" id="fp-nome" placeholder="Ex: Expansão"></div>
+      <div class="uform-field">
+        <label style="font-size:13px;display:flex;align-items:flex-start;gap:7px;cursor:pointer;font-weight:400;">
+          <input type="checkbox" id="fp-automacaoVenda" style="margin-top:2px;">
+          <span>Receber as demandas automáticas de venda<br><span style="font-size:11.5px;color:var(--ink-faint);">Toda venda nova cria aqui um card por atividade configurada no serviço vendido. Só um pipeline pode ter isso ligado.</span></span>
+        </label>
+      </div>
+      <div class="uform-field">
+        <label>Etapas</label>
+        <div style="font-size:11.5px;color:var(--ink-faint);margin-bottom:8px;">O "papel" define o comportamento: <b>Ganho</b> pinta de verde e conta como fechado; <b>Perdido</b> pinta de vermelho e pede o motivo ao mover pra lá; <b>Proposta</b> conta nas taxas de conversão.</div>
+        <div id="fp-etapasList"></div>
+        <button type="button" class="reset-btn" id="fp-addEtapaBtn" style="width:100%;margin-top:6px;">+ Adicionar etapa</button>
+      </div>
+      <div id="fp-msg" class="uform-msg"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="reset-btn" id="fp-excluirBtn" style="color:var(--debit);display:none;">Excluir pipeline</button>
+      <div style="display:flex;gap:8px;">
+        <button class="reset-btn" id="fp-cancelarBtn">Fechar</button>
+        <button class="connect-btn" id="fp-salvarBtn" style="display:none;">Salvar</button>
+      </div>
     </div>
   </div>
 </div>
@@ -524,6 +565,12 @@
 
   <div id="f-mainContent" style="display:none;">
 
+    <!-- Abas de pipeline (Comercial / Administrativo / Expansão / …) -->
+    <div class="pipeline-tabs" id="f-pipelineTabs">
+      <div class="pipeline-tabs-list" id="f-pipelineTabsList"></div>
+      <button class="pipeline-config-btn" id="f-pipelineConfigBtn" title="Configurar pipelines"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+    </div>
+
     <!-- Filtros -->
     <div class="filters" style="align-items:flex-start;">
       <div class="field"><label>Período de</label><input type="date" id="f-dateFrom"></div>
@@ -540,19 +587,8 @@
       <div class="field"><label>Vendedor</label><select id="f-selVendedor"><option value="__all__">Todos os vendedores</option></select></div>
       <div class="stage-filter-group">
         <label>Etapa</label>
-        <div class="stage-pills">
-          <button class="stage-pill active" data-stage="__all__">Todas</button>
-          <span class="stage-divider">·</span>
-          <button class="stage-pill" data-stage="Novo Lead">Novo Lead</button>
-          <button class="stage-pill" data-stage="Tentativa de Contato">Tentativa de Contato</button>
-          <button class="stage-pill" data-stage="Retomar Contato">Retomar Contato</button>
-          <button class="stage-pill" data-stage="Gerar Proposta">Gerar Proposta</button>
-          <button class="stage-pill" data-stage="Negociação">Negociação</button>
-          <button class="stage-pill" data-stage="Serviço Agendado">Serviço Agendado</button>
-          <span class="stage-divider">·</span>
-          <button class="stage-pill stage-won" data-stage="Ganho">Ganho</button>
-          <button class="stage-pill stage-lost" data-stage="Perdido">Perdido</button>
-        </div>
+        <!-- Montado em JS a partir das etapas do pipeline ativo (renderStagePills) -->
+        <div class="stage-pills" id="f-stagePills"></div>
       </div>
       <div class="spacer"></div>
       <button class="reset-btn" id="f-resetFiltros">Limpar filtros</button>
@@ -1546,6 +1582,12 @@
     <div class="uform-field"><label>Descrição</label><textarea id="sv-descricao" rows="3"></textarea></div>
     <div class="uform-field"><label>Valor fixo</label><input type="number" id="sv-valor" step="0.01" min="0" placeholder="Deixe em branco se o valor é por módulo"></div>
     <div class="uform-field"><label>Valor por módulo</label><input type="number" id="sv-valorPorModulo" step="0.01" min="0" placeholder="Deixe em branco se o valor é fixo"></div>
+    <div class="uform-field">
+      <label>Atividades geradas no funil administrativo</label>
+      <div style="font-size:11.5px;color:var(--ink-faint);margin-bottom:8px;">Toda venda desse serviço cria automaticamente um card por atividade, no pipeline marcado como "Automação" no Funil. Ex.: Verificar pagamento, Verificar assinatura do contrato, Monitoramento.</div>
+      <div id="sv-atividadesAdmList"></div>
+      <button type="button" class="reset-btn" id="sv-addAtividadeAdmBtn" style="width:100%;margin-top:6px;">+ Adicionar atividade</button>
+    </div>
     <div class="uform-msg" id="sv-msg"></div>
 
     <div class="section-head" style="margin-top:22px;">
@@ -1775,18 +1817,18 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="js/firebase-init.js?v=20260829f"></script>
-<script src="js/firestore-router.js?v=20260829f"></script>
+<script src="js/firestore-router.js?v=20260831b"></script>
 <script src="js/sg-auth.js?v=20260829f"></script>
 <script src="js/dashboard.js?v=20260829f"></script>
 <script src="js/ponto.js?v=20260829f"></script>
 <script src="js/vendas.js?v=20260831a"></script>
-<script src="js/funil.js?v=20260831a"></script>
+<script src="js/funil.js?v=20260831b"></script>
 <script src="js/agendamentos.js?v=20260829f"></script>
 <script src="js/clientes.js?v=20260829f"></script>
 <script src="js/relatorios.js?v=20260829f"></script>
 <script src="js/custos-venda.js?v=20260829f"></script>
 <script src="js/custo-recorrente.js?v=20260829f"></script>
-<script src="js/servicos.js?v=20260829f"></script>
+<script src="js/servicos.js?v=20260831b"></script>
 <script src="js/catalogo.js?v=20260829f"></script>
 <script src="js/metas.js?v=20260829f"></script>
 <script src="js/planos.js?v=20260829f"></script>
