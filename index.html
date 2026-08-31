@@ -896,6 +896,11 @@
   <div class="ad-body">
     <div class="ad-section">
       <div class="uform-field"><label>Nome / Razão Social <span class="req">*</span></label><input type="text" id="cr-nome" placeholder="Nome completo"></div>
+      <div class="uform-field"><label>Telefone <span class="req">*</span></label><input type="text" id="cr-telefone" placeholder="(91) 90000-0000" maxlength="15" inputmode="numeric"></div>
+      <div class="uform-field"><label>E-mail</label><input type="email" id="cr-email" placeholder="Opcional"></div>
+      <div class="uform-field"><label>CPF ou CNPJ</label><input type="text" id="cr-cpfCnpj" placeholder="Opcional" maxlength="18" inputmode="numeric"></div>
+      <div class="uform-field"><label>Endereço</label><input type="text" id="cr-endereco" placeholder="Pode preencher depois, se preferir"></div>
+      <div style="font-size:11.5px;color:var(--ink-faint);margin-top:-4px;">O endereço não é obrigatório agora, mas vai ser pedido na hora de criar um agendamento de serviço pra esse cliente.</div>
       <div class="uform-field"><label>Tipo de pessoa <span class="req">*</span></label>
         <select id="cr-tipoPessoa"><option value="Física">Física</option><option value="Jurídica">Jurídica</option></select>
       </div>
@@ -903,11 +908,6 @@
       <div class="uform-field"><label>RG</label><input type="text" id="cr-rg" placeholder="Opcional"></div>
       <div class="uform-field"><label>Data de expedição do RG</label><input type="date" id="cr-dataExpedicaoRg"></div>
       <div class="uform-field"><label>Data de nascimento</label><input type="date" id="cr-dataNascimento"></div>
-      <div class="uform-field"><label>Telefone <span class="req">*</span></label><input type="text" id="cr-telefone" placeholder="(91) 90000-0000" maxlength="15" inputmode="numeric"></div>
-      <div class="uform-field"><label>CPF ou CNPJ</label><input type="text" id="cr-cpfCnpj" placeholder="Opcional" maxlength="18" inputmode="numeric"></div>
-      <div class="uform-field"><label>E-mail</label><input type="email" id="cr-email" placeholder="Opcional"></div>
-      <div class="uform-field"><label>Endereço</label><input type="text" id="cr-endereco" placeholder="Pode preencher depois, se preferir"></div>
-      <div style="font-size:11.5px;color:var(--ink-faint);margin-top:-4px;">O endereço não é obrigatório agora, mas vai ser pedido na hora de criar um agendamento de serviço pra esse cliente.</div>
       <div class="uform-field"><label>CEP</label><input type="text" id="cr-cep" placeholder="Opcional" maxlength="9" inputmode="numeric"></div>
       <div class="uform-field"><label>Ocupação</label><input type="text" id="cr-ocupacao" placeholder="Opcional"></div>
       <div class="uform-field"><label>Renda</label><input type="number" id="cr-renda" step="0.01" min="0" placeholder="Opcional"></div>
@@ -1064,6 +1064,10 @@
   <div class="modal-card">
     <h3 id="clienteModalTitle">Novo cliente</h3>
     <div class="uform-field"><label>Nome / Razão Social <span class="req">*</span></label><input type="text" id="cm-nome"></div>
+    <div class="uform-field"><label>Telefone <span class="req">*</span></label><input type="text" id="cm-telefone" maxlength="15" inputmode="numeric"></div>
+    <div class="uform-field"><label>E-mail</label><input type="email" id="cm-email"></div>
+    <div class="uform-field"><label>CPF ou CNPJ</label><input type="text" id="cm-cpfCnpj" maxlength="18" inputmode="numeric"></div>
+    <div class="uform-field"><label>Endereço</label><input type="text" id="cm-endereco"></div>
     <div class="uform-field"><label>Tipo de pessoa <span class="req">*</span></label>
       <select id="cm-tipoPessoa"><option value="Física">Física</option><option value="Jurídica">Jurídica</option></select>
     </div>
@@ -1071,10 +1075,6 @@
     <div class="uform-field"><label>RG</label><input type="text" id="cm-rg"></div>
     <div class="uform-field"><label>Data de expedição do RG</label><input type="date" id="cm-dataExpedicaoRg"></div>
     <div class="uform-field"><label>Data de nascimento</label><input type="date" id="cm-dataNascimento"></div>
-    <div class="uform-field"><label>Telefone <span class="req">*</span></label><input type="text" id="cm-telefone" maxlength="15" inputmode="numeric"></div>
-    <div class="uform-field"><label>CPF ou CNPJ</label><input type="text" id="cm-cpfCnpj" maxlength="18" inputmode="numeric"></div>
-    <div class="uform-field"><label>E-mail</label><input type="email" id="cm-email"></div>
-    <div class="uform-field"><label>Endereço</label><input type="text" id="cm-endereco"></div>
     <div class="uform-field"><label>CEP</label><input type="text" id="cm-cep" maxlength="9" inputmode="numeric"></div>
     <div class="uform-field"><label>Ocupação</label><input type="text" id="cm-ocupacao"></div>
     <div class="uform-field"><label>Renda</label><input type="number" id="cm-renda" step="0.01" min="0"></div>
