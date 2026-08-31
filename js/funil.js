@@ -1311,6 +1311,45 @@
   }
 
   /**
+   * Unidades beneficiárias no cadastro rápido — mesmo padrão de
+   * js/clientes.js (lista de tamanho livre, guardada como array no doc do
+   * cliente), duplicado aqui porque as funções de clientes.js ficam
+   * fechadas no IIFE daquele módulo.
+   */
+  function renderBeneficiariasRapido(lista){
+    var wrap=document.getElementById('cr-beneficiariasList');
+    wrap.innerHTML=(lista||[]).map(function(b,i){
+      return '<div class="beneficiaria-row" data-idx="'+i+'">'+
+        '<input type="text" class="benef-numero" placeholder="Número da UC" value="'+escapeHtml(b.Numero||'')+'">'+
+        '<input type="text" class="benef-obs" placeholder="Observação (opcional)" value="'+escapeHtml(b.Observacao||'')+'">'+
+        '<button type="button" class="benef-remover" title="Remover">✕</button>'+
+      '</div>';
+    }).join('');
+    wrap.querySelectorAll('.benef-remover').forEach(function(btn){
+      btn.addEventListener('click',function(){ btn.closest('.beneficiaria-row').remove(); });
+    });
+  }
+  function lerBeneficiariasRapido(){
+    return Array.from(document.querySelectorAll('#cr-beneficiariasList .beneficiaria-row')).map(function(row){
+      return {
+        Numero:row.querySelector('.benef-numero').value.trim(),
+        Observacao:row.querySelector('.benef-obs').value.trim()
+      };
+    }).filter(function(b){ return b.Numero||b.Observacao; });
+  }
+  function adicionarBeneficiariaRapido(){
+    var wrap=document.getElementById('cr-beneficiariasList');
+    var div=document.createElement('div');
+    div.className='beneficiaria-row';
+    div.innerHTML='<input type="text" class="benef-numero" placeholder="Número da UC">'+
+      '<input type="text" class="benef-obs" placeholder="Observação (opcional)">'+
+      '<button type="button" class="benef-remover" title="Remover">✕</button>';
+    wrap.appendChild(div);
+    div.querySelector('.benef-remover').addEventListener('click',function(){ div.remove(); });
+    div.querySelector('.benef-numero').focus();
+  }
+
+  /**
    * Cadastro rápido de cliente — abre POR CIMA do painel do lead (que
    * continua ativo por baixo). Ao salvar ou voltar, some e o lead continua
    * de onde parou.
@@ -1318,10 +1357,17 @@
   function abrirClienteRapido(){
     document.getElementById('cr-nome').value='';
     document.getElementById('cr-tipoPessoa').value='Física';
+    document.getElementById('cr-nomeMae').value='';
+    document.getElementById('cr-rg').value='';
+    document.getElementById('cr-dataExpedicaoRg').value='';
+    document.getElementById('cr-dataNascimento').value='';
     document.getElementById('cr-telefone').value='';
     document.getElementById('cr-cpfCnpj').value='';
     document.getElementById('cr-email').value='';
     document.getElementById('cr-endereco').value='';
+    document.getElementById('cr-cep').value='';
+    document.getElementById('cr-ocupacao').value='';
+    document.getElementById('cr-renda').value='';
     document.getElementById('cr-msg').textContent='';
     document.getElementById('cr-avisoDuplicado').classList.add('hidden');
     document.getElementById('cr-avisoDuplicadoDetalhe').textContent='';
@@ -1333,6 +1379,8 @@
     document.getElementById('cr-cpfEquatorial').value='';
     document.getElementById('cr-cpfEquatorial').readOnly=false;
     document.getElementById('cr-dataNascimentoEquatorial').value='';
+    document.getElementById('cr-numeroUnidadeGeradora').value='';
+    renderBeneficiariasRapido([]);
     window.SGCombo.criar({
       inputId:'cr-vendedorBusca', hiddenId:'cr-vendedor', dropdownId:'cr-vendedorDropdown',
       getOpcoes:function(){
@@ -1395,6 +1443,15 @@
     var vendedorResponsavel=document.getElementById('cr-vendedor').value||(window.SG_SESSION?window.SG_SESSION.idVendedor:'');
     var cpfEquatorial=document.getElementById('cr-cpfEquatorial').value.trim();
     var dataNascimentoEquatorialVal=document.getElementById('cr-dataNascimentoEquatorial').value;
+    var nomeMae=document.getElementById('cr-nomeMae').value.trim();
+    var rg=document.getElementById('cr-rg').value.trim();
+    var dataExpedicaoRgVal=document.getElementById('cr-dataExpedicaoRg').value;
+    var dataNascimentoVal=document.getElementById('cr-dataNascimento').value;
+    var cep=document.getElementById('cr-cep').value.trim();
+    var ocupacao=document.getElementById('cr-ocupacao').value.trim();
+    var renda=document.getElementById('cr-renda').value.trim();
+    var numeroUnidadeGeradora=document.getElementById('cr-numeroUnidadeGeradora').value.trim();
+    var unidadesBeneficiarias=lerBeneficiariasRapido();
 
     // Telefone repetido + endereço em branco = provável duplicata. Só deixa
     // passar se a pessoa confirmar explicitamente que é um cliente diferente.
@@ -1411,7 +1468,14 @@
     var idCliente=window.SGId.gerar();
 
     // adiciona na memória local e já seleciona no lead — sem esperar o servidor
-    clientesMap[idCliente]={IdCliente:idCliente,Nome:nome,'Nome Razao Social':nome,Telefone:telefone,'Tipo Pessoa':tipoPessoa,CPFEquatorial:cpfEquatorial};
+    clientesMap[idCliente]={
+      IdCliente:idCliente,Nome:nome,'Nome Razao Social':nome,Telefone:telefone,'Tipo Pessoa':tipoPessoa,
+      'CPF ou CNPJ':cpfCnpj,Email:email,Endereco:endereco,CPFEquatorial:cpfEquatorial,
+      DataNascimentoEquatorial:dataNascimentoEquatorialVal?dataNascimentoEquatorialVal.split('-').reverse().join('/'):'',
+      NomeMae:nomeMae,RG:rg,DataExpedicaoRG:dataExpedicaoRgVal,DataNascimento:dataNascimentoVal,
+      CEP:cep,Ocupacao:ocupacao,Renda:renda,
+      NumeroUnidadeGeradora:numeroUnidadeGeradora,UnidadesBeneficiarias:unidadesBeneficiarias
+    };
     // Cliente criado aqui só existe no clientesMap PRÓPRIO do funil — Agendamentos/
     // Planos/Vendas/Custos da Venda/Dashboard já carregaram a lista deles antes
     // (cada tela busca uma vez só, sem escutar mudança de outra) e não iam
@@ -1431,7 +1495,10 @@
       nome:nome, tipoPessoa:tipoPessoa, telefone:telefone,
       cpfCnpj:cpfCnpj, email:email, endereco:endereco, vendedorResponsavel:vendedorResponsavel,
       confirmarClienteDiferente:confirmado,
-      cpfEquatorial:cpfEquatorial, dataNascimentoEquatorial:dataNascimentoEquatorialVal
+      cpfEquatorial:cpfEquatorial, dataNascimentoEquatorial:dataNascimentoEquatorialVal,
+      nomeMae:nomeMae, rg:rg, dataExpedicaoRg:dataExpedicaoRgVal, dataNascimento:dataNascimentoVal,
+      cep:cep, ocupacao:ocupacao, renda:renda,
+      numeroUnidadeGeradora:numeroUnidadeGeradora, unidadesBeneficiarias:unidadesBeneficiarias
     }).then(function(resp){
       if(!resp||!resp.ok){
         delete clientesMap[idCliente];
@@ -1776,6 +1843,8 @@
     window.SGUtil.aplicarMascara(document.getElementById('cr-telefone'),window.SGUtil.formatarTelefone);
     window.SGUtil.aplicarMascara(document.getElementById('cr-cpfCnpj'),window.SGUtil.formatarCpfCnpj);
     window.SGUtil.aplicarMascara(document.getElementById('cr-cpfEquatorial'),window.SGUtil.formatarCpfCnpj);
+    window.SGUtil.aplicarMascara(document.getElementById('cr-cep'),window.SGUtil.formatarCep);
+    document.getElementById('cr-addBeneficiariaBtn').addEventListener('click',adicionarBeneficiariaRapido);
     document.getElementById('cr-titularSim').addEventListener('change',function(){
       document.getElementById('cr-cpfEquatorial').value=document.getElementById('cr-cpfCnpj').value;
       document.getElementById('cr-cpfEquatorial').readOnly=true;

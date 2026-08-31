@@ -899,11 +899,18 @@
       <div class="uform-field"><label>Tipo de pessoa <span class="req">*</span></label>
         <select id="cr-tipoPessoa"><option value="Física">Física</option><option value="Jurídica">Jurídica</option></select>
       </div>
+      <div class="uform-field"><label>Nome da mãe</label><input type="text" id="cr-nomeMae" placeholder="Opcional"></div>
+      <div class="uform-field"><label>RG</label><input type="text" id="cr-rg" placeholder="Opcional"></div>
+      <div class="uform-field"><label>Data de expedição do RG</label><input type="date" id="cr-dataExpedicaoRg"></div>
+      <div class="uform-field"><label>Data de nascimento</label><input type="date" id="cr-dataNascimento"></div>
       <div class="uform-field"><label>Telefone <span class="req">*</span></label><input type="text" id="cr-telefone" placeholder="(91) 90000-0000" maxlength="15" inputmode="numeric"></div>
       <div class="uform-field"><label>CPF ou CNPJ</label><input type="text" id="cr-cpfCnpj" placeholder="Opcional" maxlength="18" inputmode="numeric"></div>
       <div class="uform-field"><label>E-mail</label><input type="email" id="cr-email" placeholder="Opcional"></div>
       <div class="uform-field"><label>Endereço</label><input type="text" id="cr-endereco" placeholder="Pode preencher depois, se preferir"></div>
       <div style="font-size:11.5px;color:var(--ink-faint);margin-top:-4px;">O endereço não é obrigatório agora, mas vai ser pedido na hora de criar um agendamento de serviço pra esse cliente.</div>
+      <div class="uform-field"><label>CEP</label><input type="text" id="cr-cep" placeholder="Opcional" maxlength="9" inputmode="numeric"></div>
+      <div class="uform-field"><label>Ocupação</label><input type="text" id="cr-ocupacao" placeholder="Opcional"></div>
+      <div class="uform-field"><label>Renda</label><input type="number" id="cr-renda" step="0.01" min="0" placeholder="Opcional"></div>
       <div class="uform-field">
         <label>Vendedor responsável</label>
         <div class="combo-wrap">
@@ -925,6 +932,12 @@
       </div>
       <div class="uform-field"><label>CPF do titular Equatorial</label><input type="text" id="cr-cpfEquatorial" placeholder="Necessário pra cadastrar Planos" maxlength="18" inputmode="numeric"></div>
       <div class="uform-field"><label>Data de nascimento do titular Equatorial</label><input type="date" id="cr-dataNascimentoEquatorial"></div>
+      <div class="uform-field"><label>Número da Unidade Geradora</label><input type="text" id="cr-numeroUnidadeGeradora" placeholder="Opcional"></div>
+      <div class="uform-field">
+        <label>Unidades consumidoras beneficiárias</label>
+        <div id="cr-beneficiariasList"></div>
+        <button type="button" class="reset-btn" id="cr-addBeneficiariaBtn" style="width:100%;margin-top:6px;">+ Adicionar beneficiária</button>
+      </div>
     </div>
     <div class="uform-msg" id="cr-msg"></div>
     <div id="cr-avisoDuplicado" class="hidden" style="background:#fef2f2;border:1px solid var(--debit);border-radius:10px;padding:12px 14px;margin-top:4px;">
@@ -1767,7 +1780,7 @@
 <script src="js/dashboard.js?v=20260829f"></script>
 <script src="js/ponto.js?v=20260829f"></script>
 <script src="js/vendas.js?v=20260829f"></script>
-<script src="js/funil.js?v=20260829f"></script>
+<script src="js/funil.js?v=20260831a"></script>
 <script src="js/agendamentos.js?v=20260829f"></script>
 <script src="js/clientes.js?v=20260829f"></script>
 <script src="js/relatorios.js?v=20260829f"></script>
