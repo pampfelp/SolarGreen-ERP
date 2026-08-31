@@ -29,6 +29,11 @@ service cloud.firestore {
     match /funil_presenca/{id} {
       allow read, write: if isSignedIn();
     }
+    // Configuração dos pipelines do Funil (Comercial/Administrativo/
+    // Expansão/outros criados pelo Felipe) — 2026-08-31.
+    match /funil_pipelines/{id} {
+      allow read, write: if isSignedIn();
+    }
     match /servicos/{id} {
       allow read, write: if isSignedIn();
     }

@@ -23,7 +23,45 @@
   var PRESENCA_HEARTBEAT_MS=15000;
   var PRESENCA_EXPIRA_MS=40000;  // presença mais velha que isso é tratada como abandonada (aba fechada sem avisar)
 
-  var ETAPAS = ['Novo Lead','Tentativa de Contato','Retomar Contato','Gerar Proposta','Negociação','Serviço Agendado','Ganho','Perdido'];
+  /**
+   * Pipelines (2026-08-31) — o Funil deixou de ter um único conjunto fixo de
+   * etapas e passou a ter N pipelines (Comercial/Administrativo/Expansão/…),
+   * cada um com suas etapas, configurados pelo próprio Felipe na tela.
+   *
+   * "Papel" de cada etapa ('' | 'proposta' | 'ganho' | 'perdido') substitui
+   * as comparações que antes eram hardcoded (etapa==='Ganho'/'Perdido'):
+   * é ele que define cor da coluna, se pede "Motivo da perda" e o que conta
+   * como proposta/venda no widget de conversão. Assim um pipeline novo
+   * ganha tudo isso sem precisar de código novo.
+   */
+  var funilPipelines = [];   // [{IdPipeline,Nome,Ordem,Protegido,AutomacaoVenda,Etapas:[{Nome,Ordem,Papel}]}]
+  var pipelineAtivo  = localStorage.getItem('sg_funil_pipeline')||'';
+
+  function pipelinesOrdenados(){
+    return funilPipelines.slice().sort(function(a,b){ return (a.Ordem||0)-(b.Ordem||0); });
+  }
+  function pipelinePorId(id){
+    return funilPipelines.filter(function(p){ return String(p.IdPipeline)===String(id); })[0]||null;
+  }
+  /** Pipeline ativo, com fallback pro primeiro da lista (nunca devolve nulo se existir ao menos 1). */
+  function pipelineCorrente(){
+    return pipelinePorId(pipelineAtivo)||pipelinesOrdenados()[0]||null;
+  }
+  /** Etapas do pipeline ativo, na ordem configurada (só os nomes). */
+  function etapasDoPipeline(idPipeline){
+    var p=idPipeline?pipelinePorId(idPipeline):pipelineCorrente();
+    if(!p||!p.Etapas)return [];
+    return p.Etapas.slice().sort(function(a,b){return (a.Ordem||0)-(b.Ordem||0);}).map(function(e){return e.Nome;});
+  }
+  /** Papel de uma etapa dentro de um pipeline: '', 'proposta', 'ganho' ou 'perdido'. */
+  function papelDaEtapa(nomeEtapa,idPipeline){
+    var p=idPipeline?pipelinePorId(idPipeline):pipelineCorrente();
+    if(!p||!p.Etapas)return '';
+    var e=p.Etapas.filter(function(x){return x.Nome===nomeEtapa;})[0];
+    return (e&&e.Papel)||'';
+  }
+  function ehEtapaGanho(nomeEtapa,idPipeline){ return papelDaEtapa(nomeEtapa,idPipeline)==='ganho'; }
+  function ehEtapaPerdido(nomeEtapa,idPipeline){ return papelDaEtapa(nomeEtapa,idPipeline)==='perdido'; }
 
   var DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA34xrlLTVUUNhKBIlguJT3ectH7Yus-VW1n41GcCclc5q_Yj0Di2O7g/exec';
   var DEFAULT_API_KEY = '1234';
@@ -50,6 +88,16 @@
   function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
   function nomeFor(id){ if(!id)return'—'; var v=vendedoresMap[id]||vendedoresTodosMap[id];return(v&&(v.Nome||v.nome))||String(id).slice(0,8); }
   function nomeClienteFor(id){ if(!id)return'—';var c=clientesMap[id];return(c&&(c['Nome Razao Social']||c.Nome))||String(id).slice(0,8); }
+  /**
+   * Título do card. Nos cards gerados automaticamente por uma venda (pipeline
+   * administrativo) várias demandas do MESMO cliente coexistem — sem o rótulo
+   * da atividade elas ficariam visualmente idênticas. Nos demais pipelines,
+   * devolve só o nome do cliente, exatamente como antes.
+   */
+  function tituloDoCard(r){
+    var nome=nomeClienteFor(r.idCliente);
+    return r.atividadeAdm?(nome+' — '+r.atividadeAdm):nome;
+  }
   function telefoneClienteFor(id){ if(!id)return''; var c=clientesMap[id]; return c?(c.Telefone||''):''; }
   function copiarTelefone(tel,e){
     if(e)e.stopPropagation();
@@ -186,6 +234,13 @@
         transicoes:o.Transicoes||[],
         atividades:o.Atividades||[],
         prioridade:!!o.Prioridade,
+        // Pipeline (2026-08-31). Sem valor = card antigo, anterior à
+        // migração: cai no primeiro pipeline (Comercial), que é onde ele
+        // sempre esteve na prática — assim nada some se um doc escapar do
+        // backfill.
+        pipeline:(o.Pipeline||'').trim()||((pipelinesOrdenados()[0]||{}).IdPipeline||''),
+        atividadeAdm:(o.AtividadeAdm||'').trim(),
+        idVendaOrigem:(o.IdVendaOrigem||'').trim(),
         // Campos calculados após enriquecimento com log/SLA
         dataProcesso:null,dataProcessoKey:null,diasNaEtapa:0,slaColor:'green',temLog:false
       };
@@ -230,6 +285,57 @@
 
   function getEtapaAtiva(){ var pill=document.querySelector('.stage-pill.active');return pill?pill.getAttribute('data-stage'):'__all__'; }
 
+  /** Abas de pipeline, montadas a partir de funilPipelines. */
+  function renderAbasPipeline(){
+    var lista=document.getElementById('f-pipelineTabsList');
+    if(!lista)return;
+    var atual=pipelineCorrente();
+    lista.innerHTML=pipelinesOrdenados().map(function(p){
+      var ativo=atual&&String(p.IdPipeline)===String(atual.IdPipeline);
+      return '<button class="pipeline-tab'+(ativo?' active':'')+'" data-pipeline="'+escapeHtml(p.IdPipeline)+'">'+escapeHtml(p.Nome)+'</button>';
+    }).join('');
+    lista.querySelectorAll('.pipeline-tab').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        pipelineAtivo=btn.getAttribute('data-pipeline');
+        localStorage.setItem('sg_funil_pipeline',pipelineAtivo);
+        renderAbasPipeline();
+        renderStagePills();   // etapas mudam junto com o pipeline
+        setDefaultRange();    // período recalculado pros cards DESTE pipeline
+        render();
+      });
+    });
+  }
+
+  /**
+   * Pills de filtro por etapa — montadas a partir das etapas do pipeline
+   * ativo (antes eram HTML fixo com as 8 etapas do Comercial). Sempre volta
+   * pra "Todas" ao redesenhar, porque uma etapa do pipeline anterior não
+   * existe necessariamente no novo.
+   */
+  function renderStagePills(){
+    var wrap=document.getElementById('f-stagePills');
+    if(!wrap)return;
+    var pipe=pipelineCorrente();
+    var etapas=(pipe&&pipe.Etapas||[]).slice().sort(function(a,b){return (a.Ordem||0)-(b.Ordem||0);});
+    var html='<button class="stage-pill active" data-stage="__all__">Todas</button>';
+    var jaAbriuFinais=false;
+    etapas.forEach(function(e,i){
+      var ehFinal=(e.Papel==='ganho'||e.Papel==='perdido');
+      if(i===0)html+='<span class="stage-divider">·</span>';
+      if(ehFinal&&!jaAbriuFinais){ html+='<span class="stage-divider">·</span>'; jaAbriuFinais=true; }
+      var cls='stage-pill'+(e.Papel==='ganho'?' stage-won':(e.Papel==='perdido'?' stage-lost':''));
+      html+='<button class="'+cls+'" data-stage="'+escapeHtml(e.Nome)+'">'+escapeHtml(e.Nome)+'</button>';
+    });
+    wrap.innerHTML=html;
+    wrap.querySelectorAll('.stage-pill').forEach(function(pill){
+      pill.addEventListener('click',function(){
+        wrap.querySelectorAll('.stage-pill').forEach(function(p){p.classList.remove('active');});
+        pill.classList.add('active');
+        render();
+      });
+    });
+  }
+
   // ← CORREÇÃO: o filtro de período agora usa dataProcessoKey (data da última
   // movimentação de etapa, vinda do FunilLog) em vez de dateKey (data de
   // criação do lead). Isso replica o comportamento "Ultima Atualização" do AppSheet.
@@ -265,7 +371,10 @@
     var from=document.getElementById('f-dateFrom').value,to=document.getElementById('f-dateTo').value;
     var vend=document.getElementById('f-selVendedor').value,etapa=getEtapaAtiva();
     var busca=normalizaBuscaFunil((document.getElementById('f-buscaGeral')||{}).value||'').trim();
+    var pipe=pipelineCorrente();
+    var idPipe=pipe?pipe.IdPipeline:'';
     var allPeriod=funilRecords.filter(function(r){
+      if(r.pipeline!==idPipe)return false; // cada aba mostra só os cards do seu pipeline
       if(from&&r.dataProcessoKey<from)return false; if(to&&r.dataProcessoKey>to)return false;
       if(vend!=='__all__'&&r.idVendedor!==vend)return false;
       if(busca&&textoBuscavelLead(r).indexOf(busca)===-1)return false;
@@ -291,12 +400,26 @@
   function renderKpisConversaoFunil(){
     var widget=document.getElementById('f-conversaoWidget');
     if(!widget)return; // tela ainda sem esse bloco no HTML (defensivo)
+    var pipe=pipelineCorrente();
+    var idPipe=pipe?pipe.IdPipeline:'';
+    // Etapas que contam como "proposta"/"venda" saem do Papel configurado no
+    // pipeline (antes era a lista fixa ['Negociação','Serviço Agendado',
+    // 'Ganho'] — que continua sendo exatamente o resultado no Comercial,
+    // pelos papéis do seed). Pipeline sem nenhuma etapa "ganho" (um funil
+    // puramente organizacional) não tem conversão pra mostrar: esconde o
+    // widget inteiro em vez de exibir zeros sem sentido.
+    var etapasGanho=(pipe&&pipe.Etapas||[]).filter(function(e){return e.Papel==='ganho';});
+    if(!etapasGanho.length){ widget.style.display='none'; return; }
+    widget.style.display='';
+    var ETAPAS_PROPOSTA_VENDAS=(pipe&&pipe.Etapas||[])
+      .filter(function(e){ return e.Papel==='proposta'||e.Papel==='ganho'; })
+      .map(function(e){ return e.Nome; });
     var from=(document.getElementById('f-dateFrom')||{}).value||'';
     var to=(document.getElementById('f-dateTo')||{}).value||'';
     var vend=(document.getElementById('f-selVendedor')||{}).value||'__all__';
-    var ETAPAS_PROPOSTA_VENDAS=['Negociação','Serviço Agendado','Ganho'];
 
     var novosContatos=funilRecords.filter(function(r){
+      if(r.pipeline!==idPipe)return false;
       if(from&&r.dateKey<from)return false;
       if(to&&r.dateKey>to)return false;
       if(vend!=='__all__'&&r.idVendedor!==vend)return false;
@@ -312,6 +435,7 @@
     // inflava o percentual pra mais de 100% em períodos curtos, ver
     // funil-crm.md).
     var todosDoVendedor=funilRecords.filter(function(r){
+      if(r.pipeline!==idPipe)return false;
       if(vend!=='__all__'&&r.idVendedor!==vend)return false;
       return true;
     });
@@ -415,12 +539,12 @@
     document.getElementById('f-kpiTicket').textContent=fmtMoney(ticket);
 
     var kc=document.getElementById('f-kpiEtapaCard');kc.classList.remove('won','lost','accent');
-    if(etapa==='Ganho')kc.classList.add('won');else if(etapa==='Perdido')kc.classList.add('lost');else kc.classList.add('accent');
+    if(ehEtapaGanho(etapa))kc.classList.add('won');else if(ehEtapaPerdido(etapa))kc.classList.add('lost');else kc.classList.add('accent');
 
     var sorted=f.byStage.slice();sortLeadRows(sorted);
     var rows='';
     sorted.forEach(function(r){
-      var badgeClass=r.etapa==='Ganho'?'ganho':(r.etapa==='Perdido'?'perdido':'ativo');
+      var badgeClass=ehEtapaGanho(r.etapa)?'ganho':(ehEtapaPerdido(r.etapa)?'perdido':'ativo');
       var dpStr=r.dataProcesso?fmtDateBR(r.dataProcesso):'—';
       var dpTag=r.temLog?'<span class="dp-log-tag">log</span>':'';
       var slaHtml='<span class="sla-cell sla-'+r.slaColor+'"><span class="sla-dot"></span>'+r.diasNaEtapa+'d</span>';
@@ -432,7 +556,7 @@
         '<tr class="ag-row-click" data-id="'+escapeHtml(r.id)+'">'+
         '<td class="dp-date">'+dpStr+dpTag+'</td>'+
         '<td>'+slaHtml+'</td>'+
-        '<td>'+escapeHtml(nomeClienteFor(r.idCliente))+'</td>'+
+        '<td>'+escapeHtml(tituloDoCard(r))+'</td>'+
         '<td class="tel-cell">'+telHtml+'</td>'+
         '<td>'+escapeHtml(nomeFor(r.idVendedor))+'</td>'+
         '<td><span class="stage-badge '+badgeClass+'">'+escapeHtml(r.etapa)+'</span></td>'+
@@ -470,13 +594,14 @@
   function renderKanban(rowsDoPeriodo){
     var wrap=document.getElementById('f-kanbanWrap');
     var etapaAtiva=getEtapaAtiva();
+    var etapasAtuais=etapasDoPipeline();
     var porEtapa={};
-    ETAPAS.forEach(function(e){porEtapa[e]=[];});
+    etapasAtuais.forEach(function(e){porEtapa[e]=[];});
     rowsDoPeriodo.forEach(function(r){
       if(!porEtapa[r.etapa])porEtapa[r.etapa]=[];
       porEtapa[r.etapa].push(r);
     });
-    wrap.innerHTML=ETAPAS.map(function(etapa){
+    wrap.innerHTML=etapasAtuais.map(function(etapa){
       var lista=(porEtapa[etapa]||[]).slice();
       lista.sort(function(a,b){
         // Prioridade sempre no topo da coluna; dentro de cada bloco, quem
@@ -494,12 +619,12 @@
         var slaHtml='<span class="sla-cell sla-'+r.slaColor+'"><span class="sla-dot"></span>'+r.diasNaEtapa+'d</span>';
         var medalhaHtml=r.prioridade?'<span class="kcard-medalha" title="Prioridade">&#9733;</span>':'';
         return '<div class="kanban-card" data-id="'+escapeHtml(r.id)+'">'+medalhaHtml+
-          '<div class="kcard-nome">'+escapeHtml(nomeClienteFor(r.idCliente))+'</div>'+
+          '<div class="kcard-nome">'+escapeHtml(tituloDoCard(r))+'</div>'+
           '<div class="kcard-vend">'+escapeHtml(nomeFor(r.idVendedor))+'</div>'+
           '<div class="kcard-foot"><span class="kcard-valor">'+fmtMoney(r.valor)+'</span>'+slaHtml+'</div>'+
         '</div>';
       }).join(''):'<div class="kanban-col-empty">Nenhum lead aqui.</div>';
-      var corDot=etapa==='Ganho'?'#78D800':(etapa==='Perdido'?'var(--debit)':'var(--accent-deep)');
+      var corDot=ehEtapaGanho(etapa)?'#78D800':(ehEtapaPerdido(etapa)?'var(--debit)':'var(--accent-deep)');
       return '<div class="kanban-col" data-etapa="'+escapeHtml(etapa)+'" style="'+esmaecido+'">'+
         '<div class="kanban-col-head"><div class="kc-top"><span class="kc-dot" style="background:'+corDot+'"></span><div class="kc-nome">'+escapeHtml(etapa)+'</div></div><div class="kc-sub">'+lista.length+' lead(s) · '+fmtMoney(valorTotal)+'</div></div>'+
         '<div class="kanban-col-body" data-etapa="'+escapeHtml(etapa)+'">'+cardsHtml+'</div>'+
@@ -722,8 +847,11 @@
     var totalCriados=registros.length;
     var agoraTs=new Date();
     var tbody=document.getElementById('f-relatorioTbody');
-    tbody.innerHTML=ETAPAS.map(function(etapa){
-      var ehNovoLead=(etapa==='Novo Lead');
+    var etapasRelatorio=etapasDoPipeline();
+    tbody.innerHTML=etapasRelatorio.map(function(etapa,idxEtapa){
+      // "Novo Lead" era o nome fixo da 1ª etapa; agora é simplesmente a
+      // primeira etapa do pipeline ativo, seja qual for o nome dela.
+      var ehNovoLead=(idxEtapa===0);
       var agora=ehNovoLead?totalCriados:registros.filter(function(r){return r.etapa===etapa;}).length;
       var jaPassaram=ehNovoLead?totalCriados:registros.filter(function(r){return (r.etapasPassadas||[]).indexOf(etapa)!==-1;}).length;
       var conversao=totalCriados>0?(jaPassaram/totalCriados*100):0;
@@ -777,13 +905,13 @@
     // — só o select do painel de visualização usa, pra desfazer a escolha
     // visual do <select> se a pessoa cancelar/deixar em branco (o drag do
     // Kanban não precisa: o card nunca chega a sair do lugar antes disso).
-    if(novaEtapa==='Perdido'){
+    if(ehEtapaPerdido(novaEtapa,leadOriginal.pipeline)){
       window.SGConfirm.pedirTexto({
         titulo:'Motivo da perda',
-        mensagem:'Por que "'+nomeClienteFor(leadOriginal.idCliente)+'" foi perdido?',
+        mensagem:'Por que "'+tituloDoCard(leadOriginal)+'" foi para "'+novaEtapa+'"?',
         placeholder:'Ex: Contratou outra empresa',
         valorInicial:leadOriginal.motivoPerda||'',
-        textoConfirmar:'Mover para Perdido'
+        textoConfirmar:'Mover para '+novaEtapa
       }).then(function(motivo){
         if(!motivo){ if(aoCancelar)aoCancelar(); return; } // cancelou ou deixou em branco — não move
         executarMovimentoEtapa(idLead,novaEtapa,motivo);
@@ -1053,7 +1181,7 @@
     if(!r)return;
     leadAtual=r;
     var c=clientesMap[r.idCliente]||{};
-    var etapasOpts=ETAPAS.map(function(e){return '<option value="'+escapeHtml(e)+'" '+(e===r.etapa?'selected':'')+'>'+escapeHtml(e)+'</option>';}).join('');
+    var etapasOpts=etapasDoPipeline(r.pipeline).map(function(e){return '<option value="'+escapeHtml(e)+'" '+(e===r.etapa?'selected':'')+'>'+escapeHtml(e)+'</option>';}).join('');
     var html='<div class="ad-section">'+
       '<div class="ad-row" style="margin-top:0;align-items:center;">'+
         '<span class="dl">Etapa</span>'+
@@ -1070,8 +1198,22 @@
       '<div class="ad-row"><span class="dl">Vendedor</span><span class="dv">'+escapeHtml(nomeFor(r.idVendedor))+'</span></div>'+
       '<div class="ad-row"><span class="dl">Serviço</span><span class="dv">'+escapeHtml(nomeServicoFunil(r.idServico))+'</span></div>'+
       '<div class="ad-row"><span class="dl">Valor estimado</span><span class="dv">'+fmtMoney(r.valor)+'</span></div>'+
+      (r.atividadeAdm?'<div class="ad-row"><span class="dl">Atividade</span><span class="dv">'+escapeHtml(r.atividadeAdm)+'</span></div>':'')+
       (r.motivoPerda?'<div class="ad-row"><span class="dl">Motivo da perda</span><span class="dv">'+escapeHtml(r.motivoPerda)+'</span></div>':'')+
     '</div>';
+    // "Copiar para outro pipeline" — só faz sentido se existir outro pipeline.
+    var outrosPipelines=pipelinesOrdenados().filter(function(p){ return String(p.IdPipeline)!==String(r.pipeline); });
+    if(outrosPipelines.length){
+      html+='<div class="ad-section"><h4>Copiar para outro pipeline</h4>'+
+        '<div style="font-size:11.5px;color:var(--ink-faint);margin-bottom:8px;">Cria um card novo do mesmo cliente no pipeline escolhido, começando na primeira etapa dele. Este card aqui continua como está.</div>'+
+        '<div style="display:flex;gap:6px;">'+
+          '<select id="fv-copiarPipeline" style="flex:1;min-width:0;font-family:var(--sans);font-size:13px;border:1px solid var(--line);border-radius:7px;padding:8px 10px;background:#fff;color:var(--ink);">'+
+            outrosPipelines.map(function(p){return '<option value="'+escapeHtml(p.IdPipeline)+'">'+escapeHtml(p.Nome)+'</option>';}).join('')+
+          '</select>'+
+          '<button type="button" id="fv-copiarBtn" class="reset-btn" style="flex:none;">Copiar</button>'+
+        '</div>'+
+      '</div>';
+    }
     if(r.obs){
       html+='<div class="ad-section"><h4>Observações</h4><p style="font-size:13px;color:var(--ink);line-height:1.5;">'+escapeHtml(r.obs)+'</p></div>';
     }
@@ -1085,11 +1227,17 @@
     '</div>';
 
     window.SGViewPanel.abrir({
-      titulo:nomeClienteFor(r.idCliente),
+      titulo:tituloDoCard(r),
       html:html,
       onEditar:function(){ abrirPainelLead(idOportunidade); },
       onExcluir:function(){ leadAtual=r; excluirLead(); },
       onAbrir:function(){
+        var copiarBtn=document.getElementById('fv-copiarBtn');
+        if(copiarBtn){
+          copiarBtn.addEventListener('click',function(){
+            copiarLeadParaPipeline(r,document.getElementById('fv-copiarPipeline').value);
+          });
+        }
         document.getElementById('fv-etapaSelect').addEventListener('change',function(e){
           var etapaAnterior=r.etapa;
           moverLeadParaEtapa(r.id,e.target.value,function(){ e.target.value=etapaAnterior; });
@@ -1113,6 +1261,66 @@
   }
 
   /**
+   * Copia um card pra outro pipeline (2026-08-31): cria um card NOVO do mesmo
+   * cliente no pipeline escolhido, na primeira etapa dele, com histórico
+   * limpo — o card de origem continua exatamente como estava. Guarda
+   * CopiadoDeOportunidade pra dar pra rastrear de onde veio.
+   */
+  function copiarLeadParaPipeline(r,idPipelineDestino){
+    if(!r||!idPipelineDestino)return;
+    var destino=pipelinePorId(idPipelineDestino);
+    if(!destino){ mostrarToastFunil('Pipeline de destino não encontrado.',true); return; }
+    var etapasDestino=etapasDoPipeline(idPipelineDestino);
+    if(!etapasDestino.length){ mostrarToastFunil('O pipeline "'+destino.Nome+'" ainda não tem etapas configuradas.',true); return; }
+    var primeiraEtapa=etapasDestino[0];
+    var agora=new Date();
+    var novoId=window.SGId.gerar();
+    var registroNovo={
+      id:novoId, idCliente:r.idCliente, idVendedor:r.idVendedor, idServico:r.idServico,
+      etapa:primeiraEtapa, obs:r.obs||'', valor:r.valor||0, motivoPerda:'',
+      pipeline:idPipelineDestino, atividadeAdm:'', idVendaOrigem:'',
+      dt:agora, dateKey:dateKey(agora),
+      dataProcesso:agora, dataProcessoKey:dateKey(agora),
+      diasNaEtapa:0, slaColor:'green', temLog:true, prioridade:false,
+      etapasPassadas:[primeiraEtapa], transicoes:[{Etapa:primeiraEtapa,Em:agora.toISOString()}], atividades:[]
+    };
+    funilRecords.push(registroNovo);
+    _epoca.marcar();
+    // Leva a pessoa direto pro card novo, no pipeline de destino — senão o
+    // card "some" (fica numa aba que não está aberta) e parece que não criou.
+    pipelineAtivo=idPipelineDestino;
+    localStorage.setItem('sg_funil_pipeline',pipelineAtivo);
+    if(window.SGViewPanel)window.SGViewPanel.fechar();
+    renderAbasPipeline();renderStagePills();
+    garantirDataVisivelNoFiltro(registroNovo.dataProcessoKey);
+    render();
+    mostrarToastFunil('Copiado para "'+destino.Nome+'".');
+
+    apiCall('salvarFunil',{
+      idOportunidade:novoId,
+      idCliente:r.idCliente, idVendedor:r.idVendedor, idServico:r.idServico||'',
+      etapa:primeiraEtapa, observacoes:r.obs||'', valorEstimado:r.valor||0, motivoPerda:'',
+      pipeline:idPipelineDestino, copiadoDeOportunidade:r.id
+    }).then(function(resp){
+      if(!resp||!resp.ok){
+        funilRecords=funilRecords.filter(function(x){return String(x.id)!==String(novoId);});
+        _epoca.marcar();render();
+        mostrarToastFunil((resp&&resp.erro)||'Não foi possível copiar — desfeito.',true);
+        return;
+      }
+      if(resp.idOportunidade&&String(resp.idOportunidade)!==String(novoId)){
+        var idx=funilRecords.findIndex(function(x){return String(x.id)===String(novoId);});
+        if(idx!==-1)funilRecords[idx].id=resp.idOportunidade;
+        render();
+      }
+    }).catch(function(err){
+      funilRecords=funilRecords.filter(function(x){return String(x.id)!==String(novoId);});
+      _epoca.marcar();render();
+      mostrarToastFunil('Erro de conexão — cópia desfeita: '+err.message,true);
+    });
+  }
+
+  /**
    * Abre o painel lateral pra editar um lead existente (idOportunidade) ou
    * criar um novo (idOportunidade null/undefined).
    */
@@ -1121,10 +1329,10 @@
     leadAtual=r;
     iniciarPresenca(idOportunidade||null);
 
-    document.getElementById('fd-title').textContent=r?nomeClienteFor(r.idCliente):'Novo lead';
+    document.getElementById('fd-title').textContent=r?tituloDoCard(r):'Novo lead';
     document.getElementById('fd-excluirBtn').style.display=r?'flex':'none';
 
-    var etapasOpts=ETAPAS.map(function(e){return '<option value="'+escapeHtml(e)+'">'+escapeHtml(e)+'</option>';}).join('');
+    var etapasOpts=etapasDoPipeline(r?r.pipeline:null).map(function(e){return '<option value="'+escapeHtml(e)+'">'+escapeHtml(e)+'</option>';}).join('');
 
     var html='<div class="ad-section">'+
       '<div class="uform-field">'+
@@ -1217,7 +1425,9 @@
       }
     });
 
-    document.getElementById('fd-etapa').value=r?r.etapa:'Novo Lead';
+    // Lead novo já nasce na PRIMEIRA etapa do pipeline ativo (antes era o
+    // nome fixo 'Novo Lead', que só existe no Comercial).
+    document.getElementById('fd-etapa').value=r?r.etapa:(etapasDoPipeline()[0]||'');
     document.getElementById('fd-valor').value=r?(r.valor||''):'';
     document.getElementById('fd-obs').value=r?(r.obs||''):'';
     document.getElementById('fd-motivoPerda').value=r?(r.motivoPerda||''):'';
@@ -1532,7 +1742,8 @@
 
   function atualizarVisibilidadeMotivoPerda(){
     var etapa=document.getElementById('fd-etapa').value;
-    document.getElementById('fd-motivoPerdaWrap').style.display=(etapa==='Perdido')?'block':'none';
+    var idPipe=leadAtual?leadAtual.pipeline:null;
+    document.getElementById('fd-motivoPerdaWrap').style.display=ehEtapaPerdido(etapa,idPipe)?'block':'none';
   }
 
   function fecharPainelLead(){
@@ -1569,9 +1780,14 @@
     var etapasPassadasNovo=etapasPassadasAntes.indexOf(etapa)===-1?etapasPassadasAntes.concat([etapa]):etapasPassadasAntes;
     var transicoesAntes=(leadAtual&&leadAtual.transicoes)||[];
     var transicoesNovo=etapaMudouLocal?transicoesAntes.concat([{Etapa:etapa,Em:agora.toISOString()}]):transicoesAntes;
+    // Lead novo nasce no pipeline da aba aberta; editar preserva o do lead.
+    var pipelineDoLead=(leadAtual&&leadAtual.pipeline)||((pipelineCorrente()||{}).IdPipeline||'');
     var registroNovo={
       id:id, idCliente:idCliente, idVendedor:idVendedor, idServico:idServico,
       etapa:etapa, obs:obs, valor:parseFloat(valor)||0, motivoPerda:motivoPerda,
+      pipeline:pipelineDoLead,
+      atividadeAdm:(leadAtual&&leadAtual.atividadeAdm)||'',
+      idVendaOrigem:(leadAtual&&leadAtual.idVendaOrigem)||'',
       dt:leadAtual?leadAtual.dt:agora,
       dataProcesso:agora, dataProcessoKey:dateKey(agora),
       diasNaEtapa:(leadAtual&&leadAtual.etapa===etapa)?leadAtual.diasNaEtapa:0,
@@ -1603,7 +1819,8 @@
       etapa: etapa,
       observacoes: obs,
       valorEstimado: valor,
-      motivoPerda: motivoPerda
+      motivoPerda: motivoPerda,
+      pipeline: pipelineDoLead
     }).then(function(resp){
       if(!resp||!resp.ok){ desfazer((resp&&resp.erro)||'Não foi possível salvar — a alteração foi desfeita.'); return; }
       // Se o servidor devolveu um ID diferente do que o navegador gerou (ex:
@@ -1726,7 +1943,14 @@
   // ← usa dataProcessoKey pra definir o range padrão também
   function setDefaultRange(){
     if(!funilRecords.length)return;
-    var dates=funilRecords.map(function(r){return r.dataProcessoKey;}).sort();
+    // Período padrão cobre só os cards do pipeline ABERTO — senão, trocar
+    // pra um pipeline novo (cards recentes) herdaria o período do Comercial
+    // (que começa lá atrás) e o padrão ficaria sem sentido pra aquela aba.
+    var idPipe=(pipelineCorrente()||{}).IdPipeline||'';
+    var doPipeline=funilRecords.filter(function(r){return r.pipeline===idPipe;});
+    var base=doPipeline.length?doPipeline:funilRecords;
+    var dates=base.map(function(r){return r.dataProcessoKey;}).filter(Boolean).sort();
+    if(!dates.length)return;
     document.getElementById('f-dateFrom').value=dates[0];document.getElementById('f-dateTo').value=dates[dates.length-1];
   }
 
@@ -1744,11 +1968,28 @@
     // carrega SLA antes de processar os leads
     funilSLAMap     = processFunilSLA(resp.funilSLA||[]);
 
+    // Pipelines ANTES de processFunil — processFunil usa o primeiro
+    // pipeline como fallback pra card sem Pipeline gravado.
+    funilPipelines=(resp.funilPipelines||[]).map(function(p){
+      return {
+        IdPipeline:p.IdPipeline||p.idPipeline||'',
+        Nome:p.Nome||'',
+        Ordem:parseInt(p.Ordem,10)||0,
+        Protegido:!!p.Protegido,
+        AutomacaoVenda:!!p.AutomacaoVenda,
+        Etapas:(p.Etapas||[]).map(function(e,i){ return {Nome:e.Nome||'',Ordem:(e.Ordem!==undefined?parseInt(e.Ordem,10):i)||0,Papel:e.Papel||''}; })
+      };
+    }).filter(function(p){ return p.IdPipeline&&p.Nome; });
+    if(!pipelinePorId(pipelineAtivo)){
+      var primeiro=pipelinesOrdenados()[0];
+      pipelineAtivo=primeiro?primeiro.IdPipeline:'';
+    }
+
     funilRecords=processFunil(fFunil);
     enriquecerComSLA(funilRecords); // calcula dataProcesso/dataProcessoKey/dias/slaColor
     vendasRecords=processVendasFunil(fVendas);
 
-    populateVendedorSelect();setDefaultRange();
+    populateVendedorSelect();renderAbasPipeline();renderStagePills();setDefaultRange();
     document.getElementById('f-emptyState').style.display='none';document.getElementById('f-mainContent').style.display='block';
     document.getElementById('f-appVersion').textContent='v'+APP_VERSION;
     render();
@@ -1765,6 +2006,197 @@
       if(_epoca.atual()!==epocaInicio)return;
       aplicarDadosFunil(resp);
     }).catch(function(err){if(showStatus&&!temCache)window.SGToast.mostrar('Erro: '+err.message,true);});
+  }
+
+  // ══ Configuração de pipelines (2026-08-31) ══
+  // Duas telas dentro do mesmo modal: a LISTA de pipelines e a EDIÇÃO de um.
+  var pipelineEditandoId=null; // null enquanto está na lista; '' = criando novo
+
+  function abrirModalPipelines(){
+    pipelineEditandoId=null;
+    document.getElementById('fPipelineModal').classList.remove('hidden');
+    mostrarListaPipelines();
+  }
+  function fecharModalPipelines(){
+    document.getElementById('fPipelineModal').classList.add('hidden');
+    pipelineEditandoId=null;
+  }
+  function mostrarListaPipelines(){
+    pipelineEditandoId=null;
+    document.getElementById('fp-title').textContent='Pipelines do Funil';
+    document.getElementById('fp-listaWrap').classList.remove('hidden');
+    document.getElementById('fp-edicaoWrap').classList.add('hidden');
+    document.getElementById('fp-salvarBtn').style.display='none';
+    document.getElementById('fp-excluirBtn').style.display='none';
+    document.getElementById('fp-cancelarBtn').textContent='Fechar';
+    var wrap=document.getElementById('fp-lista');
+    var lista=pipelinesOrdenados();
+    wrap.innerHTML=lista.length?lista.map(function(p){
+      var qtdCards=funilRecords.filter(function(r){return r.pipeline===p.IdPipeline;}).length;
+      return '<div class="fp-item">'+
+        '<div class="fp-item-info">'+
+          '<div class="fp-item-nome">'+escapeHtml(p.Nome)+'</div>'+
+          '<div class="fp-item-sub">'+(p.Etapas||[]).length+' etapa(s) · '+qtdCards+' card(s)</div>'+
+        '</div>'+
+        (p.AutomacaoVenda?'<span class="fp-item-tag">Automação</span>':'')+
+        (p.Protegido?'<span class="fp-item-tag">Protegido</span>':'')+
+        '<button type="button" class="reset-btn fp-editar" data-id="'+escapeHtml(p.IdPipeline)+'">Editar</button>'+
+      '</div>';
+    }).join(''):'<div style="text-align:center;color:var(--ink-faint);font-size:12.5px;padding:18px;">Nenhum pipeline ainda.</div>';
+    wrap.querySelectorAll('.fp-editar').forEach(function(btn){
+      btn.addEventListener('click',function(){ mostrarEdicaoPipeline(btn.getAttribute('data-id')); });
+    });
+  }
+  function mostrarEdicaoPipeline(idPipeline){
+    pipelineEditandoId=idPipeline||'';
+    var p=idPipeline?pipelinePorId(idPipeline):null;
+    document.getElementById('fp-title').textContent=p?('Editar: '+p.Nome):'Novo pipeline';
+    document.getElementById('fp-listaWrap').classList.add('hidden');
+    document.getElementById('fp-edicaoWrap').classList.remove('hidden');
+    document.getElementById('fp-salvarBtn').style.display='';
+    // Pipeline protegido pode ser editado, só não excluído.
+    document.getElementById('fp-excluirBtn').style.display=(p&&!p.Protegido)?'':'none';
+    document.getElementById('fp-cancelarBtn').textContent='Voltar';
+    document.getElementById('fp-nome').value=p?p.Nome:'';
+    document.getElementById('fp-automacaoVenda').checked=p?!!p.AutomacaoVenda:false;
+    document.getElementById('fp-msg').textContent='';
+    document.getElementById('fp-msg').className='uform-msg';
+    renderEtapasPipeline(p?(p.Etapas||[]).slice().sort(function(a,b){return (a.Ordem||0)-(b.Ordem||0);}):[]);
+  }
+  var PAPEIS_ETAPA=[{v:'',t:'Nenhum'},{v:'proposta',t:'Proposta'},{v:'ganho',t:'Ganho'},{v:'perdido',t:'Perdido'}];
+  function renderEtapasPipeline(etapas){
+    var wrap=document.getElementById('fp-etapasList');
+    wrap.innerHTML=(etapas||[]).map(function(e){
+      var opts=PAPEIS_ETAPA.map(function(o){return '<option value="'+o.v+'"'+(o.v===(e.Papel||'')?' selected':'')+'>'+o.t+'</option>';}).join('');
+      return '<div class="fp-etapa-row">'+
+        '<input type="text" class="fp-etapa-nome" placeholder="Nome da etapa" value="'+escapeHtml(e.Nome||'')+'">'+
+        '<select class="fp-etapa-papel">'+opts+'</select>'+
+        '<button type="button" class="fp-etapa-subir" title="Subir">&#9650;</button>'+
+        '<button type="button" class="fp-etapa-descer" title="Descer">&#9660;</button>'+
+        '<button type="button" class="fp-etapa-remover" title="Remover">&#10005;</button>'+
+      '</div>';
+    }).join('');
+    wrap.querySelectorAll('.fp-etapa-remover').forEach(function(btn){
+      btn.addEventListener('click',function(){ btn.closest('.fp-etapa-row').remove(); });
+    });
+    wrap.querySelectorAll('.fp-etapa-subir').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        var row=btn.closest('.fp-etapa-row'),ant=row.previousElementSibling;
+        if(ant)row.parentNode.insertBefore(row,ant);
+      });
+    });
+    wrap.querySelectorAll('.fp-etapa-descer').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        var row=btn.closest('.fp-etapa-row'),prox=row.nextElementSibling;
+        if(prox)row.parentNode.insertBefore(prox,row);
+      });
+    });
+  }
+  function lerEtapasPipeline(){
+    return Array.from(document.querySelectorAll('#fp-etapasList .fp-etapa-row')).map(function(row,i){
+      return {
+        Nome:row.querySelector('.fp-etapa-nome').value.trim(),
+        Papel:row.querySelector('.fp-etapa-papel').value||'',
+        Ordem:i
+      };
+    }).filter(function(e){ return !!e.Nome; });
+  }
+  function adicionarEtapaPipeline(){
+    var wrap=document.getElementById('fp-etapasList');
+    var div=document.createElement('div');
+    div.className='fp-etapa-row';
+    var opts=PAPEIS_ETAPA.map(function(o){return '<option value="'+o.v+'">'+o.t+'</option>';}).join('');
+    div.innerHTML='<input type="text" class="fp-etapa-nome" placeholder="Nome da etapa">'+
+      '<select class="fp-etapa-papel">'+opts+'</select>'+
+      '<button type="button" class="fp-etapa-subir" title="Subir">&#9650;</button>'+
+      '<button type="button" class="fp-etapa-descer" title="Descer">&#9660;</button>'+
+      '<button type="button" class="fp-etapa-remover" title="Remover">&#10005;</button>';
+    wrap.appendChild(div);
+    div.querySelector('.fp-etapa-remover').addEventListener('click',function(){ div.remove(); });
+    div.querySelector('.fp-etapa-subir').addEventListener('click',function(){ var a=div.previousElementSibling; if(a)wrap.insertBefore(div,a); });
+    div.querySelector('.fp-etapa-descer').addEventListener('click',function(){ var p=div.nextElementSibling; if(p)wrap.insertBefore(p,div); });
+    div.querySelector('.fp-etapa-nome').focus();
+  }
+  function salvarPipelineAtual(){
+    var msgEl=document.getElementById('fp-msg');
+    var nome=document.getElementById('fp-nome').value.trim();
+    var etapas=lerEtapasPipeline();
+    if(!nome){ msgEl.className='uform-msg error'; msgEl.textContent='Dê um nome ao pipeline.'; return; }
+    if(!etapas.length){ msgEl.className='uform-msg error'; msgEl.textContent='Um pipeline precisa de pelo menos uma etapa.'; return; }
+    var ehNovo=!pipelineEditandoId;
+    var existente=pipelineEditandoId?pipelinePorId(pipelineEditandoId):null;
+    var id=pipelineEditandoId||window.SGId.gerar();
+    var automacao=document.getElementById('fp-automacaoVenda').checked;
+    var ordem=existente?existente.Ordem:(pipelinesOrdenados().length?Math.max.apply(null,funilPipelines.map(function(p){return p.Ordem||0;}))+1:0);
+    var registro={IdPipeline:id,Nome:nome,Ordem:ordem,Protegido:existente?!!existente.Protegido:false,AutomacaoVenda:automacao,Etapas:etapas};
+
+    // Otimista: aplica local e fecha, igual ao resto do app.
+    var anteriorCopia=existente?JSON.parse(JSON.stringify(existente)):null;
+    var idx=funilPipelines.findIndex(function(p){return String(p.IdPipeline)===String(id);});
+    if(idx===-1)funilPipelines.push(registro); else funilPipelines[idx]=registro;
+    // "Automação" é exclusiva: ligar aqui desliga nos outros (o servidor faz
+    // o mesmo, isso é só pra tela não mostrar dois marcados até recarregar).
+    if(automacao)funilPipelines.forEach(function(p){ if(String(p.IdPipeline)!==String(id))p.AutomacaoVenda=false; });
+    if(ehNovo){ pipelineAtivo=id; localStorage.setItem('sg_funil_pipeline',id); }
+    _epoca.marcar();
+    fecharModalPipelines();
+    renderAbasPipeline();renderStagePills();render();
+    mostrarToastFunil(ehNovo?'Pipeline criado.':'Pipeline atualizado.');
+
+    apiCall('salvarFunilPipeline',{
+      idPipeline:id,nome:nome,ordem:ordem,protegido:registro.Protegido,
+      automacaoVenda:automacao,etapas:etapas
+    }).then(function(resp){
+      if(!resp||!resp.ok){
+        if(ehNovo)funilPipelines=funilPipelines.filter(function(p){return String(p.IdPipeline)!==String(id);});
+        else{ var i2=funilPipelines.findIndex(function(p){return String(p.IdPipeline)===String(id);}); if(i2!==-1&&anteriorCopia)funilPipelines[i2]=anteriorCopia; }
+        _epoca.marcar();renderAbasPipeline();renderStagePills();render();
+        mostrarToastFunil((resp&&resp.erro)||'Não foi possível salvar o pipeline — desfeito.',true);
+      }
+    }).catch(function(err){
+      if(ehNovo)funilPipelines=funilPipelines.filter(function(p){return String(p.IdPipeline)!==String(id);});
+      else{ var i3=funilPipelines.findIndex(function(p){return String(p.IdPipeline)===String(id);}); if(i3!==-1&&anteriorCopia)funilPipelines[i3]=anteriorCopia; }
+      _epoca.marcar();renderAbasPipeline();renderStagePills();render();
+      mostrarToastFunil('Erro de conexão — pipeline desfeito: '+err.message,true);
+    });
+  }
+  function excluirPipelineAtual(){
+    if(!pipelineEditandoId)return;
+    var id=pipelineEditandoId;
+    var p=pipelinePorId(id);
+    if(!p)return;
+    var qtd=funilRecords.filter(function(r){return r.pipeline===id;}).length;
+    if(qtd>0){
+      var msgEl=document.getElementById('fp-msg');
+      msgEl.className='uform-msg error';
+      msgEl.textContent='Esse pipeline ainda tem '+qtd+' card(s). Mova ou exclua os cards antes de excluir o pipeline.';
+      return;
+    }
+    window.SGConfirm.perguntar({titulo:'Excluir pipeline',mensagem:'Excluir o pipeline "'+p.Nome+'"? Essa ação não pode ser desfeita.',textoConfirmar:'Excluir',perigo:true}).then(function(ok){
+      if(!ok)return;
+      var copia=JSON.parse(JSON.stringify(p));
+      funilPipelines=funilPipelines.filter(function(x){return String(x.IdPipeline)!==String(id);});
+      if(pipelineAtivo===id){
+        var primeiro=pipelinesOrdenados()[0];
+        pipelineAtivo=primeiro?primeiro.IdPipeline:'';
+        localStorage.setItem('sg_funil_pipeline',pipelineAtivo);
+      }
+      _epoca.marcar();
+      fecharModalPipelines();
+      renderAbasPipeline();renderStagePills();render();
+      mostrarToastFunil('Pipeline excluído.');
+      apiCall('excluirFunilPipeline',{idPipeline:id}).then(function(resp){
+        if(!resp||!resp.ok){
+          funilPipelines.push(copia);
+          _epoca.marcar();renderAbasPipeline();renderStagePills();render();
+          mostrarToastFunil((resp&&resp.erro)||'Não foi possível excluir — o pipeline foi restaurado.',true);
+        }
+      }).catch(function(err){
+        funilPipelines.push(copia);
+        _epoca.marcar();renderAbasPipeline();renderStagePills();render();
+        mostrarToastFunil('Erro de conexão — o pipeline foi restaurado: '+err.message,true);
+      });
+    });
   }
 
   function init(){
@@ -1793,8 +2225,7 @@
     document.getElementById('f-buscaGeral').addEventListener('input',render);
     document.getElementById('f-resetFiltros').addEventListener('click',function(){
       document.getElementById('f-selVendedor').value='__all__';document.getElementById('f-buscaGeral').value='';setDefaultRange();
-      document.querySelectorAll('.stage-pill').forEach(function(p){p.classList.remove('active');});
-      document.querySelector('.stage-pill[data-stage="__all__"]').classList.add('active');
+      renderStagePills(); // redesenha já com "Todas" ativa (e religa os handlers)
       document.querySelectorAll('.qr-btn[data-frange]').forEach(function(b){b.classList.remove('active');});render();
     });
     document.querySelectorAll('#view-funil th.sortable').forEach(function(th){
@@ -1806,9 +2237,18 @@
       });
     });
     updateSortHeaders();
-    document.querySelectorAll('.stage-pill').forEach(function(pill){
-      pill.addEventListener('click',function(){document.querySelectorAll('.stage-pill').forEach(function(p){p.classList.remove('active');});pill.classList.add('active');render();});
+    // As pills de etapa são montadas por renderStagePills() (dependem do
+    // pipeline ativo) — os handlers de clique são ligados lá mesmo.
+    document.getElementById('f-pipelineConfigBtn').addEventListener('click',abrirModalPipelines);
+    document.getElementById('fp-novoBtn').addEventListener('click',function(){ mostrarEdicaoPipeline(null); });
+    document.getElementById('fp-addEtapaBtn').addEventListener('click',adicionarEtapaPipeline);
+    document.getElementById('fp-salvarBtn').addEventListener('click',salvarPipelineAtual);
+    document.getElementById('fp-excluirBtn').addEventListener('click',excluirPipelineAtual);
+    // "Fechar" na lista fecha o modal; "Voltar" na edição só volta pra lista.
+    document.getElementById('fp-cancelarBtn').addEventListener('click',function(){
+      if(pipelineEditandoId===null)fecharModalPipelines(); else mostrarListaPipelines();
     });
+    document.getElementById('fPipelineModal').addEventListener('click',function(e){ if(e.target.id==='fPipelineModal')fecharModalPipelines(); });
     document.querySelectorAll('.qr-btn[data-frange]').forEach(function(btn){
       btn.addEventListener('click',function(){
         document.querySelectorAll('.qr-btn[data-frange]').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');

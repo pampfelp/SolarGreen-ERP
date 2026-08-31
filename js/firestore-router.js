@@ -105,9 +105,70 @@
       IdVenda:id, IdCliente:p.idCliente, IdServico:p.idServico, IdVendedor:p.idVendedor,
       DataVenda:p.dataVenda||'', Valor:parseFloat(p.valor)||0
     };
-    return db().collection('vendas').doc(id).set(doc)
-      .then(function(){ return {ok:true,idVenda:id}; })
+    var ref=db().collection('vendas').doc(id);
+    // Checa existência ANTES de gravar pra saber se é criação ou edição — a
+    // automação de demandas administrativas só roda na criação (editar o
+    // valor de uma venda antiga não pode gerar as mesmas demandas de novo).
+    // Mesmo padrão do DataCriacao em salvarAgendamento.
+    return ref.get().then(function(snap){
+      var ehNovo=!snap.exists;
+      return ref.set(doc).then(function(){
+        if(!ehNovo)return null;
+        return gerarDemandasAdmDaVenda(p).catch(function(err){
+          // A venda em si já está salva — uma falha na automação não pode
+          // desfazer/derrubar o salvamento da venda.
+          console.error('Automação de demandas administrativas falhou:',err);
+          return null;
+        });
+      });
+    }).then(function(){ return {ok:true,idVenda:id}; })
       .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+
+  /**
+   * Automação (2026-08-31, pedido do Felipe): toda venda NOVA gera, no
+   * pipeline marcado como "AutomacaoVenda", um card por atividade
+   * configurada no Serviço vendido (Servico.AtividadesAdm) — ex.: verificar
+   * pagamento, verificar assinatura do contrato, monitoramento. Cada
+   * atividade é um CARD SEPARADO (não um checklist dentro de um card),
+   * confirmado com o Felipe — assim cada uma anda pelas etapas sozinha.
+   * Silenciosa por design: sem pipeline de automação configurado, ou sem
+   * atividades no Serviço, a venda salva normalmente e nada é criado.
+   */
+  function gerarDemandasAdmDaVenda(p){
+    if(!p.idServico) return Promise.resolve(null);
+    return Promise.all([
+      db().collection('servicos').doc(String(p.idServico)).get(),
+      db().collection('funil_pipelines').where('AutomacaoVenda','==',true).limit(1).get()
+    ]).then(function(r){
+      var servico=r[0].exists?r[0].data():null;
+      var atividades=(servico&&servico.AtividadesAdm)||[];
+      if(!atividades.length||r[1].empty)return null;
+      var pipeline=r[1].docs[0].data();
+      var idPipeline=r[1].docs[0].id;
+      var etapas=(pipeline.Etapas||[]).slice().sort(function(a,b){return (a.Ordem||0)-(b.Ordem||0);});
+      if(!etapas.length)return null;
+      var primeiraEtapa=etapas[0].Nome;
+      var agora=new Date();
+      var dataCriacao=agora.getFullYear()+'-'+String(agora.getMonth()+1).padStart(2,'0')+'-'+String(agora.getDate()).padStart(2,'0');
+      var lote=db().batch();
+      atividades.forEach(function(atividade){
+        var rotulo=String(atividade||'').trim();
+        if(!rotulo)return;
+        var idCard=window.SGId?window.SGId.gerar():String(Date.now())+Math.random().toString(16).slice(2,8);
+        lote.set(db().collection('funil').doc(idCard),{
+          IdOportunidade:idCard, Pipeline:idPipeline, Etapa:primeiraEtapa,
+          IdCliente:p.idCliente||'', IdVendedor:p.idVendedor||'', IdServico:p.idServico||'',
+          AtividadeAdm:rotulo, IdVendaOrigem:p.idVenda||'', IdServicoOrigem:p.idServico||'',
+          Observacoes:'', 'Valor Estimado':0, MotivoPerda:'',
+          DataCriacao:dataCriacao, Prioridade:false,
+          EtapasPassadas:[primeiraEtapa],
+          Transicoes:[{Etapa:primeiraEtapa,Em:agora.toISOString()}],
+          Atividades:[]
+        });
+      });
+      return lote.commit();
+    });
   }
 
   function excluirVenda(p){
@@ -120,8 +181,8 @@
     // vendas entra só pra alimentar o widget "Taxas de conversão médias"
     // dentro do próprio Funil (2026-08-24) — mesmo widget que já existia
     // em Vendas, agora também na tela onde o vendedor passa o dia.
-    return Promise.all([getColecao('vendedores'),getColecao('funil'),getColecao('clientes'),getColecao('servicos'),getColecao('vendas')]).then(function(r){
-      return {ok:true, vendedores:r[0], funil:r[1], clientes:r[2], servicos:r[3], vendas:r[4], funilLog:[], funilSLA:[]};
+    return Promise.all([getColecao('vendedores'),getColecao('funil'),getColecao('clientes'),getColecao('servicos'),getColecao('vendas'),getColecao('funil_pipelines')]).then(function(r){
+      return {ok:true, vendedores:r[0], funil:r[1], clientes:r[2], servicos:r[3], vendas:r[4], funilPipelines:r[5], funilLog:[], funilSLA:[]};
     }).catch(function(err){ return {ok:false, erro:err.message}; });
   }
 
@@ -145,6 +206,13 @@
         IdOportunidade:id, IdCliente:p.idCliente, IdVendedor:p.idVendedor, IdServico:p.idServico||'',
         Etapa:p.etapa, Observacoes:p.observacoes||'', 'Valor Estimado':parseFloat(p.valorEstimado)||0,
         MotivoPerda:p.motivoPerda||'',
+        // Pipeline (2026-08-31): qual funil esse card pertence — Comercial,
+        // Administrativo, Expansão... Só grava se veio no payload, pra uma
+        // gravação antiga (ou de outra tela) nunca zerar o pipeline de um
+        // card que já existe.
+        Pipeline: p.pipeline||undefined,
+        AtividadeAdm: p.atividadeAdm||undefined,
+        CopiadoDeOportunidade: p.copiadoDeOportunidade||undefined,
         DataCriacao: snap.exists?undefined:(agora.getFullYear()+'-'+String(agora.getMonth()+1).padStart(2,'0')+'-'+String(agora.getDate()).padStart(2,'0')),
         // Acumula toda etapa por onde o lead já passou (não sobrescreve —
         // arrayUnion só soma), pro "Relatório do funil" saber quantos leads
@@ -167,6 +235,57 @@
     return db().collection('funil').doc(p.idOportunidade).delete()
       .then(function(){ return {ok:true}; })
       .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+
+  /**
+   * Pipelines do Funil (2026-08-31) — Comercial/Administrativo/Expansão e
+   * quaisquer outros que o Felipe criar pela tela. Cada pipeline guarda seu
+   * próprio conjunto de Etapas ({Nome,Ordem,Papel}); "Papel" (''/'proposta'/
+   * 'ganho'/'perdido') é o que substitui as comparações antes hardcoded
+   * (etapa==='Ganho'/'Perdido') — assim qualquer pipeline ganha cor de
+   * coluna, "Motivo da perda" e contagem de conversão sem código novo.
+   */
+  function salvarFunilPipeline(p){
+    var id=p.idPipeline||(window.SGId?window.SGId.gerar():String(Date.now()));
+    var doc=semUndefined({
+      IdPipeline:id,
+      Nome:p.nome||'',
+      Ordem:parseInt(p.ordem,10)||0,
+      Protegido:!!p.protegido,
+      AutomacaoVenda:!!p.automacaoVenda,
+      Etapas:p.etapas||[]
+    });
+    // Só um pipeline pode receber as demandas automáticas de venda — se esse
+    // está assumindo o papel, tira dos outros na mesma gravação (senão a
+    // automação teria que "escolher" entre dois e o resultado viraria sorteio).
+    var pre=p.automacaoVenda
+      ? db().collection('funil_pipelines').where('AutomacaoVenda','==',true).get().then(function(snap){
+          var lote=db().batch(); var mexeu=false;
+          snap.forEach(function(d){ if(d.id!==id){ lote.set(d.ref,{AutomacaoVenda:false},{merge:true}); mexeu=true; } });
+          return mexeu?lote.commit():null;
+        })
+      : Promise.resolve();
+    return pre.then(function(){ return db().collection('funil_pipelines').doc(id).set(doc,{merge:true}); })
+      .then(function(){ return {ok:true,idPipeline:id}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+
+  function excluirFunilPipeline(p){
+    var id=p.idPipeline;
+    if(!id) return Promise.resolve({ok:false,erro:'idPipeline é obrigatório.'});
+    return db().collection('funil_pipelines').doc(id).get().then(function(snap){
+      if(snap.exists&&snap.data().Protegido){
+        return {ok:false,erro:'Esse pipeline é protegido e não pode ser excluído.'};
+      }
+      // Não deixa excluir um pipeline que ainda tem card dentro — senão os
+      // cards ficariam órfãos, invisíveis em qualquer aba.
+      return db().collection('funil').where('Pipeline','==',id).limit(1).get().then(function(usos){
+        if(!usos.empty){
+          return {ok:false,erro:'Esse pipeline ainda tem cards dentro. Mova ou exclua os cards antes de excluir o pipeline.'};
+        }
+        return db().collection('funil_pipelines').doc(id).delete().then(function(){ return {ok:true}; });
+      });
+    }).catch(function(err){ return {ok:false,erro:err.message}; });
   }
 
   // Atividade do Funil (2026-08-26): mesmo padrão de Transicoes (arrayUnion
@@ -262,7 +381,10 @@
     var doc={
       IdServico:id, 'Nome Servico':p.nomeServico||'', 'Tipo Cobranca':p.tipoCobranca||'',
       TipoServico:p.tipoServico||'', Descricao:p.descricao||'',
-      Valor:paraNumero(p.valor), ValorPorModulo:paraNumero(p.valorPorModulo)
+      Valor:paraNumero(p.valor), ValorPorModulo:paraNumero(p.valorPorModulo),
+      // Atividades que uma venda desse serviço gera no pipeline
+      // administrativo (2026-08-31) — ver gerarDemandasAdmDaVenda.
+      AtividadesAdm:p.atividadesAdm||[]
     };
     return db().collection('servicos').doc(id).set(doc,{merge:true})
       .then(function(){ return {ok:true,idServico:id}; })
@@ -664,6 +786,8 @@
     excluirFunil:comSync('funil',function(p){return 'excluir '+p.idOportunidade;},comAuthPronto(excluirFunil)),
     registrarAtividadeFunil:comSync('funil',function(p){return 'atividade ('+(p.tipo||'')+')';},comAuthPronto(registrarAtividadeFunil)),
     atualizarPrioridadeFunil:comSync('funil',function(p){return 'prioridade';},comAuthPronto(atualizarPrioridadeFunil)),
+    salvarFunilPipeline:comSync('funil_pipelines',function(p){return 'pipeline '+(p.nome||p.idPipeline||'');},comAuthPronto(salvarFunilPipeline)),
+    excluirFunilPipeline:comSync('funil_pipelines',function(p){return 'excluir pipeline '+p.idPipeline;},comAuthPronto(excluirFunilPipeline)),
     getProposals:comAuthPronto(getPropostas),
     saveProposal:comSync('propostas',function(p){return p.nomeCliente||p.numero||'';},comAuthPronto(salvarProposta)),
 
