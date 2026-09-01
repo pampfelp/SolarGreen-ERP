@@ -63,7 +63,12 @@
     var v=vendaPorId(c.IdVenda);
     return normalizaBuscaCv([
       c.Descricao, c.Status, c.Data,
-      v?nomeCliente(v.IdCliente):'', v?nomeServico(v.IdServico):''
+      v?nomeCliente(v.IdCliente):'', v?nomeServico(v.IdServico):'',
+      // Valor (2026-09-01, pedido do Felipe): busca tanto o formatado
+      // ("R$ 39,87") quanto o número cru, pra "39,87", "39.87" ou só "39"
+      // encontrarem o lançamento — o Valor às vezes vem salvo com vírgula,
+      // às vezes com ponto, dependendo de quem lançou.
+      fmtMoney(c.Valor), c.Valor
     ].join(' | '));
   }
 
