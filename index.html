@@ -19,7 +19,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=20260831b">
+<link rel="stylesheet" href="css/app.css?v=20260901b">
 </head>
 <body>
 
@@ -565,12 +565,6 @@
 
   <div id="f-mainContent" style="display:none;">
 
-    <!-- Abas de pipeline (Comercial / Administrativo / Expansão / …) -->
-    <div class="pipeline-tabs" id="f-pipelineTabs">
-      <div class="pipeline-tabs-list" id="f-pipelineTabsList"></div>
-      <button class="pipeline-config-btn" id="f-pipelineConfigBtn" title="Configurar pipelines"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
-    </div>
-
     <!-- Filtros -->
     <div class="filters" style="align-items:flex-start;">
       <div class="field"><label>Período de</label><input type="date" id="f-dateFrom"></div>
@@ -646,12 +640,17 @@
       <h2>Leads <span id="f-tableTitle">no período</span></h2>
       <div class="hint" id="f-tableHint">ordenados por data da última movimentação (mais recente primeiro)</div>
       <div class="spacer"></div>
-      <div class="view-toggle">
+      <div class="pipeline-switch" id="f-pipelineSwitch">
+        <button type="button" class="connect-btn" id="f-pipelineSwitchBtn"><span id="f-pipelineSwitchLabel">Comercial</span><span class="inline-ico" style="margin-left:6px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></button>
+        <div class="pipeline-switch-menu hidden" id="f-pipelineSwitchMenu"></div>
+      </div>
+      <div class="view-toggle" style="margin-left:10px;">
         <button type="button" class="view-toggle-btn active" id="f-viewLista"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></span>Lista</button>
         <button type="button" class="view-toggle-btn" id="f-viewKanban"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="5" height="16" rx="1"/><rect x="9.5" y="4" width="5" height="10" rx="1"/><rect x="16" y="4" width="5" height="13" rx="1"/></svg></span>Kanban</button>
       </div>
       <input type="text" id="f-buscaGeral" placeholder="Buscar cliente, telefone, vendedor, etapa, data…" style="margin-left:10px;font-size:13px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;min-width:220px;">
       <button class="secondary-btn" id="f-relatorioBtn" style="margin-left:10px;"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="20" x2="6" y2="12"/><line x1="12" y1="20" x2="12" y2="6"/><line x1="18" y1="20" x2="18" y2="15"/></svg></span>Relatório</button>
+      <button class="pipeline-config-btn" id="f-pipelineConfigBtn" title="Configurar pipelines" style="margin-left:6px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
       <button class="connect-btn" id="f-novoLeadBtn" style="margin-left:10px;">+ Novo lead</button>
     </div>
     <div class="funil-table-wrap" id="f-listaWrap">
@@ -1822,7 +1821,7 @@
 <script src="js/dashboard.js?v=20260901a"></script>
 <script src="js/ponto.js?v=20260829f"></script>
 <script src="js/vendas.js?v=20260901a"></script>
-<script src="js/funil.js?v=20260901a"></script>
+<script src="js/funil.js?v=20260901b"></script>
 <script src="js/agendamentos.js?v=20260901a"></script>
 <script src="js/clientes.js?v=20260901a"></script>
 <script src="js/relatorios.js?v=20260829f"></script>

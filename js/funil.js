@@ -284,19 +284,29 @@
 
   function getEtapaAtiva(){ var pill=document.querySelector('.stage-pill.active');return pill?pill.getAttribute('data-stage'):'__all__'; }
 
-  /** Abas de pipeline, montadas a partir de funilPipelines. */
+  /**
+   * Troca de pipeline (2026-09-01, pedido do Felipe): botão verde com menu
+   * suspenso perto do Lista/Kanban — antes era uma faixa de abas fixa lá em
+   * cima da tela. O botão em si (`f-pipelineSwitchBtn`) é ligado UMA vez em
+   * init() pra abrir/fechar o menu; aqui só remonta o RÓTULO do botão e os
+   * ITENS do menu (chamado toda vez que os dados/pipeline mudam, mesmo
+   * padrão de renderStagePills).
+   */
   function renderAbasPipeline(){
-    var lista=document.getElementById('f-pipelineTabsList');
-    if(!lista)return;
+    var label=document.getElementById('f-pipelineSwitchLabel');
+    var menu=document.getElementById('f-pipelineSwitchMenu');
+    if(!label||!menu)return;
     var atual=pipelineCorrente();
-    lista.innerHTML=pipelinesOrdenados().map(function(p){
+    label.textContent=atual?atual.Nome:'Pipeline';
+    menu.innerHTML=pipelinesOrdenados().map(function(p){
       var ativo=atual&&String(p.IdPipeline)===String(atual.IdPipeline);
-      return '<button class="pipeline-tab'+(ativo?' active':'')+'" data-pipeline="'+escapeHtml(p.IdPipeline)+'">'+escapeHtml(p.Nome)+'</button>';
+      return '<div class="pipeline-switch-item'+(ativo?' active':'')+'" data-pipeline="'+escapeHtml(p.IdPipeline)+'">'+escapeHtml(p.Nome)+'</div>';
     }).join('');
-    lista.querySelectorAll('.pipeline-tab').forEach(function(btn){
-      btn.addEventListener('click',function(){
-        pipelineAtivo=btn.getAttribute('data-pipeline');
+    menu.querySelectorAll('.pipeline-switch-item').forEach(function(item){
+      item.addEventListener('click',function(){
+        pipelineAtivo=item.getAttribute('data-pipeline');
         localStorage.setItem('sg_funil_pipeline',pipelineAtivo);
+        menu.classList.add('hidden');
         renderAbasPipeline();
         renderStagePills();   // etapas mudam junto com o pipeline
         setDefaultRange();    // período recalculado pros cards DESTE pipeline
@@ -2233,7 +2243,18 @@
     });
     updateSortHeaders();
     // As pills de etapa são montadas por renderStagePills() (dependem do
-    // pipeline ativo) — os handlers de clique são ligados lá mesmo.
+    // pipeline ativo) — os handlers de clique são ligados lá mesmo. O botão
+    // de trocar pipeline (renderAbasPipeline) só remonta o menu — o toggle
+    // abrir/fechar é ligado aqui, uma vez só (senão duplicaria a cada
+    // redesenho e o clique passaria a abrir-e-fechar no mesmo toque).
+    document.getElementById('f-pipelineSwitchBtn').addEventListener('click',function(e){
+      e.stopPropagation();
+      document.getElementById('f-pipelineSwitchMenu').classList.toggle('hidden');
+    });
+    document.addEventListener('click',function(e){
+      var wrap=document.getElementById('f-pipelineSwitch');
+      if(wrap&&!wrap.contains(e.target))document.getElementById('f-pipelineSwitchMenu').classList.add('hidden');
+    });
     document.getElementById('f-pipelineConfigBtn').addEventListener('click',abrirModalPipelines);
     document.getElementById('fp-novoBtn').addEventListener('click',function(){ mostrarEdicaoPipeline(null); });
     document.getElementById('fp-addEtapaBtn').addEventListener('click',adicionarEtapaPipeline);
