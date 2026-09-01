@@ -403,6 +403,10 @@
   // que o registro já não existe (foi excluído antes, ou nunca existiu direito
   // por causa de algum descompasso passado). Nesse caso o resultado desejado
   // (não existir mais) já está garantido, então não faz sentido desfazer.
+
+  // Estado do registro compartilhado de listeners — ver SGUtil.assinarColecao.
+  var _colecoesAtivas={};
+
   window.SGUtil={
     ehNaoEncontrado:function(erro){ return !!(erro&&/n[aã]o encontrad[oa]/i.test(String(erro))); },
     /**
@@ -442,6 +446,53 @@
       }
       tentar();
       return function pararEscuta(){ parado=true; if(timer)clearTimeout(timer); if(unsubAtual)unsubAtual(); };
+    },
+    /**
+     * Registro compartilhado de listeners (2026-09-01, achado real: a cota
+     * diária de leitura do Firestore estourou — cada tela abria SEU PRÓPRIO
+     * onSnapshot/download completo pra coleções que outra tela, na mesma
+     * sessão, já tinha acabado de carregar; ex.: Funil e Clientes liam
+     * `clientes` cada um por conta própria). `assinarColecao` garante no
+     * máximo UM `onSnapshot` de verdade por coleção durante toda a sessão de
+     * página — a PRIMEIRA tela que pedir abre a escuta (via `escutarComRetry`
+     * acima); qualquer tela seguinte que pedir a MESMA coleção só entra na
+     * fila de quem recebe as atualizações, sem custar uma leitura a mais.
+     * Combinado com a persistência offline (js/firebase-init.js), reabrir a
+     * página também sai barato: o Firestore manda só o que mudou desde a
+     * última vez, não a coleção inteira.
+     *
+     * Cada tela continua dona da sua PRÓPRIA lógica de processar os dados
+     * (processFunil, processVendas etc.) — isso aqui só compartilha a
+     * "torneira" (como o array bruto chega), nunca o array processado.
+     *
+     * O listener de cada coleção fica aberto pelo resto da sessão (o
+     * `pararEscuta` devolvido só tira ESSE chamador da lista de quem recebe
+     * atualização — não fecha o listener de verdade). São poucas coleções
+     * (funil, clientes, vendedores, vendas, serviços, agendamentos,
+     * funil_pipelines…) — deixar aberto custa menos do que fechar e reabrir
+     * a cada troca de tela.
+     */
+    assinarColecao:function(nomeColecao,aoAtualizar){
+      var estado=_colecoesAtivas[nomeColecao];
+      if(!estado){
+        estado={ultimaLista:null,callbacks:[]};
+        _colecoesAtivas[nomeColecao]=estado;
+        estado.unsub=window.SGUtil.escutarComRetry(function(){
+          return firebase.firestore().collection(nomeColecao);
+        },function(snap){
+          var lista=[]; snap.forEach(function(doc){ lista.push(doc.data()); });
+          estado.ultimaLista=lista;
+          estado.callbacks.slice().forEach(function(cb){ cb(lista); });
+        },nomeColecao);
+      }
+      estado.callbacks.push(aoAtualizar);
+      // Já tem dado (outra tela chegou primeiro) — entrega na hora, não
+      // espera o próximo evento do Firestore, que pode nunca vir se nada
+      // mudar na coleção durante essa sessão.
+      if(estado.ultimaLista)aoAtualizar(estado.ultimaLista);
+      return function pararDeReceber(){
+        estado.callbacks=estado.callbacks.filter(function(cb){return cb!==aoAtualizar;});
+      };
     },
     /**
      * Conversas/Propostas a partir da movimentação do funil — compartilhado

@@ -309,24 +309,31 @@
     render();
   }
 
+  /**
+   * 2026-09-01: passou a usar `SGUtil.assinarColecao` em vez de
+   * `Promise.all([getVendasData, getFunilData])` — as duas chamadas juntas
+   * baixavam funil+clientes+vendas+serviços+vendedores em DOBRO (getFunilData
+   * só era usada aqui pra pegar `.funil`, ignorando todo o resto que ela
+   * também trazia). Foi uma das causas de estourar a cota diária de leitura
+   * do Firestore — ver segundo-cerebro/padroes/dados-e-seguranca.md. Como o
+   * registro é compartilhado, se Vendas/Funil já tiverem carregado essas
+   * coleções na mesma sessão, o Dashboard não paga nada de novo por elas.
+   */
+  var dadosBrutosDash={vendas:{vendedores:[],clientes:[],servicos:[],vendas:[],custosVenda:[]},funil:{funil:[]}};
+  function recombinarDadosDash(){
+    aplicarDados(dadosBrutosDash.vendas,dadosBrutosDash.funil);
+    if(window.SGCache)window.SGCache.set('dashboard_comercial',dadosBrutosDash);
+  }
   function carregar(){
-    var cacheKey='dashboard_comercial';
-    var cache=window.SGCache&&window.SGCache.get(cacheKey);
-    var temCache=!!(cache&&cache.dados);
-    if(temCache)aplicarDados(cache.dados.vendas,cache.dados.funil);
-
-    var epocaInicio=_epoca.atual();
-    Promise.all([apiCall('getVendasData',{}),apiCall('getFunilData',{})]).then(function(resps){
-      var vendasResp=resps[0],funilResp=resps[1];
-      if(!vendasResp||!vendasResp.ok){
-        if(!temCache){ document.getElementById('db-emptyState').style.display='block'; document.getElementById('db-emptyState').querySelector('p').textContent=(vendasResp&&vendasResp.erro)||'Não foi possível carregar.'; }
-        return;
-      }
-      if(window.SGCache)window.SGCache.set(cacheKey,{vendas:vendasResp,funil:funilResp});
-      if(_epoca.atual()!==epocaInicio)return;
-      aplicarDados(vendasResp,funilResp);
-    }).catch(function(err){
-      if(!temCache){ document.getElementById('db-emptyState').style.display='block'; document.getElementById('db-emptyState').querySelector('p').textContent='Erro de conexão: '+err.message; }
+    var cache=window.SGCache&&window.SGCache.get('dashboard_comercial');
+    if(cache&&cache.dados)aplicarDados(cache.dados.vendas,cache.dados.funil); // pintura instantânea, antes do 1º snapshot
+    window.SGFireReady.then(function(){
+      window.SGUtil.assinarColecao('vendedores',function(lista){ dadosBrutosDash.vendas.vendedores=lista; recombinarDadosDash(); });
+      window.SGUtil.assinarColecao('clientes',function(lista){ dadosBrutosDash.vendas.clientes=lista; recombinarDadosDash(); });
+      window.SGUtil.assinarColecao('servicos',function(lista){ dadosBrutosDash.vendas.servicos=lista; recombinarDadosDash(); });
+      window.SGUtil.assinarColecao('vendas',function(lista){ dadosBrutosDash.vendas.vendas=lista; recombinarDadosDash(); });
+      window.SGUtil.assinarColecao('custos_venda',function(lista){ dadosBrutosDash.vendas.custosVenda=lista; recombinarDadosDash(); });
+      window.SGUtil.assinarColecao('funil',function(lista){ dadosBrutosDash.funil.funil=lista; recombinarDadosDash(); });
     });
   }
 

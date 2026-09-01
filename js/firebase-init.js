@@ -12,6 +12,21 @@
   };
   firebase.initializeApp(firebaseConfig);
 
+  // Persistência offline (2026-09-01): guarda uma cópia local (IndexedDB) de
+  // todo documento que já passou por um onSnapshot. Sem isso, reabrir a
+  // página reabre cada listener do zero e o servidor manda a COLEÇÃO INTEIRA
+  // de novo, mesmo que nada tenha mudado — foi a causa raiz de estourar a
+  // cota diária de leitura do Firestore (achado em 2026-08-31/09-01, ver
+  // segundo-cerebro/padroes/dados-e-seguranca.md). Com persistência, reabrir
+  // o MESMO listener manda só a diferença desde a última vez. "catch" sem
+  // travar nada: alguns navegadores/contextos recusam (aba anônima, várias
+  // abas sem synchronizeTabs) — nesse caso o app cai pra leitura normal, só
+  // perde o desconto de cota entre sessões, mesma postura do app do técnico
+  // (js/tecnico-firebase-init.js), copiado daqui.
+  firebase.firestore().enablePersistence({synchronizeTabs:true}).catch(function(err){
+    console.warn('Persistência offline não disponível neste navegador:',err.code);
+  });
+
   // O Firebase Auth restaura a sessão salva (IndexedDB) de forma ASSÍNCRONA
   // depois do initializeApp — se o Firestore for chamado antes disso (ex: a
   // tela de Clientes carregando os dados logo após o F5), request.auth ainda
