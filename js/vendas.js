@@ -612,7 +612,10 @@
       btn.disabled=false; btn.textContent='Salvar';
       if(!resp||!resp.ok){ msgEl.className='uform-msg error'; msgEl.textContent=(resp&&resp.erro)||'Não foi possível salvar.'; return; }
       fecharModalMetaIndividual();
-      fetchFromApi(false);
+      // Não precisa mais rebuscar aqui (2026-09-01): o listener ao vivo de
+      // 'metas_individuais' (ver fetchFromApi/assinarColecao) já recebe essa
+      // gravação sozinho, inclusive a do próprio usuário — chamar
+      // fetchFromApi() de novo só empilharia mais um assinante duplicado.
     }).catch(function(err){ btn.disabled=false; btn.textContent='Salvar'; msgEl.className='uform-msg error'; msgEl.textContent='Erro de conexão: '+err.message; });
   }
 
@@ -626,7 +629,7 @@
         btn.disabled=false; btn.textContent='Remover (usar padrão)';
         if(!resp||!resp.ok)return;
         fecharModalMetaIndividual();
-        fetchFromApi(false);
+        // Idem: o listener ao vivo já reflete a exclusão sozinho.
       });
     });
   }
@@ -959,22 +962,41 @@
     setSyncPill('ok','Sincronizado');
   }
 
-  function fetchFromApi(showStatus){
+  /**
+   * 2026-09-01: passou a usar `SGUtil.assinarColecao` (registro compartilhado
+   * de listeners, `js/sg-auth.js`) em vez de `apiCall('getVendasData')` —
+   * antes essa tela baixava 8 coleções inteiras (uma delas, `funil`, com
+   * quase 1000 documentos) de forma incondicional, TODA VEZ que a página
+   * carregava, mesmo se a pessoa nunca abrisse a aba Vendas — este módulo
+   * roda um `autoConnect` no carregamento do script, sem esperar a tela ser
+   * visitada. Foi uma das causas de estourar a cota diária de leitura do
+   * Firestore — ver segundo-cerebro/padroes/dados-e-seguranca.md. Como o
+   * registro é compartilhado, se Funil/Clientes já tiverem carregado
+   * `funil`/`clientes`/`vendedores`/`servicos` na mesma sessão, essa tela
+   * não paga nada de novo por elas.
+   */
+  var dadosBrutosVendas={vendedores:[],vendas:[],funil:[],clientes:[],servicos:[],metas:[],custosVenda:[],metasIndividuais:[]};
+  function recombinarDadosVendas(){
+    aplicarDadosVendas(dadosBrutosVendas);
+    if(window.SGCache)window.SGCache.set('vendas',dadosBrutosVendas);
+  }
+  function fetchFromApi(){
     if(!hasApiCreds())return;
     var cache=window.SGCache&&window.SGCache.get('vendas');
-    var temCache=!!(cache&&cache.dados);
-    if(temCache)aplicarDadosVendas(cache.dados);
-    var epocaInicio=_epoca.atual();
-    apiCall('getVendasData').then(function(resp){
-      if(!resp||!resp.ok){if(showStatus&&!temCache)window.SGToast.mostrar((resp&&resp.erro)||'Não foi possível conectar.',true);return;}
-      if(resp.diagnostico)console.log('[Vendas] Diagnóstico:',resp.diagnostico);
-      if(window.SGCache)window.SGCache.set('vendas',resp);
-      if(_epoca.atual()!==epocaInicio)return;
-      aplicarDadosVendas(resp);
-    }).catch(function(err){if(showStatus&&!temCache)window.SGToast.mostrar('Erro: '+err.message,true);});
+    if(cache&&cache.dados)aplicarDadosVendas(cache.dados); // pintura instantânea, antes do 1º snapshot
+    window.SGFireReady.then(function(){
+      window.SGUtil.assinarColecao('vendedores',function(lista){ dadosBrutosVendas.vendedores=lista; recombinarDadosVendas(); });
+      window.SGUtil.assinarColecao('vendas',function(lista){ dadosBrutosVendas.vendas=lista; recombinarDadosVendas(); });
+      window.SGUtil.assinarColecao('funil',function(lista){ dadosBrutosVendas.funil=lista; recombinarDadosVendas(); });
+      window.SGUtil.assinarColecao('clientes',function(lista){ dadosBrutosVendas.clientes=lista; recombinarDadosVendas(); });
+      window.SGUtil.assinarColecao('servicos',function(lista){ dadosBrutosVendas.servicos=lista; recombinarDadosVendas(); });
+      window.SGUtil.assinarColecao('metas',function(lista){ dadosBrutosVendas.metas=lista; recombinarDadosVendas(); });
+      window.SGUtil.assinarColecao('custos_venda',function(lista){ dadosBrutosVendas.custosVenda=lista; recombinarDadosVendas(); });
+      window.SGUtil.assinarColecao('metas_individuais',function(lista){ dadosBrutosVendas.metasIndividuais=lista; recombinarDadosVendas(); });
+    });
   }
 
-  (function autoConnect(){if(!window.SG_SESSION)return;if(getApiUrl()&&getApiKey())fetchFromApi(true);})();
+  (function autoConnect(){if(!window.SG_SESSION)return;if(getApiUrl()&&getApiKey())fetchFromApi();})();
   document.getElementById('v-dateFrom').addEventListener('change',render);document.getElementById('v-dateTo').addEventListener('change',render);document.getElementById('selVendedor').addEventListener('change',render);document.getElementById('selServico').addEventListener('change',render);
   document.getElementById('v-buscaGeral').addEventListener('input',function(){ vPaginaAtual=1; render(); });
   document.getElementById('v-resetFiltros').addEventListener('click',function(){document.getElementById('selVendedor').value='__all__';document.getElementById('selServico').value='__all__';document.getElementById('v-buscaGeral').value='';setDefaultDateRange();document.querySelectorAll('.qr-btn[data-range]').forEach(function(b){b.classList.remove('active');});render();});

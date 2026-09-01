@@ -68,19 +68,60 @@
    * painel de detalhe pra perceber. Corrigido com um onSnapshot permanente
    * na coleção inteira (mesmo padrão já testado no Funil) — qualquer
    * mudança, de qualquer origem (técnico, outro admin), atualiza a lista
-   * sozinha. Reprocessa a coleção INTEIRA a cada mudança, não só o doc
-   * alterado — mais simples de acertar, custo desprezível na escala atual
-   * (poucas centenas de agendamentos).
+   * sozinha.
+   *
+   * 2026-09-01: passou a usar `SGUtil.assinarColecao` (js/sg-auth.js) em vez
+   * de um `onSnapshot` próprio — antes essa tela baixava agendamentos duas
+   * vezes a cada abertura (`apiCall('getAgendamentosData')` + este
+   * listener) e não reaproveitava nada de outra tela que já tivesse
+   * carregado clientes/vendedores/serviços na mesma sessão. Foi uma das
+   * causas de estourar a cota diária de leitura do Firestore — ver
+   * segundo-cerebro/padroes/dados-e-seguranca.md.
    */
-  var unsubListaAoVivo=null;
   function iniciarEscutaAoVivoLista(){
-    if(unsubListaAoVivo)return;
-    if(typeof firebase==='undefined'||!firebase.firestore)return;
-    unsubListaAoVivo=window.SGUtil.escutarComRetry(function(){ return firebase.firestore().collection('agendamentos'); },function(snap){
-      var lista=[]; snap.forEach(function(doc){ lista.push(doc.data()); });
+    window.SGUtil.assinarColecao('agendamentos',function(lista){
       agendamentos=lista;
+      salvarCacheAgendamentos();
       render();
-    },'lista de agendamentos');
+    });
+    window.SGUtil.assinarColecao('clientes',function(lista){
+      clientesMap={}; lista.forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
+      salvarCacheAgendamentos();
+      render();
+    });
+    window.SGUtil.assinarColecao('vendedores',function(lista){
+      vendedoresMap={}; lista.forEach(function(v){if(v.IdVendedor)vendedoresMap[v.IdVendedor]=v;});
+      salvarCacheAgendamentos();
+      render();
+    });
+    window.SGUtil.assinarColecao('servicos',function(lista){
+      servicosMap={}; lista.forEach(function(s){if(s.IdServico)servicosMap[s.IdServico]=s;});
+      salvarCacheAgendamentos();
+      render();
+    });
+    window.SGUtil.assinarColecao('templates',function(lista){
+      templatesPorServico={};templatesPorId={};
+      lista.forEach(function(t){
+        if(t.IdTemplate)templatesPorId[t.IdTemplate]=t;
+        if(!t.IdServico)return;
+        if(!templatesPorServico[t.IdServico])templatesPorServico[t.IdServico]=[];
+        templatesPorServico[t.IdServico].push(t);
+      });
+      salvarCacheAgendamentos();
+      render();
+    });
+  }
+  function salvarCacheAgendamentos(){
+    populateSelects();
+    document.getElementById('ag-lastUpdate').textContent='Atualizado em '+new Date().toLocaleDateString('pt-BR')+' às '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    if(!window.SGCache)return;
+    window.SGCache.set('agendamentos',{
+      agendamentos:agendamentos,
+      clientes:Object.keys(clientesMap).map(function(id){return clientesMap[id];}),
+      vendedores:Object.keys(vendedoresMap).map(function(id){return vendedoresMap[id];}),
+      servicos:Object.keys(servicosMap).map(function(id){return servicosMap[id];}),
+      templates:Object.keys(templatesPorId).map(function(id){return templatesPorId[id];})
+    });
   }
 
   function apiCall(action,payload){ return window.SGAuth.apiCall(action,payload); }
@@ -1177,30 +1218,10 @@
    * de aba. Na primeira vez (sem cache ainda), mostra o carregando normal.
    */
   function carregar(){
+    // Pintura instantânea a partir do cache local, antes do 1º snapshot
+    // chegar (ver iniciarEscutaAoVivoLista, chamado logo abaixo em init()).
     var cache=window.SGCache&&window.SGCache.get('agendamentos');
-    var temCache=!!(cache&&cache.dados);
-    if(temCache){
-      aplicarDadosAgendamentos(cache.dados);
-    }
-    var epocaInicio=_epoca.atual();
-    apiCall('getAgendamentosData',{}).then(function(resp){
-      if(!resp||!resp.ok){
-        if(!temCache){
-          document.getElementById('ag-emptyState').style.display='block';
-          document.getElementById('ag-emptyState').querySelector('p').textContent=(resp&&resp.erro)||'Não foi possível carregar os agendamentos.';
-        }
-        return;
-      }
-      if(window.SGCache)window.SGCache.set('agendamentos',resp);
-      if(_epoca.atual()!==epocaInicio)return;
-      if(!temCache)paginaAtual=1;
-      aplicarDadosAgendamentos(resp);
-    }).catch(function(err){
-      if(!temCache){
-        document.getElementById('ag-emptyState').style.display='block';
-        document.getElementById('ag-emptyState').querySelector('p').textContent='Erro de conexão: '+err.message;
-      }
-    });
+    if(cache&&cache.dados)aplicarDadosAgendamentos(cache.dados);
   }
 
   function init(){

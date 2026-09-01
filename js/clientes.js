@@ -23,19 +23,25 @@
    * javascript-patterns.md, "Tela carrega uma vez, nunca mais atualiza
    * sozinha"). Sem isso, editar/cadastrar um cliente por OUTRA sessão (outro
    * admin, ou o próprio evento `sg:cliente-criado` de uma aba diferente) só
-   * aparecia aqui depois de um F5. Reprocessa a coleção inteira a cada
-   * mudança, não só o doc alterado — mais simples de acertar, custo
-   * desprezível na escala atual (pouco mais de 1000 clientes).
+   * aparecia aqui depois de um F5.
+   *
+   * 2026-09-01: passou a usar `SGUtil.assinarColecao` (registro
+   * compartilhado de listeners, `js/sg-auth.js`) em vez de um `onSnapshot`
+   * próprio desta tela — antes, Clientes baixava a coleção inteira duas
+   * vezes a cada abertura (uma via `apiCall('getClientesData')`, outra via
+   * este listener) e não reaproveitava nada de Funil/Agendamentos, que
+   * também carregam `clientes` por conta própria. Foi a causa raiz de
+   * estourar a cota diária de leitura do Firestore — ver
+   * segundo-cerebro/padroes/dados-e-seguranca.md.
    */
-  var unsubClientesAoVivo=null;
+  var dadosBrutosClientes={clientes:[],vendedores:[]};
+  function recombinarDadosClientes(){
+    aplicarDados(dadosBrutosClientes);
+    if(window.SGCache)window.SGCache.set('clientes',dadosBrutosClientes);
+  }
   function iniciarEscutaAoVivoClientes(){
-    if(unsubClientesAoVivo)return;
-    if(typeof firebase==='undefined'||!firebase.firestore)return;
-    unsubClientesAoVivo=window.SGUtil.escutarComRetry(function(){ return firebase.firestore().collection('clientes'); },function(snap){
-      var lista=[]; snap.forEach(function(doc){ lista.push(doc.data()); });
-      clientes=lista;
-      render();
-    },'clientes');
+    window.SGUtil.assinarColecao('clientes',function(lista){ dadosBrutosClientes.clientes=lista; recombinarDadosClientes(); });
+    window.SGUtil.assinarColecao('vendedores',function(lista){ dadosBrutosClientes.vendedores=lista; recombinarDadosClientes(); });
   }
 
   function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
@@ -502,21 +508,10 @@
   }
 
   function carregar(){
+    // Pintura instantânea a partir do cache local, antes do 1º snapshot
+    // chegar (ver iniciarEscutaAoVivoClientes, chamado logo abaixo em init()).
     var cache=window.SGCache&&window.SGCache.get('clientes');
-    var temCache=!!(cache&&cache.dados);
-    if(temCache)aplicarDados(cache.dados);
-    var epocaInicio=_epoca.atual();
-    apiCall('getClientesData',{}).then(function(resp){
-      if(!resp||!resp.ok){
-        if(!temCache){document.getElementById('cl-emptyState').style.display='block';document.getElementById('cl-emptyState').querySelector('p').textContent=(resp&&resp.erro)||'Não foi possível carregar os clientes.';}
-        return;
-      }
-      if(window.SGCache)window.SGCache.set('clientes',resp);
-      if(_epoca.atual()!==epocaInicio)return;
-      aplicarDados(resp);
-    }).catch(function(err){
-      if(!temCache){document.getElementById('cl-emptyState').style.display='block';document.getElementById('cl-emptyState').querySelector('p').textContent='Erro de conexão: '+err.message;}
-    });
+    if(cache&&cache.dados)aplicarDados(cache.dados);
   }
 
   function init(){

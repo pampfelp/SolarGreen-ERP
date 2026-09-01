@@ -15,7 +15,6 @@
   var leadAtual     = null; // lead aberto no painel lateral (null = criando um novo)
 
   // ── Colaboração ao vivo (2026-08-25, escopo só Funil pra testar o padrão) ──
-  var unsubFunilAoVivo=null;     // escuta a coleção 'funil' inteira e mantém funilRecords sincronizado
   var unsubPresencaAoVivo=null;  // escuta 'funil_presenca' pro indicador "sendo editado"
   var presencaMap={};            // leadId -> {uid,nome,em(ms)}
   var presencaAtualLeadId=null;  // lead que EU estou editando agora (null = nenhum)
@@ -1068,41 +1067,23 @@
   /**
    * Colaboração ao vivo dentro do Funil (2026-08-25, pedido do Felipe —
    * teste escopado só nessa tela antes de pensar em levar pro resto do
-   * sistema). Duas coisas, deliberadamente SEM bloqueio — só indicação:
+   * sistema): `iniciarPresenca`/`pararPresenca` — enquanto o painel de
+   * EDIÇÃO de um lead está aberto, grava um "estou editando isso" em
+   * `funil_presenca/{leadId}` com heartbeat a cada 15s. Quem mais estiver
+   * olhando o Funil (via `iniciarEscutaPresencaFunil`) vê o card daquele
+   * lead com uma borda tracejada verde pulsando. Não trava nada — é só
+   * aviso, dois vendedores PODEM editar o mesmo lead ao mesmo tempo, só
+   * ficam sabendo um do outro. Sem TTL no servidor: cada leitor ignora
+   * sozinho qualquer presença com mais de `PRESENCA_EXPIRA_MS` (aba
+   * fechada/sem internet não deixa o indicador "preso" pra sempre).
    *
-   * 1. `iniciarEscutaAoVivoFunil`: em vez de carregar a coleção 'funil' uma
-   *    vez só (padrão do resto do piloto, ver segundo-cerebro), aqui fica um
-   *    onSnapshot permanente — quando QUALQUER usuário move/edita um lead, a
-   *    tela de todo mundo redesenha sozinha (Kanban "andando" e lista
-   *    atualizando), sem precisar de F5. Reprocessa a coleção INTEIRA a cada
-   *    mudança (em vez de mesclar só o doc alterado) de propósito — é bem
-   *    mais simples de acertar que um merge incremental, e com a escala
-   *    atual (~1000 leads) o custo de reprocessar em JS é imperceptível.
-   * 2. `iniciarPresenca`/`pararPresenca`: enquanto o painel de EDIÇÃO de um
-   *    lead está aberto, grava um "estou editando isso" em
-   *    `funil_presenca/{leadId}` com heartbeat a cada 15s. Quem mais estiver
-   *    olhando o Funil (via `iniciarEscutaPresencaFunil`) vê o card daquele
-   *    lead com uma borda tracejada verde pulsando. Não trava nada — é só
-   *    aviso, dois vendedores PODEM editar o mesmo lead ao mesmo tempo, só
-   *    ficam sabendo um do outro. Sem TTL no servidor: cada leitor ignora
-   *    sozinho qualquer presença com mais de `PRESENCA_EXPIRA_MS` (aba
-   *    fechada/sem internet não deixa o indicador "preso" pra sempre).
+   * A atualização ao vivo da coleção `funil` em si (card se movendo pra
+   * outro usuário sem precisar de F5) não é mais um listener PRÓPRIO desta
+   * tela — vem do registro compartilhado `SGUtil.assinarColecao('funil',…)`
+   * usado em `fetchData()`, que qualquer outra tela (Dashboard, Vendas)
+   * também pode aproveitar sem custar uma leitura a mais (ver
+   * segundo-cerebro/padroes/dados-e-seguranca.md).
    */
-  function iniciarEscutaAoVivoFunil(){
-    if(unsubFunilAoVivo)return; // já está escutando, não duplica
-    if(typeof firebase==='undefined'||!firebase.firestore)return;
-    unsubFunilAoVivo=window.SGUtil.escutarComRetry(function(){ return firebase.firestore().collection('funil'); },function(snap){
-      var brutos=[]; snap.forEach(function(doc){ brutos.push(doc.data()); });
-      var filtrados=window.SGAuth?window.SGAuth.filterByOwner(brutos,'IdVendedor'):brutos;
-      funilRecords=processFunil(filtrados);
-      enriquecerComSLA(funilRecords);
-      populateVendedorSelect();
-      // Não interrompe um arrasto em andamento no Kanban — o próprio drag
-      // termina de atualizar a tela sozinho quando soltar.
-      if(!(arrastarKanbanEstado&&arrastarKanbanEstado.dragging))render();
-    },'funil');
-  }
-
   function iniciarEscutaPresencaFunil(){
     if(unsubPresencaAoVivo)return;
     if(typeof firebase==='undefined'||!firebase.firestore)return;
@@ -1995,17 +1976,32 @@
     render();
   }
 
-  function fetchData(showStatus){
+  /**
+   * Carregamento (2026-09-01, reescrito pra reduzir leituras do Firestore —
+   * a cota diária estourou porque cada tela baixava a coleção inteira via
+   * `apiCall('getXData')` E TAMBÉM abria um `onSnapshot` na mesma coleção
+   * logo em seguida — lia `funil` duas vezes a cada abertura de tela, ver
+   * segundo-cerebro/padroes/dados-e-seguranca.md). Agora usa só
+   * `SGUtil.assinarColecao` pra cada coleção que essa tela precisa — o
+   * cache local (`window.SGCache`) continua servindo pra pintura instantânea
+   * no primeiro frame, antes do primeiro snapshot chegar.
+   */
+  var dadosBrutosFunil={vendedores:[],funil:[],vendas:[],clientes:[],servicos:[],funilPipelines:[]};
+  function recombinarDadosFunil(){
+    aplicarDadosFunil(dadosBrutosFunil);
+    if(window.SGCache)window.SGCache.set('funil',dadosBrutosFunil);
+  }
+  function fetchData(){
     var cache=window.SGCache&&window.SGCache.get('funil');
-    var temCache=!!(cache&&cache.dados);
-    if(temCache)aplicarDadosFunil(cache.dados);
-    var epocaInicio=_epoca.atual();
-    apiCall('getFunilData').then(function(resp){
-      if(!resp||!resp.ok){if(showStatus&&!temCache)window.SGToast.mostrar((resp&&resp.erro)||'Não foi possível conectar.',true);return;}
-      if(window.SGCache)window.SGCache.set('funil',resp);
-      if(_epoca.atual()!==epocaInicio)return;
-      aplicarDadosFunil(resp);
-    }).catch(function(err){if(showStatus&&!temCache)window.SGToast.mostrar('Erro: '+err.message,true);});
+    if(cache&&cache.dados)aplicarDadosFunil(cache.dados); // pintura instantânea, antes do 1º snapshot
+    window.SGFireReady.then(function(){
+      window.SGUtil.assinarColecao('funil',function(lista){ dadosBrutosFunil.funil=lista; recombinarDadosFunil(); });
+      window.SGUtil.assinarColecao('vendedores',function(lista){ dadosBrutosFunil.vendedores=lista; recombinarDadosFunil(); });
+      window.SGUtil.assinarColecao('clientes',function(lista){ dadosBrutosFunil.clientes=lista; recombinarDadosFunil(); });
+      window.SGUtil.assinarColecao('servicos',function(lista){ dadosBrutosFunil.servicos=lista; recombinarDadosFunil(); });
+      window.SGUtil.assinarColecao('vendas',function(lista){ dadosBrutosFunil.vendas=lista; recombinarDadosFunil(); });
+      window.SGUtil.assinarColecao('funil_pipelines',function(lista){ dadosBrutosFunil.funilPipelines=lista; recombinarDadosFunil(); });
+    });
   }
 
   // ══ Configuração de pipelines (2026-08-31) ══
@@ -2210,7 +2206,6 @@
     // ainda null) dá "permission-denied" e, diferente de get/set, o
     // listener NÃO se recupera sozinho depois — fica morto até recarregar.
     window.SGFireReady.then(function(){
-      iniciarEscutaAoVivoFunil();
       iniciarEscutaPresencaFunil();
     });
     // Best-effort: libera minha presença se eu fechar/recarregar a aba com o
@@ -2305,7 +2300,7 @@
       fecharPainelLead();
     });
 
-    fetchData(true);
+    fetchData();
   }
 
   /**
