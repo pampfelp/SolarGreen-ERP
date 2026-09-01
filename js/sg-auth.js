@@ -378,6 +378,14 @@
       var p=document.getElementById('viewDetalhe'),b=document.getElementById('adBackdrop');
       if(p)p.classList.remove('active');
       if(b)b.classList.remove('active');
+      // Bug real reportado (2026-09-01, Leonardo): abrir o cliente "empilhado"
+      // por cima de outro painel (js/clientes.js:abrirVisualizacaoExterna)
+      // sobe o z-index deste painel pra 250 na hora — mas nada baixava de
+      // volta ao fechar. Ficava PRESO em 250 pelo resto da sessão, mesmo
+      // pro uso normal (não empilhado) deste mesmo painel depois — aí um
+      // modal comum (.modal-overlay, z-index 200, ex.: "Inserir Atividade"
+      // do Funil) abria por cima dele e aparecia visualmente ATRÁS.
+      if(p)p.style.zIndex='';
     }
     function abrir(config){
       var painel=document.getElementById('viewDetalhe');
