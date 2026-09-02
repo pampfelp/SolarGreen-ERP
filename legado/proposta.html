@@ -626,6 +626,25 @@ function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
 // ── Utilitários ────────────────────────────────────────────────────────
 function fmtMoney(n){ return 'R$\u00a0'+(Math.abs(parseFloat(n)||0)).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function escH(s){ var d=document.createElement('div'); d.textContent=String(s||''); return d.innerHTML; }
+// Observação/descrição colada pelo vendedor costuma vir formatada (título com
+// ###, negrito com ** ou * no estilo WhatsApp, linha em branco separando
+// itens) e o escH() sozinho jogava tudo escapado numa linha só. Aqui só
+// interpretamos o básico que já aparece nesse texto colado — título, negrito
+// e quebra de linha — sem virar um parser de markdown completo.
+function fmtObs(s){
+  s=String(s||'');
+  if(!s.trim())return'';
+  return s.replace(/\r\n/g,'\n').split('\n').map(function(linha){
+    var titulo=linha.match(/^\s{0,3}#{1,6}\s+(.*)$/);
+    var texto=titulo?titulo[1]:linha;
+    var html=escH(texto)
+      .replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')
+      .replace(/(^|[^*])\*([^*]+)\*/g,'$1<strong>$2</strong>');
+    if(titulo)return '<div style="font-weight:800;color:#003122;margin:10px 0 4px;">'+html+'</div>';
+    if(!linha.trim())return '<div style="height:8px;"></div>';
+    return '<div>'+html+'</div>';
+  }).join('');
+}
 function dateKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function fmtDateBR(s){ if(!s)return'—'; var m=String(s).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m)return m[1].padStart(2,'0')+'/'+m[2].padStart(2,'0')+'/'+m[3]; return String(s).substring(0,10); }
 function statusCls(s){ return (s||'rascunho').toLowerCase().replace(/\s/g,''); }
@@ -1208,7 +1227,7 @@ function printProposal(){
           '<div style="flex:none;border-radius:10px;overflow:hidden;width:48px;height:48px;">'+iconSvg+'</div>'+
           '<div style="flex:1;min-width:0;">'+
             '<div style="font-size:15px;font-weight:800;color:#003122;margin-bottom:5px;">'+(i+1)+'. '+escH(nomeB)+'</div>'+
-            (descFinal?'<div style="font-size:13px;color:#5a6b5a;line-height:1.7;margin-bottom:0px;">'+escH(descFinal)+'</div>':'')+
+            (descFinal?'<div style="font-size:13px;color:#5a6b5a;line-height:1.6;margin-bottom:0px;">'+fmtObs(descFinal)+'</div>':'')+
           '</div>'+
         '</div>'+
       '</td>'+
@@ -1309,7 +1328,7 @@ function printProposal(){
     '<div class="tot-parcela">Parcelamento: até '+maxParc+'x de '+fmtMoney(total/maxParc)+'</div>'+
   '</div>'+
 
-  (obs?'<div class="obs"><strong>Observações:</strong><br>'+escH(obs)+'</div>':'')+
+  (obs?'<div class="obs"><strong>Observações:</strong><div style="margin-top:8px;">'+fmtObs(obs)+'</div></div>':'')+
 
   (vendNome?
     '<div class="vendedor-card">'+
