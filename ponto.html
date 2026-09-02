@@ -145,6 +145,19 @@
   #sg-install-banner .sg-ib-instalar{background:#78D800;color:#003122;}
   #sg-install-banner .sg-ib-fechar{background:rgba(255,255,255,.12);color:#fff;}
   @media(max-width:480px){ #sg-install-banner{flex-wrap:wrap;} #sg-install-banner .sg-ib-actions{flex-direction:row;width:100%;} #sg-install-banner .sg-ib-actions button{flex:1;} }
+
+  /* ── Instruções de instalação (iOS x resto) ── */
+  #install-help{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1300;align-items:flex-end;justify-content:center;}
+  #install-help.active{display:flex;}
+  #install-help .ih-card{background:var(--panel);width:100%;max-width:480px;border-radius:18px 18px 0 0;padding:22px 20px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -12px 40px rgba(0,0,0,.3);}
+  #install-help .ih-title{font-family:var(--unbounded);font-weight:700;font-size:16px;color:var(--sidebar-bg);margin-bottom:4px;}
+  #install-help .ih-sub{font-size:12.5px;color:var(--ink-faint);margin-bottom:16px;line-height:1.4;}
+  #install-help ol{margin:0 0 4px;padding:0;list-style:none;counter-reset:ih;}
+  #install-help li{counter-increment:ih;display:flex;gap:12px;align-items:flex-start;font-size:13.5px;line-height:1.5;margin-bottom:13px;color:var(--ink);}
+  #install-help li::before{content:counter(ih);flex:none;width:24px;height:24px;border-radius:50%;background:var(--sidebar-bg);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px;}
+  #install-help li b{font-weight:700;}
+  #install-help .ih-share{display:inline-flex;vertical-align:-4px;width:18px;height:18px;color:var(--info);margin:0 3px;}
+  #install-help .ih-ok{width:100%;background:var(--sidebar-bg);color:#fff;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:700;margin-top:8px;}
 </style>
 </head>
 <body>
@@ -277,6 +290,27 @@
   <div class="sg-ib-actions">
     <button type="button" class="sg-ib-instalar" id="sg-ib-instalar">Instalar</button>
     <button type="button" class="sg-ib-fechar" id="sg-ib-fechar">Agora não</button>
+  </div>
+</div>
+
+<div id="install-help">
+  <div class="ih-card">
+    <div class="ih-title" id="ih-title">Instalar no seu celular</div>
+    <div class="ih-sub" id="ih-sub"></div>
+
+    <ol id="ih-passos-ios" hidden>
+      <li><span>Toque no ícone Compartilhar <span class="ih-share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg></span> (fica na barra do Safari, embaixo ou no topo).</span></li>
+      <li><span>Deslize a lista de opções e toque em <b>Adicionar à Tela de Início</b>.</span></li>
+      <li><span>Confirme tocando em <b>Adicionar</b>. O ícone do Ponto vai pra tela do seu celular.</span></li>
+    </ol>
+
+    <ol id="ih-passos-outros" hidden>
+      <li><span>Abra o menu do navegador (os três pontinhos).</span></li>
+      <li><span>Escolha <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>.</span></li>
+      <li><span>Confirme. O ícone do Ponto vai pra tela do seu celular.</span></li>
+    </ol>
+
+    <button type="button" class="ih-ok" id="ih-ok">Entendi</button>
   </div>
 </div>
 
@@ -816,23 +850,42 @@ window.PontoApp=(function(){
   function mostrar(){ if(jaInstalado()||foiDispensado())return; banner.classList.add('show'); }
   function esconder(){ banner.classList.remove('show'); }
 
+  var isIOS=(/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1))&&!window.MSStream;
+
+  var help=document.getElementById('install-help');
+  function abrirAjuda(){
+    // iOS não dispara beforeinstallprompt — a instalação é manual pelo menu
+    // Compartilhar do Safari. Aqui a gente guia o passo a passo, com o ícone
+    // certo, em vez de só fechar o banner.
+    document.getElementById('ih-passos-ios').hidden=!isIOS;
+    document.getElementById('ih-passos-outros').hidden=isIOS;
+    document.getElementById('ih-sub').textContent=isIOS
+      ? 'No iPhone e iPad a instalação é pelo Safari, em três toques:'
+      : 'Seu navegador instala pelo próprio menu:';
+    help.classList.add('active');
+  }
+  function fecharAjuda(){ help.classList.remove('active'); }
+  document.getElementById('ih-ok').addEventListener('click',fecharAjuda);
+  help.addEventListener('click',function(e){ if(e.target===help)fecharAjuda(); });
+
   document.getElementById('sg-ib-fechar').addEventListener('click',function(){
     esconder();
     try{ localStorage.setItem(DISMISS_KEY,'1'); }catch(e){}
   });
   document.getElementById('sg-ib-instalar').addEventListener('click',function(){
     if(deferredPrompt){
+      // Android / Chrome / Edge — instalação nativa num toque
       deferredPrompt.prompt();
       deferredPrompt.userChoice.finally(function(){ deferredPrompt=null; esconder(); });
     }else{
-      esconder();
+      // iOS, ou navegador que não expõe o prompt — abre o passo a passo
+      abrirAjuda();
     }
   });
   window.addEventListener('beforeinstallprompt',function(e){ e.preventDefault(); deferredPrompt=e; mostrar(); });
 
-  var isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent)&&!window.MSStream;
   if(isIOS&&!jaInstalado()&&!foiDispensado()){
-    if(msgEl)msgEl.textContent='No iPhone: toque em Compartilhar e depois em "Adicionar à Tela de Início".';
+    if(msgEl)msgEl.textContent='Toque em Instalar e siga os três passos do Safari.';
     setTimeout(mostrar,2500);
   }
 })();
