@@ -1216,9 +1216,15 @@ function printProposal(){
   var rows=S.blocks.filter(function(b){return b.calcTipo!=='desconto';}).map(function(b,i){
     var svc=S.servicosMap[b.idServico]||{};
     var nomeB=b.calcTipo==='plano'?'Plano Anual Solar Green':(svc.nome||'Serviço');
-    var descFinal=b.calcTipo==='plano'
+    // No Plano Anual, "Observação adicional" sempre foi ignorada aqui —
+    // descFinal virava só a frase fixa "Inclui: ...", então qualquer coisa
+    // digitada nesse campo do bloco nunca chegava na proposta impressa. A
+    // frase fixa continua (ela é o resumo padrão do plano), e o que foi
+    // digitado entra como um bloco à parte, formatado por fmtObs().
+    var descBase=b.calcTipo==='plano'
       ?'Inclui: 1 limpeza · 1 vistoria de diagnóstico · 1 manutenção · 12 meses de app de monitoramento · 12 meses de acompanhamento Solar Green'
-      :(b.descricaoExtra||svc.descricao||'');
+      :'';
+    var descExtra=b.calcTipo==='plano'?(b.descricaoExtra||''):(b.descricaoExtra||svc.descricao||'');
     var iconSvg=getSvcIcon(b);
     return (
       '<tr>'+
@@ -1227,7 +1233,8 @@ function printProposal(){
           '<div style="flex:none;border-radius:10px;overflow:hidden;width:48px;height:48px;">'+iconSvg+'</div>'+
           '<div style="flex:1;min-width:0;">'+
             '<div style="font-size:15px;font-weight:800;color:#003122;margin-bottom:5px;">'+(i+1)+'. '+escH(nomeB)+'</div>'+
-            (descFinal?'<div style="font-size:13px;color:#5a6b5a;line-height:1.6;margin-bottom:0px;">'+fmtObs(descFinal)+'</div>':'')+
+            (descBase?'<div style="font-size:13px;color:#5a6b5a;line-height:1.6;margin-bottom:0px;">'+escH(descBase)+'</div>':'')+
+            (descExtra?'<div style="font-size:13px;color:#5a6b5a;line-height:1.6;margin-top:'+(descBase?'6px':'0')+';">'+fmtObs(descExtra)+'</div>':'')+
           '</div>'+
         '</div>'+
       '</td>'+
