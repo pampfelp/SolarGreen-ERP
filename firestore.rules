@@ -79,8 +79,23 @@ service cloud.firestore {
     match /permissoes/{id} {
       allow read, write: if isSignedIn();
     }
+    // Ponto: batidas cruas, "append-only" pelo cliente. O app ponto.html
+    // grava uma batida por vez, sempre da própria pessoa (Uid == quem está
+    // logado). Correção de abono do admin não mexe aqui, vai em
+    // ponto_overrides. A migração da planilha roda com Admin SDK (ignora
+    // regra). Leitura continua "só logado" — a checagem por papel
+    // (admin vê tudo, funcionário só o seu) é o próximo passo, junto com o
+    // resto das regras (ver migrar-projeto-grande.md, checklist de cutover).
     match /ponto/{id} {
-      allow read, write: if isSignedIn();
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.Uid == request.auth.uid
+        && request.resource.data.Funcionario is string
+        && request.resource.data.Funcionario.size() > 0
+        && request.resource.data.Tipo in ['Entrada', 'Almoço', 'Retorno Almoço', 'Saída']
+        && request.resource.data['Foto Selfie'] is string
+        && request.resource.data['Foto Selfie'].size() < 900000;
+      allow update, delete: if false;
     }
     match /ponto_overrides/{id} {
       allow read, write: if isSignedIn();

@@ -1,0 +1,33 @@
+# Segredos — NUNCA versionar (ver relatório SolarGreen ERP 2026-09-02: uma
+# chave de service account do Firebase chegou a ficar exposta a um git add)
+*serviceAccount*.json
+*service-account*.json
+*firebase-adminsdk*.json
+*.key
+.env
+.env.*
+secrets/
+credenciais/
+
+# Dependências e artefatos de scripts locais (migração, etc.)
+node_modules/
+_tools/node_modules/
+_tools/package.json
+_tools/package-lock.json
+_tools/migrar-ponto-previa.json
+dump/
+*.tmp
+
+# Config local de dev (launch.json com porta arbitrária pra preview)
+.claude/
+
+# Export bruto da planilha durante migração (tem nome de funcionário)
+migracao-ponto/
+Ponto Eletronico*.html
+*_Images/
+
+# Sistema operacional / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp

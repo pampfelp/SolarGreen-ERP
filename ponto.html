@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SG Ponto">
+<meta name="theme-color" content="#003122">
+<title>Solar Green · Ponto</title>
+<link rel="manifest" href="manifest-ponto.json?v=20260902a">
+<link rel="icon" type="image/png" href="icons/icon-192-ponto.png?v=20260902a">
+<link rel="icon" type="image/x-icon" href="favicon_1.ico?v=20260902a">
+<link rel="apple-touch-icon" href="icons/icon-180-ponto.png?v=20260902a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F2F7F2; --panel:#FFFFFF; --sidebar-bg:#003122; --accent:#78D800; --accent-deep:#5aaa00;
+    --ink:#1E1E1E; --ink-soft:#4a4a4a; --ink-faint:#8a978a; --line:#dde8dd; --debit:#dc2626; --warn:#d97706; --info:#2563eb;
+    --unbounded:'Unbounded',sans-serif; --sans:'Inter',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:100vh;}
+  [hidden]{display:none!important;}
+  .hidden{display:none!important;}
+  button{font-family:var(--sans);cursor:pointer;}
+  input{font-family:var(--sans);}
+  svg{display:block;}
+  .ico-sm{width:18px;height:18px;}
+
+  /* ── Login ── */
+  #login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--sidebar-bg);}
+  .login-card{background:#fff;border-radius:20px;padding:32px 26px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.35);}
+  .login-brand{text-align:center;margin-bottom:24px;}
+  .sg-solar{font-family:var(--unbounded);font-weight:900;font-size:22px;color:var(--sidebar-bg);}
+  .sg-green{color:var(--accent-deep);}
+  .sg-sub{font-size:12px;color:var(--ink-faint);margin-top:4px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;}
+  .lstep{display:none;}
+  .lstep.active{display:block;}
+  .lstep h2{font-family:var(--unbounded);font-size:18px;margin-bottom:6px;}
+  .lstep-sub{font-size:12.5px;color:var(--ink-faint);margin-bottom:18px;line-height:1.4;}
+  .lstep label{display:block;font-size:12px;font-weight:700;color:var(--ink-soft);margin:12px 0 6px;}
+  .lstep input{width:100%;font-size:14px;padding:12px 13px;border:1px solid var(--line);border-radius:10px;background:#fbfdfb;color:var(--ink);}
+  .lstep input:focus{outline:none;border-color:var(--accent);}
+  .btn-primary{width:100%;background:var(--sidebar-bg);color:#fff;border:none;border-radius:11px;padding:13px;font-size:14px;font-weight:700;margin-top:18px;}
+  .btn-primary:disabled{opacity:.6;}
+  .link-row{text-align:center;margin-top:14px;}
+  .link-btn{background:none;border:none;color:var(--accent-deep);font-size:12.5px;font-weight:700;}
+  .msg{font-size:12.5px;padding:10px 12px;border-radius:9px;margin-bottom:6px;display:none;}
+  .msg.show{display:block;}
+  .msg.error{background:#fdecea;color:#c0392b;}
+  .msg.success{background:#eef9d6;color:var(--accent-deep);}
+
+  /* ── App ── */
+  #app{display:none;min-height:100vh;flex-direction:column;}
+  #app.active{display:flex;}
+  .topbar{background:var(--sidebar-bg);color:#fff;padding:16px 16px calc(16px + env(safe-area-inset-top)) 16px;position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;}
+  .topbar .brand{font-family:var(--unbounded);font-weight:900;font-size:15px;}
+  .topbar .brand .g{color:var(--accent);}
+  .topbar .who{font-size:11px;color:rgba(255,255,255,.65);margin-top:2px;}
+  .topbar-actions{display:flex;gap:8px;}
+  .icon-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:9px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;}
+  .icon-btn svg{width:19px;height:19px;}
+
+  .wrap{flex:1;padding:20px 16px 40px;max-width:520px;margin:0 auto;width:100%;}
+  .clock-card{background:var(--panel);border-radius:16px;padding:22px 20px;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.05);margin-bottom:14px;}
+  .clock-now{font-family:var(--unbounded);font-size:34px;font-weight:900;color:var(--sidebar-bg);}
+  .clock-date{font-size:12.5px;color:var(--ink-faint);margin-top:4px;}
+  .clock-date::first-letter{text-transform:uppercase;}
+
+  /* status de localização */
+  .loc-chip{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:10px 13px;margin-bottom:14px;font-size:12.5px;color:var(--ink-soft);}
+  .loc-chip svg{width:16px;height:16px;flex:none;}
+  .loc-chip.ok{border-color:#c6e79a;color:var(--accent-deep);}
+  .loc-chip.fail{border-color:#f3c9c9;color:var(--debit);}
+  .loc-chip .loc-retry{margin-left:auto;background:none;border:none;color:var(--info);font-weight:700;font-size:12px;flex:none;}
+
+  .tipos-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+  .tipo-btn{background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:16px 10px;text-align:center;font-weight:700;font-size:13px;color:var(--ink);display:flex;flex-direction:column;align-items:center;gap:6px;}
+  .tipo-btn svg{width:22px;height:22px;stroke-width:1.8;}
+  .tipo-btn.selected{border-color:var(--accent);background:#f4fbe8;color:var(--accent-deep);}
+  .tipo-btn.registrado{opacity:.55;}
+  .tipo-btn .hora{font-size:10.5px;color:var(--ink-faint);font-weight:600;}
+
+  .photo-box{background:var(--panel);border:1.5px dashed var(--line);border-radius:14px;padding:16px;text-align:center;margin-bottom:14px;}
+  .photo-box.filled{border-style:solid;border-color:#c6e79a;}
+  .photo-box img.preview{max-width:100%;max-height:220px;border-radius:10px;display:block;margin:0 auto 10px;object-fit:cover;}
+  .photo-btn-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+  .ph-btn{display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--line);border-radius:9px;padding:10px 15px;font-size:12.5px;font-weight:700;color:var(--ink-soft);}
+  .ph-btn svg{width:16px;height:16px;}
+  input[type=file]{display:none;}
+  .photo-hint{font-size:11px;color:var(--ink-faint);margin-top:8px;}
+
+  .btn-confirmar{width:100%;background:var(--sidebar-bg);color:#fff;border:none;border-radius:13px;padding:16px;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:9px;}
+  .btn-confirmar:disabled{opacity:.45;cursor:not-allowed;}
+  .btn-confirmar svg{width:18px;height:18px;}
+
+  .hist-title{font-size:11.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;margin:22px 0 10px;}
+  .hist-item{background:var(--panel);border-radius:11px;padding:10px 14px;display:flex;align-items:center;gap:12px;margin-bottom:8px;font-size:13px;}
+  .hist-item .hist-info{flex:1;}
+  .hist-foto{width:42px;height:42px;border-radius:9px;object-fit:cover;flex:none;cursor:pointer;border:none;padding:0;background:#000;}
+  .hist-foto-vazia{display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--ink-faint);flex:none;width:42px;height:42px;border-radius:9px;}
+  .hist-foto-vazia svg{width:16px;height:16px;}
+  .hist-item .tipo{font-weight:700;}
+  .hist-item .hora{color:var(--ink-faint);font-size:12px;}
+  .hist-item .loc{display:block;font-size:11px;color:var(--ink-faint);margin-top:2px;}
+
+  .toast{position:fixed;left:14px;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));max-width:480px;margin:0 auto;background:var(--sidebar-bg);color:#fff;padding:13px 16px;border-radius:11px;font-size:13px;z-index:1000;box-shadow:0 10px 30px rgba(0,0,0,.3);opacity:0;transition:opacity .2s;text-align:center;pointer-events:none;}
+  .toast.show{opacity:1;}
+  .toast.error{background:var(--debit);}
+
+  #screen-historico{display:none;position:fixed;inset:0;background:var(--bg);z-index:50;flex-direction:column;}
+  #screen-historico.active{display:flex;}
+  #screen-historico .wrap{overflow-y:auto;}
+  .hist-day-label{font-size:11px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.04em;margin:16px 0 8px;}
+  .hist-day-label:first-child{margin-top:0;}
+  .paginacao{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;padding:4px 2px;}
+  .paginacao button{flex:none;background:#fff;border:1px solid var(--line);border-radius:9px;padding:9px 14px;font-size:12.5px;font-weight:700;color:var(--ink-soft);}
+  .paginacao button:disabled{opacity:.4;}
+  .paginacao .pg-info{font-size:12px;color:var(--ink-faint);font-weight:600;}
+
+  /* lightbox da selfie (nunca window.open de dataURI/base64) */
+  #lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1200;align-items:center;justify-content:center;padding:20px;}
+  #lightbox.active{display:flex;}
+  #lightbox img{max-width:100%;max-height:100%;border-radius:12px;}
+  #lightbox .lb-close{position:absolute;top:calc(14px + env(safe-area-inset-top));right:16px;background:rgba(255,255,255,.14);border:none;color:#fff;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
+
+  /* badge de sincronização */
+  #sync-badge{position:fixed;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:7px 12px;font-size:11.5px;font-weight:700;color:var(--ink-soft);display:none;align-items:center;gap:7px;z-index:400;box-shadow:0 6px 18px rgba(0,0,0,.12);}
+  #sync-badge.show{display:flex;}
+  #sync-badge .dot{width:8px;height:8px;border-radius:50%;background:var(--accent-deep);}
+  #sync-badge.pending .dot{background:var(--warn);}
+
+  /* banner de instalação */
+  #sg-install-banner{position:fixed;left:14px;right:14px;bottom:14px;max-width:480px;margin:0 auto;background:#003122;color:#fff;padding:14px 16px;border-radius:13px;font-size:13px;z-index:500;box-shadow:0 10px 30px rgba(0,0,0,.35);display:none;align-items:center;gap:12px;}
+  #sg-install-banner.show{display:flex;}
+  #sg-install-banner .sg-ib-icon{flex:none;}
+  #sg-install-banner .sg-ib-icon svg{width:22px;height:22px;}
+  #sg-install-banner .sg-ib-text{flex:1;line-height:1.4;}
+  #sg-install-banner .sg-ib-text b{display:block;font-size:13.5px;margin-bottom:2px;}
+  #sg-install-banner .sg-ib-actions{display:flex;flex-direction:column;gap:6px;flex:none;}
+  #sg-install-banner button{border:none;border-radius:8px;padding:8px 14px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit;}
+  #sg-install-banner .sg-ib-instalar{background:#78D800;color:#003122;}
+  #sg-install-banner .sg-ib-fechar{background:rgba(255,255,255,.12);color:#fff;}
+  @media(max-width:480px){ #sg-install-banner{flex-wrap:wrap;} #sg-install-banner .sg-ib-actions{flex-direction:row;width:100%;} #sg-install-banner .sg-ib-actions button{flex:1;} }
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="sg-solar">SOLAR <span class="sg-green">GREEN</span></div>
+      <div class="sg-sub">Ponto</div>
+    </div>
+
+    <div class="lstep active" id="step-login">
+      <h2>Entrar</h2>
+      <div class="lstep-sub">Use o e-mail cadastrado na equipe.</div>
+      <div class="msg" id="msg-login"></div>
+      <label>E-mail</label>
+      <input type="email" id="in-email" autocomplete="username" placeholder="voce@solargreen.com.br">
+      <label>Senha</label>
+      <input type="password" id="in-senha" autocomplete="current-password" placeholder="••••••••">
+      <div class="lstep-sub" style="margin:-6px 0 13px;">Primeiro acesso? Use a senha padrão informada pela empresa.</div>
+      <button class="btn-primary" id="btn-login">Entrar</button>
+      <div class="link-row"><button class="link-btn" id="go-esqueci">Esqueci minha senha</button></div>
+    </div>
+
+    <div class="lstep" id="step-esqueci">
+      <h2>Esqueci minha senha</h2>
+      <div class="lstep-sub">Vamos enviar um link de redefinição para o seu e-mail cadastrado.</div>
+      <div class="msg" id="msg-esqueci"></div>
+      <label>E-mail</label>
+      <input type="email" id="in-esqueci-email" autocomplete="username" placeholder="voce@solargreen.com.br">
+      <button class="btn-primary" id="btn-esqueci">Enviar link de redefinição</button>
+      <div class="link-row"><button class="link-btn" id="back-login-1">Voltar para o login</button></div>
+    </div>
+
+    <div class="lstep" id="step-primeiro">
+      <h2>Crie sua senha</h2>
+      <div class="lstep-sub">Este é seu primeiro acesso. Antes de continuar, crie uma senha só sua.</div>
+      <div class="msg" id="msg-primeiro"></div>
+      <label>Nova senha</label>
+      <input type="password" id="in-primeiro1" autocomplete="new-password" placeholder="mínimo 6 caracteres">
+      <label>Confirmar nova senha</label>
+      <input type="password" id="in-primeiro2" autocomplete="new-password" placeholder="repita a senha">
+      <button class="btn-primary" id="btn-primeiro">Salvar e entrar</button>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <div>
+      <div class="brand">SOLAR <span class="g">GREEN</span></div>
+      <div class="who" id="topbar-nome">—</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="btn-historico" title="Meu histórico completo" aria-label="Meu histórico completo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </button>
+      <button class="icon-btn" id="btn-logout" title="Sair" aria-label="Sair">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="clock-card">
+      <div class="clock-now" id="relogio">--:--:--</div>
+      <div class="clock-date" id="dataHoje">—</div>
+    </div>
+
+    <div class="loc-chip" id="locChip">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      <span id="locChipText">Obtendo sua localização…</span>
+      <button class="loc-retry" id="locRetry" hidden>Tentar de novo</button>
+    </div>
+
+    <div class="tipos-grid" id="tiposGrid"></div>
+
+    <div class="photo-box" id="photoBox">
+      <div id="photoPreviewWrap"></div>
+      <div class="photo-btn-row">
+        <label class="ph-btn" for="input-cam">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          Tirar selfie
+        </label>
+        <label class="ph-btn" for="input-gal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          Galeria
+        </label>
+      </div>
+      <input type="file" accept="image/*" capture="user" id="input-cam">
+      <input type="file" accept="image/*" id="input-gal">
+      <div class="photo-hint">A foto é obrigatória para registrar o ponto.</div>
+    </div>
+
+    <button class="btn-confirmar" id="btnConfirmar" disabled>Selecione o tipo de ponto</button>
+
+    <div class="hist-title">Seus registros de hoje</div>
+    <div id="histLista"><div style="font-size:12.5px;color:var(--ink-faint);">Nenhum registro ainda hoje.</div></div>
+  </div>
+</div>
+
+<div id="screen-historico">
+  <div class="topbar">
+    <button class="icon-btn" id="btn-fecharHistorico" aria-label="Voltar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+    </button>
+    <div class="brand" style="flex:1;text-align:center;font-family:var(--unbounded);font-weight:900;font-size:15px;">Meu histórico</div>
+    <div style="width:38px;"></div>
+  </div>
+  <div class="wrap">
+    <div id="histCompletoLista"><div style="font-size:12.5px;color:var(--ink-faint);text-align:center;padding:30px 0;">Carregando…</div></div>
+    <div id="histPaginacao" class="paginacao"></div>
+  </div>
+</div>
+
+<div id="lightbox">
+  <button class="lb-close" id="lb-close" aria-label="Fechar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
+  <img id="lb-img" alt="Selfie do registro de ponto">
+</div>
+
+<div id="sync-badge"><span class="dot"></span><span id="sync-badge-text">Sincronizado</span></div>
+
+<div id="sg-install-banner">
+  <span class="sg-ib-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+  </span>
+  <div class="sg-ib-text"><b>Instalar app</b><span id="sg-ib-msg">Adicione à tela inicial do celular — abre direto, sem navegador.</span></div>
+  <div class="sg-ib-actions">
+    <button type="button" class="sg-ib-instalar" id="sg-ib-instalar">Instalar</button>
+    <button type="button" class="sg-ib-fechar" id="sg-ib-fechar">Agora não</button>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+// FIREBASE — mesmo projeto do painel admin / app do técnico. Config
+// pública (não é segredo). App standalone: cópia própria da init, igual
+// js/tecnico-firebase-init.js.
+// ═══════════════════════════════════════════════════════════════════════
+(function(){
+  firebase.initializeApp({
+    projectId: "solargreen-21313",
+    appId: "1:980826142154:web:a7d053312f2ad5c240cb33",
+    storageBucket: "solargreen-21313.firebasestorage.app",
+    apiKey: "AIzaSyC50rNjz7cd_1_aWDBMuz84QqOFwPRV1aE",
+    authDomain: "solargreen-21313.firebaseapp.com",
+    messagingSenderId: "980826142154"
+  });
+  // Persistência offline: é o que faz o registro de ponto funcionar sem
+  // sinal (a escrita fica na fila do SDK e sincroniza sozinha ao reconectar).
+  firebase.firestore().enablePersistence({synchronizeTabs:true}).catch(function(err){
+    console.warn('Persistência offline indisponível:',err.code);
+  });
+  // Espera o Firebase Auth restaurar a sessão salva antes de qualquer
+  // leitura/escrita (senão a checagem "está logado?" roda cedo demais).
+  window.PontoFireReady=new Promise(function(resolve){
+    var unsub=firebase.auth().onAuthStateChanged(function(user){ unsub(); resolve(user); });
+  });
+})();
+
+// ═══════════════════════════════════════════════════════════════════════
+// SESSÃO
+// ═══════════════════════════════════════════════════════════════════════
+var PontoSessao=(function(){
+  var KEY='sg_ponto_session';
+  var DUR=7*24*60*60*1000;
+  function get(){
+    try{
+      var s=JSON.parse(localStorage.getItem(KEY)||'null');
+      if(s&&s.idVendedor&&s.expiresAt&&Date.now()<s.expiresAt)return s;
+    }catch(e){}
+    return null;
+  }
+  function set(u){
+    var s={idVendedor:u.idVendedor,uid:u.uid,nome:u.nome,email:u.email,tipo:u.tipo||'',expiresAt:Date.now()+DUR};
+    localStorage.setItem(KEY,JSON.stringify(s));
+    return s;
+  }
+  function clear(){ localStorage.removeItem(KEY); }
+  return {get:get,set:set,clear:clear};
+})();
+
+// ═══════════════════════════════════════════════════════════════════════
+// BADGE DE SINCRONIZAÇÃO (escritas ainda em voo — relevante offline)
+// ═══════════════════════════════════════════════════════════════════════
+var PontoSync=(function(){
+  var pend=0;
+  function render(){
+    var b=document.getElementById('sync-badge');
+    if(!PontoSessao.get()){ b.classList.remove('show'); return; }
+    b.classList.add('show');
+    if(pend>0){ b.classList.add('pending'); document.getElementById('sync-badge-text').textContent=pend+' registro'+(pend>1?'s':'')+' pendente'+(pend>1?'s':''); }
+    else{ b.classList.remove('pending'); document.getElementById('sync-badge-text').textContent='Sincronizado'; }
+  }
+  return {
+    iniciar:function(){ pend++; render(); },
+    concluir:function(){ pend=Math.max(0,pend-1); render(); },
+    render:render
+  };
+})();
+
+// ═══════════════════════════════════════════════════════════════════════
+// APP — BATER PONTO
+// ═══════════════════════════════════════════════════════════════════════
+window.PontoApp=(function(){
+  var db=firebase.firestore();
+  var session=null;
+
+  // Ícones feather inline por tipo (crença 5 — nunca emoji)
+  var ICO={
+    Entrada:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 18a5 5 0 0 0-10 0"/><line x1="12" y1="2" x2="12" y2="9"/><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"/><line x1="1" y1="18" x2="3" y2="18"/><line x1="21" y1="18" x2="23" y2="18"/><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"/><line x1="23" y1="22" x2="1" y2="22"/><polyline points="8 6 12 2 16 6"/></svg>',
+    'Almoço':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>',
+    'Retorno Almoço':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>',
+    'Saída':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>'
+  };
+  var TIPOS=['Entrada','Almoço','Retorno Almoço','Saída'];
+
+  var tipoSelecionado=null;
+  var registros=[];         // todos os registros do funcionário (histórico completo, buscado uma vez)
+  var registrosCarregados=false;
+  var fotoDataUri=null;      // "data:image/jpeg;base64,...."
+  var geo={status:'pending', texto:'', coords:null}; // pending | ok | fail
+
+  // ── util ──
+  function el(id){ return document.getElementById(id); }
+  function esc(s){ var d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
+  function pad(n){ return String(n).padStart(2,'0'); }
+
+  function showToast(texto,erro){
+    var t=el('toast');
+    if(!t){ t=document.createElement('div'); t.id='toast'; t.className='toast'; document.body.appendChild(t); }
+    t.className='toast show'+(erro?' error':'');
+    t.textContent=texto;
+    clearTimeout(t._t);
+    t._t=setTimeout(function(){ t.classList.remove('show'); },3200);
+  }
+
+  // Data e hora LOCAL como string "dd/mm/aaaa hh:mm:ss" — mesmo formato que
+  // a planilha/AppSheet sempre usou, e o que js/ponto.js do admin espera.
+  // Nunca toISOString aqui (viraria UTC e erraria o dia entre 21h e meia-noite).
+  function agoraLocalStr(d){
+    d=d||new Date();
+    return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());
+  }
+  function dataKeyLocal(d){
+    d=d||new Date();
+    return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  }
+  // parser local explícito de "dd/mm/aaaa hh:mm(:ss)?"
+  function parseLocal(str){
+    if(!str)return null;
+    var m=String(str).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if(m)return new Date(+m[3],+m[2]-1,+m[1],+m[4],+m[5],m[6]?+m[6]:0);
+    var d=new Date(str); return isNaN(d.getTime())?null:d;
+  }
+  function idCurto(){
+    var b=new Uint8Array(4);
+    (window.crypto||window.msCrypto).getRandomValues(b);
+    return Array.from(b).map(function(x){return pad(x.toString(16));}).join('');
+  }
+
+  // ── relógio ──
+  function tickRelogio(){
+    var d=new Date();
+    el('relogio').textContent=pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());
+    el('dataHoje').textContent=d.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});
+  }
+
+  // ── localização ──
+  function pedirLocalizacao(){
+    var chip=el('locChip'), txt=el('locChipText'), retry=el('locRetry');
+    if(!navigator.geolocation){
+      geo={status:'fail',texto:'',coords:null};
+      chip.className='loc-chip fail'; txt.textContent='Este aparelho não informa localização.'; retry.hidden=true;
+      atualizarBotaoConfirmar(); return;
+    }
+    geo.status='pending';
+    chip.className='loc-chip'; txt.textContent='Obtendo sua localização…'; retry.hidden=true;
+    navigator.geolocation.getCurrentPosition(function(pos){
+      var lat=pos.coords.latitude, lng=pos.coords.longitude;
+      geo={status:'ok', texto:lat.toFixed(6)+', '+lng.toFixed(6), coords:{lat:lat,lng:lng,acc:Math.round(pos.coords.accuracy||0)}};
+      chip.className='loc-chip ok';
+      txt.textContent='Localização capturada'+(geo.coords.acc?(' (±'+geo.coords.acc+' m)'):'');
+      retry.hidden=false; retry.textContent='Atualizar';
+      atualizarBotaoConfirmar();
+    },function(err){
+      geo={status:'fail', texto:'', coords:null};
+      chip.className='loc-chip fail';
+      txt.textContent = err && err.code===1
+        ? 'Permissão de localização negada — o registro fica sem local.'
+        : 'Não foi possível obter a localização agora.';
+      retry.hidden=false; retry.textContent='Tentar de novo';
+      atualizarBotaoConfirmar();
+    },{enableHighAccuracy:true, timeout:12000, maximumAge:30000});
+  }
+
+  // ── tipos ──
+  function horaDoTipoHoje(tipo){
+    var hoje=dataKeyLocal();
+    var r=registros.filter(function(x){ return x.Tipo===tipo && dataKeyLocal(parseLocal(x['Data e Hora']))===hoje; })[0];
+    if(!r)return '';
+    var d=parseLocal(r['Data e Hora']); return d?pad(d.getHours())+':'+pad(d.getMinutes()):'';
+  }
+  function renderTipos(){
+    var hoje=dataKeyLocal();
+    el('tiposGrid').innerHTML=TIPOS.map(function(t){
+      var jaFeito=registros.some(function(r){ return r.Tipo===t && dataKeyLocal(parseLocal(r['Data e Hora']))===hoje; });
+      var h=jaFeito?horaDoTipoHoje(t):'';
+      return '<button type="button" class="tipo-btn'+(t===tipoSelecionado?' selected':'')+(jaFeito?' registrado':'')+'" data-tipo="'+esc(t)+'">'+
+        ICO[t]+'<span>'+esc(t)+'</span>'+(jaFeito?'<span class="hora">já batido às '+h+'</span>':'')+
+      '</button>';
+    }).join('');
+    Array.prototype.forEach.call(el('tiposGrid').querySelectorAll('.tipo-btn'),function(btn){
+      btn.addEventListener('click',function(){
+        tipoSelecionado=btn.getAttribute('data-tipo');
+        renderTipos(); atualizarBotaoConfirmar();
+      });
+    });
+  }
+
+  function atualizarBotaoConfirmar(){
+    var btn=el('btnConfirmar');
+    var check='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    if(!tipoSelecionado){ btn.disabled=true; btn.textContent='Selecione o tipo de ponto'; return; }
+    if(!fotoDataUri){ btn.disabled=true; btn.textContent='Falta a foto'; return; }
+    if(geo.status==='pending'){ btn.disabled=true; btn.textContent='Aguardando a localização…'; return; }
+    btn.disabled=false;
+    btn.innerHTML=check+'Confirmar '+esc(tipoSelecionado);
+  }
+
+  // ── foto ──
+  function comprimir(file,maxDim,q){
+    return new Promise(function(resolve,reject){
+      // createImageBitmap decodifica fora da thread principal — não trava
+      // celular fraco com foto de 12 MP (antecipacao B4). Fallback pro Image().
+      function desenhar(bmpW,bmpH,draw){
+        var w=bmpW,h=bmpH;
+        if(w>h&&w>maxDim){ h=Math.round(h*maxDim/w); w=maxDim; }
+        else if(h>=w&&h>maxDim){ w=Math.round(w*maxDim/h); h=maxDim; }
+        var c=document.createElement('canvas'); c.width=w; c.height=h;
+        draw(c.getContext('2d'),w,h);
+        // Garante que a foto (em base64) caiba folgado num documento do
+        // Firestore e passe na firestore.rules (< 900 KB). Baixa a qualidade
+        // em degraus se precisar; base64 infla ~33%, então a mira é ~550 KB.
+        var tentativas=[q,0.55,0.42,0.3];
+        (function tenta(i){
+          c.toBlob(function(blob){
+            if(!blob){ reject(new Error('Falha ao comprimir.')); return; }
+            if(blob.size>560000 && i<tentativas.length-1){ tenta(i+1); return; }
+            resolve(blob);
+          },'image/jpeg',tentativas[i]);
+        })(0);
+      }
+      if(window.createImageBitmap){
+        createImageBitmap(file).then(function(bmp){
+          desenhar(bmp.width,bmp.height,function(ctx,w,h){ ctx.drawImage(bmp,0,0,w,h); bmp.close&&bmp.close(); });
+        }).catch(function(){ viaImage(); });
+      }else{ viaImage(); }
+      function viaImage(){
+        var img=new Image(), url=URL.createObjectURL(file);
+        img.onload=function(){ URL.revokeObjectURL(url); desenhar(img.width,img.height,function(ctx,w,h){ ctx.drawImage(img,0,0,w,h); }); };
+        img.onerror=function(){ URL.revokeObjectURL(url); reject(new Error('Não foi possível ler a imagem.')); };
+        img.src=url;
+      }
+    });
+  }
+  function wireFoto(){
+    ['input-cam','input-gal'].forEach(function(id){
+      el(id).addEventListener('change',function(){
+        var f=this.files&&this.files[0]; if(!f)return;
+        showToast('Preparando a foto…');
+        comprimir(f,1000,0.7).then(function(blob){
+          var reader=new FileReader();
+          reader.onload=function(){
+            fotoDataUri=reader.result;
+            el('photoPreviewWrap').innerHTML='<img class="preview" src="'+fotoDataUri+'" alt="Pré-visualização da selfie">';
+            el('photoBox').classList.add('filled');
+            atualizarBotaoConfirmar();
+          };
+          reader.readAsDataURL(blob);
+        }).catch(function(e){ showToast('Erro ao preparar a foto: '+e.message,true); });
+        this.value='';
+      });
+    });
+  }
+
+  // ── confirmar ──
+  function confirmar(){
+    if(!tipoSelecionado||!fotoDataUri)return;
+    var btn=el('btnConfirmar'); btn.disabled=true; btn.textContent='Registrando…';
+
+    var agora=new Date();
+    var id=idCurto();
+    var doc={
+      IdPonto:id,
+      Funcionario:session.idVendedor,      // = IdVendedor (mesmo que o AppSheet grava e o admin lê)
+      Uid:session.uid,                     // dono real da batida, pra regra do Firestore
+      Tipo:tipoSelecionado,
+      'Data e Hora':agoraLocalStr(agora),
+      DataKey:dataKeyLocal(agora),
+      'Foto Selfie':fotoDataUri,
+      Localizacao:geo.texto||'',
+      LocPrecisao:(geo.coords&&geo.coords.acc)||'',
+      'Endereço':'',
+      Origem:'app-ponto',
+      CriadoEm:firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    // Feedback otimista: a batida aparece na hora, a Promise do Firestore só
+    // corrige em segundo plano se der erro de verdade (crença 11 / antecip. A2).
+    registros.push(doc);
+    PontoSync.iniciar();
+    var salvoTipo=tipoSelecionado;
+    showToast(salvoTipo+' registrado');
+    tipoSelecionado=null; fotoDataUri=null;
+    el('photoPreviewWrap').innerHTML=''; el('photoBox').classList.remove('filled');
+    renderTipos(); renderHojeLista(); atualizarBotaoConfirmar();
+
+    db.collection('ponto').doc(id).set(doc).then(function(){
+      PontoSync.concluir();
+    }).catch(function(err){
+      PontoSync.concluir();
+      // desfaz o otimismo só em erro real (offline não cai aqui — fica na fila)
+      registros=registros.filter(function(r){ return r.IdPonto!==id; });
+      renderTipos(); renderHojeLista();
+      showToast('Não foi possível registrar: '+(err.message||err.code),true);
+    });
+  }
+
+  // ── listas ──
+  function linhaRegistro(r,mostrarData){
+    var d=parseLocal(r['Data e Hora']);
+    var hora=d?pad(d.getHours())+':'+pad(d.getMinutes()):'—';
+    var foto=r['Foto Selfie']||'';
+    var temFoto=/^data:image\//.test(foto)||/^https?:\/\//.test(foto);
+    var vazio='<div class="hist-foto-vazia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>';
+    return '<div class="hist-item">'+
+      (temFoto?'<button type="button" class="hist-foto" data-full="'+esc(foto)+'" style="background-image:url(\''+esc(foto)+'\');background-size:cover;background-position:center;"></button>':vazio)+
+      '<div class="hist-info"><span class="tipo">'+esc(r.Tipo)+'</span>'+
+        (r.Localizacao?'<span class="loc">'+esc(r.Localizacao)+'</span>':'<span class="loc">sem localização</span>')+
+      '</div>'+
+      '<span class="hora">'+(mostrarData&&d?pad(d.getDate())+'/'+pad(d.getMonth()+1)+' ':'')+hora+'</span>'+
+    '</div>';
+  }
+  function wireFotos(scope){
+    Array.prototype.forEach.call(scope.querySelectorAll('.hist-foto[data-full]'),function(b){
+      b.addEventListener('click',function(){
+        el('lb-img').src=b.getAttribute('data-full');
+        el('lightbox').classList.add('active');
+      });
+    });
+  }
+  function renderHojeLista(){
+    var hoje=dataKeyLocal();
+    var doDia=registros.filter(function(r){ return dataKeyLocal(parseLocal(r['Data e Hora']))===hoje; })
+      .sort(function(a,b){ return (parseLocal(a['Data e Hora'])||0)-(parseLocal(b['Data e Hora'])||0); });
+    var wrap=el('histLista');
+    if(!doDia.length){ wrap.innerHTML='<div style="font-size:12.5px;color:var(--ink-faint);">Nenhum registro ainda hoje.</div>'; return; }
+    wrap.innerHTML=doDia.map(function(r){ return linhaRegistro(r,false); }).join('');
+    wireFotos(wrap);
+  }
+
+  var histPagina=1, HIST_POR_PAGINA=12;
+  function abrirHistorico(){
+    el('screen-historico').classList.add('active');
+    renderHistoricoCompleto();
+  }
+  function renderHistoricoCompleto(){
+    var lista=registros.slice().sort(function(a,b){ return (parseLocal(b['Data e Hora'])||0)-(parseLocal(a['Data e Hora'])||0); });
+    var wrap=el('histCompletoLista');
+    if(!registrosCarregados){ wrap.innerHTML='<div style="font-size:12.5px;color:var(--ink-faint);text-align:center;padding:30px 0;">Carregando…</div>'; el('histPaginacao').innerHTML=''; return; }
+    if(!lista.length){ wrap.innerHTML='<div style="font-size:12.5px;color:var(--ink-faint);text-align:center;padding:30px 0;">Nenhum registro de ponto ainda.</div>'; el('histPaginacao').innerHTML=''; return; }
+    var totalPg=Math.max(1,Math.ceil(lista.length/HIST_POR_PAGINA));
+    if(histPagina>totalPg)histPagina=totalPg; if(histPagina<1)histPagina=1;
+    var pagina=lista.slice((histPagina-1)*HIST_POR_PAGINA, histPagina*HIST_POR_PAGINA);
+    var diaAtual=null, html='';
+    pagina.forEach(function(r){
+      var d=parseLocal(r['Data e Hora']);
+      var dk=d?pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear():'—';
+      if(dk!==diaAtual){ html+='<div class="hist-day-label">'+dk+'</div>'; diaAtual=dk; }
+      html+=linhaRegistro(r,false);
+    });
+    wrap.innerHTML=html;
+    wireFotos(wrap);
+    el('histPaginacao').innerHTML = totalPg<=1 ? '' :
+      '<button type="button" id="pgPrev" '+(histPagina<=1?'disabled':'')+'>Anterior</button>'+
+      '<span class="pg-info">Página '+histPagina+' de '+totalPg+'</span>'+
+      '<button type="button" id="pgNext" '+(histPagina>=totalPg?'disabled':'')+'>Próxima</button>';
+    var p=el('pgPrev'); if(p)p.addEventListener('click',function(){ histPagina--; renderHistoricoCompleto(); });
+    var n=el('pgNext'); if(n)n.addEventListener('click',function(){ histPagina++; renderHistoricoCompleto(); });
+  }
+
+  // Uma query só, do próprio funcionário — nunca a coleção inteira
+  // (antecipacao A1/E1: onSnapshot de coleção que cresce estourou a cota).
+  function carregarRegistros(){
+    db.collection('ponto').where('Funcionario','==',session.idVendedor).get().then(function(snap){
+      registros=snap.docs.map(function(d){ return Object.assign({},d.data(),{IdPonto:d.id}); });
+      registrosCarregados=true;
+      renderTipos(); renderHojeLista();
+      if(el('screen-historico').classList.contains('active'))renderHistoricoCompleto();
+    }).catch(function(err){
+      console.error('Falha ao carregar registros:',err);
+      showToast('Não foi possível carregar seu histórico agora.',true);
+    });
+  }
+
+  function init(s){
+    session=s;
+    el('topbar-nome').textContent=s.nome+(s.tipo?' · '+s.tipo:'');
+    tickRelogio(); setInterval(tickRelogio,1000);
+    wireFoto();
+    pedirLocalizacao();
+    el('locRetry').addEventListener('click',pedirLocalizacao);
+    el('btnConfirmar').addEventListener('click',confirmar);
+    el('btn-historico').addEventListener('click',abrirHistorico);
+    el('btn-fecharHistorico').addEventListener('click',function(){ el('screen-historico').classList.remove('active'); });
+    el('lb-close').addEventListener('click',function(){ el('lightbox').classList.remove('active'); el('lb-img').src=''; });
+    el('lightbox').addEventListener('click',function(e){ if(e.target===this){ this.classList.remove('active'); el('lb-img').src=''; } });
+    el('btn-logout').addEventListener('click',function(){ PontoSessao.clear(); location.reload(); });
+    PontoSync.render();
+    renderTipos();
+    carregarRegistros();
+  }
+
+  return {init:init};
+})();
+
+// ═══════════════════════════════════════════════════════════════════════
+// LOGIN (Firebase Auth — mesmo fluxo do app do técnico)
+// ═══════════════════════════════════════════════════════════════════════
+(function(){
+  function msg(id,texto,tipo){
+    var e=document.getElementById(id);
+    e.className='msg show'+(tipo?' '+tipo:'');
+    e.textContent=texto||'';
+  }
+  function goStep(id){
+    document.querySelectorAll('#login-screen .lstep').forEach(function(s){ s.classList.remove('active'); });
+    document.getElementById(id).classList.add('active');
+    ['msg-login','msg-esqueci','msg-primeiro'].forEach(function(m){ var el=document.getElementById(m); el.className='msg'; el.textContent=''; });
+  }
+
+  var pendingPrimeiro=null;
+
+  function resolverVendedor(cred){
+    var db=firebase.firestore(), uid=cred.user.uid, email=cred.user.email||'';
+    var ref=db.collection('vendedores').doc(uid);
+    return ref.get().then(function(doc){
+      if(doc.exists)return {ref:ref, dados:doc.data()};
+      // 1o login desse uid, mas a pessoa já existe com o ID antigo da planilha
+      // (todo histórico de ponto referencia esse ID) — casa por e-mail.
+      return db.collection('vendedores').where('Email','==',email).limit(1).get().then(function(snap){
+        if(!snap.empty)return {ref:snap.docs[0].ref, dados:snap.docs[0].data()};
+        var novo={IdVendedor:uid,Nome:email.split('@')[0],Email:email,Tipo:'',Status:'Ativo'};
+        return ref.set(novo).then(function(){ return {ref:ref, dados:novo}; });
+      });
+    });
+  }
+
+  var loginBtn=document.getElementById('btn-login');
+  loginBtn.addEventListener('click',function(){
+    var email=document.getElementById('in-email').value.trim();
+    var senha=document.getElementById('in-senha').value;
+    if(!email||!senha){ msg('msg-login','Preencha e-mail e senha.','error'); return; }
+    loginBtn.disabled=true; loginBtn.textContent='Entrando…';
+    firebase.auth().signInWithEmailAndPassword(email,senha).then(resolverVendedor).then(function(achado){
+      loginBtn.disabled=false; loginBtn.textContent='Entrar';
+      var d=achado.dados;
+      if(d.SenhaTemporaria){
+        pendingPrimeiro={ref:achado.ref, usuario:{idVendedor:d.IdVendedor,uid:firebase.auth().currentUser.uid,nome:d.Nome,email:d.Email,tipo:d.Tipo}};
+        document.getElementById('in-primeiro1').value=''; document.getElementById('in-primeiro2').value='';
+        goStep('step-primeiro'); return;
+      }
+      PontoSessao.set({idVendedor:d.IdVendedor,uid:firebase.auth().currentUser.uid,nome:d.Nome,email:d.Email,tipo:d.Tipo});
+      location.reload();
+    }).catch(function(err){
+      loginBtn.disabled=false; loginBtn.textContent='Entrar';
+      var m=err.code==='auth/wrong-password'||err.code==='auth/invalid-credential' ? 'E-mail ou senha incorretos.'
+          : err.code==='auth/user-not-found' ? 'Não existe conta com esse e-mail — confira com quem cadastrou seu acesso.'
+          : 'Não foi possível entrar: '+(err.message||err.code);
+      msg('msg-login',m,'error');
+    });
+  });
+  document.getElementById('in-senha').addEventListener('keydown',function(e){ if(e.key==='Enter')loginBtn.click(); });
+
+  var primeiroBtn=document.getElementById('btn-primeiro');
+  primeiroBtn.addEventListener('click',function(){
+    if(!pendingPrimeiro){ goStep('step-login'); return; }
+    var s1=document.getElementById('in-primeiro1').value, s2=document.getElementById('in-primeiro2').value;
+    if(!s1||!s2){ msg('msg-primeiro','Preencha os dois campos.','error'); return; }
+    if(s1!==s2){ msg('msg-primeiro','As senhas não coincidem.','error'); return; }
+    if(s1.length<6){ msg('msg-primeiro','A senha deve ter pelo menos 6 caracteres.','error'); return; }
+    primeiroBtn.disabled=true; primeiroBtn.textContent='Salvando…';
+    firebase.auth().currentUser.updatePassword(s1).then(function(){
+      return pendingPrimeiro.ref.set({SenhaTemporaria:false},{merge:true});
+    }).then(function(){
+      PontoSessao.set(pendingPrimeiro.usuario);
+      pendingPrimeiro=null;
+      location.reload();
+    }).catch(function(err){
+      primeiroBtn.disabled=false; primeiroBtn.textContent='Salvar e entrar';
+      msg('msg-primeiro','Não foi possível salvar: '+(err.message||err.code),'error');
+    });
+  });
+
+  document.getElementById('go-esqueci').addEventListener('click',function(){
+    document.getElementById('in-esqueci-email').value=document.getElementById('in-email').value.trim();
+    goStep('step-esqueci');
+  });
+  document.getElementById('back-login-1').addEventListener('click',function(){ goStep('step-login'); });
+
+  var esqueciBtn=document.getElementById('btn-esqueci');
+  esqueciBtn.addEventListener('click',function(){
+    var email=document.getElementById('in-esqueci-email').value.trim();
+    if(!email){ msg('msg-esqueci','Informe seu e-mail.','error'); return; }
+    esqueciBtn.disabled=true; esqueciBtn.textContent='Enviando…';
+    firebase.auth().sendPasswordResetEmail(email).then(function(){
+      esqueciBtn.disabled=false; esqueciBtn.textContent='Enviar link de redefinição';
+      msg('msg-esqueci','Link enviado! Confira seu e-mail (e o spam) e clique nele pra criar a senha nova.','success');
+    }).catch(function(err){
+      esqueciBtn.disabled=false; esqueciBtn.textContent='Enviar link de redefinição';
+      var m=err.code==='auth/user-not-found' ? 'Não existe conta com esse e-mail — confira com quem cadastrou seu acesso.' : 'Não foi possível enviar: '+(err.message||err.code);
+      msg('msg-esqueci',m,'error');
+    });
+  });
+
+  document.getElementById('btn-logout').addEventListener('click',function(){ PontoSessao.clear(); location.reload(); });
+
+  // Boot: espera o Auth restaurar a sessão antes de decidir a tela
+  window.PontoFireReady.then(function(user){
+    var session=PontoSessao.get();
+    if(user&&session){
+      document.getElementById('login-screen').classList.add('hidden');
+      document.getElementById('app').classList.add('active');
+      window.PontoApp.init(session);
+    }else{
+      // token do Firebase caiu mas a sessão local ficou (ou vice-versa) — limpa
+      if(!user)PontoSessao.clear();
+      document.getElementById('login-screen').classList.remove('hidden');
+    }
+  });
+})();
+</script>
+
+<script>
+// ── Service worker + banner de instalação ──
+(function(){
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(function(reg){ reg.update(); }).catch(function(){});
+    var recarregou=false;
+    navigator.serviceWorker.addEventListener('controllerchange',function(){
+      if(recarregou)return; recarregou=true; location.reload();
+    });
+  }
+  var DISMISS_KEY='sg_ponto_install_dismissed_v1';
+  var banner=document.getElementById('sg-install-banner');
+  if(!banner)return;
+  var msgEl=document.getElementById('sg-ib-msg');
+  var deferredPrompt=null;
+
+  function jaInstalado(){ return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true; }
+  function foiDispensado(){ try{ return localStorage.getItem(DISMISS_KEY)==='1'; }catch(e){ return false; } }
+  function mostrar(){ if(jaInstalado()||foiDispensado())return; banner.classList.add('show'); }
+  function esconder(){ banner.classList.remove('show'); }
+
+  document.getElementById('sg-ib-fechar').addEventListener('click',function(){
+    esconder();
+    try{ localStorage.setItem(DISMISS_KEY,'1'); }catch(e){}
+  });
+  document.getElementById('sg-ib-instalar').addEventListener('click',function(){
+    if(deferredPrompt){
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.finally(function(){ deferredPrompt=null; esconder(); });
+    }else{
+      esconder();
+    }
+  });
+  window.addEventListener('beforeinstallprompt',function(e){ e.preventDefault(); deferredPrompt=e; mostrar(); });
+
+  var isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent)&&!window.MSStream;
+  if(isIOS&&!jaInstalado()&&!foiDispensado()){
+    if(msgEl)msgEl.textContent='No iPhone: toque em Compartilhar e depois em "Adicionar à Tela de Início".';
+    setTimeout(mostrar,2500);
+  }
+})();
+</script>
+</body>
+</html>
