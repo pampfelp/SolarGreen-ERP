@@ -4,7 +4,7 @@
 // alguma resiliência offline — NÃO cacheia chamadas de API (POST pro Apps
 // Script), só o "casco" estático (html/css/js/ícones), pra nunca servir
 // dado de planilha desatualizado escondido em cache.
-const CACHE_NAME = 'sg-shell-v2';
+const CACHE_NAME = 'sg-shell-v3';
 
 self.addEventListener('install', function (event) {
   self.skipWaiting();
