@@ -11,9 +11,9 @@
   "theme_color": "#003122",
   "lang": "pt-BR",
   "icons": [
-    { "src": "icons/icon-192-ponto.png?v=20260902a", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-192-ponto.png?v=20260902a", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
-    { "src": "icons/icon-512-ponto.png?v=20260902a", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512-ponto.png?v=20260902a", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "icons/icon-192-ponto.png?v=20260903a", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-192-ponto.png?v=20260903a", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon-512-ponto.png?v=20260903a", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512-ponto.png?v=20260903a", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
