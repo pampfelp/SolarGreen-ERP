@@ -1384,11 +1384,21 @@ var EMPRESA_EMAIL='solargreensuporte@gmail.com';
 
 // Bloco de assinatura da CONTRATADA, já marcado como assinado — igual ao
 // padrão adotado na Ordem de Serviço. dataContrato vem no formato ISO
-// (yyyy-mm-dd) dos campos de data do formulário.
+// (yyyy-mm-dd) dos campos de data do formulário. O <div style="height:32px">
+// reserva o espaço onde a MARCA visual da assinatura da Autentique cai —
+// mesma lógica/mesmo cuidado do comentário equivalente na OS
+// (js/agendamentos.js:montarHtmlOS) — não mexer aqui sem também medir de
+// novo a posição em criarDocumentoNaAutentique_ (Code.gs).
 function blocoAssinaturaContratada(dataContratoIso){
-  return '<div class="cp-sign-line">CONTRATADA – Solar Green Suporte'+
+  return '<div><div style="height:32px;"></div><div class="cp-sign-line">CONTRATADA – Solar Green Suporte'+
     '<br>CNPJ '+escH(CONTRATADA.cnpj)+' · '+escH(EMPRESA_EMAIL)+
-    '<br><span style="color:#2c6e00;">&#10003; Assinado eletronicamente em '+isoToBR(dataContratoIso)+'</span></div>';
+    '<br><span style="color:#2c6e00;">&#10003; Assinado eletronicamente em '+isoToBR(dataContratoIso)+'</span></div></div>';
+}
+// Mesma ideia pro lado do CONTRATANTE (cliente) — antes ficava repetido
+// inline nos dois tipos de contrato que assinam (monitoramento/manutenção);
+// virou função pra não duplicar o espaço reservado da assinatura duas vezes.
+function blocoAssinaturaContratante(nomeCliente){
+  return '<div><div style="height:32px;"></div><div class="cp-sign-line">CONTRATANTE – '+escH(nomeCliente)+'</div></div>';
 }
 
 var CONTRACT_TYPES=[
@@ -1625,7 +1635,7 @@ function composeMonitoramento(v,c){
   '<div class="cp-clause-title">CLÁUSULA SÉTIMA – DO FORO</div>'+
   '<p>7.1. Fica eleito o foro da comarca de '+escH(c.cidade)+'/PA para dirimir quaisquer dúvidas oriundas deste contrato.</p>'+
   '<p style="margin-top:24px;">'+escH(c.cidade)+'/PA, '+isoToBR(v.dataContrato)+'.</p>'+
-  '<div class="cp-sign">'+blocoAssinaturaContratada(v.dataContrato)+'<div class="cp-sign-line">CONTRATANTE – '+escH(c.nome)+'</div></div>'
+  '<div class="cp-sign">'+blocoAssinaturaContratada(v.dataContrato)+blocoAssinaturaContratante(c.nome)+'</div>'
   );
 }
 
@@ -1662,7 +1672,7 @@ function composeManutencao(v,c){
   '<div class="cp-clause-title">CLÁUSULA SÉTIMA – DO FORO</div>'+
   '<p>7.1. Para dirimir quaisquer controvérsias oriundas deste contrato, as partes elegem o foro da Comarca de '+escH(c.cidade)+' – PA, renunciando a qualquer outro, por mais privilegiado que seja.</p>'+
   '<p style="margin-top:24px;">'+escH(c.cidade)+' – PA, '+isoToBR(v.dataContrato)+'.</p>'+
-  '<div class="cp-sign"><div class="cp-sign-line">CONTRATANTE – '+escH(c.nome)+'</div>'+blocoAssinaturaContratada(v.dataContrato)+'</div>'
+  '<div class="cp-sign">'+blocoAssinaturaContratante(c.nome)+blocoAssinaturaContratada(v.dataContrato)+'</div>'
   );
 }
 
