@@ -4,7 +4,7 @@
   "short_name": "SG Técnico",
   "description": "App de campo para técnicos Solar Green: ordens de serviço, checklist e dimensionamento.",
   "start_url": "./indexdotecnico.html",
-  "scope": "./",
+  "scope": "./indexdotecnico.html",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#F2F7F2",

@@ -4,7 +4,7 @@
   "short_name": "SG Proposta",
   "description": "Gerador de propostas e contratos Solar Green.",
   "start_url": "./proposta.html",
-  "scope": "./",
+  "scope": "./proposta.html",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#F2F7F2",
