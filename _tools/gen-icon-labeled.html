@@ -1,0 +1,91 @@
+<!doctype html>
+<!--
+  Gera o ícone "logo + rótulo" no mesmo padrão do admin/técnico
+  (icon-*-admin.png / icon-*-tecnico.png): a marca solar/folha por cima,
+  nome do app em caixa alta embaixo, mesmo fundo claro.
+
+  Precisa rodar servido (não file://) pra desenhar a logo no canvas sem
+  "tainted canvas" (CORS) — abra via TESTAR/preview server do projeto,
+  ex.: http://localhost:8752/_tools/gen-icon-labeled.html
+
+  Uso: mude LABEL_LINES abaixo, abra a página, clique nos 3 botões de
+  baixar (cada um salva um PNG do tamanho certo). Depois mova os 3
+  arquivos baixados pra icons/, renomeando pro padrão icon-{tam}-{app}.png.
+-->
+<html>
+<head><meta charset="utf-8"><title>gerar ícone</title></head>
+<body style="font-family:sans-serif;background:#ddd;padding:20px;">
+<div id="out"></div>
+<script>
+var BG = '#F2F7F2';
+var TEXT_COLOR = '#003122';
+var LOGO_SRC = '../icons/icon-512.png'; // marca sem rótulo, já existente
+var LABEL_LINES = ['PONTO', 'ELETRÔNICO'];
+var SIZES = [512, 192, 180];
+
+var logo = new Image();
+logo.onload = function(){
+  var out = document.getElementById('out');
+  SIZES.forEach(function(size){
+    var canvas = document.createElement('canvas');
+    canvas.width = size; canvas.height = size;
+    var ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = BG;
+    ctx.fillRect(0, 0, size, size);
+
+    // Logo ocupa a faixa de cima, um pouco menor e mais alta que o
+    // arquivo original (que a folha ocupa quase o quadro todo), pra
+    // sobrar espaço pro rótulo embaixo — mesma proporção usada no
+    // admin/técnico.
+    var logoSize = size * 0.62;
+    var logoX = (size - logoSize) / 2;
+    var logoY = size * 0.06;
+    ctx.drawImage(logo, logoX, logoY, logoSize, logoSize);
+
+    // Rótulo: 1 ou 2 linhas, caixa alta, negrito, mesma cor do tema
+    // escuro (--sidebar-bg / theme_color).
+    var nLinhas = LABEL_LINES.length;
+    var fontSize = Math.round(size * (nLinhas > 1 ? 0.088 : 0.10));
+    ctx.fillStyle = TEXT_COLOR;
+    ctx.font = '900 ' + fontSize + 'px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    var lineHeight = fontSize * 1.15;
+    var blockHeight = lineHeight * nLinhas;
+    var startY = size * 0.80 - blockHeight / 2 + lineHeight / 2;
+    LABEL_LINES.forEach(function(linha, i){
+      ctx.fillText(linha, size / 2, startY + i * lineHeight);
+    });
+
+    var wrap = document.createElement('div');
+    wrap.style.display = 'inline-block';
+    wrap.style.margin = '10px';
+    wrap.style.textAlign = 'center';
+    canvas.style.border = '1px solid #999';
+    canvas.style.width = '160px';
+    canvas.style.height = '160px';
+    wrap.appendChild(canvas);
+    var label = document.createElement('div');
+    label.textContent = size + 'px';
+    wrap.appendChild(label);
+    var btn = document.createElement('a');
+    btn.textContent = 'baixar ' + size;
+    btn.href = canvas.toDataURL('image/png');
+    btn.download = 'icon-' + size + '-ponto.png';
+    btn.style.display = 'block';
+    wrap.appendChild(btn);
+    out.appendChild(wrap);
+
+    // também expõe o dataURL num atributo pra automação ler sem precisar clicar
+    canvas.setAttribute('data-url', canvas.toDataURL('image/png'));
+    canvas.id = 'canvas-' + size;
+  });
+  window.__iconsProntos = true;
+};
+logo.onerror = function(){ document.getElementById('out').textContent = 'Erro carregando ' + LOGO_SRC; };
+logo.src = LOGO_SRC;
+</script>
+</body>
+</html>
