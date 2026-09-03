@@ -3022,6 +3022,71 @@ function actionUploadFotoResposta(body) {
 
 var AUTENTIQUE_GRAPHQL_URL_ = 'https://api.autentique.com.br/v2/graphql';
 
+/**
+ * Conta quantas páginas um PDF (Blob) tem, lendo os bytes brutos como texto
+ * e procurando o "/Count N" do nó raiz da árvore de páginas — não existe
+ * API nativa do Apps Script pra isso. Técnica documentada especificamente
+ * pra PDF gerado pelo próprio Google (Docs/Sheets/HTML .getAs('application/
+ * pdf')), que é justamente o nosso caso; não é garantido funcionar com PDF
+ * de outra origem (ex.: um PDF já compactado com object streams, que esse
+ * conversor do Google não usa).
+ *
+ * Necessário porque a Ordem de Serviço tem conteúdo de tamanho variável
+ * (fotos/respostas do checklist) antes da página final de aceite/
+ * assinatura, e o contrato também pode "vazar" pra uma página a mais ou a
+ * menos dependendo do tamanho de endereço/cláusulas condicionais — sem
+ * contar de verdade, não dá pra saber em que página a assinatura cai.
+ * Fallback: se não achar o padrão (PDF vazio ou de 1 página só, às vezes
+ * sem esse nó), assume 1 página.
+ */
+function contarPaginasPdf_(pdfBlob) {
+  var texto = pdfBlob.getDataAsString('ISO-8859-1'); // preserva byte a byte, não reinterpreta como UTF-8
+  // Padrão já usado e confirmado funcionando pra PDF gerado pelo Google
+  // (fonte: labnol.org/code/20127-count-pdf-pages) — o nó raiz da árvore
+  // de páginas grava "/Type /Pages" seguido (com ou sem espaço) de
+  // "/Count N". Pega o MAIOR valor encontrado, porque um PDF pode ter mais
+  // de um nó /Pages (sub-árvores) — só a raiz tem o total certo, e ela é
+  // sempre o maior número entre todos os /Count.
+  var re = /\/Pages\s*\/Count\s+(\d+)/g, maior = 0, m;
+  while ((m = re.exec(texto))) { var n = parseInt(m[1], 10); if (n > maior) maior = n; }
+  return maior || 1;
+}
+
+/**
+ * Onde cada assinatura (marca visual da Autentique) cai no PDF — medido
+ * renderizando o HTML real numa página A4 simulada (793x1123px a 96dpi,
+ * a mesma margem do @page dos dois templates) e lendo a posição em pixels,
+ * não calculado de cabeça. x/y em % da página (0-100), conforme a Autentique
+ * espera; "ultima" em z = sempre a última página do PDF gerado (calculada
+ * na hora por contarPaginasPdf_, nunca fixa) — os dois documentos têm
+ * conteúdo de tamanho variável antes da assinatura, então NUNCA é seguro
+ * cravar um número de página fixo.
+ *
+ * Cuidado ao mexer no HTML de qualquer um desses blocos (montarHtmlOS em
+ * agendamentos.js, ou blocoAssinaturaContratada/blocoAssinaturaContratante
+ * em proposta.html): essas posições ficam desatualizadas e a marca sai do
+ * lugar. Recibo e Procuração ainda NÃO têm posição configurada aqui —
+ * saem sem marca visual até alguém desenhar uma linha de assinatura própria
+ * pra Solar Green nesses dois templates (hoje só o cliente tem linha).
+ */
+var POSICOES_ASSINATURA_ = {
+  os: {
+    empresa: [{ x: '7', y: '34', z: 'ultima', element: 'SIGNATURE' }],
+    cliente: [{ x: '52.5', y: '34', z: 'ultima', element: 'SIGNATURE' }]
+  },
+  // Monitoramento: CONTRATADA à esquerda, CONTRATANTE à direita.
+  monitoramento: {
+    empresa: [{ x: '3', y: '24', z: 'ultima', element: 'SIGNATURE' }],
+    cliente: [{ x: '61.7', y: '24', z: 'ultima', element: 'SIGNATURE' }]
+  },
+  // Manutenção: ordem invertida no HTML (CONTRATANTE à esquerda, CONTRATADA
+  // à direita) — por isso x trocado em relação ao monitoramento.
+  manutencao: {
+    empresa: [{ x: '61.7', y: '24', z: 'ultima', element: 'SIGNATURE' }],
+    cliente: [{ x: '3', y: '24', z: 'ultima', element: 'SIGNATURE' }]
+  }
+};
+
 function getOrCreatePastaOS_() {
   var nomePasta = 'Solar Green - Ordens de Serviço';
   var it = DriveApp.getFoldersByName(nomePasta);
@@ -3144,8 +3209,25 @@ function actionGerarPdfOS(body) {
  * apontando qual parte do multipart preenche qual variável, e a parte com
  * o arquivo em si). Usada tanto pela Ordem de Serviço quanto pelo Contrato
  * — cada chamador cuida só de onde salvar o resultado (link/status/id).
+ *
+ * "posicoes" (opcional) — { cliente: [...], empresa: [...] }, no formato
+ * de POSICOES_ASSINATURA_ acima. Quando informado, cada signatário ganha
+ * marca visual (o "SignerInput.positions" da Autentique) na posição dada —
+ * sem isso a assinatura sai "invisível" (só registro/certificado, sem
+ * marca nenhuma no PDF), que era o comportamento de antes de 2026-09-03.
+ * "z" pode vir como o texto 'ultima', resolvido aqui pra o número real da
+ * última página do PDF (contarPaginasPdf_) — nunca cravar um número fixo,
+ * porque os dois documentos têm tamanho variável antes da assinatura.
+ *
  * Retorna { ok:false, erro } OU { ok:true, documento, link, sandbox }.
  */
+function resolverPosicoesAssinatura_(lista, totalPaginas) {
+  if (!lista || !lista.length) return null;
+  return lista.map(function (p) {
+    var z = (p.z === 'ultima' || p.z === undefined || p.z === null) ? totalPaginas : p.z;
+    return { x: String(p.x), y: String(p.y), z: z, element: p.element || 'SIGNATURE' };
+  });
+}
 // Identidade da Solar Green como SIGNATÁRIA de verdade na Autentique (não
 // só texto no PDF) — precisa ser o mesmo e-mail dono do AUTENTIQUE_API_TOKEN
 // configurado em Script Properties, senão o signDocument() (auto-assinatura)
@@ -3153,7 +3235,7 @@ function actionGerarPdfOS(body) {
 var EMPRESA_SIGNATARIO_EMAIL_ = 'solargreensuporte@gmail.com';
 var EMPRESA_SIGNATARIO_NOME_  = 'Solar Green Suporte';
 
-function criarDocumentoNaAutentique_(fileId, clienteNome, clienteEmail, nomeDocumento) {
+function criarDocumentoNaAutentique_(fileId, clienteNome, clienteEmail, nomeDocumento, posicoes) {
   var props = PropertiesService.getScriptProperties();
   var token = props.getProperty('AUTENTIQUE_API_TOKEN');
   if (!token) return { ok: false, erro: 'Configure AUTENTIQUE_API_TOKEN em Project Settings > Script Properties.' };
@@ -3166,18 +3248,28 @@ function criarDocumentoNaAutentique_(fileId, clienteNome, clienteEmail, nomeDocu
     return { ok: false, erro: 'Não encontrei o PDF no Drive (fileId inválido).' };
   }
 
+  var totalPaginas = contarPaginasPdf_(blob);
+
   // Dois signatários: o cliente (recebe e-mail da própria Autentique) e a
   // Solar Green (assinada automaticamente logo abaixo, via signDocument —
-  // não precisa de ninguém clicar em nada do nosso lado).
+  // não precisa de ninguém clicar em nada do nosso lado). "positions" só
+  // entra quando o chamador passou "posicoes" pra esse tipo de documento
+  // (ver POSICOES_ASSINATURA_) — sem isso, cai no comportamento antigo
+  // (assinatura sem marca visual, só o registro).
   var query = 'mutation CreateDocumentMutation($document: DocumentInput!, $signers: [SignerInput!]!, $file: Upload!) { ' +
     'createDocument(document: $document, signers: $signers, file: $file, sandbox: ' + (sandbox ? 'true' : 'false') + ') { ' +
     'id name signatures { public_id email link { short_link } } } }';
+  var signerCliente = { email: clienteEmail, name: clienteNome || '', action: 'SIGN' };
+  var signerEmpresa = { email: EMPRESA_SIGNATARIO_EMAIL_, name: EMPRESA_SIGNATARIO_NOME_, action: 'SIGN' };
+  if (posicoes) {
+    var posCliente = resolverPosicoesAssinatura_(posicoes.cliente, totalPaginas);
+    var posEmpresa = resolverPosicoesAssinatura_(posicoes.empresa, totalPaginas);
+    if (posCliente) signerCliente.positions = posCliente;
+    if (posEmpresa) signerEmpresa.positions = posEmpresa;
+  }
   var variables = {
     document: { name: nomeDocumento || (clienteNome || 'Cliente') },
-    signers: [
-      { email: clienteEmail, name: clienteNome || '', action: 'SIGN' },
-      { email: EMPRESA_SIGNATARIO_EMAIL_, name: EMPRESA_SIGNATARIO_NOME_, action: 'SIGN' }
-    ],
+    signers: [signerCliente, signerEmpresa],
     file: null
   };
   var operations = JSON.stringify({ query: query, variables: variables });
@@ -3235,7 +3327,7 @@ function actionEnviarOSParaAssinatura(body) {
     return { ok: false, erro: 'A Ordem de Serviço só pode ser enviada pra assinatura depois que o atendimento é marcado como Concluído.' };
   }
 
-  var resultado = criarDocumentoNaAutentique_(fileId, clienteNome, clienteEmail, body.nomeDocumento || ('Ordem de Serviço - ' + (clienteNome || 'Cliente')));
+  var resultado = criarDocumentoNaAutentique_(fileId, clienteNome, clienteEmail, body.nomeDocumento || ('Ordem de Serviço - ' + (clienteNome || 'Cliente')), POSICOES_ASSINATURA_.os);
   if (!resultado.ok) return resultado;
   var documento = resultado.documento, link = resultado.link;
 
@@ -3399,7 +3491,11 @@ function actionEnviarContratoParaAssinatura(body) {
     var arquivo = pasta.createFile(pdfBlob);
     arquivo.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
 
-    var resultado = criarDocumentoNaAutentique_(arquivo.getId(), clienteNome, clienteEmail, body.nomeDocumento || ('Contrato - ' + (clienteNome || 'Cliente')));
+    // Recibo/Procuração ainda não têm posição configurada (ver comentário
+    // de POSICOES_ASSINATURA_) — undefined aqui faz criarDocumentoNaAutentique_
+    // cair no comportamento antigo pra esses dois tipos (sem marca visual),
+    // em vez de dar erro.
+    var resultado = criarDocumentoNaAutentique_(arquivo.getId(), clienteNome, clienteEmail, body.nomeDocumento || ('Contrato - ' + (clienteNome || 'Cliente')), POSICOES_ASSINATURA_[tipoContrato]);
     if (!resultado.ok) return resultado;
     var documento = resultado.documento, link = resultado.link;
 
