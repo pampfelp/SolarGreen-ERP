@@ -365,7 +365,7 @@
       return '<div class="form-field" data-tipo="Foto" data-tpl="'+escapeHtml(tpl.IdTemplate)+'" data-obrig="'+(obrig?'1':'0')+'">'+
         '<label>'+escapeHtml(tpl.TextoPergunta)+reqMark+'</label>'+servTag+
         '<div class="photo-field'+(temFoto?' filled':'')+'" id="ph-'+fid+'">'+
-          (temFoto?'<img src="'+escapeHtml(valorAtual)+'" alt="foto">':'')+
+          (temFoto?'<img class="resp-foto-thumb" src="'+escapeHtml(valorAtual)+'" alt="foto" style="cursor:zoom-in;">':'')+
           '<div class="ph-btn-row">'+
             '<label class="ph-btn" for="'+fid+'_cam">📷 Tirar foto</label>'+
             '<label class="ph-btn" for="'+fid+'_gal">🖼 Galeria</label>'+
@@ -773,7 +773,7 @@
     var preview;
     if(tipo==='Foto'){
       if(valor&&/^(https?:|data:image)/.test(valor)){
-        preview='<img src="'+escapeHtml(valor)+'" style="max-width:130px;max-height:130px;border-radius:8px;margin-top:6px;display:block;object-fit:cover;">';
+        preview='<img class="resp-foto-thumb" src="'+escapeHtml(valor)+'" style="max-width:130px;max-height:130px;border-radius:8px;margin-top:6px;display:block;object-fit:cover;cursor:zoom-in;">';
       }else if(valor){
         preview='<div style="font-size:12px;color:var(--debit);margin-top:4px;">⚠ foto não reconhecida ("'+escapeHtml(valor)+'") — toque em editar pra reenviar.</div>';
       }else{
@@ -1171,6 +1171,17 @@
     agendamentoAtual=null;
   }
   document.getElementById('btn-back').addEventListener('click',fecharDetalhe);
+
+  // Foto ampliada — um listener delegado só, no container que nunca é
+  // recriado (só o innerHTML muda a cada render), em vez de rewire a cada
+  // vez que uma miniatura nova aparece (resposta salva ou campo pendente
+  // aberto). Cobre as duas miniaturas que existem hoje: a do resumo
+  // "Respostas" e a do campo de foto ainda sendo preenchido.
+  document.getElementById('det-body').addEventListener('click',function(e){
+    if(e.target&&e.target.classList&&e.target.classList.contains('resp-foto-thumb')){
+      window.SGFotoModal.abrir(e.target.src);
+    }
+  });
 
   // ── Carregamento ──
 
