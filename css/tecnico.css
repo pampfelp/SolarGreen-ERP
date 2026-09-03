@@ -79,6 +79,12 @@
 
   .sheet-overlay{position:fixed;inset:0;background:rgba(0,20,10,.45);z-index:80;display:flex;align-items:flex-end;}
   .sheet-overlay.hidden{display:none;}
+
+  /* Foto ampliada — mesmo padrão do admin (#sgFotoModal em app.css), z-index
+     acima de qualquer sheet-overlay pra abrir por cima do formulário. */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .modal-overlay.hidden{display:none;}
+  .modal-overlay img{max-width:92vw;max-height:92vh;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.5);cursor:zoom-out;}
   .sheet-card{width:100%;background:#fff;border-radius:18px 18px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));max-height:80vh;overflow-y:auto;}
   .sheet-card h3{font-family:var(--unbounded);font-size:15px;margin-bottom:16px;}
   .sheet-field{margin-bottom:16px;}

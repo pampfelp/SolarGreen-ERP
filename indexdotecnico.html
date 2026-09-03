@@ -8,16 +8,26 @@
 <meta name="apple-mobile-web-app-title" content="SG Técnico">
 <meta name="theme-color" content="#003122">
 <title>Solar Green · Técnico</title>
-<link rel="manifest" href="manifest-tecnico.json?v=20260830b">
+<link rel="manifest" href="manifest-tecnico.json?v=20260902a">
 <link rel="icon" type="image/png" href="icons/icon-192.png?v=20260830a">
 <link rel="icon" type="image/x-icon" href="favicon_1.ico?v=20260830a">
 <link rel="apple-touch-icon" href="icons/icon-180-tecnico.png?v=20260830b">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/tecnico.css?v=20260827b">
+<link rel="stylesheet" href="css/tecnico.css?v=20260902a">
 </head>
 <body>
+
+<!-- Foto ampliada — mesmo padrão do admin (index.html #sgFotoModal): clicar
+     numa foto de resposta (link do Drive OU base64 do Firestore) abre aqui
+     em vez de tentar abrir aba nova — window.open com uma data: URI é
+     bloqueado silenciosamente pelo Chrome (proteção contra phishing), então
+     não funciona assim que a foto vem em base64 direto do Firestore. Fecha
+     tocando na própria foto/fundo ou apertando Esc. -->
+<div class="modal-overlay hidden" id="sgFotoModal">
+  <img id="sgFoto-img" src="" alt="Foto ampliada">
+</div>
 
 <div id="login-screen">
   <div class="login-card">
@@ -378,9 +388,10 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="js/tecnico-firebase-init.js?v=20260830a"></script>
+<script src="js/tecnico-foto-modal.js?v=20260902a"></script>
 <script src="js/tecnico-router.js?v=20260827b"></script>
 <script src="js/tecnico-auth.js?v=20260827b"></script>
-<script src="js/tecnico-agendamentos.js?v=20260830a"></script>
+<script src="js/tecnico-agendamentos.js?v=20260902a"></script>
 <script src="js/tecnico-dimensionamento.js?v=20260827b"></script>
 
 <div id="sg-install-banner">
