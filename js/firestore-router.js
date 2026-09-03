@@ -182,7 +182,12 @@
     // dentro do próprio Funil (2026-08-24) — mesmo widget que já existia
     // em Vendas, agora também na tela onde o vendedor passa o dia.
     return Promise.all([getColecao('vendedores'),getColecao('funil'),getColecao('clientes'),getColecao('servicos'),getColecao('vendas'),getColecao('funil_pipelines')]).then(function(r){
-      return {ok:true, vendedores:r[0], funil:r[1], clientes:r[2], servicos:r[3], vendas:r[4], funilPipelines:r[5], funilLog:[], funilSLA:[]};
+      // funilSLA: removido em 2026-09-03 — nunca foi ligado de verdade
+      // (sempre vazio), o prazo por etapa agora mora dentro do próprio
+      // funilPipelines[].Etapas[] (DiasAmarelo/DiasVermelho). funilLog
+      // continua fixo vazio de propósito, ver comentário de
+      // computeDataProcesso em js/funil.js.
+      return {ok:true, vendedores:r[0], funil:r[1], clientes:r[2], servicos:r[3], vendas:r[4], funilPipelines:r[5], funilLog:[]};
     }).catch(function(err){ return {ok:false, erro:err.message}; });
   }
 
