@@ -2,7 +2,6 @@
 (function(){
 
   var funilRecords  = [];
-  var funilSLAMap   = {};     // ← regras de SLA por etapa { etapa: { diasAmarelo, diasVermelho } }
   var vendedoresMap = {};
   var vendedoresTodosMap = {}; // sem filtro por dono — pro dropdown de atribuição
   var clientesMap   = {};
@@ -114,19 +113,6 @@
   }
   function nomeServicoFunil(id){ if(!id)return'—'; var s=servicosMapFunil[id]; return(s&&s['Nome Servico'])||String(id).slice(0,8); }
 
-  // processa regras SLA
-  function processFunilSLA(list){
-    var map={};
-    list.forEach(function(o){
-      if(!o.Etapa)return;
-      map[o.Etapa.trim()]={
-        diasAmarelo:parseInt(o.DiasAmarelo,10)||999,
-        diasVermelho:parseInt(o.DiasVermelho,10)||999
-      };
-    });
-    return map;
-  }
-
   /**
    * Data mais recente em que o lead entrou na etapa ATUAL — fallback: data
    * de criação do lead. Corrigido em 2026-08-25 (bug real, achado pelo
@@ -170,12 +156,33 @@
     return Math.floor((hM-dpM)/(1000*60*60*24));
   }
 
-  // cor SLA baseada nas regras da planilha
-  function getSLAColor(dias,etapa){
-    var regra=funilSLAMap[etapa];
-    if(!regra)return'green';
-    if(dias>=regra.diasVermelho)return'red';
-    if(dias>=regra.diasAmarelo)return'yellow';
+  /**
+   * Cor SLA (bolinha verde/amarela/vermelha ao lado dos dias na etapa).
+   *
+   * Corrigido em 2026-09-03 (bug real, pendencias.md desde 2026-08-25): lia
+   * de `funilSLAMap`, alimentado por `resp.funilSLA` — e `getFunilData` em
+   * firestore-router.js sempre devolvia `funilSLA:[]` fixo, igual o
+   * `funilLog:[]` do bug de "Data da última movimentação" (mesma família:
+   * fonte nunca ligada na migração pro Firestore). Resultado: `regra` nunca
+   * existia, a bolinha ficava sempre verde, não importa há quanto tempo o
+   * lead estava parado.
+   *
+   * Em vez de criar uma coleção nova (recomendação já registrada no segundo
+   * cérebro), o prazo mora na própria etapa do pipeline (`DiasAmarelo`/
+   * `DiasVermelho` em `funilPipelines/{id}/Etapas[]`), editável na tela de
+   * configuração de pipeline que já existe — sem listener novo, sem tela
+   * nova. Etapa sem prazo configurado (campo vazio, não 0) continua verde,
+   * que é o comportamento de sempre — 0 fica reservado pra "vira amarelo/
+   * vermelho imediatamente", uma escolha real que o Felipe pode querer.
+   */
+  function getSLAColor(dias,etapaNome,idPipeline){
+    var pipe=pipelinePorId(idPipeline);
+    var etapa=pipe&&pipe.Etapas?pipe.Etapas.filter(function(e){return e.Nome===etapaNome;})[0]:null;
+    if(!etapa)return'green';
+    var temVermelho=etapa.DiasVermelho!==''&&etapa.DiasVermelho!==undefined&&etapa.DiasVermelho!==null;
+    var temAmarelo=etapa.DiasAmarelo!==''&&etapa.DiasAmarelo!==undefined&&etapa.DiasAmarelo!==null;
+    if(temVermelho&&dias>=etapa.DiasVermelho)return'red';
+    if(temAmarelo&&dias>=etapa.DiasAmarelo)return'yellow';
     return'green';
   }
 
@@ -269,7 +276,7 @@
       r.dataProcessoKey = r.dataProcesso ? dateKey(r.dataProcesso) : r.dateKey; // ← chave usada para o filtro de período
       r.temLog = r.dataProcesso !== r.dt; // se diverge de dt, veio do log
       r.diasNaEtapa = getDiasNaEtapa(r.dataProcesso);
-      r.slaColor = getSLAColor(r.diasNaEtapa,r.etapa);
+      r.slaColor = getSLAColor(r.diasNaEtapa,r.etapa,r.pipeline);
     });
   }
 
@@ -1956,11 +1963,10 @@
     clientesMap={};(resp.clientes||[]).forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
     servicosMapFunil={};(resp.servicos||[]).forEach(function(s){if(s.IdServico)servicosMapFunil[s.IdServico]=s;});
 
-    // carrega SLA antes de processar os leads
-    funilSLAMap     = processFunilSLA(resp.funilSLA||[]);
-
     // Pipelines ANTES de processFunil — processFunil usa o primeiro
-    // pipeline como fallback pra card sem Pipeline gravado.
+    // pipeline como fallback pra card sem Pipeline gravado. DiasAmarelo/
+    // DiasVermelho por etapa alimentam getSLAColor() (ver comentário lá) —
+    // '' preserva "sem prazo configurado" (nunca virar 0 por acidente).
     funilPipelines=(resp.funilPipelines||[]).map(function(p){
       return {
         IdPipeline:p.IdPipeline||p.idPipeline||'',
@@ -1968,7 +1974,15 @@
         Ordem:parseInt(p.Ordem,10)||0,
         Protegido:!!p.Protegido,
         AutomacaoVenda:!!p.AutomacaoVenda,
-        Etapas:(p.Etapas||[]).map(function(e,i){ return {Nome:e.Nome||'',Ordem:(e.Ordem!==undefined?parseInt(e.Ordem,10):i)||0,Papel:e.Papel||''}; })
+        Etapas:(p.Etapas||[]).map(function(e,i){
+          return {
+            Nome:e.Nome||'',
+            Ordem:(e.Ordem!==undefined?parseInt(e.Ordem,10):i)||0,
+            Papel:e.Papel||'',
+            DiasAmarelo:(e.DiasAmarelo===''||e.DiasAmarelo===undefined||e.DiasAmarelo===null)?'':parseInt(e.DiasAmarelo,10),
+            DiasVermelho:(e.DiasVermelho===''||e.DiasVermelho===undefined||e.DiasVermelho===null)?'':parseInt(e.DiasVermelho,10)
+          };
+        })
       };
     }).filter(function(p){ return p.IdPipeline&&p.Nome; });
     if(!pipelinePorId(pipelineAtivo)){
@@ -2070,57 +2084,83 @@
     renderEtapasPipeline(p?(p.Etapas||[]).slice().sort(function(a,b){return (a.Ordem||0)-(b.Ordem||0);}):[]);
   }
   var PAPEIS_ETAPA=[{v:'',t:'Nenhum'},{v:'proposta',t:'Proposta'},{v:'ganho',t:'Ganho'},{v:'perdido',t:'Perdido'}];
+  // Linhas de prazo (SLA) de cada etapa — 2ª linha do grupo, abaixo do
+  // nome/papel. Vazio = "sem prazo configurado", que é o comportamento de
+  // hoje (bolinha sempre verde) — nunca um default tipo 0/3/7 inventado por
+  // mim, porque cada etapa tem um ritmo esperado diferente e só o Felipe
+  // sabe qual (ver getSLAColor()).
+  function htmlPrazosEtapa(e){
+    return '<div class="fp-etapa-prazos">'+
+      '<label><span class="fp-etapa-prazo-dot" style="background:var(--warn);"></span>Fica amarelo depois de '+
+        '<input type="number" class="fp-etapa-prazo-amarelo" min="0" step="1" placeholder="—" value="'+escapeHtml(e.DiasAmarelo===''||e.DiasAmarelo===undefined||e.DiasAmarelo===null?'':e.DiasAmarelo)+'">'+
+        ' dia(s) parado</label>'+
+      '<label><span class="fp-etapa-prazo-dot" style="background:var(--debit);"></span>Fica vermelho depois de '+
+        '<input type="number" class="fp-etapa-prazo-vermelho" min="0" step="1" placeholder="—" value="'+escapeHtml(e.DiasVermelho===''||e.DiasVermelho===undefined||e.DiasVermelho===null?'':e.DiasVermelho)+'">'+
+        ' dia(s) parado</label>'+
+    '</div>';
+  }
   function renderEtapasPipeline(etapas){
     var wrap=document.getElementById('fp-etapasList');
     wrap.innerHTML=(etapas||[]).map(function(e){
       var opts=PAPEIS_ETAPA.map(function(o){return '<option value="'+o.v+'"'+(o.v===(e.Papel||'')?' selected':'')+'>'+o.t+'</option>';}).join('');
-      return '<div class="fp-etapa-row">'+
-        '<input type="text" class="fp-etapa-nome" placeholder="Nome da etapa" value="'+escapeHtml(e.Nome||'')+'">'+
-        '<select class="fp-etapa-papel">'+opts+'</select>'+
-        '<button type="button" class="fp-etapa-subir" title="Subir">&#9650;</button>'+
-        '<button type="button" class="fp-etapa-descer" title="Descer">&#9660;</button>'+
-        '<button type="button" class="fp-etapa-remover" title="Remover">&#10005;</button>'+
+      return '<div class="fp-etapa-grupo">'+
+        '<div class="fp-etapa-row">'+
+          '<input type="text" class="fp-etapa-nome" placeholder="Nome da etapa" value="'+escapeHtml(e.Nome||'')+'">'+
+          '<select class="fp-etapa-papel">'+opts+'</select>'+
+          '<button type="button" class="fp-etapa-subir" title="Subir">&#9650;</button>'+
+          '<button type="button" class="fp-etapa-descer" title="Descer">&#9660;</button>'+
+          '<button type="button" class="fp-etapa-remover" title="Remover">&#10005;</button>'+
+        '</div>'+
+        htmlPrazosEtapa(e)+
       '</div>';
     }).join('');
+    wireEtapaGrupoBtns(wrap);
+  }
+  function wireEtapaGrupoBtns(wrap){
     wrap.querySelectorAll('.fp-etapa-remover').forEach(function(btn){
-      btn.addEventListener('click',function(){ btn.closest('.fp-etapa-row').remove(); });
+      btn.addEventListener('click',function(){ btn.closest('.fp-etapa-grupo').remove(); });
     });
     wrap.querySelectorAll('.fp-etapa-subir').forEach(function(btn){
       btn.addEventListener('click',function(){
-        var row=btn.closest('.fp-etapa-row'),ant=row.previousElementSibling;
-        if(ant)row.parentNode.insertBefore(row,ant);
+        var grupo=btn.closest('.fp-etapa-grupo'),ant=grupo.previousElementSibling;
+        if(ant)grupo.parentNode.insertBefore(grupo,ant);
       });
     });
     wrap.querySelectorAll('.fp-etapa-descer').forEach(function(btn){
       btn.addEventListener('click',function(){
-        var row=btn.closest('.fp-etapa-row'),prox=row.nextElementSibling;
-        if(prox)row.parentNode.insertBefore(prox,row);
+        var grupo=btn.closest('.fp-etapa-grupo'),prox=grupo.nextElementSibling;
+        if(prox)grupo.parentNode.insertBefore(prox,grupo);
       });
     });
   }
   function lerEtapasPipeline(){
-    return Array.from(document.querySelectorAll('#fp-etapasList .fp-etapa-row')).map(function(row,i){
+    return Array.from(document.querySelectorAll('#fp-etapasList .fp-etapa-grupo')).map(function(grupo,i){
+      var vAmarelo=grupo.querySelector('.fp-etapa-prazo-amarelo').value.trim();
+      var vVermelho=grupo.querySelector('.fp-etapa-prazo-vermelho').value.trim();
       return {
-        Nome:row.querySelector('.fp-etapa-nome').value.trim(),
-        Papel:row.querySelector('.fp-etapa-papel').value||'',
-        Ordem:i
+        Nome:grupo.querySelector('.fp-etapa-nome').value.trim(),
+        Papel:grupo.querySelector('.fp-etapa-papel').value||'',
+        Ordem:i,
+        DiasAmarelo:vAmarelo===''?'':(parseInt(vAmarelo,10)||0),
+        DiasVermelho:vVermelho===''?'':(parseInt(vVermelho,10)||0)
       };
     }).filter(function(e){ return !!e.Nome; });
   }
   function adicionarEtapaPipeline(){
     var wrap=document.getElementById('fp-etapasList');
     var div=document.createElement('div');
-    div.className='fp-etapa-row';
+    div.className='fp-etapa-grupo';
     var opts=PAPEIS_ETAPA.map(function(o){return '<option value="'+o.v+'">'+o.t+'</option>';}).join('');
-    div.innerHTML='<input type="text" class="fp-etapa-nome" placeholder="Nome da etapa">'+
+    div.innerHTML='<div class="fp-etapa-row">'+
+      '<input type="text" class="fp-etapa-nome" placeholder="Nome da etapa">'+
       '<select class="fp-etapa-papel">'+opts+'</select>'+
       '<button type="button" class="fp-etapa-subir" title="Subir">&#9650;</button>'+
       '<button type="button" class="fp-etapa-descer" title="Descer">&#9660;</button>'+
-      '<button type="button" class="fp-etapa-remover" title="Remover">&#10005;</button>';
+      '<button type="button" class="fp-etapa-remover" title="Remover">&#10005;</button>'+
+    '</div>'+
+    htmlPrazosEtapa({DiasAmarelo:'',DiasVermelho:''});
     wrap.appendChild(div);
-    div.querySelector('.fp-etapa-remover').addEventListener('click',function(){ div.remove(); });
-    div.querySelector('.fp-etapa-subir').addEventListener('click',function(){ var a=div.previousElementSibling; if(a)wrap.insertBefore(div,a); });
-    div.querySelector('.fp-etapa-descer').addEventListener('click',function(){ var p=div.nextElementSibling; if(p)wrap.insertBefore(p,div); });
+    wireEtapaGrupoBtns(div); // escopado só ao grupo novo — não redespacha listener nas linhas já existentes
     div.querySelector('.fp-etapa-nome').focus();
   }
   function salvarPipelineAtual(){
