@@ -4,7 +4,7 @@
   "short_name": "SG Ponto",
   "description": "Registro de ponto da equipe Solar Green: horário, localização e foto.",
   "start_url": "./ponto.html",
-  "scope": "./",
+  "scope": "./ponto.html",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#F2F7F2",

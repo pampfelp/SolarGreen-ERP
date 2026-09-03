@@ -4,7 +4,7 @@
   "short_name": "SG Dimension.",
   "description": "Calculadora de dimensionamento de sistemas solares Solar Green.",
   "start_url": "./dimensionamento_solar.html",
-  "scope": "./",
+  "scope": "./dimensionamento_solar.html",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#F2F7F2",

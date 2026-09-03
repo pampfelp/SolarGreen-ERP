@@ -4,7 +4,7 @@
   "short_name": "SG Painéis",
   "description": "Dashboard administrativo Solar Green: vendas, funil, agendamentos, clientes e financeiro.",
   "start_url": "./index.html",
-  "scope": "./",
+  "scope": "./index.html",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#F2F7F2",
