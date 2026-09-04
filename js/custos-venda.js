@@ -311,7 +311,9 @@
   function aplicarDados(resp){
     custos=resp.custos||[];
     vendas=resp.vendas||[];
-    clientesMap={};(resp.clientes||[]).forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
+    // resp.clientes agora traz só os clientes citados pelas vendas (não a
+    // coleção inteira) — ver getCustosVendaData no firestore-router. Não zera.
+    (resp.clientes||[]).forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
     servicosMap={};(resp.servicos||[]).forEach(function(s){if(s.IdServico)servicosMap[s.IdServico]=s;});
     document.getElementById('cv-emptyState').style.display='none';
     document.getElementById('cv-appVersion').textContent='v'+APP_VERSION;

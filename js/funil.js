@@ -97,6 +97,56 @@
     return r.atividadeAdm?(nome+' — '+r.atividadeAdm):nome;
   }
   function telefoneClienteFor(id){ if(!id)return''; var c=clientesMap[id]; return c?(c.Telefone||''):''; }
+
+  /**
+   * Preenche clientesMap com os nomes/telefones que já vêm gravados na
+   * própria linha do lead (NomeCliente/TelefoneCliente — 2026-09-03). Assim a
+   * lista e o Kanban mostram o nome certo SEM baixar a coleção `clientes`
+   * inteira, que era o que estourava a cota diária de leitura do Firestore.
+   * Não sobrescreve um registro que já esteja completo (carga sob demanda ou
+   * atualizarClienteCache) — só marca `_parcial` no que veio só do denorm,
+   * pra renderInfoClienteFunil saber que precisa buscar o cliente completo.
+   */
+  function seedClientesDoDenorm(records){
+    (records||[]).forEach(function(r){
+      if(!r.idCliente)return;
+      var atual=clientesMap[r.idCliente];
+      if(atual&&!atual._parcial)return; // já temos o cliente completo
+      if(!r.nomeCliente&&!(atual&&atual['Nome Razao Social']))return;
+      clientesMap[r.idCliente]={
+        IdCliente:r.idCliente,
+        'Nome Razao Social':r.nomeCliente||(atual&&atual['Nome Razao Social'])||'',
+        Telefone:r.telefoneCliente||(atual&&atual.Telefone)||'',
+        _parcial:true
+      };
+    });
+  }
+
+  /**
+   * Carrega a coleção `clientes` inteira UMA vez por sessão, só quando alguém
+   * de fato precisa do seletor de cliente (abrir "Novo lead", trocar o cliente
+   * de um lead, ou o cadastro rápido). Usa o registro compartilhado
+   * (SGUtil.assinarColecao), então Vendas/Agendamentos/Clientes reaproveitam
+   * essa mesma carga. Quem só olha a lista/Kanban ou mexe em etapa/atividade
+   * nunca dispara isso.
+   */
+  var _clientesAssinados=false;
+  var _renderOpcoesClienteFunil=null; // setado por wireComboCliente pra o callback de carga poder repintar o dropdown
+  function garantirClientesCarregados(){
+    if(_clientesAssinados)return;
+    _clientesAssinados=true;
+    window.SGUtil.assinarColecao('clientes',function(lista){
+      lista.forEach(function(c){ if(c.IdCliente)clientesMap[c.IdCliente]=c; });
+      // Se algum combo/painel de cliente estiver aberto agora, redesenha com a lista cheia.
+      if(_renderOpcoesClienteFunil&&document.getElementById('fd-clienteDropdown')&&!document.getElementById('fd-clienteDropdown').classList.contains('hidden')){
+        _renderOpcoesClienteFunil((document.getElementById('fd-clienteBusca')||{}).value||'');
+      }
+      if(document.getElementById('fd-cliente')&&typeof renderInfoClienteFunil==='function')renderInfoClienteFunil();
+      var crEl=document.getElementById('clienteRapidoDetalhe');
+      if(crEl&&crEl.classList.contains('active')&&typeof verificarDuplicidadeClienteRapido==='function')verificarDuplicidadeClienteRapido();
+    });
+  }
+
   function copiarTelefone(tel,e){
     if(e)e.stopPropagation();
     if(!tel)return;
@@ -233,6 +283,10 @@
       var dt=parseBRDate(o.DataCriacao||o['Data Criacao']||o.Data||'');
       return{
         id:o.IdFunil||o.IdOportunidade,idCliente:o.IdCliente,idVendedor:o.IdVendedor,idServico:o.IdServico,
+        // Nome/telefone do cliente desnormalizados na própria linha (2026-09-03)
+        // — o Funil não baixa mais a coleção `clientes` inteira só pra mostrar
+        // a lista. Ver seedClientesDoDenorm e segundo-cerebro/padroes/dados-e-seguranca.md.
+        nomeCliente:(o.NomeCliente||'').trim(),telefoneCliente:(o.TelefoneCliente||'').trim(),
         etapa:(o.Etapa||'').trim(),obs:(o.Observacoes||o.Observacao||o.Observação||'').trim(),
         motivoPerda:(o.MotivoPerda||o['Motivo Perda']||'').trim(),dt:dt,dateKey:dt?dateKey(dt):null,
         valor:parseFloat(String((o['Valor Estimado']!==undefined&&o['Valor Estimado']!=='')?o['Valor Estimado']:(o.Valor||'0')).replace(',','.'))||0,
@@ -844,6 +898,7 @@
    * agora sobre um subconjunto de leads em vez de todos).
    */
   function abrirRelatorioFunil(){
+    garantirFunilCompleto(); // o relatório olha o histórico todo, não só a janela recente
     var from=(document.getElementById('f-dateFrom')||{}).value||'';
     var to=(document.getElementById('f-dateTo')||{}).value||'';
     var vend=(document.getElementById('f-selVendedor')||{}).value||'__all__';
@@ -1179,6 +1234,15 @@
     if(!r)return;
     leadAtual=r;
     var c=clientesMap[r.idCliente]||{};
+    // Só temos o nome desnormalizado (ou nem isso) — busca o cliente completo
+    // (1 leitura, com cache) e reabre a visualização com telefone/e-mail/CPF/endereço.
+    if(r.idCliente&&(!clientesMap[r.idCliente]||clientesMap[r.idCliente]._parcial)){
+      window.SGUtil.buscarClientePorId(r.idCliente).then(function(full){
+        if(!full)return;
+        clientesMap[r.idCliente]=full;
+        if(leadAtual&&String(leadAtual.id)===String(idOportunidade))abrirVisualizacaoLead(idOportunidade);
+      });
+    }
     var etapasOpts=etapasDoPipeline(r.pipeline).map(function(e){return '<option value="'+escapeHtml(e)+'" '+(e===r.etapa?'selected':'')+'>'+escapeHtml(e)+'</option>';}).join('');
     var html='<div class="ad-section">'+
       '<div class="ad-row" style="margin-top:0;align-items:center;">'+
@@ -1447,6 +1511,14 @@
 
     function renderOpcoes(filtro){
       var termo=(filtro||'').trim().toLowerCase();
+      // A lista completa só existe depois de garantirClientesCarregados().
+      // Enquanto carrega, mostra aviso em vez de "nenhum cliente encontrado".
+      if(!_clientesAssinados||(!Object.keys(clientesMap).length)){
+        garantirClientesCarregados();
+        dropdown.innerHTML='<div class="combo-empty">Carregando clientes…</div>';
+        dropdown.classList.remove('hidden');
+        return;
+      }
       var lista=Object.keys(clientesMap).map(function(id){return clientesMap[id];})
         .filter(function(c){
           if(!termo)return true;
@@ -1473,8 +1545,9 @@
         });
       });
     }
+    _renderOpcoesClienteFunil=renderOpcoes;
     input.addEventListener('input',function(){ hidden.value=''; renderOpcoes(input.value); renderInfoClienteFunil(); });
-    input.addEventListener('focus',function(){ renderOpcoes(input.value); });
+    input.addEventListener('focus',function(){ garantirClientesCarregados(); renderOpcoes(input.value); });
     input.addEventListener('blur',function(){ setTimeout(function(){ dropdown.classList.add('hidden'); },150); });
   }
 
@@ -1488,9 +1561,22 @@
     var painel=document.getElementById('fd-clienteInfoPanel');
     if(!painel)return;
     var idCliente=document.getElementById('fd-cliente')?document.getElementById('fd-cliente').value:'';
-    var c=idCliente?clientesMap[idCliente]:null;
-    if(!c){
+    if(!idCliente){
       painel.innerHTML='<div class="cip-row"><span class="cip-val">Selecione um cliente para ver telefone, e-mail e endereço.</span></div>';
+      return;
+    }
+    var c=clientesMap[idCliente];
+    // Só temos o nome desnormalizado (ou nem isso) — busca o cliente completo
+    // (uma leitura, com cache) pra mostrar e-mail/CPF/endereço, sem baixar a
+    // coleção inteira. Ver SGUtil.buscarClientePorId.
+    if(!c||c._parcial){
+      painel.innerHTML='<div class="cip-row"><span class="cip-val">Carregando contato do cliente…</span></div>';
+      window.SGUtil.buscarClientePorId(idCliente).then(function(full){
+        if(!full){ painel.innerHTML='<div class="cip-row"><span class="cip-val">Contato do cliente não encontrado.</span></div>'; return; }
+        clientesMap[idCliente]=full;
+        var atual=document.getElementById('fd-cliente');
+        if(atual&&atual.value===idCliente)renderInfoClienteFunil();
+      });
       return;
     }
     var telefone=c.Telefone||'—';
@@ -1563,6 +1649,7 @@
    * de onde parou.
    */
   function abrirClienteRapido(){
+    garantirClientesCarregados(); // o aviso de cliente duplicado precisa da lista completa
     document.getElementById('cr-nome').value='';
     document.getElementById('cr-tipoPessoa').value='Física';
     document.getElementById('cr-nomeMae').value='';
@@ -1960,7 +2047,13 @@
     // Sem filtro por dono — usado só pro dropdown "atribuir a" no painel de edição,
     // já que qualquer vendedor pode passar um lead pra outro colega.
     vendedoresTodosMap={};(resp.vendedores||[]).forEach(function(v){if(v.IdVendedor)vendedoresTodosMap[v.IdVendedor]=v;});
-    clientesMap={};(resp.clientes||[]).forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
+    // clientesMap NÃO é mais zerado aqui: `resp.clientes` normalmente vem
+    // vazio (o Funil não assina mais essa coleção — ver fetchData). O mapa é
+    // preenchido pelos nomes desnormalizados de cada lead (seedClientesDoDenorm,
+    // abaixo) e enriquecido sob demanda (garantirClientesCarregados / painel de
+    // contato). Se um dia `resp.clientes` vier cheio (carga completa já feita
+    // na sessão), o merge abaixo aproveita.
+    (resp.clientes||[]).forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
     servicosMapFunil={};(resp.servicos||[]).forEach(function(s){if(s.IdServico)servicosMapFunil[s.IdServico]=s;});
 
     // Pipelines ANTES de processFunil — processFunil usa o primeiro
@@ -1991,6 +2084,13 @@
     }
 
     funilRecords=processFunil(fFunil);
+    seedClientesDoDenorm(funilRecords);
+    // Rede de segurança: se muitos leads ainda não têm o nome desnormalizado
+    // (o backfill _tools/backfill-nome-cliente.js ainda não rodou), carrega a
+    // coleção `clientes` uma vez em vez de mostrar o id em vez do nome. Some
+    // sozinho depois do backfill.
+    var semNomeFunil=funilRecords.filter(function(r){return r.idCliente&&!clientesMap[r.idCliente];}).length;
+    if(funilRecords.length&&semNomeFunil>funilRecords.length*0.2)garantirClientesCarregados();
     enriquecerComSLA(funilRecords); // calcula dataProcesso/dataProcessoKey/dias/slaColor
     vendasRecords=processVendasFunil(fVendas);
 
@@ -2015,13 +2115,48 @@
     aplicarDadosFunil(dadosBrutosFunil);
     if(window.SGCache)window.SGCache.set('funil',dadosBrutosFunil);
   }
+
+  /**
+   * Janela de tempo do Funil (item 2, 2026-09-03). O Funil escuta só os leads
+   * criados nos últimos JANELA_FUNIL_MESES meses — leads mais antigos que isso
+   * ninguém abre no dia a dia, e escutar a coleção inteira é o que enche a
+   * cota de leitura junto com `clientes` (item 1). Hoje isso ainda carrega
+   * tudo (a base tem ~4 meses), mas segura o crescimento daqui pra frente.
+   *
+   * Só entra em vigor DEPOIS que _tools/backfill-criado-em.js roda e liga
+   * config/migracao.criadoEmFunil — antes, `.where('CriadoEm','>=',...)`
+   * esconderia todo lead sem o campo. E "Tudo"/Relatório do funil trazem a
+   * coleção inteira sob demanda (garantirFunilCompleto), pro dado histórico
+   * nunca sumir de vez.
+   */
+  var _usouJanelaFunil=false, _funilCompletoAtivo=false;
+  function _desdeJanelaFunil(){ return window.SGUtil.desdeJanelaFunil(); }
+  function garantirFunilCompleto(){
+    if(_funilCompletoAtivo||!_usouJanelaFunil)return; // já é a coleção inteira
+    _funilCompletoAtivo=true;
+    window.SGUtil.assinarColecao('funil',function(lista){ dadosBrutosFunil.funil=lista; recombinarDadosFunil(); });
+  }
+
   function fetchData(){
     var cache=window.SGCache&&window.SGCache.get('funil');
     if(cache&&cache.dados)aplicarDadosFunil(cache.dados); // pintura instantânea, antes do 1º snapshot
     window.SGFireReady.then(function(){
-      window.SGUtil.assinarColecao('funil',function(lista){ dadosBrutosFunil.funil=lista; recombinarDadosFunil(); });
+      apiCall('getConfigMigracao',{}).then(function(resp){
+        _usouJanelaFunil=!!(resp&&resp.ok&&resp.migracao&&resp.migracao.criadoEmFunil);
+        var opcoesFunil=_usouJanelaFunil?{
+          chave:'janela',
+          construirQuery:function(ref){ return ref.where('CriadoEm','>=',window.SGUtil.desdeJanelaFunil()); }
+        }:undefined;
+        window.SGUtil.assinarColecao('funil',function(lista){
+          if(_funilCompletoAtivo)return; // o listener da coleção inteira assumiu
+          dadosBrutosFunil.funil=lista; recombinarDadosFunil();
+        },opcoesFunil);
+      });
       window.SGUtil.assinarColecao('vendedores',function(lista){ dadosBrutosFunil.vendedores=lista; recombinarDadosFunil(); });
-      window.SGUtil.assinarColecao('clientes',function(lista){ dadosBrutosFunil.clientes=lista; recombinarDadosFunil(); });
+      // `clientes` NÃO é assinado no carregamento (2026-09-03): o nome do
+      // cliente já vem desnormalizado em cada lead. A coleção só é carregada
+      // sob demanda por garantirClientesCarregados() quando o seletor de
+      // cliente é aberto. Ver segundo-cerebro/padroes/dados-e-seguranca.md.
       window.SGUtil.assinarColecao('servicos',function(lista){ dadosBrutosFunil.servicos=lista; recombinarDadosFunil(); });
       window.SGUtil.assinarColecao('vendas',function(lista){ dadosBrutosFunil.vendas=lista; recombinarDadosFunil(); });
       window.SGUtil.assinarColecao('funil_pipelines',function(lista){ dadosBrutosFunil.funilPipelines=lista; recombinarDadosFunil(); });
@@ -2264,7 +2399,12 @@
     // de segurança real pra isso nunca ficar "preso" pros outros.
     window.addEventListener('pagehide',pararPresenca);
     document.getElementById('f-appVersion').textContent='v'+APP_VERSION;
-    document.getElementById('f-dateFrom').addEventListener('change',render);
+    document.getElementById('f-dateFrom').addEventListener('change',function(){
+      // Filtrou pra antes da janela carregada → precisa da coleção inteira.
+      var v=this.value;
+      if(v&&_usouJanelaFunil&&new Date(v+'T00:00:00')<_desdeJanelaFunil().toDate())garantirFunilCompleto();
+      render();
+    });
     document.getElementById('f-dateTo').addEventListener('change',render);
     document.getElementById('f-selVendedor').addEventListener('change',render);
     document.getElementById('f-buscaGeral').addEventListener('input',render);
@@ -2310,7 +2450,7 @@
         document.querySelectorAll('.qr-btn[data-frange]').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');
         var range=btn.getAttribute('data-frange'),now=new Date();
         function dk(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-        if(range==='all'){setDefaultRange();}else if(range==='month'){document.getElementById('f-dateFrom').value=dk(new Date(now.getFullYear(),now.getMonth(),1));document.getElementById('f-dateTo').value=dk(new Date(now.getFullYear(),now.getMonth()+1,0));}else{var n=parseInt(range,10),from=new Date(now);from.setDate(from.getDate()-(n-1));document.getElementById('f-dateFrom').value=dk(from);document.getElementById('f-dateTo').value=dk(now);}
+        if(range==='all'){garantirFunilCompleto();setDefaultRange();}else if(range==='month'){document.getElementById('f-dateFrom').value=dk(new Date(now.getFullYear(),now.getMonth(),1));document.getElementById('f-dateTo').value=dk(new Date(now.getFullYear(),now.getMonth()+1,0));}else{var n=parseInt(range,10),from=new Date(now);from.setDate(from.getDate()-(n-1));document.getElementById('f-dateFrom').value=dk(from);document.getElementById('f-dateTo').value=dk(now);}
         render();
       });
     });

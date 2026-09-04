@@ -480,18 +480,26 @@
      * funil_pipelines…) — deixar aberto custa menos do que fechar e reabrir
      * a cada troca de tela.
      */
-    assinarColecao:function(nomeColecao,aoAtualizar){
-      var estado=_colecoesAtivas[nomeColecao];
+    assinarColecao:function(nomeColecao,aoAtualizar,opcoes){
+      // opcoes (2026-09-03): { chave, construirQuery } pra escutar só uma
+      // FATIA da coleção (ex.: `.where('CriadoEm','>=', corte)` no Funil, pra
+      // não baixar leads antigos que ninguém abre). `chave` separa o registro
+      // — 'funil|janela' é um listener diferente de 'funil'. Sem opcoes, o
+      // comportamento é o de antes: escuta a coleção inteira.
+      opcoes=opcoes||{};
+      var registro=nomeColecao+(opcoes.chave?('|'+opcoes.chave):'');
+      var estado=_colecoesAtivas[registro];
       if(!estado){
         estado={ultimaLista:null,callbacks:[]};
-        _colecoesAtivas[nomeColecao]=estado;
+        _colecoesAtivas[registro]=estado;
         estado.unsub=window.SGUtil.escutarComRetry(function(){
-          return firebase.firestore().collection(nomeColecao);
+          var ref=firebase.firestore().collection(nomeColecao);
+          return opcoes.construirQuery?opcoes.construirQuery(ref):ref;
         },function(snap){
           var lista=[]; snap.forEach(function(doc){ lista.push(doc.data()); });
           estado.ultimaLista=lista;
           estado.callbacks.slice().forEach(function(cb){ cb(lista); });
-        },nomeColecao);
+        },registro);
       }
       estado.callbacks.push(aoAtualizar);
       // Já tem dado (outra tela chegou primeiro) — entrega na hora, não
@@ -501,6 +509,44 @@
       return function pararDeReceber(){
         estado.callbacks=estado.callbacks.filter(function(cb){return cb!==aoAtualizar;});
       };
+    },
+    /**
+     * Janela de tempo do Funil (item 2, 2026-09-03) — fonte única do corte.
+     * O Funil e o Dashboard escutam só leads com `CriadoEm` a partir daqui,
+     * pra não baixar a coleção inteira toda hora (era o que enchia a cota de
+     * leitura junto com `clientes`). Ver assinarColecao(...,{construirQuery}).
+     */
+    JANELA_FUNIL_MESES:18,
+    desdeJanelaFunil:function(){
+      var d=new Date();
+      d.setMonth(d.getMonth()-window.SGUtil.JANELA_FUNIL_MESES);
+      d.setHours(0,0,0,0);
+      return firebase.firestore.Timestamp.fromDate(d);
+    },
+    /**
+     * Busca UM cliente por id, com cache em memória por sessão de página
+     * (2026-09-03). Usado pelos painéis de contato/endereço do Funil, Vendas
+     * e Agendamentos, que precisam de e-mail/CPF/endereço de um cliente
+     * específico sem baixar a coleção `clientes` inteira (1.200 docs) — que
+     * era o que essas telas faziam a cada abertura e ajudava a estourar a
+     * cota diária de leitura. Uma leitura por cliente distinto, e nunca
+     * repetida. Ver segundo-cerebro/padroes/dados-e-seguranca.md.
+     */
+    buscarClientePorId:function(id){
+      if(!id)return Promise.resolve(null);
+      if(!window.SGUtil._clientesPorId)window.SGUtil._clientesPorId={};
+      var cache=window.SGUtil._clientesPorId;
+      if(cache[id])return cache[id];
+      cache[id]=firebase.firestore().collection('clientes').doc(String(id)).get().then(function(snap){
+        var dados=snap.exists?snap.data():null;
+        if(!dados)cache[id]=null; // não guarda promessa resolvida como null pra sempre — deixa tentar de novo
+        return dados;
+      }).catch(function(err){
+        cache[id]=null;
+        console.error('buscarClientePorId falhou ('+id+'):',err);
+        return null;
+      });
+      return cache[id];
     },
     /**
      * Conversas/Propostas a partir da movimentação do funil — compartilhado
