@@ -15,6 +15,68 @@
     return obj;
   }
 
+  /**
+   * Nome/telefone do cliente pra gravar DESNORMALIZADO junto do doc de
+   * funil/venda/agendamento (2026-09-03). Motivo: Funil, Vendas e
+   * Agendamentos exibiam a lista lendo a coleção `clientes` INTEIRA (1.200
+   * docs) a cada abertura — uma das causas de estourar a cota diária de
+   * leitura do Firestore (ver segundo-cerebro/padroes/dados-e-seguranca.md).
+   * Com o nome gravado na própria linha, essas telas mostram tudo sem baixar
+   * `clientes`; a coleção só é lida quando alguém abre o seletor de cliente
+   * ou o painel de contato de um lead.
+   *
+   * Custa UMA leitura por gravação — e escrita não é limitada pela cota de
+   * leitura que estoura. Se o cliente não existir, devolve {} e nada é
+   * gravado (nunca sobrescreve o nome com vazio). A fonte da verdade continua
+   * sendo `clientes`; `salvarCliente`/`updateCliente` propagam a correção
+   * pros docs que já apontam pro cliente (`propagarNomeClienteDenorm`).
+   */
+  function extraNomeCliente(idCliente){
+    if(!idCliente) return Promise.resolve({});
+    return db().collection('clientes').doc(String(idCliente)).get().then(function(snap){
+      if(!snap.exists) return {};
+      var c=snap.data()||{};
+      var nome=c['Nome Razao Social']||c.Nome||'';
+      var out={};
+      if(nome) out.NomeCliente=nome;
+      if(c.Telefone) out.TelefoneCliente=c.Telefone;
+      return out;
+    }).catch(function(){ return {}; });
+  }
+
+  /**
+   * Busca SÓ os clientes referenciados por uma lista de ids, em vez da
+   * coleção inteira (2026-09-03). Usado por telas que precisam do cliente de
+   * cada linha (Planos, Custos da Venda) mas não do cadastro todo — antes
+   * baixavam os 1.200 clientes a cada abertura. `in` aceita no máx. 30 ids
+   * por query, então quebra em lotes. IDs repetidos são deduplicados.
+   */
+  function getClientesPorIds(ids){
+    var unicos=Object.keys((ids||[]).reduce(function(m,x){ if(x)m[String(x)]=1; return m; },{}));
+    if(!unicos.length) return Promise.resolve([]);
+    var lotes=[];
+    for(var i=0;i<unicos.length;i+=30) lotes.push(unicos.slice(i,i+30));
+    return Promise.all(lotes.map(function(lote){
+      return db().collection('clientes')
+        .where(firebase.firestore.FieldPath.documentId(),'in',lote).get().then(snapshotToArray);
+    })).then(function(partes){ return partes.reduce(function(a,b){ return a.concat(b); },[]); });
+  }
+
+  /** Reflete um nome/telefone de cliente corrigido nos docs que o
+   *  desnormalizaram. Só os poucos docs daquele cliente (where + batch). */
+  function propagarNomeClienteDenorm(idCliente,nome,telefone){
+    var patch=semUndefined({ NomeCliente:nome||undefined, TelefoneCliente:telefone||undefined });
+    if(!idCliente||!Object.keys(patch).length) return Promise.resolve();
+    return Promise.all(['funil','vendas','agendamentos'].map(function(col){
+      return db().collection(col).where('IdCliente','==',String(idCliente)).get().then(function(snap){
+        if(snap.empty) return null;
+        var lote=db().batch();
+        snap.forEach(function(d){ lote.set(d.ref,patch,{merge:true}); });
+        return lote.commit();
+      });
+    }));
+  }
+
   function getClientesData(){
     return Promise.all([getColecao('clientes'),getColecao('vendedores')]).then(function(r){
       return {ok:true, clientes:r[0], vendedores:r[1]};
@@ -46,8 +108,24 @@
       NumeroUnidadeGeradora:p.numeroUnidadeGeradora||'',
       UnidadesBeneficiarias:p.unidadesBeneficiarias||[]
     };
-    return db().collection('clientes').doc(id).set(doc)
-      .then(function(){ return {ok:true,idCliente:id}; })
+    var ref=db().collection('clientes').doc(id);
+    return ref.get().then(function(snap){
+      var antigo=snap.exists?snap.data():null;
+      return ref.set(doc).then(function(){
+        // Propagação do nome desnormalizado é fire-and-forget: o cliente já
+        // está salvo e as telas abertas já corrigem o mapa em memória
+        // (propagarAtualizacaoCliente, js/clientes.js). Os docs persistidos
+        // acertam em segundo plano — e, no pior caso, no próximo save.
+        var nomeNovo=doc['Nome Razao Social']||'';
+        var telNovo=doc.Telefone||'';
+        var mudou=antigo&&((antigo['Nome Razao Social']||antigo.Nome||'')!==nomeNovo || (antigo.Telefone||'')!==telNovo);
+        if(mudou){
+          propagarNomeClienteDenorm(id,nomeNovo,telNovo).catch(function(err){
+            console.error('Propagação de NomeCliente desnormalizado falhou:',err);
+          });
+        }
+      });
+    }).then(function(){ return {ok:true,idCliente:id}; })
       .catch(function(err){ return {ok:false,erro:err.message}; });
   }
 
@@ -77,7 +155,14 @@
       DataNascimentoEquatorial:p.dataNascimentoEquatorial
     });
     return db().collection('clientes').doc(id).set(patch,{merge:true})
-      .then(function(){ return {ok:true,idCliente:id}; })
+      .then(function(){
+        if(p.nome){ // essa tela nem sempre edita o nome — fire-and-forget
+          propagarNomeClienteDenorm(id,p.nome,undefined).catch(function(err){
+            console.error('Propagação de NomeCliente desnormalizado falhou:',err);
+          });
+        }
+        return {ok:true,idCliente:id};
+      })
       .catch(function(err){ return {ok:false,erro:err.message}; });
   }
 
@@ -110,7 +195,8 @@
     // automação de demandas administrativas só roda na criação (editar o
     // valor de uma venda antiga não pode gerar as mesmas demandas de novo).
     // Mesmo padrão do DataCriacao em salvarAgendamento.
-    return ref.get().then(function(snap){
+    return Promise.all([ref.get(),extraNomeCliente(p.idCliente)]).then(function(r){
+      var snap=r[0]; Object.assign(doc,r[1]);
       var ehNovo=!snap.exists;
       return ref.set(doc).then(function(){
         if(!ehNovo)return null;
@@ -139,9 +225,11 @@
     if(!p.idServico) return Promise.resolve(null);
     return Promise.all([
       db().collection('servicos').doc(String(p.idServico)).get(),
-      db().collection('funil_pipelines').where('AutomacaoVenda','==',true).limit(1).get()
+      db().collection('funil_pipelines').where('AutomacaoVenda','==',true).limit(1).get(),
+      extraNomeCliente(p.idCliente)
     ]).then(function(r){
       var servico=r[0].exists?r[0].data():null;
+      var extraCli=r[2]||{};
       var atividades=(servico&&servico.AtividadesAdm)||[];
       if(!atividades.length||r[1].empty)return null;
       var pipeline=r[1].docs[0].data();
@@ -156,16 +244,17 @@
         var rotulo=String(atividade||'').trim();
         if(!rotulo)return;
         var idCard=window.SGId?window.SGId.gerar():String(Date.now())+Math.random().toString(16).slice(2,8);
-        lote.set(db().collection('funil').doc(idCard),{
+        lote.set(db().collection('funil').doc(idCard),semUndefined({
           IdOportunidade:idCard, Pipeline:idPipeline, Etapa:primeiraEtapa,
           IdCliente:p.idCliente||'', IdVendedor:p.idVendedor||'', IdServico:p.idServico||'',
+          NomeCliente:extraCli.NomeCliente, TelefoneCliente:extraCli.TelefoneCliente,
           AtividadeAdm:rotulo, IdVendaOrigem:p.idVenda||'', IdServicoOrigem:p.idServico||'',
           Observacoes:'', 'Valor Estimado':0, MotivoPerda:'',
-          DataCriacao:dataCriacao, Prioridade:false,
+          DataCriacao:dataCriacao, CriadoEm:firebase.firestore.FieldValue.serverTimestamp(), Prioridade:false,
           EtapasPassadas:[primeiraEtapa],
           Transicoes:[{Etapa:primeiraEtapa,Em:agora.toISOString()}],
           Atividades:[]
-        });
+        }));
       });
       return lote.commit();
     });
@@ -175,6 +264,20 @@
     return db().collection('vendas').doc(p.idVenda).delete()
       .then(function(){ return {ok:true}; })
       .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+
+  /**
+   * Flags de migração (2026-09-03) — doc único `config/migracao`. Hoje só
+   * `criadoEmFunil`: fica `true` quando o backfill de _tools/backfill-criado-em.js
+   * termina de preencher `CriadoEm` (timestamp) em todos os leads antigos. O
+   * Funil só liga a escuta por janela de tempo DEPOIS disso — antes, um
+   * `.where('CriadoEm','>=',...)` esconderia todo lead sem o campo (ou seja,
+   * todos). Uma leitura por sessão do Funil, irrelevante.
+   */
+  function getConfigMigracao(){
+    return db().collection('config').doc('migracao').get().then(function(snap){
+      return {ok:true, migracao:(snap.exists?snap.data():{})||{}};
+    }).catch(function(err){ return {ok:false, erro:err.message, migracao:{}}; });
   }
 
   function getFunilData(){
@@ -199,7 +302,8 @@
     // DataCriacao agora ou preserva a que já estava lá.
     var id=p.idOportunidade||(window.SGId?window.SGId.gerar():String(Date.now()));
     var ref=db().collection('funil').doc(id);
-    return ref.get().then(function(snap){
+    return Promise.all([ref.get(),extraNomeCliente(p.idCliente)]).then(function(r){
+      var snap=r[0], extraCli=r[1]||{};
       var agora=new Date();
       // Só registra uma transição de verdade se a etapa MUDOU (ou é a
       // primeira gravação) — sem essa checagem, editar só a observação/valor
@@ -211,6 +315,17 @@
         IdOportunidade:id, IdCliente:p.idCliente, IdVendedor:p.idVendedor, IdServico:p.idServico||'',
         Etapa:p.etapa, Observacoes:p.observacoes||'', 'Valor Estimado':parseFloat(p.valorEstimado)||0,
         MotivoPerda:p.motivoPerda||'',
+        // Nome/telefone do cliente desnormalizados (2026-09-03) — ver
+        // extraNomeCliente lá em cima. undefined quando o cliente não foi
+        // achado, e semUndefined tira o campo (nunca grava nome vazio).
+        NomeCliente:extraCli.NomeCliente, TelefoneCliente:extraCli.TelefoneCliente,
+        // Timestamp de verdade da criação (2026-09-03) — o DataCriacao string
+        // fica pra exibição/compatibilidade, mas está em dois formatos
+        // misturados ("dd/mm/aaaa" da migração de 24/08, "aaaa-mm-dd" depois)
+        // e não serve pra query de intervalo no servidor. Só grava na criação.
+        // Ver assinarColecao(...,{construirQuery}) em js/sg-auth.js e o
+        // backfill _tools/backfill-criado-em.js.
+        CriadoEm: snap.exists?undefined:firebase.firestore.FieldValue.serverTimestamp(),
         // Pipeline (2026-08-31): qual funil esse card pertence — Comercial,
         // Administrativo, Expansão... Só grava se veio no payload, pra uma
         // gravação antiga (ou de outra tela) nunca zerar o pipeline de um
@@ -507,9 +622,11 @@
     // navegador — então "veio id?" não serve pra saber se é criação.
     // semUndefined tira o campo quando é edição, então editar um agendamento
     // existente nunca sobrescreve a data de criação original.
-    return ref.get().then(function(snap){
+    return Promise.all([ref.get(),extraNomeCliente(p.idCliente)]).then(function(r){
+      var snap=r[0], extraCli=r[1]||{};
       var doc=semUndefined({
         IdAgendamento:id, IdCliente:p.idCliente||'', IdServico:p.idServico||'',
+        NomeCliente:extraCli.NomeCliente, TelefoneCliente:extraCli.TelefoneCliente,
         TecnicoResponsavel:p.tecnicoResponsavel||'', Valor:paraNumero(p.valor),
         'Data Inicio':p.dataInicio||'', 'Hora inicio':p.horaInicio||'', 'Hora Fim':p.horaFim||'',
         'Status Agendamento':p.statusAgendamento||'Agendado', 'Motivo Cancelamento':p.motivoCancelamento||'',
@@ -572,8 +689,12 @@
   // com dado próprio que agora também é Firestore de verdade (custos da
   // venda, relatórios, planos, custo recorrente, metas, permissões, ponto).
   function getCustosVendaData(){
-    return Promise.all([getColecao('vendas'),getColecao('clientes'),getColecao('servicos'),getColecao('custos_venda')]).then(function(r){
-      return {ok:true, custos:r[3], vendas:r[0], clientes:r[1], servicos:r[2]};
+    // 2026-09-03: só os clientes citados pelas vendas, não a coleção inteira.
+    return Promise.all([getColecao('vendas'),getColecao('servicos'),getColecao('custos_venda')]).then(function(r){
+      var idsCli=(r[0]||[]).map(function(v){ return v.IdCliente; });
+      return getClientesPorIds(idsCli).then(function(clientes){
+        return {ok:true, custos:r[2], vendas:r[0], clientes:clientes, servicos:r[1]};
+      });
     }).catch(function(err){ return {ok:false, erro:err.message}; });
   }
   function salvarCustoVenda(p){
@@ -612,8 +733,13 @@
   }
 
   function getPlanosData(){
-    return Promise.all([getColecao('clientes'),getColecao('vendedores'),getColecao('planos')]).then(function(r){
-      return {ok:true, planos:r[2], clientes:r[0], vendedores:r[1]};
+    // 2026-09-03: só os clientes que já têm plano. O seletor de "novo plano"
+    // carrega a lista completa sob demanda (js/planos.js).
+    return Promise.all([getColecao('vendedores'),getColecao('planos')]).then(function(r){
+      var idsCli=(r[1]||[]).map(function(p){ return p.IdCliente; });
+      return getClientesPorIds(idsCli).then(function(clientes){
+        return {ok:true, planos:r[1], clientes:clientes, vendedores:r[0]};
+      });
     }).catch(function(err){ return {ok:false, erro:err.message}; });
   }
   function salvarPlano(p){
@@ -787,6 +913,7 @@
     salvarVenda:comSync('vendas',function(p){return 'venda de R$ '+(p.valor||0);},comAuthPronto(salvarVenda)),
     excluirVenda:comSync('vendas',function(p){return 'excluir '+p.idVenda;},comAuthPronto(excluirVenda)),
     getFunilData:comAuthPronto(getFunilData),
+    getConfigMigracao:comAuthPronto(getConfigMigracao),
     salvarFunil:comSync('funil',function(p){return 'lead ('+(p.etapa||'')+')';},comAuthPronto(salvarFunil)),
     excluirFunil:comSync('funil',function(p){return 'excluir '+p.idOportunidade;},comAuthPronto(excluirFunil)),
     registrarAtividadeFunil:comSync('funil',function(p){return 'atividade ('+(p.tipo||'')+')';},comAuthPronto(registrarAtividadeFunil)),

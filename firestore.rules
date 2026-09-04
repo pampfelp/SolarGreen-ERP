@@ -106,6 +106,15 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
     }
 
+    // Flags de migração (2026-09-03) — hoje só config/migracao.criadoEmFunil,
+    // ligado pelo backfill de _tools/backfill-criado-em.js pra o Funil poder
+    // escutar só a janela recente de leads. Leitura pra qualquer logado;
+    // escrita idem (o backfill roda com Admin SDK e ignora a regra de
+    // qualquer jeito, mas deixar aberto evita erro se for setado pela tela).
+    match /config/{id} {
+      allow read, write: if isSignedIn();
+    }
+
     // Tudo o que não faz parte desse piloto fica fechado por padrão.
     match /{document=**} {
       allow read, write: if false;

@@ -52,7 +52,33 @@
   function nomeFor(id){var v=vendedoresMap[id];return(v&&v.Nome)||('Vendedor '+String(id).slice(0,8));}
 
   function processVendedores(list){vendedoresMap={};vendedoresAtivosVenda=[];list.forEach(function(v){if(!v.IdVendedor)return;vendedoresMap[v.IdVendedor]=v;if(isVendedorAtivo(v))vendedoresAtivosVenda.push(v.IdVendedor);});}
-  function processVendas(list){var out=[];list.forEach(function(o){if(!o.IdVenda)return;var dt=parseBRDate(o.DataVenda);if(!dt)return;out.push({idVenda:o.IdVenda,idCliente:o.IdCliente,idServico:o.IdServico,idVendedor:o.IdVendedor,dt:dt,dateKey:dateKey(dt),valor:parseBRNumber(o.Valor)});});return out;}
+  function processVendas(list){var out=[];list.forEach(function(o){if(!o.IdVenda)return;var dt=parseBRDate(o.DataVenda);if(!dt)return;out.push({idVenda:o.IdVenda,idCliente:o.IdCliente,idServico:o.IdServico,idVendedor:o.IdVendedor,dt:dt,dateKey:dateKey(dt),valor:parseBRNumber(o.Valor),nomeCliente:(o.NomeCliente||'').trim(),telefoneCliente:(o.TelefoneCliente||'').trim()});});return out;}
+
+  /**
+   * Preenche clientesMap com o nome já gravado em cada venda
+   * (NomeCliente — 2026-09-03), pra lista/histórico/detalhe mostrarem o nome
+   * SEM baixar a coleção `clientes` inteira (era uma das causas de estourar a
+   * cota diária de leitura). A coleção só carrega sob demanda, quando o
+   * seletor de cliente de "Nova venda" é aberto. Ver
+   * segundo-cerebro/padroes/dados-e-seguranca.md.
+   */
+  function seedClientesDoDenormVendas(records){
+    (records||[]).forEach(function(r){
+      if(!r.idCliente||clientesMap[r.idCliente])return;
+      if(!r.nomeCliente)return;
+      clientesMap[r.idCliente]={IdCliente:r.idCliente,'Nome Razao Social':r.nomeCliente,Telefone:r.telefoneCliente||'',_parcial:true};
+    });
+  }
+  var _clientesAssinadosVendas=false;
+  function garantirClientesCarregadosVendas(){
+    if(_clientesAssinadosVendas)return;
+    _clientesAssinadosVendas=true;
+    window.SGUtil.assinarColecao('clientes',function(lista){
+      lista.forEach(function(c){ if(c.IdCliente)clientesMap[c.IdCliente]=c; });
+      var busca=document.getElementById('vm-clienteBusca');
+      if(busca&&document.activeElement===busca)busca.dispatchEvent(new Event('focus'));
+    });
+  }
   function processMetas(list){var out=[];list.forEach(function(o){if(!o.IdMeta)return;out.push({mes:parseInt(o.Mes,10),ano:parseInt(o.Ano,10),valor:parseBRNumber(o.Valor)});});return out;}
   /**
    * Taxas de conversão médias (Novos Contatos/Conversas/Propostas) agora vêm
@@ -543,6 +569,7 @@
   }
 
   function opcoesClienteVenda(){
+    garantirClientesCarregadosVendas(); // abriu o seletor de cliente = precisa da lista completa
     return Object.keys(clientesMap).map(function(id){return clientesMap[id];})
       .sort(function(a,b){return (a['Nome Razao Social']||a.Nome||'').localeCompare(b['Nome Razao Social']||b.Nome||'','pt-BR');})
       .map(function(c){return {id:c.IdCliente,label:c['Nome Razao Social']||c.Nome||c.IdCliente};});
@@ -947,8 +974,15 @@
       var chave=m.IdVendedor+'|'+parseInt(m.Ano,10)+'|'+parseInt(m.Mes,10);
       metasIndividuaisMap[chave]={id:m.IdMetaIndividual,valor:parseBRNumber(m.ValorMeta)};
     });
-    clientesMap={};(resp.clientes||[]).forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
+    // clientesMap não é mais zerado (resp.clientes vem vazio — Vendas não
+    // assina mais essa coleção). Preenchido pelo nome gravado em cada venda.
+    (resp.clientes||[]).forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
     vendasRecords=processVendas(vVendas);metasRecords=processMetas(resp.metas||[]);funilRecords=processFunilVendas(vFunil);custosVendaRecords=processCustosVenda(resp.custosVenda||[]);servicosMap=processServicos(resp.servicos||[]);
+    seedClientesDoDenormVendas(vendasRecords);
+    // Rede de segurança pré-backfill (ver funil.js): se muita venda ainda não
+    // tem NomeCliente, carrega `clientes` uma vez em vez de mostrar o id.
+    var semNomeV=vendasRecords.filter(function(v){return v.idCliente&&!clientesMap[v.idCliente];}).length;
+    if(vendasRecords.length&&semNomeV>vendasRecords.length*0.2)garantirClientesCarregadosVendas();
     // As vendas do "Cliente Teste 1" (da6dbd89) são aporte de sócios, não faturamento
     // de verdade — continuam aparecendo na lista/histórico, mas não entram em
     // nenhuma conta de faturamento, ticket médio ou meta.
@@ -988,7 +1022,8 @@
       window.SGUtil.assinarColecao('vendedores',function(lista){ dadosBrutosVendas.vendedores=lista; recombinarDadosVendas(); });
       window.SGUtil.assinarColecao('vendas',function(lista){ dadosBrutosVendas.vendas=lista; recombinarDadosVendas(); });
       window.SGUtil.assinarColecao('funil',function(lista){ dadosBrutosVendas.funil=lista; recombinarDadosVendas(); });
-      window.SGUtil.assinarColecao('clientes',function(lista){ dadosBrutosVendas.clientes=lista; recombinarDadosVendas(); });
+      // `clientes` só carrega sob demanda (garantirClientesCarregadosVendas),
+      // quando o seletor de cliente de "Nova venda" abre. 2026-09-03.
       window.SGUtil.assinarColecao('servicos',function(lista){ dadosBrutosVendas.servicos=lista; recombinarDadosVendas(); });
       window.SGUtil.assinarColecao('metas',function(lista){ dadosBrutosVendas.metas=lista; recombinarDadosVendas(); });
       window.SGUtil.assinarColecao('custos_venda',function(lista){ dadosBrutosVendas.custosVenda=lista; recombinarDadosVendas(); });

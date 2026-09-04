@@ -329,11 +329,25 @@
     if(cache&&cache.dados)aplicarDados(cache.dados.vendas,cache.dados.funil); // pintura instantânea, antes do 1º snapshot
     window.SGFireReady.then(function(){
       window.SGUtil.assinarColecao('vendedores',function(lista){ dadosBrutosDash.vendas.vendedores=lista; recombinarDadosDash(); });
-      window.SGUtil.assinarColecao('clientes',function(lista){ dadosBrutosDash.vendas.clientes=lista; recombinarDadosDash(); });
+      // 2026-09-03: o Dashboard não assina mais `clientes` — não mostra nome de
+      // cliente em lugar nenhum, só cruza IdCliente com o ID do "aporte de
+      // sócios". Baixar 1.200 docs de clientes aqui era puro desperdício de
+      // cota de leitura. Ver segundo-cerebro/padroes/dados-e-seguranca.md.
       window.SGUtil.assinarColecao('servicos',function(lista){ dadosBrutosDash.vendas.servicos=lista; recombinarDadosDash(); });
       window.SGUtil.assinarColecao('vendas',function(lista){ dadosBrutosDash.vendas.vendas=lista; recombinarDadosDash(); });
       window.SGUtil.assinarColecao('custos_venda',function(lista){ dadosBrutosDash.vendas.custosVenda=lista; recombinarDadosDash(); });
-      window.SGUtil.assinarColecao('funil',function(lista){ dadosBrutosDash.funil.funil=lista; recombinarDadosDash(); });
+      // Funil pela janela de tempo (item 2, 2026-09-03) — mesma fatia que o
+      // Funil escuta, pra os dois compartilharem UM listener em vez do
+      // Dashboard reabrir a coleção inteira e anular a economia. Só vale
+      // depois do backfill (config/migracao.criadoEmFunil). O Dashboard
+      // Comercial olha conversão recente, não histórico de >18 meses.
+      apiCall('getConfigMigracao',{}).then(function(resp){
+        var usarJanela=!!(resp&&resp.ok&&resp.migracao&&resp.migracao.criadoEmFunil);
+        var opcoes=usarJanela?{chave:'janela',construirQuery:function(ref){
+          return ref.where('CriadoEm','>=',window.SGUtil.desdeJanelaFunil());
+        }}:undefined;
+        window.SGUtil.assinarColecao('funil',function(lista){ dadosBrutosDash.funil.funil=lista; recombinarDadosDash(); },opcoes);
+      });
     });
   }
 

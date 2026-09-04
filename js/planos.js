@@ -130,7 +130,22 @@
     document.getElementById('pl-lastUpdate').textContent='Atualizado em '+new Date().toLocaleDateString('pt-BR')+' às '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   }
 
+  // A tela recebe só os clientes que JÁ têm plano (getPlanosData no
+  // firestore-router). Pra criar um plano pra qualquer cliente, o seletor
+  // precisa da lista completa — carregada sob demanda aqui, via o registro
+  // compartilhado (2026-09-03, corte de leitura do Firestore).
+  var _clientesAssinadosPl=false;
+  function garantirClientesCarregadosPl(){
+    if(_clientesAssinadosPl)return;
+    _clientesAssinadosPl=true;
+    window.SGUtil.assinarColecao('clientes',function(lista){
+      lista.forEach(function(c){ if(c.IdCliente)clientesMap[c.IdCliente]=c; });
+      var busca=document.getElementById('pm-clienteBusca');
+      if(busca&&document.activeElement===busca)busca.dispatchEvent(new Event('focus'));
+    });
+  }
   function opcoesClientePl(){
+    garantirClientesCarregadosPl();
     return Object.keys(clientesMap).map(function(id){return clientesMap[id];})
       .sort(function(a,b){return (a['Nome Razao Social']||a.Nome||'').localeCompare(b['Nome Razao Social']||b.Nome||'','pt-BR');})
       .map(function(c){return {id:c.IdCliente,label:c['Nome Razao Social']||c.Nome||c.IdCliente};});
@@ -312,7 +327,8 @@
 
   function aplicarDados(resp){
     planos=resp.planos||[];
-    clientesMap={};(resp.clientes||[]).forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
+    // não zera: pode já ter a lista completa carregada sob demanda nesta sessão
+    (resp.clientes||[]).forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
     vendedoresMap={};(resp.vendedores||[]).forEach(function(v){if(v.IdVendedor)vendedoresMap[v.IdVendedor]=v;});
     popularSelectVendedorPl();
     document.getElementById('pl-emptyState').style.display='none';
