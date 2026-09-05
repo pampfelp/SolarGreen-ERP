@@ -1634,8 +1634,15 @@ function composeMonitoramento(v,c){
   '<p>6.3. A ausência de multa rescisória não implica isenção de pagamento pelos serviços já prestados: no ato da rescisão, será deduzido de qualquer valor a restituir ao CONTRATANTE o montante correspondente a todos os serviços já executados até aquela data, inclusive os registrados em Ordens de Serviço próprias assinadas pelo CONTRATANTE.</p>'+
   '<div class="cp-clause-title">CLÁUSULA SÉTIMA – DO FORO</div>'+
   '<p>7.1. Fica eleito o foro da comarca de '+escH(c.cidade)+'/PA para dirimir quaisquer dúvidas oriundas deste contrato.</p>'+
-  '<p style="margin-top:24px;">'+escH(c.cidade)+'/PA, '+isoToBR(v.dataContrato)+'.</p>'+
-  '<div class="cp-sign">'+blocoAssinaturaContratada(v.dataContrato)+blocoAssinaturaContratante(c.nome)+'</div>'
+  // page-break-before:always — a página de assinatura nasce sempre nova
+  // (2026-09-05: sem isso, contrato curto o bastante pra caber tudo numa
+  // página só fazia a assinatura cair no MEIO do texto, sobre as cláusulas
+  // de identificação — a posição x/y enviada pra Autentique pressupõe uma
+  // página que começa vazia, ver POSICOES_ASSINATURA_ em Code.gs).
+  '<div style="page-break-before:always;padding-top:24px;">'+
+    '<p style="margin-top:24px;">'+escH(c.cidade)+'/PA, '+isoToBR(v.dataContrato)+'.</p>'+
+    '<div class="cp-sign">'+blocoAssinaturaContratada(v.dataContrato)+blocoAssinaturaContratante(c.nome)+'</div>'+
+  '</div>'
   );
 }
 
@@ -1671,8 +1678,11 @@ function composeManutencao(v,c){
   '<p>6.1. A CONTRATADA oferece garantia legal sobre a mão de obra dos serviços executados. Esta garantia não cobre defeitos de fabricação dos equipamentos (painéis, inversores etc.), danos causados por fenômenos da natureza ou mau uso por parte do(a) CONTRATANTE.</p>'+
   '<div class="cp-clause-title">CLÁUSULA SÉTIMA – DO FORO</div>'+
   '<p>7.1. Para dirimir quaisquer controvérsias oriundas deste contrato, as partes elegem o foro da Comarca de '+escH(c.cidade)+' – PA, renunciando a qualquer outro, por mais privilegiado que seja.</p>'+
-  '<p style="margin-top:24px;">'+escH(c.cidade)+' – PA, '+isoToBR(v.dataContrato)+'.</p>'+
-  '<div class="cp-sign">'+blocoAssinaturaContratante(c.nome)+blocoAssinaturaContratada(v.dataContrato)+'</div>'
+  // page-break-before:always — mesmo motivo do composeMonitoramento acima.
+  '<div style="page-break-before:always;padding-top:24px;">'+
+    '<p style="margin-top:24px;">'+escH(c.cidade)+' – PA, '+isoToBR(v.dataContrato)+'.</p>'+
+    '<div class="cp-sign">'+blocoAssinaturaContratante(c.nome)+blocoAssinaturaContratada(v.dataContrato)+'</div>'+
+  '</div>'
   );
 }
 
