@@ -3057,10 +3057,20 @@ function contarPaginasPdf_(pdfBlob) {
  * renderizando o HTML real numa página A4 simulada (793x1123px a 96dpi,
  * a mesma margem do @page dos dois templates) e lendo a posição em pixels,
  * não calculado de cabeça. x/y em % da página (0-100), conforme a Autentique
- * espera; "ultima" em z = sempre a última página do PDF gerado (calculada
- * na hora por contarPaginasPdf_, nunca fixa) — os dois documentos têm
- * conteúdo de tamanho variável antes da assinatura, então NUNCA é seguro
- * cravar um número de página fixo.
+ * espera.
+ *
+ * Cada signatário tem até dois campos de config:
+ * - "assinatura" (obrigatório): posição do SIGNATURE de verdade, sempre na
+ *   ÚLTIMA página do PDF gerado (calculada na hora por contarPaginasPdf_,
+ *   nunca um número fixo — o conteúdo antes dela tem tamanho variável).
+ * - "rubrica" (opcional): posição de um INITIALS pequeno repetido em TODA
+ *   página anterior à última — pedido do Felipe em 2026-09-05, pra não
+ *   parecer que o cliente "assinou uma página em branco" (a página final é
+ *   só "Cidade, data" + assinatura, sem texto de cláusula). Sem "rubrica"
+ *   configurado, esse signatário fica só com a assinatura na última página
+ *   (era o comportamento antes disso existir — é o caso da OS, que não
+ *   pediu rubrica: a página de aceite já tem texto de declaração, não
+ *   parece página em branco).
  *
  * Cuidado ao mexer no HTML de qualquer um desses blocos (montarHtmlOS em
  * agendamentos.js, ou blocoAssinaturaContratada/blocoAssinaturaContratante
@@ -3079,23 +3089,28 @@ function contarPaginasPdf_(pdfBlob) {
  * composeMonitoramento/composeManutencao em proposta.html) — a página da
  * assinatura agora SEMPRE nasce em branco, então essa página deixou de
  * poder variar por causa da quantidade de cláusula anterior. y remedido
- * com essa estrutura nova: 10 (não mais 24).
+ * com essa estrutura nova: 10 (não mais 24). A rubrica no rodapé das
+ * páginas anteriores (pedido na mesma conversa) entrou junto.
  */
 var POSICOES_ASSINATURA_ = {
   os: {
-    empresa: [{ x: '7', y: '34', z: 'ultima', element: 'SIGNATURE' }],
-    cliente: [{ x: '52.5', y: '34', z: 'ultima', element: 'SIGNATURE' }]
+    empresa: { assinatura: { x: '7', y: '34' } },
+    cliente: { assinatura: { x: '52.5', y: '34' } }
   },
-  // Monitoramento: CONTRATADA à esquerda, CONTRATANTE à direita.
+  // Monitoramento: CONTRATADA à esquerda, CONTRATANTE à direita na página de
+  // assinatura. A rubrica no rodapé das páginas de cláusula não precisa
+  // seguir esse espelhamento — é só um cantinho fixo, mesma posição nos
+  // dois tipos de contrato.
   monitoramento: {
-    empresa: [{ x: '3', y: '10', z: 'ultima', element: 'SIGNATURE' }],
-    cliente: [{ x: '61.7', y: '10', z: 'ultima', element: 'SIGNATURE' }]
+    empresa: { assinatura: { x: '3', y: '10' }, rubrica: { x: '68', y: '90' } },
+    cliente: { assinatura: { x: '61.7', y: '10' }, rubrica: { x: '82', y: '90' } }
   },
   // Manutenção: ordem invertida no HTML (CONTRATANTE à esquerda, CONTRATADA
-  // à direita) — por isso x trocado em relação ao monitoramento.
+  // à direita) — por isso x trocado em relação ao monitoramento na
+  // assinatura final; a rubrica continua no mesmo cantinho.
   manutencao: {
-    empresa: [{ x: '61.7', y: '10', z: 'ultima', element: 'SIGNATURE' }],
-    cliente: [{ x: '3', y: '10', z: 'ultima', element: 'SIGNATURE' }]
+    empresa: { assinatura: { x: '61.7', y: '10' }, rubrica: { x: '68', y: '90' } },
+    cliente: { assinatura: { x: '3', y: '10' }, rubrica: { x: '82', y: '90' } }
   }
 };
 
@@ -3233,12 +3248,21 @@ function actionGerarPdfOS(body) {
  *
  * Retorna { ok:false, erro } OU { ok:true, documento, link, sandbox }.
  */
-function resolverPosicoesAssinatura_(lista, totalPaginas) {
-  if (!lista || !lista.length) return null;
-  return lista.map(function (p) {
-    var z = (p.z === 'ultima' || p.z === undefined || p.z === null) ? totalPaginas : p.z;
-    return { x: String(p.x), y: String(p.y), z: z, element: p.element || 'SIGNATURE' };
-  });
+// "config" no formato de POSICOES_ASSINATURA_[tipo][signatario] — ver o
+// comentário lá em cima. Monta: 1 INITIALS (rubrica) por página de 1 até
+// totalPaginas-1 (se "rubrica" foi configurado — em documento de 1 página
+// só isso não gera nada, não tem "página anterior" pra rubricar) + 1
+// SIGNATURE sempre na última página.
+function resolverPosicoesAssinatura_(config, totalPaginas) {
+  if (!config || !config.assinatura) return null;
+  var out = [];
+  if (config.rubrica) {
+    for (var pg = 1; pg < totalPaginas; pg++) {
+      out.push({ x: String(config.rubrica.x), y: String(config.rubrica.y), z: pg, element: 'INITIALS' });
+    }
+  }
+  out.push({ x: String(config.assinatura.x), y: String(config.assinatura.y), z: totalPaginas, element: 'SIGNATURE' });
+  return out;
 }
 // Identidade da Solar Green como SIGNATÁRIA de verdade na Autentique (não
 // só texto no PDF) — precisa ser o mesmo e-mail dono do AUTENTIQUE_API_TOKEN
