@@ -3068,6 +3068,18 @@ function contarPaginasPdf_(pdfBlob) {
  * lugar. Recibo e Procuração ainda NÃO têm posição configurada aqui —
  * saem sem marca visual até alguém desenhar uma linha de assinatura própria
  * pra Solar Green nesses dois templates (hoje só o cliente tem linha).
+ *
+ * Corrigido em 2026-09-05: o Felipe mandou um contrato de teste onde a
+ * assinatura caiu no MEIO do texto, sobre as cláusulas de identificação —
+ * o contrato dele foi curto o bastante (endereço/cláusulas condicionais
+ * ausentes) pra caber tudo numa página só, e a estimativa de y (24%) tinha
+ * sido medida simulando um contrato que vazava pra página 2, com bastante
+ * texto de cláusula ACIMA da assinatura naquela página. Resolvido com
+ * page-break-before:always antes do bloco de assinatura (ver
+ * composeMonitoramento/composeManutencao em proposta.html) — a página da
+ * assinatura agora SEMPRE nasce em branco, então essa página deixou de
+ * poder variar por causa da quantidade de cláusula anterior. y remedido
+ * com essa estrutura nova: 10 (não mais 24).
  */
 var POSICOES_ASSINATURA_ = {
   os: {
@@ -3076,14 +3088,14 @@ var POSICOES_ASSINATURA_ = {
   },
   // Monitoramento: CONTRATADA à esquerda, CONTRATANTE à direita.
   monitoramento: {
-    empresa: [{ x: '3', y: '24', z: 'ultima', element: 'SIGNATURE' }],
-    cliente: [{ x: '61.7', y: '24', z: 'ultima', element: 'SIGNATURE' }]
+    empresa: [{ x: '3', y: '10', z: 'ultima', element: 'SIGNATURE' }],
+    cliente: [{ x: '61.7', y: '10', z: 'ultima', element: 'SIGNATURE' }]
   },
   // Manutenção: ordem invertida no HTML (CONTRATANTE à esquerda, CONTRATADA
   // à direita) — por isso x trocado em relação ao monitoramento.
   manutencao: {
-    empresa: [{ x: '61.7', y: '24', z: 'ultima', element: 'SIGNATURE' }],
-    cliente: [{ x: '3', y: '24', z: 'ultima', element: 'SIGNATURE' }]
+    empresa: [{ x: '61.7', y: '10', z: 'ultima', element: 'SIGNATURE' }],
+    cliente: [{ x: '3', y: '10', z: 'ultima', element: 'SIGNATURE' }]
   }
 };
 
