@@ -110,6 +110,14 @@ tr.selecionada td{background:#f7fdf0;}
 .modal-card p{font-size:13px;color:var(--ink-soft);line-height:1.6;margin-bottom:16px;}
 .modal-card input{width:100%;border:1.5px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:16px;}
 .modal-acoes{display:flex;justify-content:flex-end;gap:8px;}
+.modal-card-largo{max-width:min(820px,92vw);}
+.modal-card-largo img{max-width:100%;max-height:60vh;border-radius:10px;border:1px solid var(--line);display:block;margin-bottom:16px;}
+.modal-card-largo pre{max-height:55vh;overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;font-family:var(--mono);font-size:11.5px;white-space:pre-wrap;word-break:break-all;margin-bottom:16px;}
+
+.rodape-paginacao{display:flex;align-items:center;gap:12px;padding:16px 0 8px;flex-wrap:wrap;}
+.rodape-paginacao .dica{font-size:11.5px;color:var(--ink-faint);}
+td .celula.celula-grande{color:var(--accent-deep);cursor:pointer;font-weight:600;}
+td .celula.celula-grande:hover{background:var(--accent-soft);}
 </style>
 </head>
 <body>
@@ -136,7 +144,7 @@ tr.selecionada td{background:#f7fdf0;}
 </div>
 
 <div class="aviso-topo">
-  Isto edita o banco de dados direto, sem as validações das telas do sistema — o que for apagado aqui não tem como desfazer. Cada aba que você abre lê a coleção inteira uma vez e consome cota de leitura do Firestore, então evite ficar pulando de aba à toa.
+  Isto edita o banco de dados direto, sem as validações das telas do sistema — o que for apagado aqui não tem como desfazer. Os dados vêm aos poucos, uma página por vez: o que já foi baixado fica guardado enquanto a aba do navegador estiver aberta, e só o que está na tela entra no filtro e na exportação.
 </div>
 
 <div class="abas" id="abas"></div>
@@ -166,6 +174,23 @@ tr.selecionada td{background:#f7fdf0;}
     <thead><tr id="linha-cabecalho"></tr></thead>
     <tbody id="corpo-tabela"></tbody>
   </table>
+  <div class="rodape-paginacao hidden" id="rodape-paginacao">
+    <button class="btn btn-primary" id="btn-carregar-mais">Carregar mais</button>
+    <span class="dica">Só o que já foi baixado aparece na tabela, no filtro e na exportação.</span>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="modal-valor">
+  <div class="modal-card modal-card-largo">
+    <h3 id="modal-valor-titulo"></h3>
+    <p id="modal-valor-info"></p>
+    <img id="modal-valor-img" class="hidden" alt="Conteúdo do campo">
+    <pre id="modal-valor-texto" class="hidden"></pre>
+    <div class="modal-acoes">
+      <button class="btn" id="modal-valor-copiar">Copiar</button>
+      <button class="btn btn-primary" id="modal-valor-fechar">Fechar</button>
+    </div>
+  </div>
 </div>
 
 <div class="toast hidden" id="toast"></div>
@@ -201,7 +226,10 @@ tr.selecionada td{background:#f7fdf0;}
     {nome:'vendas',                label:'Vendas',              campos:['IdVenda','IdCliente','NomeCliente','IdVendedor','IdServico','DataVenda','Valor']},
     {nome:'custos_venda',          label:'Custos da venda',     campos:['IdCusto','IdVenda','Descricao','Valor','Status','Data']},
     {nome:'agendamentos',          label:'Agendamentos',        campos:['IdAgendamento','IdCliente','NomeCliente','IdServico','DataInicio','Horainicio','HoraFim','TecnicoResponsavel','StatusAgendamento','Valor']},
-    {nome:'agendamentos_respostas',label:'Respostas do checklist',campos:['IdAgendamento','IdTemplate','RespostaTexto','RespostaQuantidade','RespostaFoto']},
+    // porPagina menor: cada resposta pode carregar uma FOTO inteira em
+    // base64 dentro do próprio documento (a coleção toda passa de 90 MB).
+    // Puxar 50 de uma vez aqui é o que travava o navegador.
+    {nome:'agendamentos_respostas',label:'Respostas do checklist',campos:['IdAgendamento','IdTemplate','RespostaTexto','RespostaQuantidade','RespostaFoto'],porPagina:10},
     {nome:'templates',             label:'Perguntas do checklist',campos:['IdTemplate','IdServico','TextoPergunta','TipoInput','OpcoesEnum','Obrigatorio','Ordem']},
     {nome:'servicos',              label:'Serviços',            campos:['IdServico','NomeServico','TipoCobranca','TipoServico','Descricao','Valor']},
     {nome:'planos',                label:'Planos',              campos:['IdPlano','IdCliente','DataAssinatura','TipoAssinatura','Valor','DiaVencimento','Status']},
@@ -267,7 +295,34 @@ tr.selecionada td{background:#f7fdf0;}
   // clica numa aba, e é uma leitura única (get), não um listener vivo:
   // ferramenta de manutenção não precisa de tempo real, e listener aberto
   // relê coleção inteira a cada reabertura.
-  var STATE={colecaoAtiva:null,docs:[],colunasExtras:{},selecionados:{},filtro:''};
+  var STATE={colecaoAtiva:null,docs:[],colunasExtras:{},selecionados:{},filtro:'',
+             ultimoId:null,temMais:false,carregando:false};
+
+  // Quantos documentos por vez, quando a coleção não define o próprio.
+  var PAGINA_PADRAO=50;
+  // Acima disso, o valor não vai inteiro pra célula: vira um resumo
+  // clicável. Uma foto em base64 tem centenas de milhares de caracteres —
+  // jogar isso dentro de um <div contenteditable>, vezes o número de
+  // linhas, é o que fazia a aba de respostas do checklist matar a aba do
+  // navegador antes mesmo de terminar de desenhar.
+  var LIMITE_CELULA=200;
+
+  // Cache em memória, por coleção, do que já foi baixado nesta sessão:
+  // trocar de aba e voltar não relê nada do Firestore (nem gasta cota).
+  // Não persiste entre recarregamentos da página de propósito — são
+  // dezenas de MB de foto, não cabe em localStorage; a persistência entre
+  // sessões quem faz é o próprio Firestore (IndexedDB, ver
+  // js/firebase-init.js).
+  var CACHE={};
+
+  function guardarNoCache(){
+    if(!STATE.colecaoAtiva) return;
+    CACHE[STATE.colecaoAtiva]={docs:STATE.docs,ultimoId:STATE.ultimoId,temMais:STATE.temMais};
+  }
+  function porPagina(){
+    var c=configAtiva();
+    return (c&&c.porPagina)||PAGINA_PADRAO;
+  }
 
   function configAtiva(){
     for(var i=0;i<COLECOES.length;i++) if(COLECOES[i].nome===STATE.colecaoAtiva) return COLECOES[i];
@@ -346,6 +401,38 @@ tr.selecionada td{background:#f7fdf0;}
     return v;
   }
   function ehComplexo(v){ return v!=null&&typeof v==='object'&&typeof v.toDate!=='function'; }
+  function ehImagem(texto){ return /^data:image\//.test(texto)||/^https?:\/\/\S+$/.test(texto)&&/\.(png|jpe?g|webp|gif)/i.test(texto); }
+
+  // O que aparece na célula quando o valor é grande demais pra ir inteiro.
+  function resumoDeValor(texto){
+    var kb=Math.round(texto.length/1024);
+    if(/^data:image\//.test(texto)) return '🖼 imagem (~'+kb+' KB) — clique para ver';
+    return texto.slice(0,60)+'… (' + kb + ' KB) — clique para ver';
+  }
+
+  // Visualizador do valor inteiro, fora da tabela: assim o conteúdo pesado
+  // só existe no DOM quando alguém pede, uma linha por vez.
+  function verValorInteiro(campo,valor){
+    var texto=formatarValor(valor);
+    var modal=document.getElementById('modal-valor');
+    document.getElementById('modal-valor-titulo').textContent=campo;
+    document.getElementById('modal-valor-info').textContent=
+      texto.length.toLocaleString('pt-BR')+' caracteres (~'+Math.round(texto.length/1024)+' KB)';
+    var img=document.getElementById('modal-valor-img');
+    var pre=document.getElementById('modal-valor-texto');
+    if(ehImagem(texto)){
+      img.src=texto; img.classList.remove('hidden');
+      pre.classList.add('hidden');
+    }else{
+      img.src=''; img.classList.add('hidden');
+      pre.textContent=texto; pre.classList.remove('hidden');
+    }
+    document.getElementById('modal-valor-copiar').onclick=function(){
+      navigator.clipboard.writeText(texto).then(function(){ mostrarToast('Conteúdo copiado.'); },
+        function(){ mostrarToast('Não consegui copiar.',true); });
+    };
+    modal.classList.remove('hidden');
+  }
 
   // ══════════════ ABAS ══════════════
 
@@ -359,14 +446,22 @@ tr.selecionada td{background:#f7fdf0;}
   }
 
   function selecionarAba(nome){
+    guardarNoCache();               // preserva o que já foi baixado da aba anterior
     STATE.colecaoAtiva=nome;
     STATE.selecionados={};
     STATE.filtro='';
-    STATE.docs=[];
     document.getElementById('busca').value='';
     renderAbas();
     aplicarModoLeitura();
-    carregarColecaoAtiva();
+    var salvo=CACHE[nome];
+    if(salvo){
+      // Já veio nesta sessão: mostra na hora, sem tocar no Firestore.
+      STATE.docs=salvo.docs; STATE.ultimoId=salvo.ultimoId; STATE.temMais=salvo.temMais;
+      render();
+    }else{
+      STATE.docs=[]; STATE.ultimoId=null; STATE.temMais=false;
+      carregarPagina(true);
+    }
   }
 
   function aplicarModoLeitura(){
@@ -381,29 +476,69 @@ tr.selecionada td{background:#f7fdf0;}
     document.getElementById('select-exportar').disabled=semAba;
   }
 
-  // Leitura única (get), não listener — ver comentário do STATE. Cada
-  // chamada aqui custa 1 leitura por documento da coleção, então só roda
-  // quando a pessoa pede: ao clicar na aba, ou no botão Recarregar.
-  function carregarColecaoAtiva(){
+  // Leitura única (get), não listener — ver comentário do STATE — e de
+  // PÁGINA EM PÁGINA, não a coleção inteira. Duas razões: cota (cada
+  // documento lido é uma leitura cobrada) e o navegador, que não aguenta
+  // desenhar milhares de linhas com foto embutida de uma vez.
+  //
+  // A ordenação é pelo ID do documento (FieldPath.documentId()): serve pra
+  // paginar de forma estável e não exige criar índice no Firebase, ao
+  // contrário de ordenar por um campo qualquer. Com essa ordenação o
+  // cursor do startAfter é o próprio id, uma string — dá pra guardar no
+  // cache e continuar de onde parou sem segurar o snapshot inteiro.
+  function carregarPagina(reiniciar){
     var alvo=STATE.colecaoAtiva;
-    if(!alvo) return;
-    document.getElementById('status').textContent='Carregando…';
-    db.collection(alvo).get().then(function(snap){
-      if(STATE.colecaoAtiva!==alvo) return; // trocou de aba no meio do caminho
-      STATE.docs=snap.docs.map(function(d){
+    if(!alvo||STATE.carregando) return;
+    if(reiniciar){ STATE.docs=[]; STATE.ultimoId=null; STATE.temMais=false; STATE.selecionados={}; }
+    STATE.carregando=true;
+    render();
+
+    var limite=porPagina();
+    var q=db.collection(alvo).orderBy(firebase.firestore.FieldPath.documentId()).limit(limite);
+    if(STATE.ultimoId) q=q.startAfter(STATE.ultimoId);
+
+    q.get().then(function(snap){
+      if(STATE.colecaoAtiva!==alvo){ STATE.carregando=false; return; } // trocou de aba no meio
+      snap.docs.forEach(function(d){
         var dados=d.data()||{};
         dados.id=d.id;
-        return dados;
+        STATE.docs.push(dados);
       });
+      if(snap.docs.length) STATE.ultimoId=snap.docs[snap.docs.length-1].id;
+      // Página cheia = provavelmente tem mais. Página incompleta = acabou.
+      STATE.temMais=snap.docs.length===limite;
+      STATE.carregando=false;
+      guardarNoCache();
       render();
     }).catch(function(err){
-      if(STATE.colecaoAtiva!==alvo) return;
-      document.getElementById('status').textContent='Não carregou.';
+      STATE.carregando=false;
+      render();
       mostrarToast('Erro ao carregar "'+alvo+'": '+err.message,true);
     });
   }
 
-  document.getElementById('btn-recarregar').addEventListener('click',carregarColecaoAtiva);
+  document.getElementById('btn-recarregar').addEventListener('click',function(){
+    if(STATE.colecaoAtiva) delete CACHE[STATE.colecaoAtiva];
+    carregarPagina(true);
+  });
+  document.getElementById('btn-carregar-mais').addEventListener('click',function(){
+    carregarPagina(false);
+  });
+  (function(){
+    var modal=document.getElementById('modal-valor');
+    function fechar(){
+      modal.classList.add('hidden');
+      // Solta a imagem do DOM ao fechar — sem isso, uma foto grande fica
+      // ocupando memória depois que a pessoa já saiu dela.
+      document.getElementById('modal-valor-img').src='';
+      document.getElementById('modal-valor-texto').textContent='';
+    }
+    document.getElementById('modal-valor-fechar').addEventListener('click',fechar);
+    modal.addEventListener('click',function(e){ if(e.target===modal) fechar(); });
+    document.addEventListener('keydown',function(e){
+      if(e.key==='Escape'&&!modal.classList.contains('hidden')) fechar();
+    });
+  })();
 
   // ══════════════ COLUNAS ══════════════
 
@@ -454,18 +589,30 @@ tr.selecionada td{background:#f7fdf0;}
     if(!cfg){
       // Nenhuma aba aberta ainda — nenhuma leitura foi feita, e é isso que
       // deixa abrir a página custar zero de cota.
-      document.getElementById('status').textContent='Escolha uma aba acima para carregar os dados. Cada aba aberta lê a coleção inteira uma vez.';
+      document.getElementById('status').textContent='Escolha uma aba acima para carregar os dados. Cada aba é baixada aos poucos, em páginas.';
       document.getElementById('linha-cabecalho').innerHTML='';
       document.getElementById('corpo-tabela').innerHTML='';
+      document.getElementById('rodape-paginacao').classList.add('hidden');
       return;
     }
     var colunas=colunasDaAbaAtiva();
     var docs=docsVisiveis();
     var ro=somenteLeitura();
 
-    document.getElementById('status').textContent=
-      docs.length+' de '+STATE.docs.length+' registro(s)'+
-      (ro&&cfg.motivoLeitura?' — '+cfg.motivoLeitura:'');
+    var partes=[];
+    if(STATE.carregando) partes.push('Carregando…');
+    partes.push(STATE.filtro
+      ? (docs.length+' de '+STATE.docs.length+' baixado(s) batem com o filtro')
+      : (STATE.docs.length+' registro(s) baixado(s)'+(STATE.temMais?' — tem mais no banco':' — isso é tudo')));
+    if(ro&&cfg.motivoLeitura) partes.push(cfg.motivoLeitura);
+    document.getElementById('status').textContent=partes.join(' · ');
+
+    // Rodapé de paginação: só aparece quando ainda há o que buscar.
+    var rodape=document.getElementById('rodape-paginacao');
+    rodape.classList.toggle('hidden',!STATE.temMais);
+    var btnMais=document.getElementById('btn-carregar-mais');
+    btnMais.disabled=STATE.carregando;
+    btnMais.textContent=STATE.carregando?'Carregando…':('Carregar mais '+porPagina());
 
     document.getElementById('linha-cabecalho').innerHTML=
       '<th class="check-col"><input type="checkbox" id="check-todos"'+(ro?' disabled':'')+'></th>'+
@@ -477,12 +624,21 @@ tr.selecionada td{background:#f7fdf0;}
         '<td class="check-col"><div class="celula"><input type="checkbox" class="check-linha" data-id="'+esc(d.id)+'"'+(STATE.selecionados[d.id]?' checked':'')+(ro?' disabled':'')+'></div></td>'+
         '<td class="id-col"><div class="celula" title="'+esc(d.id)+'">'+esc(d.id)+'</div></td>'+
         colunas.map(function(c){
+          var texto=formatarValor(d[c]);
           var complexo=ehComplexo(d[c]);
-          var editavel=!ro&&!complexo;
+          var grande=texto.length>LIMITE_CELULA;
+          var editavel=!ro&&!complexo&&!grande;
+          // Valor grande (foto em base64, JSON comprido) NÃO vai inteiro
+          // pro DOM: além de travar o navegador, deixar editável seria
+          // perigoso — salvar a versão cortada apagaria o conteúdo real.
+          if(grande){
+            return '<td><div class="celula celula-grande" data-id="'+esc(d.id)+'" data-campo="'+esc(c)+'"'+
+              ' title="Conteúdo grande — clique para ver inteiro">'+esc(resumoDeValor(texto))+'</div></td>';
+          }
           return '<td><div class="celula"'+(editavel?' contenteditable="true"':'')+
             ' data-id="'+esc(d.id)+'" data-campo="'+esc(c)+'"'+
             (complexo?' title="Campo estruturado (lista/objeto) — editável só pelas telas do sistema."':'')+
-            '>'+esc(formatarValor(d[c]))+'</div></td>';
+            '>'+esc(texto)+'</div></td>';
         }).join('')+
       '</tr>';
     }).join('');
@@ -500,6 +656,12 @@ tr.selecionada td{background:#f7fdf0;}
         if(chk.checked) STATE.selecionados[id]=true; else delete STATE.selecionados[id];
         var tr=chk.closest('tr');
         if(tr) tr.classList.toggle('selecionada',chk.checked);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('td .celula-grande'),function(el){
+      el.addEventListener('click',function(){
+        var d=docLocal(el.getAttribute('data-id'));
+        if(d) verValorInteiro(el.getAttribute('data-campo'),d[el.getAttribute('data-campo')]);
       });
     });
     Array.prototype.forEach.call(document.querySelectorAll('td .celula[contenteditable]'),function(el){
@@ -646,7 +808,8 @@ tr.selecionada td{background:#f7fdf0;}
         });
         return Promise.all(fila).then(function(){
           mostrarToast(erros?('Importação terminou com '+erros+' erro(s).'):'Importação concluída.',!!erros);
-          carregarColecaoAtiva(); // relê uma vez pra tabela mostrar o que entrou
+          if(STATE.colecaoAtiva) delete CACHE[STATE.colecaoAtiva];
+          carregarPagina(true); // relê a primeira página pra tabela mostrar o que entrou
         });
       });
     }).catch(function(err){
