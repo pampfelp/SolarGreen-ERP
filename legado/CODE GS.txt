@@ -3055,18 +3055,28 @@ function contarPaginasPdf_(pdfBlob) {
  * não calculado de cabeça. x/y em % da página (0-100), conforme a Autentique
  * espera.
  *
- * Cada signatário tem até dois campos de config:
+ * Cada signatário tem até três campos de config, montados por
+ * resolverPosicoesAssinatura_ (mais abaixo) nessa ordem de prioridade:
  * - "assinatura" (obrigatório): posição do SIGNATURE de verdade, sempre na
  *   ÚLTIMA página do PDF gerado (calculada na hora por contarPaginasPdf_,
  *   nunca um número fixo — o conteúdo antes dela tem tamanho variável).
- * - "rubrica" (opcional): posição de um INITIALS pequeno repetido em TODA
- *   página anterior à última — pedido do Felipe em 2026-09-05, pra não
- *   parecer que o cliente "assinou uma página em branco" (a página final é
- *   só "Cidade, data" + assinatura, sem texto de cláusula). Sem "rubrica"
- *   configurado, esse signatário fica só com a assinatura na última página
- *   (era o comportamento antes disso existir — é o caso da OS, que não
- *   pediu rubrica: a página de aceite já tem texto de declaração, não
- *   parece página em branco).
+ * - "assinaturaTodas" (opcional): quando presente, repete um SIGNATURE em
+ *   TAMANHO NORMAL no rodapé de TODA página anterior à última (z de 1 até
+ *   totalPaginas-1) — pedido do Felipe em 2026-09-05, pra não parecer que o
+ *   cliente "assinou uma página em branco" (a página final do contrato é só
+ *   "Cidade, data" + assinatura, sem texto de cláusula nenhum). É o que os
+ *   dois tipos de contrato (monitoramento/manutenção) usam hoje.
+ * - "rubrica" (opcional, só entra se "assinaturaTodas" não estiver
+ *   presente): mesma ideia, mas com um INITIALS (rubrica) menor em vez do
+ *   SIGNATURE completo — desenho alternativo, mantido pra quem preferir uma
+ *   marca mais discreta nas páginas de cláusula. Nenhum tipo de documento
+ *   usa essa opção hoje (os contratos migraram pra "assinaturaTodas").
+ * Sem "assinaturaTodas" nem "rubrica" configurados, o signatário fica só
+ * com a assinatura na última página — é o caso da OS, que não pediu marca
+ * nas páginas anteriores: a página de aceite já tem texto de declaração,
+ * não parece página em branco, e as páginas anteriores são o relatório do
+ * técnico (fotos/checklist), onde uma marca de assinatura não faria
+ * sentido nenhum.
  *
  * Cuidado ao mexer no HTML de qualquer um desses blocos (montarHtmlOS em
  * agendamentos.js, ou blocoAssinaturaContratada/blocoAssinaturaContratante
@@ -3245,10 +3255,11 @@ function actionGerarPdfOS(body) {
  * Retorna { ok:false, erro } OU { ok:true, documento, link, sandbox }.
  */
 // "config" no formato de POSICOES_ASSINATURA_[tipo][signatario] — ver o
-// comentário lá em cima. Monta: 1 INITIALS (rubrica) por página de 1 até
-// totalPaginas-1 (se "rubrica" foi configurado — em documento de 1 página
-// só isso não gera nada, não tem "página anterior" pra rubricar) + 1
-// SIGNATURE sempre na última página.
+// comentário lá em cima. Monta: se "assinaturaTodas" existir, 1 SIGNATURE
+// completo por página de 1 até totalPaginas-1; senão, se "rubrica" existir,
+// 1 INITIALS por página no mesmo intervalo; em documento de 1 página só,
+// nenhum dos dois gera nada (não tem "página anterior"). Sempre termina com
+// 1 SIGNATURE na última página (o "assinatura" obrigatório).
 function resolverPosicoesAssinatura_(config, totalPaginas) {
   if (!config || !config.assinatura) return null;
   var out = [];
