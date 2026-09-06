@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Solar Green · Planilha administrativa</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="icons/icon-192-admin.png?v=20260902a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<!--
+  Planilha administrativa — manutenção direta do banco (Firestore), pra não
+  precisar entrar no console do Firebase. Funciona como uma planilha: abas
+  por coleção, célula editável que salva sozinha, seleção múltipla +
+  exclusão em massa, criar linha/coluna, exportar e importar CSV/XLSX.
+
+  SEGURANÇA (2026-09-06, pedido do Felipe): a porta de entrada é o MESMO
+  login do sistema, não uma senha própria guardada no navegador. São duas
+  camadas, e vale entender a diferença entre elas:
+
+  1. Firebase Auth (segurança de verdade): sem sessão do Firebase, o
+     Firestore recusa toda leitura e escrita pelas firestore.rules — não
+     tem como contornar pelo navegador.
+  2. Checagem de papel de admin (fricção, não muralha): a lista
+     SG_ADMIN_ROLES é conferida aqui no cliente, do mesmo jeito que o
+     index.html já esconde Usuários/Permissões/Metas de quem não é admin.
+     Hoje as rules só exigem "estar logado", sem distinguir papel — então
+     um vendedor logado que conheça esta URL e saiba mexer no DevTools
+     conseguiria passar por essa checagem. Fechar isso de verdade é
+     colocar papel dentro das próprias firestore.rules (está anotado como
+     próximo passo no topo do firestore.rules).
+
+  Esta página NÃO é linkada em nenhum menu do sistema — só chega quem sabe
+  o endereço.
+
+  Coleções de propósito interno ficam de fora (não são entidades que faça
+  sentido editar célula a célula):
+  - funil_presenca: quem está com um lead aberto agora, com heartbeat; o
+    próprio app descarta registro velho sozinho. Editar à mão não serve
+    pra nada.
+-->
+<style>
+:root{
+  --bg:#F2F7F2; --panel:#FFFFFF; --ink:#1E1E1E; --ink-soft:#5a6b5a; --ink-faint:#9aab9a;
+  --line:#dde8dd; --accent:#78D800; --accent-soft:#eef9d6; --accent-deep:#5aaa00;
+  --sidebar-bg:#003122; --warn:#d97706; --warn-soft:#fef3c7;
+  --debit:#dc2626; --debit-soft:#fee2e2; --credit:#16a34a; --credit-soft:#dcfce7;
+  --radius:10px; --unbounded:'Unbounded',sans-serif;
+  --sans:'Inter','Helvetica Neue',Arial,sans-serif;
+  --mono:'JetBrains Mono','SFMono-Regular',Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13.5px;min-height:100vh;-webkit-font-smoothing:antialiased;}
+button,input,select{font-family:var(--sans);font-size:13px;}
+.hidden{display:none!important;}
+
+#tela-bloqueada{position:fixed;inset:0;background:var(--sidebar-bg);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:999;text-align:center;padding:24px;}
+#tela-bloqueada .marca{font-family:var(--unbounded);font-weight:900;font-size:19px;letter-spacing:.02em;}
+#tela-bloqueada .marca span{color:var(--accent);}
+#tela-bloqueada .msg{font-size:13.5px;color:rgba(255,255,255,.8);max-width:420px;line-height:1.6;}
+#tela-bloqueada a{color:var(--accent);font-weight:700;text-decoration:none;border:1.5px solid var(--accent);border-radius:9px;padding:9px 18px;}
+
+.topo{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 22px;background:var(--sidebar-bg);color:#fff;flex-wrap:wrap;}
+.topo h1{font-family:var(--unbounded);font-size:15px;font-weight:800;}
+.topo h1 span{color:var(--accent);}
+.topo .direita{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.topo .quem{font-size:11.5px;color:rgba(255,255,255,.75);}
+.topo .voltar{font-size:12px;color:#fff;text-decoration:none;border:1px solid rgba(255,255,255,.35);border-radius:8px;padding:6px 12px;}
+.topo .voltar:hover{border-color:var(--accent);color:var(--accent);}
+
+.aviso-topo{background:var(--warn-soft);color:#7c4a03;font-size:12px;padding:9px 22px;border-bottom:1px solid #f5d99b;}
+
+.abas{display:flex;gap:4px;padding:10px 22px 0;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap;}
+.abas button{background:none;border:none;padding:8px 13px;font-weight:700;font-size:12.5px;color:var(--ink-soft);cursor:pointer;border-bottom:3px solid transparent;border-radius:8px 8px 0 0;}
+.abas button:hover{background:var(--bg);}
+.abas button.active{color:var(--sidebar-bg);border-bottom-color:var(--accent);background:var(--accent-soft);}
+
+.toolbar{display:flex;align-items:center;gap:8px;padding:10px 22px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap;}
+.btn{font-size:12.5px;border-radius:8px;padding:8px 13px;cursor:pointer;border:1.5px solid var(--line);background:#fff;color:var(--ink);font-weight:700;}
+.btn:hover{background:var(--bg);}
+.btn:disabled{opacity:.45;cursor:not-allowed;}
+.btn-primary{background:var(--sidebar-bg);color:#fff;border:none;}
+.btn-danger{background:var(--debit-soft);color:#9d1c1c;border-color:var(--debit);}
+.toolbar .separador{width:1px;height:22px;background:var(--line);margin:0 4px;}
+.toolbar select{border-radius:8px;border:1.5px solid var(--line);padding:8px 10px;background:#fff;}
+.toolbar .busca{border-radius:8px;border:1.5px solid var(--line);padding:8px 11px;min-width:200px;}
+.tag-leitura{background:var(--warn-soft);color:#7c4a03;border-radius:20px;padding:4px 11px;font-size:11.5px;font-weight:700;}
+
+.status{font-size:11.5px;color:var(--ink-faint);padding:8px 22px;}
+.area-tabela{padding:0 22px 70px;overflow:auto;}
+table{border-collapse:collapse;background:var(--panel);min-width:100%;}
+th,td{border:1px solid var(--line);padding:0;}
+th{background:var(--bg);color:var(--ink-soft);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;padding:9px 10px;text-align:left;position:sticky;top:0;white-space:nowrap;z-index:2;}
+td .celula{padding:8px 10px;min-width:90px;max-width:420px;outline:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+td .celula:focus{background:var(--accent-soft);box-shadow:inset 0 0 0 2px var(--sidebar-bg);white-space:normal;overflow:visible;}
+td .celula.salvando{background:var(--credit-soft);}
+td.id-col .celula{color:var(--ink-faint);font-family:var(--mono);font-size:11px;}
+th.check-col,td.check-col{width:34px;text-align:center;padding:0;}
+td.check-col .celula{padding:8px;min-width:0;}
+tr.selecionada td{background:#f7fdf0;}
+
+.toast{position:fixed;bottom:20px;right:20px;max-width:360px;background:var(--ink);color:#fff;border-radius:10px;padding:12px 16px;font-size:12.5px;box-shadow:0 14px 34px rgba(0,0,0,.25);z-index:900;line-height:1.5;}
+.toast.erro{background:var(--debit-soft);color:#7f1d1d;border:1.5px solid var(--debit);}
+
+/* Confirmação própria — nunca confirm()/prompt() nativo (crença 3). */
+.modal-overlay{position:fixed;inset:0;background:rgba(30,30,30,.5);display:flex;align-items:center;justify-content:center;z-index:950;padding:20px;}
+.modal-card{background:var(--panel);border-radius:14px;max-width:440px;width:100%;padding:24px 26px;box-shadow:0 20px 60px rgba(0,0,0,.35);}
+.modal-card h3{font-family:var(--unbounded);font-size:15px;margin-bottom:8px;}
+.modal-card p{font-size:13px;color:var(--ink-soft);line-height:1.6;margin-bottom:16px;}
+.modal-card input{width:100%;border:1.5px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:16px;}
+.modal-acoes{display:flex;justify-content:flex-end;gap:8px;}
+</style>
+</head>
+<body>
+
+<!--
+  Trava ANTES de renderizar qualquer coisa: a porta de entrada é o login do
+  sistema (mesmo padrão de ponto.html e legado/proposta.html). Sem sessão
+  válida, manda pro index.html, que é onde a tela de login vive. Sem papel
+  de admin, mostra o aviso em vez da planilha — sem isso, um vendedor
+  logado que descobrisse a URL editaria o banco inteiro.
+-->
+<div id="tela-bloqueada">
+  <div class="marca">SOLAR <span>GREEN</span></div>
+  <div class="msg" id="bloqueio-msg">Verificando acesso…</div>
+  <a href="index.html" id="bloqueio-link" class="hidden">Voltar ao sistema</a>
+</div>
+
+<div class="topo">
+  <h1>Planilha <span>administrativa</span></h1>
+  <div class="direita">
+    <span class="quem" id="quem"></span>
+    <a class="voltar" href="index.html">← Voltar ao sistema</a>
+  </div>
+</div>
+
+<div class="aviso-topo">
+  Isto edita o banco de dados direto, sem as validações das telas do sistema — o que for apagado aqui não tem como desfazer. Cada aba que você abre lê a coleção inteira uma vez e consome cota de leitura do Firestore, então evite ficar pulando de aba à toa.
+</div>
+
+<div class="abas" id="abas"></div>
+
+<div class="toolbar">
+  <button class="btn btn-primary" id="btn-nova-linha">+ Linha</button>
+  <button class="btn" id="btn-nova-coluna">+ Coluna</button>
+  <button class="btn btn-danger" id="btn-excluir-selecionados">Excluir selecionados</button>
+  <button class="btn" id="btn-recarregar" title="Relê a coleção no banco (consome cota de leitura)">Recarregar</button>
+  <span class="tag-leitura hidden" id="tag-leitura">Somente leitura</span>
+  <div class="separador"></div>
+  <input class="busca" id="busca" type="search" placeholder="Filtrar nesta aba…">
+  <div class="separador"></div>
+  <select id="select-exportar">
+    <option value="">Exportar como…</option>
+    <option value="csv">CSV</option>
+    <option value="xlsx">XLSX (Excel)</option>
+    <option value="html">HTML</option>
+  </select>
+  <button class="btn" id="btn-importar">Importar CSV/XLSX</button>
+  <input type="file" id="input-importar" accept=".csv,.xlsx,.xls" class="hidden">
+</div>
+
+<div class="status" id="status"></div>
+<div class="area-tabela">
+  <table>
+    <thead><tr id="linha-cabecalho"></tr></thead>
+    <tbody id="corpo-tabela"></tbody>
+  </table>
+</div>
+
+<div class="toast hidden" id="toast"></div>
+<div class="modal-overlay hidden" id="modal">
+  <div class="modal-card">
+    <h3 id="modal-titulo"></h3>
+    <p id="modal-texto"></p>
+    <input id="modal-input" class="hidden" type="text">
+    <div class="modal-acoes">
+      <button class="btn" id="modal-cancelar">Cancelar</button>
+      <button class="btn btn-primary" id="modal-ok">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="js/firebase-init.js?v=20260901a"></script>
+<script>
+(function(){
+  'use strict';
+
+  // ══════════════ COLEÇÕES ══════════════
+  // "campos" é só a ORDEM preferida das colunas — o resto aparece sozinho,
+  // descoberto dos próprios documentos. Campo que existe no banco e não
+  // está listado aqui continua aparecendo, só depois dos listados.
+  var COLECOES=[
+    {nome:'clientes',              label:'Clientes',            campos:['IdCliente','NomeRazaoSocial','Nome','CPFouCNPJ','Telefone','Email','Endereco','StatusCliente','IdVendedor']},
+    {nome:'funil',                 label:'Funil (leads)',       campos:['IdOportunidade','IdCliente','NomeCliente','IdVendedor','Etapa','Pipeline','Valor','Observacoes','MotivoPerda','DataCriacao']},
+    {nome:'funil_pipelines',       label:'Pipelines do funil',  campos:['IdPipeline','Nome','Ordem','Protegido','AutomacaoVenda','Etapas']},
+    {nome:'vendas',                label:'Vendas',              campos:['IdVenda','IdCliente','NomeCliente','IdVendedor','IdServico','DataVenda','Valor']},
+    {nome:'custos_venda',          label:'Custos da venda',     campos:['IdCusto','IdVenda','Descricao','Valor','Status','Data']},
+    {nome:'agendamentos',          label:'Agendamentos',        campos:['IdAgendamento','IdCliente','NomeCliente','IdServico','DataInicio','Horainicio','HoraFim','TecnicoResponsavel','StatusAgendamento','Valor']},
+    {nome:'agendamentos_respostas',label:'Respostas do checklist',campos:['IdAgendamento','IdTemplate','RespostaTexto','RespostaQuantidade','RespostaFoto']},
+    {nome:'templates',             label:'Perguntas do checklist',campos:['IdTemplate','IdServico','TextoPergunta','TipoInput','OpcoesEnum','Obrigatorio','Ordem']},
+    {nome:'servicos',              label:'Serviços',            campos:['IdServico','NomeServico','TipoCobranca','TipoServico','Descricao','Valor']},
+    {nome:'planos',                label:'Planos',              campos:['IdPlano','IdCliente','DataAssinatura','TipoAssinatura','Valor','DiaVencimento','Status']},
+    {nome:'propostas',             label:'Propostas',           campos:['IdProposta','Numero','IdCliente','NomeCliente','Data','Total','Status']},
+    {nome:'relatorios',            label:'Relatórios diários',  campos:['IdRelatorio','IdVendedor','Data','NovosContatos','Conversas','PropostasApresentadas']},
+    {nome:'metas',                 label:'Metas',               campos:['IdMeta','Ano','Mes','Valor']},
+    {nome:'metas_individuais',     label:'Metas individuais',   campos:['IdMetaIndividual','IdVendedor','Ano','Mes','Valor']},
+    {nome:'custo_recorrente',      label:'Custos recorrentes',  campos:['IdCR','Descricao','Categoria','Valor','DiaVencimento','Status']},
+    {nome:'produtos_modulos',      label:'Módulos (catálogo)',  campos:['IdModulo','Marca','Modelo']},
+    {nome:'produtos_inversores',   label:'Inversores (catálogo)',campos:['IdInversor','Marca','Modelo']},
+    {nome:'vendedores',            label:'Vendedores',          campos:['IdVendedor','Nome','Email','Telefone','Tipo','Status']},
+    {nome:'permissoes',            label:'Permissões',          campos:['Tipo','Tela','Permitido']},
+    // As regras do Firestore só deixam CRIAR uma batida de ponto (pelo app
+    // do ponto, com o Uid de quem está logado) — update e delete estão
+    // fechados de propósito, pra ninguém "ajustar" ponto batido. Correção
+    // de jornada vai em ponto_overrides (abonos), não aqui.
+    {nome:'ponto',                 label:'Ponto (leitura)',     campos:['Funcionario','Tipo','Data e Hora','Uid'], somenteLeitura:true, motivoLeitura:'As firestore.rules bloqueiam editar e excluir batida de ponto. Ajuste de jornada vai na aba "Abonos do ponto".'},
+    {nome:'ponto_overrides',       label:'Abonos do ponto',     campos:['Funcionario','Data','Tipo','Observacao']},
+    {nome:'config',                label:'Config (técnico)',    campos:[]}
+  ];
+
+  var SG_ADMIN_ROLES=['admin','administrador','ceo','gestor','gerente'];
+
+  // ══════════════ TRAVA DE ACESSO ══════════════
+
+  function sessaoValida(){
+    try{
+      var raw=localStorage.getItem('sg_auth_session');
+      var s=raw?JSON.parse(raw):null;
+      if(s&&s.idVendedor&&s.expiresAt&&Date.now()<s.expiresAt)return s;
+    }catch(e){}
+    return null;
+  }
+  function ehAdmin(s){
+    return !!s&&SG_ADMIN_ROLES.indexOf(String(s.tipo||'').trim().toLowerCase())!==-1;
+  }
+  function bloquear(msg){
+    document.getElementById('bloqueio-msg').textContent=msg;
+    document.getElementById('bloqueio-link').classList.remove('hidden');
+  }
+
+  var SESSAO=sessaoValida();
+  if(!SESSAO){
+    // Sem sessão do sistema: manda pro login (o index.html mostra a tela de
+    // login sozinho quando não há sessão).
+    window.location.replace('index.html');
+    return;
+  }
+  if(!ehAdmin(SESSAO)){
+    bloquear('Esta página é da manutenção do banco de dados e só abre para conta de administrador. Você está logado como "'+(SESSAO.tipo||'usuário')+'".');
+    return;
+  }
+  document.getElementById('quem').textContent=(SESSAO.nome||SESSAO.email||'')+' · '+(SESSAO.tipo||'');
+
+  // ══════════════ ESTADO ══════════════
+
+  var db=null;
+  // colecaoAtiva começa NULA de propósito: abrir a página não pode custar
+  // leitura nenhuma. Este projeto vive estourando a cota diária do Firestore
+  // (pendência aberta no segundo cérebro), e a maior coleção — clientes, uns
+  // 1.200 documentos — seria justamente a primeira a carregar sozinha se a
+  // primeira aba já viesse aberta. Aqui a leitura só acontece quando alguém
+  // clica numa aba, e é uma leitura única (get), não um listener vivo:
+  // ferramenta de manutenção não precisa de tempo real, e listener aberto
+  // relê coleção inteira a cada reabertura.
+  var STATE={colecaoAtiva:null,docs:[],colunasExtras:{},selecionados:{},filtro:''};
+
+  function configAtiva(){
+    for(var i=0;i<COLECOES.length;i++) if(COLECOES[i].nome===STATE.colecaoAtiva) return COLECOES[i];
+    return null;
+  }
+  function somenteLeitura(){ var c=configAtiva(); return !c||!!c.somenteLeitura; }
+
+  // ══════════════ UTILITÁRIOS ══════════════
+
+  function esc(s){
+    return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function mostrarToast(msg,erro){
+    var el=document.getElementById('toast');
+    el.textContent=msg;
+    el.className='toast'+(erro?' erro':'');
+    clearTimeout(mostrarToast._t);
+    mostrarToast._t=setTimeout(function(){el.classList.add('hidden');},6000);
+  }
+  // Confirmação/pergunta com componente próprio — nada de confirm()/prompt()
+  // nativo (crença 3 do segundo cérebro).
+  function perguntar(opcoes){
+    return new Promise(function(resolve){
+      var modal=document.getElementById('modal');
+      var input=document.getElementById('modal-input');
+      document.getElementById('modal-titulo').textContent=opcoes.titulo||'Confirmar';
+      document.getElementById('modal-texto').textContent=opcoes.texto||'';
+      document.getElementById('modal-ok').textContent=opcoes.okTexto||'Confirmar';
+      if(opcoes.pedirTexto){
+        input.classList.remove('hidden');
+        input.value=opcoes.valorInicial||'';
+        input.placeholder=opcoes.placeholder||'';
+      }else{
+        input.classList.add('hidden');
+      }
+      modal.classList.remove('hidden');
+      if(opcoes.pedirTexto) setTimeout(function(){input.focus();},30);
+
+      function fechar(valor){
+        modal.classList.add('hidden');
+        document.getElementById('modal-ok').onclick=null;
+        document.getElementById('modal-cancelar').onclick=null;
+        input.onkeydown=null;
+        resolve(valor);
+      }
+      document.getElementById('modal-ok').onclick=function(){
+        fechar(opcoes.pedirTexto?(input.value.trim()||null):true);
+      };
+      document.getElementById('modal-cancelar').onclick=function(){ fechar(null); };
+      input.onkeydown=function(e){ if(e.key==='Enter'){e.preventDefault();document.getElementById('modal-ok').click();} };
+    });
+  }
+
+  function formatarValor(v){
+    if(v==null) return '';
+    if(v&&typeof v.toDate==='function'){
+      // Timestamp do Firestore — mostra legível, não o número cru.
+      try{ return v.toDate().toLocaleString('pt-BR'); }catch(e){ return String(v); }
+    }
+    if(typeof v==='object') return JSON.stringify(v);
+    return String(v);
+  }
+  // Texto digitado na célula -> valor gravado. Número/booleano viram tipo de
+  // verdade; o resto fica string. Objeto/array (ex.: Etapas do pipeline,
+  // Transicoes do lead) NÃO é editável por aqui de propósito — reescrever um
+  // JSON inteiro na mão é o caminho mais curto pra corromper o registro.
+  function parseValor(texto){
+    var v=String(texto).trim();
+    if(v==='') return '';
+    if(/^-?\d+$/.test(v)) return parseInt(v,10);
+    if(/^-?\d+[.,]\d+$/.test(v)) return parseFloat(v.replace(',','.'));
+    if(v==='true') return true;
+    if(v==='false') return false;
+    return v;
+  }
+  function ehComplexo(v){ return v!=null&&typeof v==='object'&&typeof v.toDate!=='function'; }
+
+  // ══════════════ ABAS ══════════════
+
+  function renderAbas(){
+    document.getElementById('abas').innerHTML=COLECOES.map(function(c){
+      return '<button data-colecao="'+esc(c.nome)+'" class="'+(c.nome===STATE.colecaoAtiva?'active':'')+'">'+esc(c.label)+'</button>';
+    }).join('');
+    Array.prototype.forEach.call(document.querySelectorAll('#abas button'),function(btn){
+      btn.addEventListener('click',function(){ selecionarAba(btn.getAttribute('data-colecao')); });
+    });
+  }
+
+  function selecionarAba(nome){
+    STATE.colecaoAtiva=nome;
+    STATE.selecionados={};
+    STATE.filtro='';
+    STATE.docs=[];
+    document.getElementById('busca').value='';
+    renderAbas();
+    aplicarModoLeitura();
+    carregarColecaoAtiva();
+  }
+
+  function aplicarModoLeitura(){
+    var ro=somenteLeitura();
+    var semAba=!configAtiva();
+    document.getElementById('tag-leitura').classList.toggle('hidden',!ro||semAba);
+    document.getElementById('btn-nova-linha').disabled=ro;
+    document.getElementById('btn-nova-coluna').disabled=ro;
+    document.getElementById('btn-excluir-selecionados').disabled=ro;
+    document.getElementById('btn-importar').disabled=ro;
+    document.getElementById('btn-recarregar').disabled=semAba;
+    document.getElementById('select-exportar').disabled=semAba;
+  }
+
+  // Leitura única (get), não listener — ver comentário do STATE. Cada
+  // chamada aqui custa 1 leitura por documento da coleção, então só roda
+  // quando a pessoa pede: ao clicar na aba, ou no botão Recarregar.
+  function carregarColecaoAtiva(){
+    var alvo=STATE.colecaoAtiva;
+    if(!alvo) return;
+    document.getElementById('status').textContent='Carregando…';
+    db.collection(alvo).get().then(function(snap){
+      if(STATE.colecaoAtiva!==alvo) return; // trocou de aba no meio do caminho
+      STATE.docs=snap.docs.map(function(d){
+        var dados=d.data()||{};
+        dados.id=d.id;
+        return dados;
+      });
+      render();
+    }).catch(function(err){
+      if(STATE.colecaoAtiva!==alvo) return;
+      document.getElementById('status').textContent='Não carregou.';
+      mostrarToast('Erro ao carregar "'+alvo+'": '+err.message,true);
+    });
+  }
+
+  document.getElementById('btn-recarregar').addEventListener('click',carregarColecaoAtiva);
+
+  // ══════════════ COLUNAS ══════════════
+
+  function colunasDaAbaAtiva(){
+    var cfg=configAtiva();
+    if(!cfg) return [];
+    var ordem=(cfg.campos||[]).slice();
+    var vistas={};
+    ordem.forEach(function(c){ vistas[c]=true; });
+    STATE.docs.forEach(function(d){
+      Object.keys(d).forEach(function(k){
+        if(k!=='id'&&!vistas[k]){ vistas[k]=true; ordem.push(k); }
+      });
+    });
+    (STATE.colunasExtras[STATE.colecaoAtiva]||[]).forEach(function(c){
+      if(!vistas[c]){ vistas[c]=true; ordem.push(c); }
+    });
+    return ordem;
+  }
+
+  document.getElementById('btn-nova-coluna').addEventListener('click',function(){
+    perguntar({
+      titulo:'Nova coluna',
+      texto:'Nome do campo, exatamente como deve ficar no banco (sem espaço, ex.: Telefone). Ela só passa a existir de verdade depois que você preencher algum valor.',
+      pedirTexto:true, placeholder:'NomeDoCampo', okTexto:'Criar'
+    }).then(function(nome){
+      if(!nome) return;
+      if(!STATE.colunasExtras[STATE.colecaoAtiva]) STATE.colunasExtras[STATE.colecaoAtiva]=[];
+      STATE.colunasExtras[STATE.colecaoAtiva].push(nome);
+      render();
+    });
+  });
+
+  // ══════════════ TABELA ══════════════
+
+  function docsVisiveis(){
+    if(!STATE.filtro) return STATE.docs;
+    var termo=STATE.filtro.toLowerCase();
+    return STATE.docs.filter(function(d){
+      return Object.keys(d).some(function(k){
+        return formatarValor(d[k]).toLowerCase().indexOf(termo)!==-1;
+      });
+    });
+  }
+
+  function render(){
+    var cfg=configAtiva();
+    if(!cfg){
+      // Nenhuma aba aberta ainda — nenhuma leitura foi feita, e é isso que
+      // deixa abrir a página custar zero de cota.
+      document.getElementById('status').textContent='Escolha uma aba acima para carregar os dados. Cada aba aberta lê a coleção inteira uma vez.';
+      document.getElementById('linha-cabecalho').innerHTML='';
+      document.getElementById('corpo-tabela').innerHTML='';
+      return;
+    }
+    var colunas=colunasDaAbaAtiva();
+    var docs=docsVisiveis();
+    var ro=somenteLeitura();
+
+    document.getElementById('status').textContent=
+      docs.length+' de '+STATE.docs.length+' registro(s)'+
+      (ro&&cfg.motivoLeitura?' — '+cfg.motivoLeitura:'');
+
+    document.getElementById('linha-cabecalho').innerHTML=
+      '<th class="check-col"><input type="checkbox" id="check-todos"'+(ro?' disabled':'')+'></th>'+
+      '<th>id</th>'+
+      colunas.map(function(c){ return '<th>'+esc(c)+'</th>'; }).join('');
+
+    document.getElementById('corpo-tabela').innerHTML=docs.map(function(d){
+      return '<tr data-id="'+esc(d.id)+'" class="'+(STATE.selecionados[d.id]?'selecionada':'')+'">'+
+        '<td class="check-col"><div class="celula"><input type="checkbox" class="check-linha" data-id="'+esc(d.id)+'"'+(STATE.selecionados[d.id]?' checked':'')+(ro?' disabled':'')+'></div></td>'+
+        '<td class="id-col"><div class="celula" title="'+esc(d.id)+'">'+esc(d.id)+'</div></td>'+
+        colunas.map(function(c){
+          var complexo=ehComplexo(d[c]);
+          var editavel=!ro&&!complexo;
+          return '<td><div class="celula"'+(editavel?' contenteditable="true"':'')+
+            ' data-id="'+esc(d.id)+'" data-campo="'+esc(c)+'"'+
+            (complexo?' title="Campo estruturado (lista/objeto) — editável só pelas telas do sistema."':'')+
+            '>'+esc(formatarValor(d[c]))+'</div></td>';
+        }).join('')+
+      '</tr>';
+    }).join('');
+
+    var checkTodos=document.getElementById('check-todos');
+    if(checkTodos) checkTodos.addEventListener('change',function(e){
+      docs.forEach(function(d){
+        if(e.target.checked) STATE.selecionados[d.id]=true; else delete STATE.selecionados[d.id];
+      });
+      render();
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.check-linha'),function(chk){
+      chk.addEventListener('change',function(){
+        var id=chk.getAttribute('data-id');
+        if(chk.checked) STATE.selecionados[id]=true; else delete STATE.selecionados[id];
+        var tr=chk.closest('tr');
+        if(tr) tr.classList.toggle('selecionada',chk.checked);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('td .celula[contenteditable]'),function(el){
+      var original=el.textContent;
+      el.addEventListener('focus',function(){ original=el.textContent; });
+      el.addEventListener('blur',function(){
+        if(el.textContent===original) return; // nada mudou, não grava à toa
+        salvarCelula(el,el.getAttribute('data-id'),el.getAttribute('data-campo'),el.textContent,original);
+      });
+      el.addEventListener('keydown',function(e){
+        if(e.key==='Enter'){ e.preventDefault(); el.blur(); }
+        if(e.key==='Escape'){ el.textContent=original; el.blur(); }
+      });
+    });
+  }
+
+  document.getElementById('busca').addEventListener('input',function(e){
+    STATE.filtro=e.target.value.trim();
+    render();
+  });
+
+  function docLocal(id){
+    for(var i=0;i<STATE.docs.length;i++) if(STATE.docs[i].id===id) return STATE.docs[i];
+    return null;
+  }
+
+  function salvarCelula(el,id,campo,textoNovo,textoAntigo){
+    el.classList.add('salvando');
+    var valor=parseValor(textoNovo);
+    var patch={};
+    patch[campo]=valor;
+    db.collection(STATE.colecaoAtiva).doc(id).update(patch).then(function(){
+      el.classList.remove('salvando');
+      // Sem listener ao vivo, o estado local é atualizado aqui — assim
+      // filtro/exportação enxergam o valor novo sem reler a coleção.
+      var d=docLocal(id);
+      if(d) d[campo]=valor;
+    }).catch(function(err){
+      el.classList.remove('salvando');
+      el.textContent=textoAntigo; // devolve o valor de antes, pra tela não mentir
+      mostrarToast('Não salvou "'+campo+'": '+err.message,true);
+    });
+  }
+
+  // ══════════════ LINHAS ══════════════
+
+  document.getElementById('btn-nova-linha').addEventListener('click',function(){
+    if(!configAtiva()){ mostrarToast('Escolha uma aba primeiro.'); return; }
+    db.collection(STATE.colecaoAtiva).add({}).then(function(ref){
+      STATE.docs.unshift({id:ref.id});
+      render();
+      mostrarToast('Linha criada em branco, no topo da lista. O id foi gerado pelo Firestore.');
+    }).catch(function(err){
+      mostrarToast('Não foi possível criar a linha: '+err.message,true);
+    });
+  });
+
+  document.getElementById('btn-excluir-selecionados').addEventListener('click',function(){
+    var ids=Object.keys(STATE.selecionados);
+    if(!ids.length){ mostrarToast('Nenhuma linha selecionada.'); return; }
+    perguntar({
+      titulo:'Excluir '+ids.length+' registro(s)?',
+      texto:'Isso apaga de "'+STATE.colecaoAtiva+'" no banco de verdade, agora. Não tem desfazer, e as telas do sistema vão refletir na hora.',
+      okTexto:'Excluir'
+    }).then(function(ok){
+      if(!ok) return;
+      var erros=0, apagados={};
+      var fila=ids.map(function(id){
+        return db.collection(STATE.colecaoAtiva).doc(id).delete()
+          .then(function(){ apagados[id]=true; })
+          .catch(function(){ erros++; });
+      });
+      Promise.all(fila).then(function(){
+        STATE.docs=STATE.docs.filter(function(d){ return !apagados[d.id]; });
+        STATE.selecionados={};
+        render();
+        mostrarToast(erros?('Excluídos com '+erros+' erro(s).'):'Excluído(s).',!!erros);
+      });
+    });
+  });
+
+  // ══════════════ EXPORTAR ══════════════
+
+  document.getElementById('select-exportar').addEventListener('change',function(e){
+    var formato=e.target.value;
+    e.target.value='';
+    if(!formato) return;
+    var colunas=colunasDaAbaAtiva();
+    var linhas=docsVisiveis().map(function(d){
+      var linha={id:d.id};
+      colunas.forEach(function(c){ linha[c]=formatarValor(d[c]); });
+      return linha;
+    });
+    var ws=XLSX.utils.json_to_sheet(linhas);
+    if(formato==='csv'){
+      baixar(XLSX.utils.sheet_to_csv(ws),STATE.colecaoAtiva+'.csv','text/csv;charset=utf-8;');
+    }else if(formato==='xlsx'){
+      var wb=XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb,ws,STATE.colecaoAtiva.slice(0,31));
+      XLSX.writeFile(wb,STATE.colecaoAtiva+'.xlsx');
+    }else{
+      baixar(XLSX.utils.sheet_to_html(ws),STATE.colecaoAtiva+'.html','text/html;charset=utf-8;');
+    }
+  });
+
+  function baixar(conteudo,nomeArquivo,tipo){
+    var blob=new Blob([conteudo],{type:tipo});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=nomeArquivo;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  // ══════════════ IMPORTAR ══════════════
+
+  document.getElementById('btn-importar').addEventListener('click',function(){
+    document.getElementById('input-importar').click();
+  });
+
+  document.getElementById('input-importar').addEventListener('change',function(e){
+    var arquivo=e.target.files[0];
+    if(!arquivo) return;
+    arquivo.arrayBuffer().then(function(buffer){
+      var wb=XLSX.read(buffer,{type:'array'});
+      var linhas=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
+      var comId=linhas.filter(function(l){ return l.id; }).length;
+      var semId=linhas.length-comId;
+      return perguntar({
+        titulo:'Importar para "'+STATE.colecaoAtiva+'"',
+        texto:comId+' linha(s) com "id" vão ATUALIZAR registros que já existem, e '+semId+
+              ' linha(s) sem "id" vão CRIAR registros novos. Confere antes: importação errada é difícil de desfazer.',
+        okTexto:'Importar'
+      }).then(function(ok){
+        if(!ok) return null;
+        var erros=0;
+        var fila=linhas.map(function(linha){
+          var dados={};
+          Object.keys(linha).forEach(function(k){ if(k!=='id') dados[k]=linha[k]; });
+          var p=linha.id
+            ? db.collection(STATE.colecaoAtiva).doc(String(linha.id)).update(dados)
+            : db.collection(STATE.colecaoAtiva).add(dados);
+          return p.catch(function(){ erros++; });
+        });
+        return Promise.all(fila).then(function(){
+          mostrarToast(erros?('Importação terminou com '+erros+' erro(s).'):'Importação concluída.',!!erros);
+          carregarColecaoAtiva(); // relê uma vez pra tabela mostrar o que entrou
+        });
+      });
+    }).catch(function(err){
+      mostrarToast('Não deu pra ler o arquivo: '+err.message,true);
+    }).then(function(){ e.target.value=''; });
+  });
+
+  // ══════════════ INÍCIO ══════════════
+
+  // SGFireReady só resolve depois do primeiro onAuthStateChanged — sem
+  // esperar por ele, a primeira leitura sai com request.auth ainda null e
+  // volta "Missing or insufficient permissions" mesmo com a pessoa logada
+  // (mesma armadilha documentada em js/firebase-init.js).
+  window.SGFireReady.then(function(user){
+    if(!user){
+      bloquear('Sua sessão do sistema expirou. Entre de novo pelo login para abrir a planilha.');
+      return;
+    }
+    db=firebase.firestore();
+    document.getElementById('tela-bloqueada').classList.add('hidden');
+    renderAbas();
+    aplicarModoLeitura();
+    render(); // estado "escolha uma aba" — nenhuma leitura ainda
+  }).catch(function(err){
+    bloquear('Não foi possível verificar o login: '+err.message);
+  });
+})();
+</script>
+</body>
+</html>
