@@ -3041,15 +3041,11 @@ var AUTENTIQUE_GRAPHQL_URL_ = 'https://api.autentique.com.br/v2/graphql';
  */
 function contarPaginasPdf_(pdfBlob) {
   var texto = pdfBlob.getDataAsString('ISO-8859-1'); // preserva byte a byte, não reinterpreta como UTF-8
-  // Padrão já usado e confirmado funcionando pra PDF gerado pelo Google
-  // (fonte: labnol.org/code/20127-count-pdf-pages) — o nó raiz da árvore
-  // de páginas grava "/Type /Pages" seguido (com ou sem espaço) de
-  // "/Count N". Pega o MAIOR valor encontrado, porque um PDF pode ter mais
-  // de um nó /Pages (sub-árvores) — só a raiz tem o total certo, e ela é
-  // sempre o maior número entre todos os /Count.
   var re = /\/Pages\s*\/Count\s+(\d+)/g, maior = 0, m;
   while ((m = re.exec(texto))) { var n = parseInt(m[1], 10); if (n > maior) maior = n; }
-  return maior || 1;
+  var matchPages = texto.match(/\/Type\s*\/Page\b/g);
+  var byObjects = matchPages ? matchPages.length : 0;
+  return Math.max(maior, byObjects) || 1;
 }
 
 /**
