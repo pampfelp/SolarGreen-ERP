@@ -231,6 +231,7 @@
           '<div class="oc-serv">'+escapeHtml(nomeServico(a.IdServico))+'</div>'+
           '<div class="oc-vend">Vendedor: '+escapeHtml(nomeVendedorDoCliente(a.IdCliente))+'</div>'+
           '<div class="oc-vend">Contato Cliente: '+escapeHtml(contato)+'</div>'+
+          '<div class="oc-vend">Técnico: '+escapeHtml(nomeVendedor(a.TecnicoResponsavel))+'</div>'+
         '</div>'+
         '<div class="os-right">'+
           '<div class="oc-data">'+(dt?fmtDataCurta(dt):'—')+'</div>'+
