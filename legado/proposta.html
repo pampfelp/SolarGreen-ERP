@@ -1639,7 +1639,7 @@ function composeMonitoramento(v,c){
   // página só fazia a assinatura cair no MEIO do texto, sobre as cláusulas
   // de identificação — a posição x/y enviada pra Autentique pressupõe uma
   // página que começa vazia, ver POSICOES_ASSINATURA_ em Code.gs).
-  '<div style="padding-top:24px;">'+
+  '<div style="page-break-before:always;padding-top:24px;">'+
     '<p style="margin-top:24px;">'+escH(c.cidade)+'/PA, '+isoToBR(v.dataContrato)+'.</p>'+
     '<div class="cp-sign">'+blocoAssinaturaContratada(v.dataContrato)+blocoAssinaturaContratante(c.nome)+'</div>'+
   '</div>'
@@ -1679,7 +1679,7 @@ function composeManutencao(v,c){
   '<div class="cp-clause-title">CLÁUSULA SÉTIMA – DO FORO</div>'+
   '<p>7.1. Para dirimir quaisquer controvérsias oriundas deste contrato, as partes elegem o foro da Comarca de '+escH(c.cidade)+' – PA, renunciando a qualquer outro, por mais privilegiado que seja.</p>'+
   // page-break-before:always — mesmo motivo do composeMonitoramento acima.
-  '<div style="padding-top:24px;">'+
+  '<div style="page-break-before:always;padding-top:24px;">'+
     '<p style="margin-top:24px;">'+escH(c.cidade)+' – PA, '+isoToBR(v.dataContrato)+'.</p>'+
     '<div class="cp-sign">'+blocoAssinaturaContratante(c.nome)+blocoAssinaturaContratada(v.dataContrato)+'</div>'+
   '</div>'
@@ -1812,7 +1812,7 @@ function printContrato(){
   'p{margin-bottom:7px;text-align:justify;}'+
   '.cp-sign{margin-top:48px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:24px;}'+
   '.cp-sign-line{border-top:1px solid #333;width:280px;padding-top:5px;font-size:11px;text-align:center;}'+
-  '@media print{body{padding:0 24px 24px;}@page{margin:1.5cm 2cm 3.5cm;}.letterhead{padding-top:0;}.cp-sign{position:fixed;bottom:0;left:10px;right:10px;margin-top:0;}}'+
+  '@media print{body{padding:0 24px 24px;}@page{margin:1.5cm 2cm 2cm;}.letterhead{padding-top:0;}}'+
   '</style></head><body>'+
   '<div class="letterhead"><img src="'+LOGO_DATA_URI+'" alt="Solar Green Suporte"></div>'+
   '<div class="letterhead-bar"></div>'+

@@ -3098,15 +3098,15 @@ var POSICOES_ASSINATURA_ = {
   // seguir esse espelhamento — é só um cantinho fixo, mesma posição nos
   // dois tipos de contrato.
   monitoramento: {
-    empresa: { assinatura: { x: '7', y: '93' } },
-    cliente: { assinatura: { x: '52.5', y: '93' } }
+    empresa: { assinatura: { x: '3', y: '10' }, assinaturaTodas: { x: '7', y: '93' } },
+    cliente: { assinatura: { x: '61.7', y: '10' }, assinaturaTodas: { x: '52.5', y: '93' } }
   },
   // Manutenção: ordem invertida no HTML (CONTRATANTE à esquerda, CONTRATADA
   // à direita) — por isso x trocado em relação ao monitoramento na
-  // assinatura final; a rubrica continua no mesmo cantinho.
+  // assinatura final; a assinaturaTodas continua nos mesmos cantos.
   manutencao: {
-    empresa: { assinatura: { x: '52.5', y: '93' } },
-    cliente: { assinatura: { x: '7', y: '93' } }
+    empresa: { assinatura: { x: '61.7', y: '10' }, assinaturaTodas: { x: '52.5', y: '93' } },
+    cliente: { assinatura: { x: '3', y: '10' }, assinaturaTodas: { x: '7', y: '93' } }
   }
 };
 
@@ -3252,9 +3252,16 @@ function actionGerarPdfOS(body) {
 function resolverPosicoesAssinatura_(config, totalPaginas) {
   if (!config || !config.assinatura) return null;
   var out = [];
-  for (var pg = 1; pg <= totalPaginas; pg++) {
-    out.push({ x: String(config.assinatura.x), y: String(config.assinatura.y), z: pg, element: 'SIGNATURE' });
+  if (config.assinaturaTodas) {
+    for (var pg = 1; pg < totalPaginas; pg++) {
+      out.push({ x: String(config.assinaturaTodas.x), y: String(config.assinaturaTodas.y), z: pg, element: 'SIGNATURE' });
+    }
+  } else if (config.rubrica) {
+    for (var pg = 1; pg < totalPaginas; pg++) {
+      out.push({ x: String(config.rubrica.x), y: String(config.rubrica.y), z: pg, element: 'INITIALS' });
+    }
   }
+  out.push({ x: String(config.assinatura.x), y: String(config.assinatura.y), z: totalPaginas, element: 'SIGNATURE' });
   return out;
 }
 // Identidade da Solar Green como SIGNATÁRIA de verdade na Autentique (não
