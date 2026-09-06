@@ -176,7 +176,8 @@ td .celula.celula-grande:hover{background:var(--accent-soft);}
   </table>
   <div class="rodape-paginacao hidden" id="rodape-paginacao">
     <button class="btn btn-primary" id="btn-carregar-mais">Carregar mais</button>
-    <span class="dica">Só o que já foi baixado aparece na tabela, no filtro e na exportação.</span>
+    <button class="btn" id="btn-selecionar-tudo">Selecionar todas as páginas</button>
+    <span class="dica">Só o que já foi baixado aparece na tabela, no filtro e na exportação — ao exportar, a planilha avisa se ainda faltar página.</span>
   </div>
 </div>
 
@@ -201,6 +202,7 @@ td .celula.celula-grande:hover{background:var(--accent-soft);}
     <input id="modal-input" class="hidden" type="text">
     <div class="modal-acoes">
       <button class="btn" id="modal-cancelar">Cancelar</button>
+      <button class="btn hidden" id="modal-extra"></button>
       <button class="btn btn-primary" id="modal-ok">Confirmar</button>
     </div>
   </div>
@@ -346,10 +348,16 @@ td .celula.celula-grande:hover{background:var(--accent-soft);}
   }
   // Confirmação/pergunta com componente próprio — nada de confirm()/prompt()
   // nativo (crença 3 do segundo cérebro).
+  // "opcoes.extraTexto" liga um terceiro botão — o clique nele resolve a
+  // Promise com a string 'extra' (diferente de true/null dos outros dois),
+  // pra quem chamou distinguir as três respostas. Usado só na exportação
+  // parcial (ver abaixo); as outras chamadas de perguntar() continuam com
+  // só Confirmar/Cancelar.
   function perguntar(opcoes){
     return new Promise(function(resolve){
       var modal=document.getElementById('modal');
       var input=document.getElementById('modal-input');
+      var extra=document.getElementById('modal-extra');
       document.getElementById('modal-titulo').textContent=opcoes.titulo||'Confirmar';
       document.getElementById('modal-texto').textContent=opcoes.texto||'';
       document.getElementById('modal-ok').textContent=opcoes.okTexto||'Confirmar';
@@ -360,6 +368,12 @@ td .celula.celula-grande:hover{background:var(--accent-soft);}
       }else{
         input.classList.add('hidden');
       }
+      if(opcoes.extraTexto){
+        extra.textContent=opcoes.extraTexto;
+        extra.classList.remove('hidden');
+      }else{
+        extra.classList.add('hidden');
+      }
       modal.classList.remove('hidden');
       if(opcoes.pedirTexto) setTimeout(function(){input.focus();},30);
 
@@ -367,6 +381,7 @@ td .celula.celula-grande:hover{background:var(--accent-soft);}
         modal.classList.add('hidden');
         document.getElementById('modal-ok').onclick=null;
         document.getElementById('modal-cancelar').onclick=null;
+        extra.onclick=null;
         input.onkeydown=null;
         resolve(valor);
       }
@@ -374,6 +389,7 @@ td .celula.celula-grande:hover{background:var(--accent-soft);}
         fechar(opcoes.pedirTexto?(input.value.trim()||null):true);
       };
       document.getElementById('modal-cancelar').onclick=function(){ fechar(null); };
+      extra.onclick=function(){ fechar('extra'); };
       input.onkeydown=function(e){ if(e.key==='Enter'){e.preventDefault();document.getElementById('modal-ok').click();} };
     });
   }
@@ -486,9 +502,12 @@ td .celula.celula-grande:hover{background:var(--accent-soft);}
   // contrário de ordenar por um campo qualquer. Com essa ordenação o
   // cursor do startAfter é o próprio id, uma string — dá pra guardar no
   // cache e continuar de onde parou sem segurar o snapshot inteiro.
+  // Devolve uma Promise (resolve com STATE.temMais depois da página) — é o
+  // que permite encadear várias chamadas em carregarTudo(), sem duplicar a
+  // lógica de busca.
   function carregarPagina(reiniciar){
     var alvo=STATE.colecaoAtiva;
-    if(!alvo||STATE.carregando) return;
+    if(!alvo||STATE.carregando) return Promise.resolve(false);
     if(reiniciar){ STATE.docs=[]; STATE.ultimoId=null; STATE.temMais=false; STATE.selecionados={}; }
     STATE.carregando=true;
     render();
@@ -497,8 +516,8 @@ td .celula.celula-grande:hover{background:var(--accent-soft);}
     var q=db.collection(alvo).orderBy(firebase.firestore.FieldPath.documentId()).limit(limite);
     if(STATE.ultimoId) q=q.startAfter(STATE.ultimoId);
 
-    q.get().then(function(snap){
-      if(STATE.colecaoAtiva!==alvo){ STATE.carregando=false; return; } // trocou de aba no meio
+    return q.get().then(function(snap){
+      if(STATE.colecaoAtiva!==alvo){ STATE.carregando=false; return false; } // trocou de aba no meio
       snap.docs.forEach(function(d){
         var dados=d.data()||{};
         dados.id=d.id;
@@ -510,11 +529,29 @@ td .celula.celula-grande:hover{background:var(--accent-soft);}
       STATE.carregando=false;
       guardarNoCache();
       render();
+      return STATE.temMais;
     }).catch(function(err){
       STATE.carregando=false;
       render();
       mostrarToast('Erro ao carregar "'+alvo+'": '+err.message,true);
+      return false;
     });
+  }
+
+  // Busca página atrás de página até acabar — usado pelo "Selecionar tudo
+  // antes de baixar" e pelo aviso de exportação parcial. Mostra progresso no
+  // status porque uma coleção grande (com foto) pode levar alguns segundos.
+  function carregarTudo(){
+    var alvo=STATE.colecaoAtiva;
+    if(STATE.carregando) return Promise.resolve(); // já tem um carregamento em andamento, não duplica
+    function passo(){
+      if(STATE.colecaoAtiva!==alvo) return Promise.resolve(); // saiu da aba no meio
+      document.getElementById('status').textContent='Baixando tudo… '+STATE.docs.length+' registro(s) até agora.';
+      return carregarPagina(false).then(function(temMais){
+        if(temMais&&STATE.colecaoAtiva===alvo) return passo();
+      });
+    }
+    return passo();
   }
 
   document.getElementById('btn-recarregar').addEventListener('click',function(){
@@ -613,6 +650,7 @@ td .celula.celula-grande:hover{background:var(--accent-soft);}
     var btnMais=document.getElementById('btn-carregar-mais');
     btnMais.disabled=STATE.carregando;
     btnMais.textContent=STATE.carregando?'Carregando…':('Carregar mais '+porPagina());
+    document.getElementById('btn-selecionar-tudo').disabled=STATE.carregando;
 
     document.getElementById('linha-cabecalho').innerHTML=
       '<th class="check-col"><input type="checkbox" id="check-todos"'+(ro?' disabled':'')+'></th>'+
@@ -745,10 +783,7 @@ td .celula.celula-grande:hover{background:var(--accent-soft);}
 
   // ══════════════ EXPORTAR ══════════════
 
-  document.getElementById('select-exportar').addEventListener('change',function(e){
-    var formato=e.target.value;
-    e.target.value='';
-    if(!formato) return;
+  function exportarAgora(formato){
     var colunas=colunasDaAbaAtiva();
     var linhas=docsVisiveis().map(function(d){
       var linha={id:d.id};
@@ -765,6 +800,46 @@ td .celula.celula-grande:hover{background:var(--accent-soft);}
     }else{
       baixar(XLSX.utils.sheet_to_html(ws),STATE.colecaoAtiva+'.html','text/html;charset=utf-8;');
     }
+    mostrarToast('Exportado: '+linhas.length+' registro(s).');
+  }
+
+  // Exportar só olha STATE.docs (o que já foi baixado) — com paginação,
+  // isso pode ser só um pedaço da coleção. Em vez de exportar uma fração
+  // sem avisar, pergunta antes sempre que ainda falta gente pra baixar
+  // (STATE.temMais), com um botão que carrega tudo primeiro.
+  document.getElementById('select-exportar').addEventListener('change',function(e){
+    var formato=e.target.value;
+    e.target.value='';
+    if(!formato) return;
+    if(!STATE.temMais){ exportarAgora(formato); return; }
+    perguntar({
+      titulo:'Ainda falta baixar',
+      texto:'Só '+STATE.docs.length+' registro(s) de "'+STATE.colecaoAtiva+'" foram baixados até agora — exportar assim sai incompleto. Quer baixar o resto primeiro? Coleção grande (com foto) pode demorar alguns segundos.',
+      okTexto:'Baixar tudo e exportar',
+      extraTexto:'Exportar só o que já tem'
+    }).then(function(resp){
+      if(resp===true){
+        carregarTudo().then(function(){ exportarAgora(formato); });
+      }else if(resp==='extra'){
+        exportarAgora(formato);
+      }
+      // null (Cancelar) não exporta nada
+    });
+  });
+
+  // "Selecionar todas as páginas": pedido explícito do Felipe — carrega o
+  // resto da coleção e marca tudo como selecionado, pra quem quiser conferir
+  // a contagem antes de exportar ou excluir em massa sem precisar clicar
+  // "Carregar mais" repetidas vezes.
+  document.getElementById('btn-selecionar-tudo').addEventListener('click',function(){
+    if(!STATE.colecaoAtiva) return;
+    var acabar=function(){
+      STATE.docs.forEach(function(d){ STATE.selecionados[d.id]=true; });
+      render();
+      mostrarToast(STATE.docs.length+' registro(s) selecionado(s).');
+    };
+    if(!STATE.temMais){ acabar(); return; }
+    carregarTudo().then(acabar);
   });
 
   function baixar(conteudo,nomeArquivo,tipo){
