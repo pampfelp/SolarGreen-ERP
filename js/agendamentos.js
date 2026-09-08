@@ -255,7 +255,7 @@
       var servTag=(tpl&&tpl.IdServico&&String(tpl.IdServico)!==String(a.IdServico))?('Respondido no serviço: '+nomeServico(tpl.IdServico)):'';
       var valor=valorDaResposta(r);
       var isFoto=!!r.RespostaFoto&&/^(https?:|data:image)/.test(r.RespostaFoto);
-      var valorHtml=isFoto?('<img src="'+escapeHtml(r.RespostaFoto)+'" alt="foto" style="max-width:100%;max-height:200px;border-radius:8px;margin-top:6px;display:block;cursor:pointer;">'):('<div style="font-size:13px;color:var(--ink-soft);margin-top:2px;white-space:pre-wrap;">'+escapeHtml(valor)+'</div>');
+      var valorHtml=isFoto?('<img src="'+escapeHtml(r.RespostaFoto)+'" alt="foto" data-id-agendamento="'+escapeHtml(a.IdAgendamento)+'" data-id-template="'+escapeHtml(r.IdTemplate)+'" style="max-width:100%;max-height:200px;border-radius:8px;margin-top:6px;display:block;cursor:pointer;">'):('<div style="font-size:13px;color:var(--ink-soft);margin-top:2px;white-space:pre-wrap;">'+escapeHtml(valor)+'</div>');
       return '<div class="resp-item">'+
         '<div class="resp-q">'+escapeHtml(pergunta)+'</div>'+
         (servTag?'<div class="resp-servtag">'+escapeHtml(servTag)+'</div>':'')+
@@ -518,7 +518,15 @@
       salvarStatusOtimista(a,novoStatus,btn);
     });
     document.getElementById('ad-body').addEventListener('click',function(e){
-      if(e.target.tagName==='IMG'&&window.SGFotoModal)window.SGFotoModal.abrir(e.target.src);
+      if(e.target.tagName==='IMG') {
+        var idAg = e.target.getAttribute('data-id-agendamento');
+        var idTpl = e.target.getAttribute('data-id-template');
+        if(idAg && idTpl) {
+          abrirModalOpcoesFoto(idAg, idTpl, e.target.src);
+        } else if(window.SGFotoModal) {
+          window.SGFotoModal.abrir(e.target.src);
+        }
+      }
     });
 
     document.getElementById('agendamentoDetalhe').classList.add('active');
@@ -1376,6 +1384,177 @@
     if(document.getElementById('ag-idCliente')&&document.getElementById('ag-idCliente').value===clienteObj.IdCliente&&typeof validarCliente==='function')validarCliente();
     if(_initialized)render();
   }
+
+// --- Início: Opções de Foto no Admin ---
+  var opcoesFotoAtual = null;
+
+  function abrirModalOpcoesFoto(idAgendamento, idTemplate, url) {
+    opcoesFotoAtual = { idAgendamento: idAgendamento, idTemplate: idTemplate, url: url };
+    var div = document.getElementById('sgOpcoesFotoAdmin');
+    if (!div) {
+      div = document.createElement('div');
+      div.id = 'sgOpcoesFotoAdmin';
+      div.className = 'modal-overlay hidden';
+      div.innerHTML = '<div style="background:#fff;border-radius:10px;width:90%;max-width:300px;padding:20px;text-align:center;box-shadow:0 10px 25px rgba(0,0,0,.2);">' +
+        '<h3 style="margin-top:0;margin-bottom:15px;color:var(--ink-dark);font-size:16px;">Opções da Foto</h3>' +
+        '<button id="of-ampliar" style="display:block;width:100%;margin-bottom:10px;padding:12px;background:var(--ink-dark);color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;">Visualizar Ampliada</button>' +
+        '<button id="of-substituir" style="display:block;width:100%;margin-bottom:10px;padding:12px;background:#4CAF50;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;">Substituir Foto</button>' +
+        '<button id="of-excluir" style="display:block;width:100%;margin-bottom:10px;padding:12px;background:#fff;color:var(--debit);border:1px solid var(--debit);border-radius:6px;font-weight:600;cursor:pointer;">Excluir Resposta</button>' +
+        '<button id="of-cancelar" style="display:block;width:100%;padding:12px;background:transparent;color:var(--ink-soft);border:none;border-radius:6px;font-weight:600;cursor:pointer;">Cancelar</button>' +
+        '<input type="file" id="of-file" accept="image/*" style="display:none;">' +
+      '</div>';
+      document.body.appendChild(div);
+
+      document.getElementById('of-cancelar').addEventListener('click', function() { fecharModalOpcoesFoto(); });
+      document.getElementById('of-ampliar').addEventListener('click', function() {
+        fecharModalOpcoesFoto();
+        if(window.SGFotoModal && opcoesFotoAtual) window.SGFotoModal.abrir(opcoesFotoAtual.url);
+      });
+      document.getElementById('of-excluir').addEventListener('click', excluirFotoAtual);
+      document.getElementById('of-substituir').addEventListener('click', function() {
+        document.getElementById('of-file').click();
+      });
+      document.getElementById('of-file').addEventListener('change', function(e) {
+        if(e.target.files && e.target.files[0]) {
+          substituirFotoAtual(e.target.files[0]);
+        }
+        e.target.value = '';
+      });
+    }
+    div.classList.remove('hidden');
+  }
+
+  function fecharModalOpcoesFoto() {
+    var div = document.getElementById('sgOpcoesFotoAdmin');
+    if(div) div.classList.add('hidden');
+  }
+
+  function excluirFotoAtual() {
+    if(!opcoesFotoAtual) return;
+    var a = opcoesFotoAtual;
+    fecharModalOpcoesFoto();
+    window.SGConfirm.perguntar({
+      titulo: 'Excluir foto',
+      mensagem: 'Tem certeza que deseja excluir esta foto do agendamento? Essa ação não pode ser desfeita.',
+      textoConfirmar: 'Excluir',
+      perigo: true
+    }).then(function(ok) {
+      if(!ok) return;
+      var session = window.SG_SESSION;
+      if(!session) return;
+      window.SGToast.mostrar('Excluindo foto...', 2000);
+      window.SGAuth.apiCall('removerFotoResposta',{
+        solicitanteId: session.idVendedor,
+        idAgendamento: a.idAgendamento,
+        idTemplate: a.idTemplate
+      }).then(function(resp) {
+        if(!resp||!resp.ok) {
+          window.SGToast.mostrar((resp&&resp.erro)||'Falha ao excluir foto.', true);
+        } else {
+          window.SGToast.mostrar('Foto excluída com sucesso.');
+          if(agendamentoAtual && agendamentoAtual.IdAgendamento === a.idAgendamento) {
+            delete respostasCarregadasPara[a.idAgendamento];
+            garantirRespostas(a.idAgendamento).then(function() {
+              document.getElementById('ad-respostas').innerHTML = renderRespostasHtml(agendamentoAtual);
+            });
+          }
+        }
+      }).catch(function(err){
+        window.SGToast.mostrar('Erro de conexão ao excluir foto.', true);
+      });
+    });
+  }
+
+  function substituirFotoAtual(file) {
+    if(!opcoesFotoAtual) return;
+    var a = opcoesFotoAtual;
+    fecharModalOpcoesFoto();
+    var session = window.SG_SESSION;
+    if(!session) return;
+    
+    window.SGToast.mostrar('Preparando e enviando nova foto...', 3000);
+    
+    comprimirImagem(file, 1600, 0.8).then(function(blob){
+      var reader = new FileReader();
+      reader.onload = function(e){
+        var base64 = e.target.result.split(',')[1];
+        window.SGAuth.apiCall('uploadFotoResposta',{
+          solicitanteId: session.idVendedor,
+          idAgendamento: a.idAgendamento,
+          idTemplate: a.idTemplate,
+          base64: base64,
+          mimeType: 'image/jpeg',
+          nomeArquivo: (file.name||'foto').replace(/\.[^.]+$/,'')+'.jpg'
+        }).then(function(resp){
+          if(!resp||!resp.ok){
+            window.SGToast.mostrar((resp&&resp.erro)||'Falha ao enviar a nova foto.', true);
+          } else {
+            window.SGToast.mostrar('Foto substituída com sucesso.');
+            if(agendamentoAtual && agendamentoAtual.IdAgendamento === a.idAgendamento) {
+               delete respostasCarregadasPara[a.idAgendamento];
+               garantirRespostas(a.idAgendamento).then(function() {
+                 document.getElementById('ad-respostas').innerHTML = renderRespostasHtml(agendamentoAtual);
+               });
+            }
+          }
+        }).catch(function(err){
+          window.SGToast.mostrar('Erro de conexão ao enviar a nova foto.', true);
+        });
+      };
+      reader.onerror = function(){ window.SGToast.mostrar('Erro ao ler a imagem comprimida.', true); };
+      reader.readAsDataURL(blob);
+    }).catch(function(err){
+      window.SGToast.mostrar('Erro ao preparar imagem: ' + err.message, true);
+    });
+  }
+
+  function medidasAlvo(w,h,maxDim){
+    if(w>h&&w>maxDim){ return {w:maxDim,h:Math.round(h*maxDim/w)}; }
+    if(h>=w&&h>maxDim){ return {w:Math.round(w*maxDim/h),h:maxDim}; }
+    return {w:w,h:h};
+  }
+
+  function desenharEExportar(source,w,h,qualidade){
+    return new Promise(function(resolve,reject){
+      var canvas=document.createElement('canvas');
+      canvas.width=w; canvas.height=h;
+      canvas.getContext('2d').drawImage(source,0,0,w,h);
+      canvas.toBlob(function(blob){
+        if(!blob){ reject(new Error('Não foi possível comprimir a imagem.')); return; }
+        resolve(blob);
+      },'image/jpeg',qualidade);
+    });
+  }
+
+  function comprimirImagem(file,maxDim,qualidade){
+    if(typeof createImageBitmap==='function'){
+      return createImageBitmap(file).then(function(bitmap){
+        var alvo=medidasAlvo(bitmap.width,bitmap.height,maxDim);
+        return desenharEExportar(bitmap,alvo.w,alvo.h,qualidade).then(function(blob){
+          bitmap.close();
+          return blob;
+        }, function(err){ bitmap.close(); throw err; });
+      }).catch(function(){
+        return comprimirImagemViaImg(file,maxDim,qualidade);
+      });
+    }
+    return comprimirImagemViaImg(file,maxDim,qualidade);
+  }
+
+  function comprimirImagemViaImg(file,maxDim,qualidade){
+    return new Promise(function(resolve,reject){
+      var img=new Image();
+      var url=URL.createObjectURL(file);
+      img.onload=function(){
+        URL.revokeObjectURL(url);
+        var alvo=medidasAlvo(img.width,img.height,maxDim);
+        desenharEExportar(img,alvo.w,alvo.h,qualidade).then(resolve,reject);
+      };
+      img.onerror=function(){ URL.revokeObjectURL(url); reject(new Error('Não foi possível ler o arquivo de imagem.')); };
+      img.src=url;
+    });
+  }
+// --- Fim: Opções de Foto no Admin ---
 
   window.agendamentosApp={init:init,atualizarClienteCache:atualizarClienteCache};
 })();
