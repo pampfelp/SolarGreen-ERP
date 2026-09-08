@@ -932,6 +932,11 @@
     <div class="ad-section">
       <div class="uform-field"><label>Nome / Razão Social <span class="req">*</span></label><input type="text" id="cr-nome" placeholder="Nome completo"></div>
       <div class="uform-field"><label>Telefone <span class="req">*</span></label><input type="text" id="cr-telefone" placeholder="(91) 90000-0000" maxlength="15" inputmode="numeric"></div>
+      <div class="uform-field">
+        <label>Origem <span class="req">*</span></label>
+        <input type="text" id="cr-origem" list="cr-origemList" placeholder="Selecione ou digite..." autocomplete="off">
+        <datalist id="cr-origemList"></datalist>
+      </div>
       <div class="uform-field"><label>E-mail</label><input type="email" id="cr-email" placeholder="Opcional"></div>
       <div class="uform-field"><label>CPF ou CNPJ</label><input type="text" id="cr-cpfCnpj" placeholder="Opcional" maxlength="18" inputmode="numeric"></div>
       <div class="uform-field"><label>Endereço</label><input type="text" id="cr-endereco" placeholder="Pode preencher depois, se preferir"></div>
@@ -1100,6 +1105,11 @@
     <h3 id="clienteModalTitle">Novo cliente</h3>
     <div class="uform-field"><label>Nome / Razão Social <span class="req">*</span></label><input type="text" id="cm-nome"></div>
     <div class="uform-field"><label>Telefone <span class="req">*</span></label><input type="text" id="cm-telefone" maxlength="15" inputmode="numeric"></div>
+    <div class="uform-field">
+      <label>Origem <span class="req">*</span></label>
+      <input type="text" id="cm-origem" list="cm-origemList" placeholder="Selecione ou digite..." autocomplete="off">
+      <datalist id="cm-origemList"></datalist>
+    </div>
     <div class="uform-field"><label>E-mail</label><input type="email" id="cm-email"></div>
     <div class="uform-field"><label>CPF ou CNPJ</label><input type="text" id="cm-cpfCnpj" maxlength="18" inputmode="numeric"></div>
     <div class="uform-field"><label>Endereço</label><input type="text" id="cm-endereco"></div>

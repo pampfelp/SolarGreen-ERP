@@ -102,6 +102,7 @@
       Ocupacao:p.ocupacao||'',
       Renda:p.renda||'',
       'Status Cliente':p.statusCliente||'',
+      Origem:p.origem||'',
       'Vendedor Responsavel':p.vendedorResponsavel||'',
       CPFEquatorial:p.cpfEquatorial||'',
       DataNascimentoEquatorial:p.dataNascimentoEquatorial||'',

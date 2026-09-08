@@ -1580,11 +1580,13 @@
       return;
     }
     var telefone=c.Telefone||'—';
+    var origem=c.Origem||'—';
     var email=c.Email||'—';
     var cpfCnpj=c['CPF ou CNPJ']||c.CPFEquatorial||'—';
     var endereco=c.Endereco||'—';
     painel.innerHTML=
       '<div class="cip-row"><span class="cip-label">Telefone</span><span class="cip-val">'+escapeHtml(telefone)+'</span></div>'+
+      '<div class="cip-row"><span class="cip-label">Origem</span><span class="cip-val">'+escapeHtml(origem)+'</span></div>'+
       '<div class="cip-row"><span class="cip-label">E-mail</span><span class="cip-val">'+escapeHtml(email)+'</span></div>'+
       '<div class="cip-row"><span class="cip-label">CPF/CNPJ</span><span class="cip-val">'+escapeHtml(cpfCnpj)+'</span></div>'+
       '<div class="cip-row"><span class="cip-label">Endereço</span><span class="cip-val">'+escapeHtml(endereco)+'</span></div>';
@@ -1657,6 +1659,10 @@
     document.getElementById('cr-dataExpedicaoRg').value='';
     document.getElementById('cr-dataNascimento').value='';
     document.getElementById('cr-telefone').value='';
+    document.getElementById('cr-origem').value='';
+    var origensDef=['Tráfego pago','base resolve','indicação Bene'];
+    var origensExtra=Object.keys(clientesMap).map(function(k){return clientesMap[k].Origem;}).filter(function(x){return x&&origensDef.indexOf(x)===-1;}).filter(function(v,i,a){return a.indexOf(v)===i;}).sort();
+    document.getElementById('cr-origemList').innerHTML=origensDef.concat(origensExtra).map(function(o){return '<option value="'+escapeHtml(o)+'">';}).join('');
     document.getElementById('cr-cpfCnpj').value='';
     document.getElementById('cr-email').value='';
     document.getElementById('cr-endereco').value='';
@@ -1727,10 +1733,12 @@
     var nome=document.getElementById('cr-nome').value.trim();
     var tipoPessoa=document.getElementById('cr-tipoPessoa').value;
     var telefone=document.getElementById('cr-telefone').value.trim();
+    var origem=document.getElementById('cr-origem').value.trim();
     var msgEl=document.getElementById('cr-msg');
     if(!nome){ msgEl.className='uform-msg error'; msgEl.textContent='Nome é obrigatório.'; return; }
     if(!tipoPessoa){ msgEl.className='uform-msg error'; msgEl.textContent='Tipo de pessoa é obrigatório.'; return; }
     if(!telefone){ msgEl.className='uform-msg error'; msgEl.textContent='Telefone é obrigatório.'; return; }
+    if(!origem){ msgEl.className='uform-msg error'; msgEl.textContent='Origem é obrigatória.'; return; }
 
     var cpfCnpj=document.getElementById('cr-cpfCnpj').value.trim();
     var email=document.getElementById('cr-email').value.trim();
@@ -1764,7 +1772,7 @@
 
     // adiciona na memória local e já seleciona no lead — sem esperar o servidor
     clientesMap[idCliente]={
-      IdCliente:idCliente,Nome:nome,'Nome Razao Social':nome,Telefone:telefone,'Tipo Pessoa':tipoPessoa,
+      IdCliente:idCliente,Nome:nome,'Nome Razao Social':nome,Telefone:telefone,'Tipo Pessoa':tipoPessoa, Origem:origem,
       'CPF ou CNPJ':cpfCnpj,Email:email,Endereco:endereco,CPFEquatorial:cpfEquatorial,
       DataNascimentoEquatorial:dataNascimentoEquatorialVal?dataNascimentoEquatorialVal.split('-').reverse().join('/'):'',
       NomeMae:nomeMae,RG:rg,DataExpedicaoRG:dataExpedicaoRgVal,DataNascimento:dataNascimentoVal,
@@ -1787,7 +1795,7 @@
 
     apiCall('salvarCliente',{
       idCliente:idCliente,
-      nome:nome, tipoPessoa:tipoPessoa, telefone:telefone,
+      nome:nome, tipoPessoa:tipoPessoa, telefone:telefone, origem:origem,
       cpfCnpj:cpfCnpj, email:email, endereco:endereco, vendedorResponsavel:vendedorResponsavel,
       confirmarClienteDiferente:confirmado,
       cpfEquatorial:cpfEquatorial, dataNascimentoEquatorial:dataNascimentoEquatorialVal,

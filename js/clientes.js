@@ -253,6 +253,7 @@
       (c.DataExpedicaoRG?'<div class="ad-row"><span class="dl">Data de expedição do RG</span><span class="dv">'+escapeHtml(fmtDataCl(c.DataExpedicaoRG))+'</span></div>':'')+
       (c.DataNascimento?'<div class="ad-row"><span class="dl">Data de nascimento</span><span class="dv">'+escapeHtml(fmtDataCl(c.DataNascimento))+'</span></div>':'')+
       '<div class="ad-row"><span class="dl">Telefone</span><span class="dv">'+escapeHtml(c.Telefone||'—')+'</span></div>'+
+      '<div class="ad-row"><span class="dl">Origem</span><span class="dv">'+escapeHtml(c.Origem||'—')+'</span></div>'+
       '<div class="ad-row"><span class="dl">CPF/CNPJ</span><span class="dv">'+escapeHtml(c['CPF ou CNPJ']||'—')+'</span></div>'+
       '<div class="ad-row"><span class="dl">E-mail</span><span class="dv">'+escapeHtml(c.Email||'—')+'</span></div>'+
       '<div class="ad-row"><span class="dl">Endereço</span><span class="dv">'+escapeHtml(c.Endereco||'—')+'</span></div>'+
@@ -297,6 +298,10 @@
     document.getElementById('cm-dataExpedicaoRg').value=c&&c.DataExpedicaoRG?dateKeyDoISOCl(parseBRDateCl(c.DataExpedicaoRG)):'';
     document.getElementById('cm-dataNascimento').value=c&&c.DataNascimento?dateKeyDoISOCl(parseBRDateCl(c.DataNascimento)):'';
     document.getElementById('cm-telefone').value=c?window.SGUtil.formatarTelefone(c.Telefone||''):'';
+    document.getElementById('cm-origem').value=c?(c.Origem||''):'';
+    var origensDef=['Tráfego pago','base resolve','indicação Bene'];
+    var origensExtra=clientes.map(function(x){return x.Origem;}).filter(function(x){return x&&origensDef.indexOf(x)===-1;}).filter(function(v,i,a){return a.indexOf(v)===i;}).sort();
+    document.getElementById('cm-origemList').innerHTML=origensDef.concat(origensExtra).map(function(o){return '<option value="'+escapeHtml(o)+'">';}).join('');
     document.getElementById('cm-cpfCnpj').value=c?window.SGUtil.formatarCpfCnpj(c['CPF ou CNPJ']||''):'';
     document.getElementById('cm-email').value=c?(c.Email||''):'';
     document.getElementById('cm-endereco').value=c?(c.Endereco||''):'';
@@ -376,10 +381,12 @@
     var nome=document.getElementById('cm-nome').value.trim();
     var tipoPessoa=document.getElementById('cm-tipoPessoa').value;
     var telefone=document.getElementById('cm-telefone').value.trim();
+    var origem=document.getElementById('cm-origem').value.trim();
     var msgEl=document.getElementById('cm-msg');
     if(!nome){ msgEl.className='uform-msg error'; msgEl.textContent='Nome é obrigatório.'; return; }
     if(!tipoPessoa){ msgEl.className='uform-msg error'; msgEl.textContent='Tipo de pessoa é obrigatório.'; return; }
     if(!telefone){ msgEl.className='uform-msg error'; msgEl.textContent='Telefone é obrigatório.'; return; }
+    if(!origem){ msgEl.className='uform-msg error'; msgEl.textContent='Origem é obrigatória.'; return; }
 
     var cpfCnpj=document.getElementById('cm-cpfCnpj').value.trim();
     var email=document.getElementById('cm-email').value.trim();
@@ -418,7 +425,7 @@
 
     var registroNovo={
       IdCliente:idCliente, 'Nome Razao Social':nome, 'Tipo Pessoa':tipoPessoa, Telefone:telefone,
-      'CPF ou CNPJ':cpfCnpj, Email:email, Endereco:endereco, 'Status Cliente':statusCliente,
+      'CPF ou CNPJ':cpfCnpj, Email:email, Endereco:endereco, 'Status Cliente':statusCliente, Origem:origem,
       'Vendedor Responsavel':vendedorResponsavel, CPFEquatorial:cpfEquatorial,
       DataNascimentoEquatorial:dataNascimentoEquatorialVal?dataNascimentoEquatorialVal.split('-').reverse().join('/'):'',
       NomeMae:nomeMae, RG:rg, DataExpedicaoRG:dataExpedicaoRgVal, DataNascimento:dataNascimentoVal,
@@ -437,7 +444,7 @@
 
     apiCall('salvarCliente',{
       idCliente:idCliente,
-      nome:nome, tipoPessoa:tipoPessoa, telefone:telefone,
+      nome:nome, tipoPessoa:tipoPessoa, telefone:telefone, origem:origem,
       cpfCnpj:cpfCnpj, email:email, endereco:endereco,
       statusCliente:statusCliente, vendedorResponsavel:vendedorResponsavel,
       confirmarClienteDiferente:confirmado,
