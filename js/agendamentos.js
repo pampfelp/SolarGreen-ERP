@@ -255,7 +255,10 @@
       var servTag=(tpl&&tpl.IdServico&&String(tpl.IdServico)!==String(a.IdServico))?('Respondido no serviço: '+nomeServico(tpl.IdServico)):'';
       var valor=valorDaResposta(r);
       var isFoto=!!r.RespostaFoto&&/^(https?:|data:image)/.test(r.RespostaFoto);
-      var valorHtml=isFoto?('<img src="'+escapeHtml(r.RespostaFoto)+'" alt="foto" data-id-agendamento="'+escapeHtml(a.IdAgendamento)+'" data-id-template="'+escapeHtml(r.IdTemplate)+'" style="max-width:100%;max-height:200px;border-radius:8px;margin-top:6px;display:block;cursor:pointer;">'):('<div style="font-size:13px;color:var(--ink-soft);margin-top:2px;white-space:pre-wrap;">'+escapeHtml(valor)+'</div>');
+      var idAg = escapeHtml(a.IdAgendamento);
+      var idTpl = escapeHtml(r.IdTemplate);
+      var editBtn = !isFoto ? '<button onclick="window.agendamentosApp.editarResposta(\''+idAg+'\',\''+idTpl+'\')" title="Editar resposta" style="background:none;border:none;cursor:pointer;padding:2px;color:var(--ink-faint);vertical-align:middle;margin-left:8px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>' : '';
+      var valorHtml=isFoto?('<img src="'+escapeHtml(r.RespostaFoto)+'" alt="foto" data-id-agendamento="'+escapeHtml(a.IdAgendamento)+'" data-id-template="'+escapeHtml(r.IdTemplate)+'" style="max-width:100%;max-height:200px;border-radius:8px;margin-top:6px;display:block;cursor:pointer;">'):('<div style="font-size:13px;color:var(--ink-soft);margin-top:2px;white-space:pre-wrap;">'+escapeHtml(valor)+editBtn+'</div>');
       return '<div class="resp-item">'+
         '<div class="resp-q">'+escapeHtml(pergunta)+'</div>'+
         (servTag?'<div class="resp-servtag">'+escapeHtml(servTag)+'</div>':'')+
@@ -704,13 +707,13 @@
     if(!agendamentoAtual)return;
     var a=agendamentoAtual;
     var btn=document.getElementById('ad-assinaturaBtn');
-    btn.disabled=true; var textoOriginal=btn.textContent; btn.textContent='Carregando respostas…';
+    btn.disabled=true; var textoOriginal=btn.innerHTML; btn.innerHTML='Carregando respostas…';
     // Cliente completo primeiro: o e-mail (obrigatório pra assinatura) e o
     // endereço da OS só vêm no doc completo — a lista traz só o nome.
     Promise.all([garantirRespostas(a.IdAgendamento),garantirClienteCarregadoAg(a.IdCliente)]).then(function(r){
       var cliente=clientesMap[a.IdCliente]||{};
-      if(!cliente.Email){ btn.disabled=false; btn.textContent=textoOriginal; showAgToast('Cadastre o e-mail do cliente antes de enviar a Ordem de Serviço pra assinatura digital.',true); return; }
-      btn.textContent='Gerando PDF…';
+      if(!cliente.Email){ btn.disabled=false; btn.innerHTML=textoOriginal; showAgToast('Cadastre o e-mail do cliente antes de enviar a Ordem de Serviço pra assinatura digital.',true); return; }
+      btn.innerHTML='Gerando PDF…';
       var html=montarHtmlOS(a);
       // gerarPdfOS/enviarOSParaAssinatura não vão pro Firestore — caem
       // sozinhas no Apps Script antigo (é lá que mora o token da
@@ -718,14 +721,14 @@
       // (não tem checagem de permissão do lado de lá pra essas 2 ações
       // mais — ver js/firestore-router.js).
       apiCall('gerarPdfOS',{idAgendamento:a.IdAgendamento,html:html}).then(function(resp){
-        if(!resp||!resp.ok){ btn.disabled=false; btn.textContent=textoOriginal; showAgToast((resp&&resp.erro)||'Não foi possível gerar o PDF.',true); return; }
-        btn.textContent='Enviando pra assinatura…';
+        if(!resp||!resp.ok){ btn.disabled=false; btn.innerHTML=textoOriginal; showAgToast((resp&&resp.erro)||'Não foi possível gerar o PDF.',true); return; }
+        btn.innerHTML='Enviando pra assinatura…';
         return apiCall('enviarOSParaAssinatura',{
           fileId:resp.fileId,
           clienteNome:nomeCliente(a.IdCliente),clienteEmail:cliente.Email,
           nomeDocumento:'Ordem de Serviço - '+nomeCliente(a.IdCliente)
         }).then(function(resp2){
-          if(!resp2||!resp2.ok){ btn.disabled=false; btn.textContent=textoOriginal; showAgToast((resp2&&resp2.erro)||'PDF gerado, mas não foi possível enviar pra assinatura.',true); return; }
+          if(!resp2||!resp2.ok){ btn.disabled=false; btn.innerHTML=textoOriginal; showAgToast((resp2&&resp2.erro)||'PDF gerado, mas não foi possível enviar pra assinatura.',true); return; }
           // Atualiza localmente (mesmo objeto referenciado em "agendamentos")
           // e reabre o painel pra seção "Assinatura digital da OS" (com o
           // link/status) já aparecer na hora, sem precisar fechar e reabrir.
@@ -740,7 +743,7 @@
             statusAssinaturaOS:a.StatusAssinaturaOS,enviadoAssinaturaOSEm:a.EnviadoAssinaturaOSEm,
             autentiqueDocId:a.AutentiqueDocId
           });
-          btn.disabled=false; btn.textContent=textoOriginal;
+          btn.disabled=false; btn.innerHTML=textoOriginal;
           abrirPainelDetalhe(a.IdAgendamento);
           abrirModalOSEnviada(cliente.Email,resp2.link||'');
         });
@@ -1395,32 +1398,43 @@
       div = document.createElement('div');
       div.id = 'sgOpcoesFotoAdmin';
       div.className = 'modal-overlay hidden';
-      div.innerHTML = '<div style="background:#fff;border-radius:10px;width:90%;max-width:300px;padding:20px;text-align:center;box-shadow:0 10px 25px rgba(0,0,0,.2);">' +
-        '<h3 style="margin-top:0;margin-bottom:15px;color:var(--ink-dark);font-size:16px;">Opções da Foto</h3>' +
-        '<button id="of-ampliar" style="display:block;width:100%;margin-bottom:10px;padding:12px;background:var(--ink-dark);color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;">Visualizar Ampliada</button>' +
-        '<button id="of-substituir" style="display:block;width:100%;margin-bottom:10px;padding:12px;background:#4CAF50;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;">Substituir Foto</button>' +
-        '<button id="of-excluir" style="display:block;width:100%;margin-bottom:10px;padding:12px;background:#fff;color:var(--debit);border:1px solid var(--debit);border-radius:6px;font-weight:600;cursor:pointer;">Excluir Resposta</button>' +
-        '<button id="of-cancelar" style="display:block;width:100%;padding:12px;background:transparent;color:var(--ink-soft);border:none;border-radius:6px;font-weight:600;cursor:pointer;">Cancelar</button>' +
-        '<input type="file" id="of-file" accept="image/*" style="display:none;">' +
-      '</div>';
+      div.setAttribute('data-esc-close', 'true');
+      div.innerHTML = 
+        '<div class="modal-card" style="max-width:560px;">' +
+          '<h3 style="margin-top:0;">Foto da resposta</h3>' +
+          '<div style="text-align:center;margin-bottom:20px;background:#f5f5f5;border-radius:8px;padding:10px;">' +
+            '<img id="sfm-img" src="" style="max-width:100%;max-height:60vh;border-radius:6px;object-fit:contain;">' +
+          '</div>' +
+          '<div class="modal-actions" style="display:flex;justify-content:flex-end;gap:12px;">' +
+            '<button class="reset-btn" id="sfm-cancelarBtn">Fechar</button>' +
+            '<button class="reset-btn" id="sfm-excluirBtn" style="color:var(--debit);">' +
+              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;vertical-align:middle;margin-right:6px;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>Excluir' +
+            '</button>' +
+            '<button class="connect-btn" id="sfm-substituirBtn">' +
+              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;vertical-align:middle;margin-right:6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>Substituir' +
+            '</button>' +
+          '</div>' +
+          '<input type="file" id="sfm-file" accept="image/*" style="display:none;">' +
+        '</div>';
       document.body.appendChild(div);
 
-      document.getElementById('of-cancelar').addEventListener('click', function() { fecharModalOpcoesFoto(); });
-      document.getElementById('of-ampliar').addEventListener('click', function() {
-        fecharModalOpcoesFoto();
-        if(window.SGFotoModal && opcoesFotoAtual) window.SGFotoModal.abrir(opcoesFotoAtual.url);
+      document.getElementById('sfm-cancelarBtn').addEventListener('click', fecharModalOpcoesFoto);
+      document.getElementById('sfm-excluirBtn').addEventListener('click', excluirFotoAtual);
+      document.getElementById('sfm-substituirBtn').addEventListener('click', function() {
+        document.getElementById('sfm-file').click();
       });
-      document.getElementById('of-excluir').addEventListener('click', excluirFotoAtual);
-      document.getElementById('of-substituir').addEventListener('click', function() {
-        document.getElementById('of-file').click();
-      });
-      document.getElementById('of-file').addEventListener('change', function(e) {
+      document.getElementById('sfm-file').addEventListener('change', function(e) {
         if(e.target.files && e.target.files[0]) {
           substituirFotoAtual(e.target.files[0]);
         }
         e.target.value = '';
       });
+      
+      div.addEventListener('click', function(e){
+        if(e.target === div) fecharModalOpcoesFoto();
+      });
     }
+    document.getElementById('sfm-img').src = url;
     div.classList.remove('hidden');
   }
 
@@ -1555,8 +1569,98 @@
     });
   }
 // --- Fim: Opções de Foto no Admin ---
+// --- Início: Edição de Resposta Texto/Número ---
+  function editarResposta(idAgendamento, idTemplate) {
+    var tpl = templatesPorId[idTemplate];
+    if(!tpl) return;
+    
+    var div = document.getElementById('sgEdicaoRespostaModal');
+    if(!div) return;
+    
+    var respostas = respostasPorAgendamento[idAgendamento] || [];
+    var r = respostas.find(function(x){ return String(x.IdTemplate) === String(idTemplate); });
+    var valorAtual = r ? valorDaResposta(r) : '';
+    
+    document.getElementById('sem-pergunta').textContent = tpl.TextoPergunta || ('Pergunta ' + idTemplate);
+    var container = document.getElementById('sem-input-container');
+    container.innerHTML = '';
+    
+    var inputId = 'sem-input';
+    var tipo = (tpl.TipoInput || '').toLowerCase();
+    
+    if(tipo === 'number') {
+      container.innerHTML = '<input type="number" id="'+inputId+'" style="width:100%;font-family:var(--sans);font-size:14px;border:1px solid var(--line);border-radius:7px;padding:9px 12px;">';
+      document.getElementById(inputId).value = valorAtual;
+    } else if(tipo === 'yesno') {
+      container.innerHTML = '<select id="'+inputId+'"><option value="Sim">Sim</option><option value="Não">Não</option></select>';
+      document.getElementById(inputId).value = valorAtual || 'Sim';
+    } else if(tipo === 'enum') {
+      var opcoes = (tpl.OpcoesEnum || '').split(',').map(function(o){ return o.trim(); }).filter(Boolean);
+      var html = '<select id="'+inputId+'">';
+      html += '<option value="">(Selecione)</option>';
+      opcoes.forEach(function(o) {
+        html += '<option value="'+escapeHtml(o)+'">'+escapeHtml(o)+'</option>';
+      });
+      html += '</select>';
+      container.innerHTML = html;
+      document.getElementById(inputId).value = valorAtual;
+    } else {
+      container.innerHTML = '<textarea id="'+inputId+'" rows="4" style="width:100%;font-family:var(--sans);font-size:14px;border:1px solid var(--line);border-radius:7px;padding:9px 12px;resize:vertical;"></textarea>';
+      document.getElementById(inputId).value = valorAtual;
+    }
+    
+    // Handlers
+    var btnCancelar = document.getElementById('sem-cancelarBtn');
+    var btnSalvar = document.getElementById('sem-salvarBtn');
+    
+    // Remove listeners antigos para evitar chamadas duplas
+    var novoCancelar = btnCancelar.cloneNode(true);
+    var novoSalvar = btnSalvar.cloneNode(true);
+    btnCancelar.parentNode.replaceChild(novoCancelar, btnCancelar);
+    btnSalvar.parentNode.replaceChild(novoSalvar, btnSalvar);
+    
+    novoCancelar.addEventListener('click', function(){
+      div.classList.add('hidden');
+    });
+    
+    div.onclick = function(e) {
+      if(e.target === div) div.classList.add('hidden');
+    };
+    
+    novoSalvar.addEventListener('click', function(){
+      var inputEl = document.getElementById(inputId);
+      var valorNovo = inputEl ? inputEl.value.trim() : '';
+      
+      div.classList.add('hidden');
+      var session = window.SG_SESSION;
+      if(!session) return;
+      
+      window.SGToast.mostrar('Salvando...', 1000);
+      apiCall('salvarRespostasAgendamento', {
+        solicitanteId: session.idVendedor,
+        idAgendamento: idAgendamento,
+        respostas: [{ idTemplate: idTemplate, resposta: valorNovo }]
+      }).then(function(resp){
+        if(!resp || !resp.ok){ window.SGToast.mostrar((resp&&resp.erro)||'Falha ao salvar.', true); return; }
+        window.SGToast.mostrar('Resposta atualizada.');
+        if(agendamentoAtual && agendamentoAtual.IdAgendamento === idAgendamento) {
+          delete respostasCarregadasPara[idAgendamento];
+          garantirRespostas(idAgendamento).then(function(){
+            document.getElementById('ad-respostas').innerHTML = renderRespostasHtml(agendamentoAtual);
+          });
+        }
+      }).catch(function(){
+        window.SGToast.mostrar('Erro de conexão ao salvar resposta.', true);
+      });
+    });
+    
+    div.classList.remove('hidden');
+    var finalInput = document.getElementById(inputId);
+    if(finalInput) finalInput.focus();
+  }
+// --- Fim: Edição de Resposta Texto/Número ---
 
-  window.agendamentosApp={init:init,atualizarClienteCache:atualizarClienteCache};
+  window.agendamentosApp={init:init,atualizarClienteCache:atualizarClienteCache,editarResposta:editarResposta};
 })();
 
 
