@@ -345,8 +345,8 @@
   .side-panel .ad-row .dv{color:var(--ink);text-align:right;font-weight:600;}
   .link-btn{background:none;border:none;padding:0;margin:0;font:inherit;font-weight:600;color:var(--accent-deep,var(--accent));cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;}
   .link-btn:hover{text-decoration-style:solid;}
-  .side-panel .ad-actions{padding:14px 18px;border-top:1px solid var(--line);display:flex;gap:8px;flex:none;flex-wrap:wrap;}
-  .side-panel .ad-actions button{flex:1;min-width:120px;}
+  .side-panel .ad-actions{padding:14px 18px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:8px;flex:none;}
+  .side-panel .ad-actions button{flex:1 1 100%;white-space:normal;line-height:1.25;font-size:12px;padding:10px 14px;font-family:var(--sans);}
   .side-panel .uform-field{margin-bottom:12px;}
   @media(max-width:760px){
     .side-panel{

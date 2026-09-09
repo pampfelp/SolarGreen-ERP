@@ -1659,10 +1659,16 @@
     document.getElementById('cr-dataExpedicaoRg').value='';
     document.getElementById('cr-dataNascimento').value='';
     document.getElementById('cr-telefone').value='';
-    document.getElementById('cr-origem').value='';
-    var origensDef=['Tráfego pago','base resolve','indicação Bene'];
-    var origensExtra=Object.keys(clientesMap).map(function(k){return clientesMap[k].Origem;}).filter(function(x){return x&&origensDef.indexOf(x)===-1;}).filter(function(v,i,a){return a.indexOf(v)===i;}).sort();
-    document.getElementById('cr-origemList').innerHTML=origensDef.concat(origensExtra).map(function(o){return '<option value="'+escapeHtml(o)+'">';}).join('');
+    window.SGCombo.criar({
+      inputId:'cr-origem', hiddenId:'cr-origemHidden', dropdownId:'cr-origemDropdown',
+      getOpcoes:function(){
+        var def=['Tráfego pago','base resolve','indicação Bene'];
+        var extra = Object.keys(clientesMap).map(function(k){return clientesMap[k].Origem;})
+          .filter(function(x){return x && def.indexOf(x)===-1;}).filter(function(v,i,a){return a.indexOf(v)===i;}).sort();
+        return def.concat(extra).map(function(o){return {id:o,label:o};});
+      },
+      valorInicial: null
+    });
     document.getElementById('cr-cpfCnpj').value='';
     document.getElementById('cr-email').value='';
     document.getElementById('cr-endereco').value='';

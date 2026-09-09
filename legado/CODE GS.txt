@@ -147,6 +147,7 @@ function handleRequest(e) {
     if (action === 'atualizarStatusAgendamento') return jsonOutput(actionAtualizarStatusAgendamento(body));
     if (action === 'salvarRespostasAgendamento') return jsonOutput(actionSalvarRespostasAgendamento(body));
     if (action === 'uploadFotoResposta')         return jsonOutput(actionUploadFotoResposta(body));
+    if (action === 'removerFotoResposta')        return jsonOutput(actionRemoverFotoResposta(body));
     if (action === 'gerarPdfOS')                 return jsonOutput(actionGerarPdfOS(body));
     if (action === 'enviarOSParaAssinatura')     return jsonOutput(actionEnviarOSParaAssinatura(body));
     if (action === 'verificarStatusOS')          return jsonOutput(actionVerificarStatusOS(body));
@@ -3006,6 +3007,20 @@ function actionUploadFotoResposta(body) {
     return { ok: true, url: url, novoStatus: novoStatus };
   } catch (err) {
     return { ok: false, erro: 'Falha ao enviar a foto: ' + err.message };
+  }
+}
+
+function actionRemoverFotoResposta(body) {
+  var idAgendamento = body.idAgendamento, idTemplate = body.idTemplate;
+  if (!idAgendamento || !idTemplate) return { ok:false, erro:'Dados incompletos.' };
+  if (!isTecnicoOuAdmin(body.solicitanteId, idAgendamento))
+    return { ok:false, erro:'Sem permissão para essa ordem de serviço.' };
+  try {
+    salvarOuAtualizarResposta(idAgendamento, idTemplate, 'RespostaFoto', '', body.solicitanteId);
+    var novoStatus = atualizarStatusAutomatico(idAgendamento);
+    return { ok:true, novoStatus:novoStatus };
+  } catch (err) {
+    return { ok:false, erro:'Falha ao excluir a foto: ' + err.message };
   }
 }
 

@@ -906,7 +906,7 @@
   <div class="ad-actions">
     <button class="reset-btn" id="ad-editarBtn">Editar agendamento</button>
     <button class="connect-btn" id="ad-pdfBtn"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg></span>Gerar PDF</button>
-    <button class="connect-btn" id="ad-assinaturaBtn"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span>Enviar para assinatura digital</button>
+    <button class="connect-btn" id="ad-assinaturaBtn"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span>Enviar para assinatura</button>
     <p class="hint" id="ad-osIndisponivelHint" style="display:none;margin-top:2px;">A Ordem de Serviço (PDF e assinatura digital) só fica disponível depois que o atendimento é marcado como Concluído.</p>
   </div>
 </div>
@@ -934,8 +934,11 @@
       <div class="uform-field"><label>Telefone <span class="req">*</span></label><input type="text" id="cr-telefone" placeholder="(91) 90000-0000" maxlength="15" inputmode="numeric"></div>
       <div class="uform-field">
         <label>Origem <span class="req">*</span></label>
-        <input type="text" id="cr-origem" list="cr-origemList" placeholder="Selecione ou digite..." autocomplete="off">
-        <datalist id="cr-origemList"></datalist>
+        <div class="combo-wrap">
+          <input type="text" id="cr-origem" placeholder="Selecione ou digite..." autocomplete="off">
+          <input type="hidden" id="cr-origemHidden">
+          <div class="combo-dropdown hidden" id="cr-origemDropdown"></div>
+        </div>
       </div>
       <div class="uform-field"><label>E-mail</label><input type="email" id="cr-email" placeholder="Opcional"></div>
       <div class="uform-field"><label>CPF ou CNPJ</label><input type="text" id="cr-cpfCnpj" placeholder="Opcional" maxlength="18" inputmode="numeric"></div>
@@ -1107,8 +1110,11 @@
     <div class="uform-field"><label>Telefone <span class="req">*</span></label><input type="text" id="cm-telefone" maxlength="15" inputmode="numeric"></div>
     <div class="uform-field">
       <label>Origem <span class="req">*</span></label>
-      <input type="text" id="cm-origem" list="cm-origemList" placeholder="Selecione ou digite..." autocomplete="off">
-      <datalist id="cm-origemList"></datalist>
+      <div class="combo-wrap">
+        <input type="text" id="cm-origem" placeholder="Selecione ou digite..." autocomplete="off">
+        <input type="hidden" id="cm-origemHidden">
+        <div class="combo-dropdown hidden" id="cm-origemDropdown"></div>
+      </div>
     </div>
     <div class="uform-field"><label>E-mail</label><input type="email" id="cm-email"></div>
     <div class="uform-field"><label>CPF ou CNPJ</label><input type="text" id="cm-cpfCnpj" maxlength="18" inputmode="numeric"></div>

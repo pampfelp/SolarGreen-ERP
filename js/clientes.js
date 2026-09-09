@@ -299,9 +299,16 @@
     document.getElementById('cm-dataNascimento').value=c&&c.DataNascimento?dateKeyDoISOCl(parseBRDateCl(c.DataNascimento)):'';
     document.getElementById('cm-telefone').value=c?window.SGUtil.formatarTelefone(c.Telefone||''):'';
     document.getElementById('cm-origem').value=c?(c.Origem||''):'';
-    var origensDef=['Tráfego pago','base resolve','indicação Bene'];
-    var origensExtra=clientes.map(function(x){return x.Origem;}).filter(function(x){return x&&origensDef.indexOf(x)===-1;}).filter(function(v,i,a){return a.indexOf(v)===i;}).sort();
-    document.getElementById('cm-origemList').innerHTML=origensDef.concat(origensExtra).map(function(o){return '<option value="'+escapeHtml(o)+'">';}).join('');
+    window.SGCombo.criar({
+      inputId:'cm-origem', hiddenId:'cm-origemHidden', dropdownId:'cm-origemDropdown',
+      getOpcoes:function(){
+        var def=['Tráfego pago','base resolve','indicação Bene'];
+        var extra = clientes.map(function(x){return x.Origem;})
+          .filter(function(x){return x && def.indexOf(x)===-1;}).filter(function(v,i,a){return a.indexOf(v)===i;}).sort();
+        return def.concat(extra).map(function(o){return {id:o,label:o};});
+      },
+      valorInicial: c && c.Origem ? {id:c.Origem,label:c.Origem} : null
+    });
     document.getElementById('cm-cpfCnpj').value=c?window.SGUtil.formatarCpfCnpj(c['CPF ou CNPJ']||''):'';
     document.getElementById('cm-email').value=c?(c.Email||''):'';
     document.getElementById('cm-endereco').value=c?(c.Endereco||''):'';
