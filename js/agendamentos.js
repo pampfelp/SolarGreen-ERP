@@ -717,13 +717,16 @@
       var html=montarHtmlOS(a);
       // gerarPdfOS/enviarOSParaAssinatura não vão pro Firestore — caem
       // sozinhas no Apps Script antigo (é lá que mora o token da
-      // Autentique, com segurança). Por isso não mandam solicitanteId
-      // (não tem checagem de permissão do lado de lá pra essas 2 ações
-      // mais — ver js/firestore-router.js).
-      apiCall('gerarPdfOS',{idAgendamento:a.IdAgendamento,html:html}).then(function(resp){
+      // Autentique, com segurança). O Code.gs AINDA checa permissão nessas
+      // 2 ações (isVendedorDoClienteOuAdmin_: admin OU o vendedor
+      // responsável pelo cliente) — sem mandar solicitanteId aqui, a
+      // checagem lá sempre nega (bug real: vendedor via "Sem permissão
+      // para essa ordem de serviço" mesmo sendo o dono do cliente).
+      apiCall('gerarPdfOS',{solicitanteId:meuId(),idAgendamento:a.IdAgendamento,html:html}).then(function(resp){
         if(!resp||!resp.ok){ btn.disabled=false; btn.innerHTML=textoOriginal; showAgToast((resp&&resp.erro)||'Não foi possível gerar o PDF.',true); return; }
         btn.innerHTML='Enviando pra assinatura…';
         return apiCall('enviarOSParaAssinatura',{
+          solicitanteId:meuId(),idAgendamento:a.IdAgendamento,
           fileId:resp.fileId,
           clienteNome:nomeCliente(a.IdCliente),clienteEmail:cliente.Email,
           nomeDocumento:'Ordem de Serviço - '+nomeCliente(a.IdCliente)
