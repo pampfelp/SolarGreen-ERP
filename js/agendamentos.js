@@ -710,24 +710,27 @@
     btn.disabled=true; var textoOriginal=btn.innerHTML; btn.innerHTML='Carregando respostas…';
     // Cliente completo primeiro: o e-mail (obrigatório pra assinatura) e o
     // endereço da OS só vêm no doc completo — a lista traz só o nome.
-    Promise.all([garantirRespostas(a.IdAgendamento),garantirClienteCarregadoAg(a.IdCliente)]).then(function(r){
+    // idToken do Firebase Auth também entra aqui: gerarPdfOS/
+    // enviarOSParaAssinatura continuam batendo no Apps Script antigo (é lá
+    // que mora o token da Autentique, com segurança), mas depois da
+    // migração pro Firestore o Code.gs não acha mais nem o solicitante nem
+    // o agendamento na planilha (2026-09-16, bug real: "Sem permissão para
+    // essa ordem de serviço" mesmo sendo admin/dono do cliente). Mandando o
+    // idToken, o Code.gs consegue ler o mesmo Firestore que o painel admin
+    // já usa (via REST, com o PRÓPRIO token do usuário — nada de service
+    // account novo) pra validar permissão/status antes de desistir.
+    Promise.all([garantirRespostas(a.IdAgendamento),garantirClienteCarregadoAg(a.IdCliente),firebase.auth().currentUser.getIdToken()]).then(function(r){
       var cliente=clientesMap[a.IdCliente]||{};
+      var idToken=r[2];
       if(!cliente.Email){ btn.disabled=false; btn.innerHTML=textoOriginal; showAgToast('Cadastre o e-mail do cliente antes de enviar a Ordem de Serviço pra assinatura digital.',true); return; }
       btn.innerHTML='Gerando PDF…';
       var html=montarHtmlOS(a);
-      // gerarPdfOS/enviarOSParaAssinatura não vão pro Firestore — caem
-      // sozinhas no Apps Script antigo (é lá que mora o token da
-      // Autentique, com segurança). O Code.gs AINDA checa permissão nessas
-      // 2 ações (isVendedorDoClienteOuAdmin_: admin OU o vendedor
-      // responsável pelo cliente) — sem mandar solicitanteId aqui, a
-      // checagem lá sempre nega (bug real: vendedor via "Sem permissão
-      // para essa ordem de serviço" mesmo sendo o dono do cliente).
-      apiCall('gerarPdfOS',{solicitanteId:meuId(),idAgendamento:a.IdAgendamento,html:html}).then(function(resp){
+      apiCall('gerarPdfOS',{solicitanteId:meuId(),idAgendamento:a.IdAgendamento,html:html,idToken:idToken}).then(function(resp){
         if(!resp||!resp.ok){ btn.disabled=false; btn.innerHTML=textoOriginal; showAgToast((resp&&resp.erro)||'Não foi possível gerar o PDF.',true); return; }
         btn.innerHTML='Enviando pra assinatura…';
         return apiCall('enviarOSParaAssinatura',{
           solicitanteId:meuId(),idAgendamento:a.IdAgendamento,
-          fileId:resp.fileId,
+          fileId:resp.fileId,idToken:idToken,
           clienteNome:nomeCliente(a.IdCliente),clienteEmail:cliente.Email,
           nomeDocumento:'Ordem de Serviço - '+nomeCliente(a.IdCliente)
         }).then(function(resp2){

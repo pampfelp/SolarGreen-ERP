@@ -2372,6 +2372,56 @@ function isTecnicoOuAdmin(solicitanteId, idAgendamento) {
   return String(found.values[tecnicoCol - 1]) === String(solicitanteId);
 }
 
+// ── Ponte pro Firestore (2026-09-16) ───────────────────────────────────
+// gerarPdfOS/enviarOSParaAssinatura continuam de propósito no Apps Script
+// (token da Autentique só mora aqui, em Script Properties — ver
+// segundo-cerebro/padroes/dados-e-seguranca.md). Mas depois da migração
+// pra Firestore, agendamentos novos (e o próprio "solicitante", que agora
+// é um uid do Firebase Auth) não existem mais na planilha — a checagem de
+// permissão abaixo sempre negava ("Sem permissão para essa ordem de
+// serviço"), mesmo pra admin. Em vez de dar acesso de service account (que
+// ignoraria as regras do Firestore) ou mover o fluxo inteiro pra Cloud
+// Functions (exige plano pago), o navegador manda o PRÓPRIO idToken do
+// Firebase Auth do usuário logado, e a gente usa ELE (não uma credencial
+// nova) pra ler o Firestore via REST — as MESMAS regras de
+// firestore.rules ("allow read: if isSignedIn()") já protegem essa
+// leitura, então só funciona pra quem já está de verdade autenticado no
+// sistema. Sem idToken (chamada antiga/futura sem essa mudança), cai pro
+// caminho velho via planilha — nunca lança erro, só devolve null/false
+// pra quem chama decidir.
+var FIRESTORE_PROJECT_ID_ = 'solargreen-21313';
+
+function firestoreValorParaJs_(valor) {
+  if (!valor) return null;
+  if ('stringValue' in valor) return valor.stringValue;
+  if ('integerValue' in valor) return Number(valor.integerValue);
+  if ('doubleValue' in valor) return valor.doubleValue;
+  if ('booleanValue' in valor) return valor.booleanValue;
+  if ('timestampValue' in valor) return valor.timestampValue;
+  if ('mapValue' in valor) return firestoreDocParaObjeto_(valor.mapValue.fields || {});
+  if ('arrayValue' in valor) return (valor.arrayValue.values || []).map(firestoreValorParaJs_);
+  return null;
+}
+function firestoreDocParaObjeto_(fields) {
+  var obj = {};
+  Object.keys(fields || {}).forEach(function (k) { obj[k] = firestoreValorParaJs_(fields[k]); });
+  return obj;
+}
+function firestoreGetDoc_(idToken, colecao, id) {
+  if (!idToken || !id) return null;
+  var url = 'https://firestore.googleapis.com/v1/projects/' + FIRESTORE_PROJECT_ID_ +
+    '/databases/(default)/documents/' + colecao + '/' + encodeURIComponent(id);
+  var resposta;
+  try {
+    resposta = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + idToken }, muteHttpExceptions: true });
+  } catch (err) { return null; }
+  if (resposta.getResponseCode() !== 200) return null;
+  try {
+    var json = JSON.parse(resposta.getContentText());
+    return firestoreDocParaObjeto_(json.fields || {});
+  } catch (err) { return null; }
+}
+
 /**
  * Um solicitante pode gerar/enviar a Ordem de Serviço pra assinatura se for
  * administrador OU se for o vendedor responsável pelo CLIENTE daquele
@@ -2379,9 +2429,18 @@ function isTecnicoOuAdmin(solicitanteId, idAgendamento) {
  * negociação), não o técnico que executou o serviço em campo (esse já tem
  * sua própria regra em isTecnicoOuAdmin, usada só pro upload de fotos).
  */
-function isVendedorDoClienteOuAdmin_(solicitanteId, idAgendamento) {
+function isVendedorDoClienteOuAdmin_(solicitanteId, idAgendamento, idToken) {
   if (!solicitanteId) return false;
   if (isSolicitanteAdmin(solicitanteId)) return true;
+  if (idToken) {
+    var vendedorFs = firestoreGetDoc_(idToken, 'vendedores', solicitanteId);
+    if (vendedorFs && ADMIN_ROLES.indexOf(String(vendedorFs.Tipo || '').trim().toLowerCase()) !== -1) return true;
+    var agendamentoFs = firestoreGetDoc_(idToken, 'agendamentos', idAgendamento);
+    if (agendamentoFs) {
+      var clienteFs = firestoreGetDoc_(idToken, 'clientes', agendamentoFs.IdCliente);
+      return !!clienteFs && String(clienteFs['Vendedor Responsavel'] || '') === String(solicitanteId);
+    }
+  }
   var found = findAgendamentoRowById(idAgendamento);
   if (!found) return false;
   var clienteCol = found.colIdx['IdCliente'];
@@ -3181,7 +3240,13 @@ function embutirFotosDriveComoBase64_(html) {
 // contento" antes de ele acontecer não tem validade nenhuma. Réplica no
 // servidor da mesma trava que já existe na tela, pra ninguém burlar chamando
 // a API direto.
-function agendamentoEstaConcluido_(found) {
+function agendamentoEstaConcluido_(found, idToken, idAgendamento) {
+  // idToken/idAgendamento: mesmo motivo do idVendedorDoClienteOuAdmin_ acima
+  // — agendamento pode só existir no Firestore, não na planilha.
+  if (idToken && idAgendamento) {
+    var agendamentoFs = firestoreGetDoc_(idToken, 'agendamentos', idAgendamento);
+    if (agendamentoFs) return normalizarTextoGS(agendamentoFs['Status Agendamento']) === 'concluido';
+  }
   if (!found) return false;
   var col = found.colIdx['Status Agendamento'];
   if (!col) return false;
@@ -3191,10 +3256,10 @@ function agendamentoEstaConcluido_(found) {
 function actionGerarPdfOS(body) {
   var idAgendamento = body.idAgendamento, html = body.html;
   if (!idAgendamento || !html) return { ok: false, erro: 'idAgendamento e html são obrigatórios.' };
-  if (!isVendedorDoClienteOuAdmin_(body.solicitanteId, idAgendamento)) {
+  if (!isVendedorDoClienteOuAdmin_(body.solicitanteId, idAgendamento, body.idToken)) {
     return { ok: false, erro: 'Sem permissão para essa ordem de serviço.' };
   }
-  if (!agendamentoEstaConcluido_(findAgendamentoRowById(idAgendamento))) {
+  if (!agendamentoEstaConcluido_(findAgendamentoRowById(idAgendamento), body.idToken, idAgendamento)) {
     return { ok: false, erro: 'A Ordem de Serviço só pode ser gerada depois que o atendimento é marcado como Concluído.' };
   }
 
@@ -3382,10 +3447,10 @@ function actionEnviarOSParaAssinatura(body) {
       clienteNome = body.clienteNome, clienteEmail = body.clienteEmail;
   if (!fileId) return { ok: false, erro: 'Gere o PDF da Ordem de Serviço antes de enviar pra assinatura.' };
   if (!clienteEmail) return { ok: false, erro: 'O cliente precisa ter um e-mail cadastrado pra receber o link de assinatura.' };
-  if (!isVendedorDoClienteOuAdmin_(body.solicitanteId, idAgendamento)) {
+  if (!isVendedorDoClienteOuAdmin_(body.solicitanteId, idAgendamento, body.idToken)) {
     return { ok: false, erro: 'Sem permissão para essa ordem de serviço.' };
   }
-  if (!agendamentoEstaConcluido_(findAgendamentoRowById(idAgendamento))) {
+  if (!agendamentoEstaConcluido_(findAgendamentoRowById(idAgendamento), body.idToken, idAgendamento)) {
     return { ok: false, erro: 'A Ordem de Serviço só pode ser enviada pra assinatura depois que o atendimento é marcado como Concluído.' };
   }
 
@@ -3417,7 +3482,7 @@ function actionEnviarOSParaAssinatura(body) {
 function actionVerificarStatusOS(body) {
   var idAgendamento = body.idAgendamento;
   if (!idAgendamento) return { ok: false, erro: 'idAgendamento é obrigatório.' };
-  if (!isVendedorDoClienteOuAdmin_(body.solicitanteId, idAgendamento)) {
+  if (!isVendedorDoClienteOuAdmin_(body.solicitanteId, idAgendamento, body.idToken)) {
     return { ok: false, erro: 'Sem permissão para essa ordem de serviço.' };
   }
 
