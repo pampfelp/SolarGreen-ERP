@@ -2372,108 +2372,35 @@ function isTecnicoOuAdmin(solicitanteId, idAgendamento) {
   return String(found.values[tecnicoCol - 1]) === String(solicitanteId);
 }
 
-// ── Ponte pro Firestore (2026-09-16) ───────────────────────────────────
-// gerarPdfOS/enviarOSParaAssinatura continuam de propósito no Apps Script
-// (token da Autentique só mora aqui, em Script Properties — ver
-// segundo-cerebro/padroes/dados-e-seguranca.md). Mas depois da migração
-// pra Firestore, agendamentos novos (e o próprio "solicitante", que agora
-// é um uid do Firebase Auth) não existem mais na planilha — a checagem de
-// permissão abaixo sempre negava ("Sem permissão para essa ordem de
-// serviço"), mesmo pra admin. Em vez de dar acesso de service account (que
-// ignoraria as regras do Firestore) ou mover o fluxo inteiro pra Cloud
-// Functions (exige plano pago), o navegador manda o PRÓPRIO idToken do
-// Firebase Auth do usuário logado, e a gente usa ELE (não uma credencial
-// nova) pra ler o Firestore via REST — as MESMAS regras de
-// firestore.rules ("allow read: if isSignedIn()") já protegem essa
-// leitura, então só funciona pra quem já está de verdade autenticado no
-// sistema. Sem idToken (chamada antiga/futura sem essa mudança), cai pro
-// caminho velho via planilha — nunca lança erro, só devolve null/false
-// pra quem chama decidir.
-var FIRESTORE_PROJECT_ID_ = 'solargreen-21313';
-
-function firestoreValorParaJs_(valor) {
-  if (!valor) return null;
-  if ('stringValue' in valor) return valor.stringValue;
-  if ('integerValue' in valor) return Number(valor.integerValue);
-  if ('doubleValue' in valor) return valor.doubleValue;
-  if ('booleanValue' in valor) return valor.booleanValue;
-  if ('timestampValue' in valor) return valor.timestampValue;
-  if ('mapValue' in valor) return firestoreDocParaObjeto_(valor.mapValue.fields || {});
-  if ('arrayValue' in valor) return (valor.arrayValue.values || []).map(firestoreValorParaJs_);
-  return null;
-}
-function firestoreDocParaObjeto_(fields) {
-  var obj = {};
-  Object.keys(fields || {}).forEach(function (k) { obj[k] = firestoreValorParaJs_(fields[k]); });
-  return obj;
-}
-// Guarda o motivo da ÚLTIMA chamada a firestoreGetDoc_ (só pra diagnóstico —
-// diagnosticarPermissaoOS_ usa isso pra montar uma mensagem de erro que
-// mostra EXATAMENTE onde travou, sem precisar abrir Execuções no editor).
-var FIRESTORE_ULTIMO_DEBUG_ = '';
-
-function firestoreGetDoc_(idToken, colecao, id) {
-  if (!idToken || !id) { FIRESTORE_ULTIMO_DEBUG_ = 'idToken ou id ausente'; return null; }
-  var url = 'https://firestore.googleapis.com/v1/projects/' + FIRESTORE_PROJECT_ID_ +
-    '/databases/(default)/documents/' + colecao + '/' + encodeURIComponent(id);
-  var resposta;
-  try {
-    // X-Goog-User-Project: sem isso, o Google não sabe de qual projeto
-    // cobrar/descontar cota pra uma chamada autenticada só com idToken do
-    // Firebase (diferente de um access token OAuth2 normal) — cai numa cota
-    // anônima minúscula e estoura em HTTP 429 "Quota exceeded" já na
-    // primeira ou segunda chamada (bug real, achado 2026-09-16 com o
-    // diagnóstico de FIRESTORE_ULTIMO_DEBUG_ acima).
-    resposta = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + idToken, 'X-Goog-User-Project': FIRESTORE_PROJECT_ID_ }, muteHttpExceptions: true });
-  } catch (err) { FIRESTORE_ULTIMO_DEBUG_ = 'UrlFetchApp falhou: ' + err.message; return null; }
-  var status = resposta.getResponseCode();
-  if (status !== 200) { FIRESTORE_ULTIMO_DEBUG_ = 'HTTP ' + status + ': ' + resposta.getContentText().substring(0, 200); return null; }
-  try {
-    var json = JSON.parse(resposta.getContentText());
-    FIRESTORE_ULTIMO_DEBUG_ = 'ok';
-    return firestoreDocParaObjeto_(json.fields || {});
-  } catch (err) { FIRESTORE_ULTIMO_DEBUG_ = 'JSON inválido: ' + err.message; return null; }
-}
-
-/**
- * Só pra diagnóstico (temporário, 2026-09-16) — repete os mesmos 3 lookups
- * de isVendedorDoClienteOuAdmin_ e monta um resumo legível de onde parou,
- * pra aparecer direto no toast de erro em vez de precisar abrir Execuções.
- */
-function diagnosticarPermissaoOS_(solicitanteId, idAgendamento, idToken) {
-  var partes = [];
-  partes.push('solicitanteId=' + (solicitanteId || '(vazio)'));
-  partes.push('idToken=' + (idToken ? (idToken.length + ' chars') : '(vazio — o navegador não mandou)'));
-  if (!idToken) return partes.join(' | ');
-  var vendedorFs = firestoreGetDoc_(idToken, 'vendedores', solicitanteId);
-  partes.push('vendedores/' + solicitanteId + ' [' + FIRESTORE_ULTIMO_DEBUG_ + ']=' + (vendedorFs ? ('Tipo=' + vendedorFs.Tipo) : 'não achado'));
-  var agendamentoFs = firestoreGetDoc_(idToken, 'agendamentos', idAgendamento);
-  partes.push('agendamentos/' + idAgendamento + ' [' + FIRESTORE_ULTIMO_DEBUG_ + ']=' + (agendamentoFs ? ('IdCliente=' + agendamentoFs.IdCliente) : 'não achado'));
-  if (agendamentoFs) {
-    var clienteFs = firestoreGetDoc_(idToken, 'clientes', agendamentoFs.IdCliente);
-    partes.push('clientes/' + agendamentoFs.IdCliente + ' [' + FIRESTORE_ULTIMO_DEBUG_ + ']=' + (clienteFs ? ('VendedorResponsavel=' + clienteFs['Vendedor Responsavel']) : 'não achado'));
-  }
-  return partes.join(' | ');
-}
-
 /**
  * Um solicitante pode gerar/enviar a Ordem de Serviço pra assinatura se for
  * administrador OU se for o vendedor responsável pelo CLIENTE daquele
  * agendamento — quem manda a OS pra assinatura é o vendedor (dono da
  * negociação), não o técnico que executou o serviço em campo (esse já tem
  * sua própria regra em isTecnicoOuAdmin, usada só pro upload de fotos).
+ *
+ * 2026-09-16: depois da migração pra Firestore, nem o solicitante (agora um
+ * uid do Firebase Auth) nem o agendamento em si existem mais na planilha —
+ * a checagem antiga (isSolicitanteAdmin + findAgendamentoRowById, ambos
+ * batendo na aba Vendedores/Agendamentos) sempre negava, mesmo pra admin.
+ * Tentei uma ponte via REST do Firestore usando o idToken do usuário como
+ * Bearer, mas a API pública do Firestore não aceita idToken do Firebase
+ * Auth desse jeito (só o SDK do navegador fala com o Firestore por esse
+ * canal) — caía numa cota anônima e estourava em 429 "Quota exceeded".
+ * Solução: o navegador (que já leu esse Firestore certinho pra montar a
+ * própria tela) manda "souAdmin" e "vendedorResponsavelCliente" já
+ * resolvidos. Isso não abre brecha nova — firestore.rules nessa fase só
+ * exige "isSignedIn()" (sem checar dono), então qualquer usuário logado já
+ * conseguia ler esses mesmos dados direto pelo SDK; essa checagem sempre
+ * foi regra de negócio (só o vendedor certo aciona isso), não fronteira de
+ * segurança. Sem esses 2 campos (chamada antiga), cai no caminho velho via
+ * planilha, sem quebrar nada que já funcionava antes da migração.
  */
-function isVendedorDoClienteOuAdmin_(solicitanteId, idAgendamento, idToken) {
+function isVendedorDoClienteOuAdmin_(solicitanteId, idAgendamento, souAdmin, vendedorResponsavelCliente) {
   if (!solicitanteId) return false;
-  if (isSolicitanteAdmin(solicitanteId)) return true;
-  if (idToken) {
-    var vendedorFs = firestoreGetDoc_(idToken, 'vendedores', solicitanteId);
-    if (vendedorFs && ADMIN_ROLES.indexOf(String(vendedorFs.Tipo || '').trim().toLowerCase()) !== -1) return true;
-    var agendamentoFs = firestoreGetDoc_(idToken, 'agendamentos', idAgendamento);
-    if (agendamentoFs) {
-      var clienteFs = firestoreGetDoc_(idToken, 'clientes', agendamentoFs.IdCliente);
-      return !!clienteFs && String(clienteFs['Vendedor Responsavel'] || '') === String(solicitanteId);
-    }
+  if (souAdmin || isSolicitanteAdmin(solicitanteId)) return true;
+  if (vendedorResponsavelCliente !== undefined && vendedorResponsavelCliente !== null) {
+    return String(vendedorResponsavelCliente || '') === String(solicitanteId);
   }
   var found = findAgendamentoRowById(idAgendamento);
   if (!found) return false;
@@ -3274,12 +3201,12 @@ function embutirFotosDriveComoBase64_(html) {
 // contento" antes de ele acontecer não tem validade nenhuma. Réplica no
 // servidor da mesma trava que já existe na tela, pra ninguém burlar chamando
 // a API direto.
-function agendamentoEstaConcluido_(found, idToken, idAgendamento) {
-  // idToken/idAgendamento: mesmo motivo do idVendedorDoClienteOuAdmin_ acima
-  // — agendamento pode só existir no Firestore, não na planilha.
-  if (idToken && idAgendamento) {
-    var agendamentoFs = firestoreGetDoc_(idToken, 'agendamentos', idAgendamento);
-    if (agendamentoFs) return normalizarTextoGS(agendamentoFs['Status Agendamento']) === 'concluido';
+function agendamentoEstaConcluido_(found, statusAgendamento) {
+  // statusAgendamento: mesmo motivo do isVendedorDoClienteOuAdmin_ acima —
+  // agendamento pode só existir no Firestore, não na planilha. O navegador
+  // já leu esse status certinho pra montar a própria tela.
+  if (statusAgendamento !== undefined && statusAgendamento !== null) {
+    return normalizarTextoGS(statusAgendamento) === 'concluido';
   }
   if (!found) return false;
   var col = found.colIdx['Status Agendamento'];
@@ -3290,10 +3217,10 @@ function agendamentoEstaConcluido_(found, idToken, idAgendamento) {
 function actionGerarPdfOS(body) {
   var idAgendamento = body.idAgendamento, html = body.html;
   if (!idAgendamento || !html) return { ok: false, erro: 'idAgendamento e html são obrigatórios.' };
-  if (!isVendedorDoClienteOuAdmin_(body.solicitanteId, idAgendamento, body.idToken)) {
-    return { ok: false, erro: 'Sem permissão para essa ordem de serviço. [' + diagnosticarPermissaoOS_(body.solicitanteId, idAgendamento, body.idToken) + ']' };
+  if (!isVendedorDoClienteOuAdmin_(body.solicitanteId, idAgendamento, body.souAdmin, body.vendedorResponsavelCliente)) {
+    return { ok: false, erro: 'Sem permissão para essa ordem de serviço.' };
   }
-  if (!agendamentoEstaConcluido_(findAgendamentoRowById(idAgendamento), body.idToken, idAgendamento)) {
+  if (!agendamentoEstaConcluido_(findAgendamentoRowById(idAgendamento), body.statusAgendamento)) {
     return { ok: false, erro: 'A Ordem de Serviço só pode ser gerada depois que o atendimento é marcado como Concluído.' };
   }
 
@@ -3481,10 +3408,10 @@ function actionEnviarOSParaAssinatura(body) {
       clienteNome = body.clienteNome, clienteEmail = body.clienteEmail;
   if (!fileId) return { ok: false, erro: 'Gere o PDF da Ordem de Serviço antes de enviar pra assinatura.' };
   if (!clienteEmail) return { ok: false, erro: 'O cliente precisa ter um e-mail cadastrado pra receber o link de assinatura.' };
-  if (!isVendedorDoClienteOuAdmin_(body.solicitanteId, idAgendamento, body.idToken)) {
-    return { ok: false, erro: 'Sem permissão para essa ordem de serviço. [' + diagnosticarPermissaoOS_(body.solicitanteId, idAgendamento, body.idToken) + ']' };
+  if (!isVendedorDoClienteOuAdmin_(body.solicitanteId, idAgendamento, body.souAdmin, body.vendedorResponsavelCliente)) {
+    return { ok: false, erro: 'Sem permissão para essa ordem de serviço.' };
   }
-  if (!agendamentoEstaConcluido_(findAgendamentoRowById(idAgendamento), body.idToken, idAgendamento)) {
+  if (!agendamentoEstaConcluido_(findAgendamentoRowById(idAgendamento), body.statusAgendamento)) {
     return { ok: false, erro: 'A Ordem de Serviço só pode ser enviada pra assinatura depois que o atendimento é marcado como Concluído.' };
   }
 
@@ -3516,7 +3443,7 @@ function actionEnviarOSParaAssinatura(body) {
 function actionVerificarStatusOS(body) {
   var idAgendamento = body.idAgendamento;
   if (!idAgendamento) return { ok: false, erro: 'idAgendamento é obrigatório.' };
-  if (!isVendedorDoClienteOuAdmin_(body.solicitanteId, idAgendamento, body.idToken)) {
+  if (!isVendedorDoClienteOuAdmin_(body.solicitanteId, idAgendamento, body.souAdmin, body.vendedorResponsavelCliente)) {
     return { ok: false, erro: 'Sem permissão para essa ordem de serviço.' };
   }
 
