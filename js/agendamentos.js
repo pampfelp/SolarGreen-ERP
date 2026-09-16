@@ -710,27 +710,36 @@
     btn.disabled=true; var textoOriginal=btn.innerHTML; btn.innerHTML='Carregando respostas…';
     // Cliente completo primeiro: o e-mail (obrigatório pra assinatura) e o
     // endereço da OS só vêm no doc completo — a lista traz só o nome.
-    // idToken do Firebase Auth também entra aqui: gerarPdfOS/
-    // enviarOSParaAssinatura continuam batendo no Apps Script antigo (é lá
-    // que mora o token da Autentique, com segurança), mas depois da
-    // migração pro Firestore o Code.gs não acha mais nem o solicitante nem
-    // o agendamento na planilha (2026-09-16, bug real: "Sem permissão para
-    // essa ordem de serviço" mesmo sendo admin/dono do cliente). Mandando o
-    // idToken, o Code.gs consegue ler o mesmo Firestore que o painel admin
-    // já usa (via REST, com o PRÓPRIO token do usuário — nada de service
-    // account novo) pra validar permissão/status antes de desistir.
-    Promise.all([garantirRespostas(a.IdAgendamento),garantirClienteCarregadoAg(a.IdCliente),firebase.auth().currentUser.getIdToken()]).then(function(r){
+    // gerarPdfOS/enviarOSParaAssinatura continuam batendo no Apps Script
+    // antigo (é lá que mora o token da Autentique, com segurança), mas
+    // depois da migração pro Firestore o Code.gs não acha mais nem o
+    // solicitante nem o agendamento na planilha ("Sem permissão para essa
+    // ordem de serviço" mesmo sendo admin/dono do cliente).
+    // 2026-09-16: tentei mandar o idToken do Firebase Auth pro Code.gs
+    // consultar o Firestore via REST — não funciona, a API REST pública do
+    // Firestore não aceita idToken do Firebase Auth como Bearer (só o SDK
+    // do navegador fala com o Firestore por esse canal), cai numa cota
+    // anônima e estoura em 429 Quota exceeded. Solução real: o navegador
+    // já leu esse mesmo Firestore certinho (agendamentoAtual/clientesMap)
+    // pra MONTAR a tela — manda esse dado já conferido direto, em vez do
+    // Code.gs tentar reconferir sozinho. Não abre brecha nova: as regras do
+    // Firestore nessa fase já deixam qualquer logado ler qualquer registro
+    // (não há checagem por dono ainda), então essa é a MESMA informação que
+    // já estava visível no navegador.
+    Promise.all([garantirRespostas(a.IdAgendamento),garantirClienteCarregadoAg(a.IdCliente)]).then(function(){
       var cliente=clientesMap[a.IdCliente]||{};
-      var idToken=r[2];
       if(!cliente.Email){ btn.disabled=false; btn.innerHTML=textoOriginal; showAgToast('Cadastre o e-mail do cliente antes de enviar a Ordem de Serviço pra assinatura digital.',true); return; }
       btn.innerHTML='Gerando PDF…';
       var html=montarHtmlOS(a);
-      apiCall('gerarPdfOS',{solicitanteId:meuId(),idAgendamento:a.IdAgendamento,html:html,idToken:idToken}).then(function(resp){
+      var souAdmin=!!(window.SGAuth&&window.SGAuth.isAdmin());
+      var vendedorResponsavelCliente=cliente['Vendedor Responsavel']||'';
+      var statusAgendamento=a['Status Agendamento']||'';
+      apiCall('gerarPdfOS',{solicitanteId:meuId(),idAgendamento:a.IdAgendamento,html:html,souAdmin:souAdmin,vendedorResponsavelCliente:vendedorResponsavelCliente,statusAgendamento:statusAgendamento}).then(function(resp){
         if(!resp||!resp.ok){ btn.disabled=false; btn.innerHTML=textoOriginal; showAgToast((resp&&resp.erro)||'Não foi possível gerar o PDF.',true); return; }
         btn.innerHTML='Enviando pra assinatura…';
         return apiCall('enviarOSParaAssinatura',{
           solicitanteId:meuId(),idAgendamento:a.IdAgendamento,
-          fileId:resp.fileId,idToken:idToken,
+          fileId:resp.fileId,souAdmin:souAdmin,vendedorResponsavelCliente:vendedorResponsavelCliente,statusAgendamento:statusAgendamento,
           clienteNome:nomeCliente(a.IdCliente),clienteEmail:cliente.Email,
           nomeDocumento:'Ordem de Serviço - '+nomeCliente(a.IdCliente)
         }).then(function(resp2){
