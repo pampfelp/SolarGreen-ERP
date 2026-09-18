@@ -3323,11 +3323,55 @@ function resolverPosicoesAssinatura_(config, totalPaginas) {
 var EMPRESA_SIGNATARIO_EMAIL_ = 'solargreensuporte@gmail.com';
 var EMPRESA_SIGNATARIO_NOME_  = 'Solar Green Suporte';
 
+// Mesmo critério do EMAIL_ASSINATURA_RE em legado/proposta.html — mantenha os
+// dois em sincronia. Vale pra Ordem de Serviço e pro Contrato (os dois passam
+// por criarDocumentoNaAutentique_).
+var EMAIL_SIGNATARIO_RE_ = /^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/;
+
+/**
+ * Erro de validação da Autentique chega como message:"validation" — genérico,
+ * sem dizer uma palavra sobre O QUE está errado (foi exatamente assim que o
+ * Felipe recebeu só "Autentique: validation" ao enviar um contrato em
+ * 2026-09-18, sem nenhuma pista pra agir). O motivo de verdade vem em
+ * extensions.validation, um mapa campo -> [mensagens], que o código antigo
+ * jogava fora. Aqui os dois são juntados, pra a tela mostrar algo como
+ * "validation (signers.0.email: e-mail inválido)".
+ */
+function descreverErrosAutentique_(errors) {
+  return (errors || []).map(function (e) {
+    var msg = (e && e.message) ? String(e.message) : 'erro desconhecido';
+    var validacao = e && e.extensions && e.extensions.validation;
+    if (validacao && typeof validacao === 'object') {
+      var detalhes = Object.keys(validacao).map(function (campo) {
+        var lista = validacao[campo];
+        return campo + ': ' + (Array.isArray(lista) ? lista.join(' / ') : String(lista));
+      });
+      if (detalhes.length) return msg + ' (' + detalhes.join(' | ') + ')';
+    }
+    return msg;
+  }).join('; ');
+}
+
 function criarDocumentoNaAutentique_(fileId, clienteNome, clienteEmail, nomeDocumento, posicoes) {
   var props = PropertiesService.getScriptProperties();
   var token = props.getProperty('AUTENTIQUE_API_TOKEN');
   if (!token) return { ok: false, erro: 'Configure AUTENTIQUE_API_TOKEN em Project Settings > Script Properties.' };
   var sandbox = props.getProperty('AUTENTIQUE_SANDBOX') === 'true';
+
+  // Signatário conferido aqui, no ponto por onde Ordem de Serviço e Contrato
+  // passam os dois: a Autentique recusa e-mail malformado (e signatário
+  // repetido) com um "validation" genérico, que não diz nem qual campo — o
+  // erro fica muito mais claro conferindo antes. O trim também importa: com
+  // espaço sobrando, o e-mail que a Autentique devolve não bate com o que
+  // mandamos, e o link de assinatura voltava nulo.
+  clienteEmail = String(clienteEmail || '').trim();
+  clienteNome  = String(clienteNome || '').trim();
+  if (!EMAIL_SIGNATARIO_RE_.test(clienteEmail)) {
+    return { ok: false, erro: 'O e-mail do cliente ("' + clienteEmail + '") não é um endereço válido — corrija o cadastro do cliente antes de enviar pra assinatura.' };
+  }
+  if (clienteEmail.toLowerCase() === EMPRESA_SIGNATARIO_EMAIL_.toLowerCase()) {
+    return { ok: false, erro: 'O e-mail cadastrado no cliente é o da própria Solar Green (' + EMPRESA_SIGNATARIO_EMAIL_ + '), e a Autentique não aceita o mesmo signatário duas vezes no documento. Cadastre o e-mail do cliente de verdade.' };
+  }
 
   var blob;
   try {
@@ -3377,7 +3421,7 @@ function criarDocumentoNaAutentique_(fileId, clienteNome, clienteEmail, nomeDocu
     return { ok: false, erro: 'Resposta inválida da Autentique: ' + resposta.getContentText() };
   }
   if (json.errors && json.errors.length) {
-    return { ok: false, erro: 'Autentique: ' + json.errors.map(function (e) { return e.message; }).join('; ') };
+    return { ok: false, erro: 'Autentique: ' + descreverErrosAutentique_(json.errors) };
   }
   var documento = json.data && json.data.createDocument;
   if (!documento) return { ok: false, erro: 'Autentique não retornou o documento criado.' };
@@ -3487,7 +3531,7 @@ function actionVerificarStatusOS(body) {
     return { ok: false, erro: 'Resposta inválida da Autentique: ' + resposta.getContentText() };
   }
   if (json.errors && json.errors.length) {
-    return { ok: false, erro: 'Autentique: ' + json.errors.map(function (e) { return e.message; }).join('; ') };
+    return { ok: false, erro: 'Autentique: ' + descreverErrosAutentique_(json.errors) };
   }
   var documento = json.data && json.data.document;
   if (!documento) return { ok: false, erro: 'Documento não encontrado na Autentique.' };
