@@ -1408,7 +1408,7 @@ var CONTRACT_TYPES=[
     fields:[
       {key:'periodicidade',label:'Periodicidade de pagamento',type:'select',options:['Mensal','Anual (à vista)'],default:'Mensal',rebuild:true},
       {key:'valorMensal',label:function(v){return v.periodicidade==='Anual (à vista)'?'Valor anual à vista (R$)':'Valor mensal (R$)';},type:'number',default:''},
-      {key:'diaVencimento',label:'Dia de vencimento',type:'number',default:10},
+      {key:'diaVencimento',label:'Dia de vencimento',type:'number',min:1,max:31,step:1,default:10},
       {key:'formaPagamento',label:'Forma de pagamento',type:'select',options:['Pix ou Boleto','Débito automático no cartão'],default:'Pix ou Boleto'},
       {key:'periodicidadeRelatorio',label:'Periodicidade do relatório',type:'select',options:['Mensal','Bimestral'],default:'Mensal'},
       {key:'prazoNotificacao',label:'Prazo p/ notificar anomalias (horas úteis)',type:'number',default:48},
@@ -1500,6 +1500,12 @@ function renderCtypeGrid(){
 
 var TIPOS_CONTRATO_ASSINAVEIS={monitoramento:true,manutencao:true,recibo:true,procuracao:true};
 
+// Mesmo critério que a Autentique usa pro e-mail do signatário (e o mesmo
+// replicado no Code.gs, em criarDocumentoNaAutentique_): exige "@" e um
+// domínio terminando em letras. Recusa casos que passavam antes e só
+// quebravam lá na Autentique, tipo "fulano@hotmail.com00".
+var EMAIL_ASSINATURA_RE=/^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/;
+
 function selectContractType(id){
   CT.selectedId=id; CT.values={};
   var t=CONTRACT_TYPES.find(function(x){return x.id===id;});
@@ -1532,7 +1538,13 @@ function buildVarsForm(t){
       } else if(f.type==='date'){
         inputHtml='<input type="date" id="cv_'+f.key+'" value="'+escH(cur)+'">';
       } else if(f.type==='number'){
-        inputHtml='<input type="number" id="cv_'+f.key+'" step="0.01" value="'+escH(cur)+'" placeholder="0,00">';
+        // step/min/max por campo: sem isso TODO número aceitava centavos e
+        // qualquer valor, e dava pra digitar "741,42" em "Dia de vencimento"
+        // (o contrato saía dizendo "pagamento até o dia 741,42 de cada mês").
+        inputHtml='<input type="number" id="cv_'+f.key+'" step="'+escH(f.step!==undefined?f.step:'0.01')+'"'+
+          (f.min!==undefined?' min="'+escH(f.min)+'"':'')+
+          (f.max!==undefined?' max="'+escH(f.max)+'"':'')+
+          ' value="'+escH(cur)+'" placeholder="0,00">';
       } else {
         inputHtml='<input type="text" id="cv_'+f.key+'" value="'+escH(cur)+'">';
       }
@@ -1834,9 +1846,17 @@ function enviarContratoParaAssinatura(){
   var c=clienteVars();
   if(c.nome==='—'){ showToast('Informe o nome do cliente',false); return; }
   var msgEl=document.getElementById('ctrAssinarMsg');
-  if(!c.email){
+  // Formato do e-mail conferido AQUI, não só "tem ou não tem": a Autentique
+  // recusa endereço malformado com um erro genérico ("validation", sem dizer
+  // qual campo), que chegava na tela como um inútil "Autentique: validation".
+  // Caso real que motivou isso: cliente cadastrado como "fulano@hotmail.com00"
+  // (dois zeros grudados no fim) — passava na checagem antiga, que só olhava
+  // se o campo estava preenchido.
+  if(!c.email||!EMAIL_ASSINATURA_RE.test(c.email)){
     msgEl.style.display='block'; msgEl.style.color='#c0392b';
-    msgEl.textContent='⚠️ Informe o e-mail do cliente antes de enviar pra assinatura digital.';
+    msgEl.textContent=c.email
+      ? 'O e-mail do cliente ("'+c.email+'") não é um endereço válido — corrija o cadastro antes de enviar pra assinatura digital.'
+      : 'Informe o e-mail do cliente antes de enviar pra assinatura digital.';
     return;
   }
   msgEl.style.display='none';
