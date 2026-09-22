@@ -301,6 +301,9 @@
         pipeline:(o.Pipeline||'').trim()||((pipelinesOrdenados()[0]||{}).IdPipeline||''),
         atividadeAdm:(o.AtividadeAdm||'').trim(),
         idVendaOrigem:(o.IdVendaOrigem||'').trim(),
+        // Posição manual do drag-and-drop (millis) — quando presente, o Kanban
+        // ordena por isso em vez de dataProcesso, pra arrastar não mudar de lugar.
+        ordemKanban:typeof o.OrdemKanban==='number'?o.OrdemKanban:null,
         // Campos calculados após enriquecimento com log/SLA
         dataProcesso:null,dataProcessoKey:null,diasNaEtapa:0,slaColor:'green',temLog:false
       };
@@ -674,13 +677,12 @@
     wrap.innerHTML=etapasAtuais.map(function(etapa){
       var lista=(porEtapa[etapa]||[]).slice();
       lista.sort(function(a,b){
-        // Prioridade sempre no topo da coluna; dentro de cada bloco, quem
-        // mudou de etapa OU teve uma conversa (WhatsApp/ligação) mais
-        // recente sobe — sem precisar mudar de etapa pra subir. dataProcesso
-        // já incorpora as duas coisas (ver computeDataProcesso).
+        // Prioridade sempre no topo da coluna; dentro de cada bloco, usa
+        // ordemKanban (timestamp-millis gravado pelo drag) quando disponível,
+        // senão dataProcesso. Ambos em millis, mesma direção: maior = mais acima.
         if(!!b.prioridade!==!!a.prioridade)return(b.prioridade?1:0)-(a.prioridade?1:0);
-        var av=a.dataProcesso?a.dataProcesso.getTime():0;
-        var bv=b.dataProcesso?b.dataProcesso.getTime():0;
+        var av=a.ordemKanban!==null?a.ordemKanban:(a.dataProcesso?a.dataProcesso.getTime():0);
+        var bv=b.ordemKanban!==null?b.ordemKanban:(b.dataProcesso?b.dataProcesso.getTime():0);
         return bv-av;
       });
       var valorTotal=lista.reduce(function(s,r){return s+r.valor;},0);
@@ -828,7 +830,32 @@
     if(estado.ghost&&estado.ghost.parentNode)estado.ghost.parentNode.removeChild(estado.ghost);
     if(colFinal){
       var novaEtapa=colFinal.getAttribute('data-etapa');
-      if(novaEtapa)moverLeadParaEtapa(estado.id,novaEtapa);
+      if(novaEtapa){
+        // Calcula ordemKanban pela posição de soltura entre os cards vizinhos,
+        // pra o card aparecer exatamente onde foi largado (não no topo).
+        var ordemAlvo=(function(col,dropY,idArrastado){
+          var cards=Array.from(col.querySelectorAll('.kanban-card')).filter(function(c){ return c.getAttribute('data-id')!==String(idArrastado); });
+          // Encontra o card imediatamente acima e abaixo do ponto de soltura
+          var acima=null,abaixo=null;
+          for(var i=0;i<cards.length;i++){
+            var rect=cards[i].getBoundingClientRect();
+            if(dropY>=rect.top+rect.height/2)acima=cards[i];
+            else if(!abaixo)abaixo=cards[i];
+          }
+          function valOf(card){
+            if(!card)return null;
+            var r=funilRecords.filter(function(x){return String(x.id)===card.getAttribute('data-id');})[0];
+            if(!r)return null;
+            return r.ordemKanban!==null?r.ordemKanban:(r.dataProcesso?r.dataProcesso.getTime():null);
+          }
+          var va=valOf(acima),vb=valOf(abaixo);
+          if(va===null&&vb===null)return Date.now();
+          if(va===null)return vb+1000; // inserir acima de todos (maior valor = mais acima)
+          if(vb===null)return va-1000; // inserir abaixo de todos
+          return(va+vb)/2;            // interpola entre os dois vizinhos
+        })(colFinal,e.clientY,estado.id);
+        moverLeadParaEtapa(estado.id,novaEtapa,null,ordemAlvo);
+      }
     }
   }
   function ativarDragDropKanban(){
@@ -963,7 +990,7 @@
    * só que direto, sem precisar abrir o painel. Otimista: atualiza a tela
    * na hora, salva por trás, desfaz sozinho se o servidor recusar.
    */
-  function moverLeadParaEtapa(idLead,novaEtapa,aoCancelar){
+  function moverLeadParaEtapa(idLead,novaEtapa,aoCancelar,ordemKanban){
     var indice=funilRecords.findIndex(function(x){return String(x.id)===String(idLead);});
     if(indice===-1)return;
     var leadOriginal=funilRecords[indice];
@@ -985,14 +1012,14 @@
         textoConfirmar:'Mover para '+novaEtapa
       }).then(function(motivo){
         if(!motivo){ if(aoCancelar)aoCancelar(); return; } // cancelou ou deixou em branco — não move
-        executarMovimentoEtapa(idLead,novaEtapa,motivo);
+        executarMovimentoEtapa(idLead,novaEtapa,motivo,ordemKanban);
       });
       return;
     }
-    executarMovimentoEtapa(idLead,novaEtapa,leadOriginal.motivoPerda);
+    executarMovimentoEtapa(idLead,novaEtapa,leadOriginal.motivoPerda,ordemKanban);
   }
 
-  function executarMovimentoEtapa(idLead,novaEtapa,motivoPerda){
+  function executarMovimentoEtapa(idLead,novaEtapa,motivoPerda,ordemKanban){
     var indice=funilRecords.findIndex(function(x){return String(x.id)===String(idLead);});
     if(indice===-1)return;
     var leadOriginal=funilRecords[indice];
@@ -1002,10 +1029,11 @@
     var etapasPassadasAntes=leadOriginal.etapasPassadas||[];
     var etapasPassadasNovo=etapasPassadasAntes.indexOf(novaEtapa)===-1?etapasPassadasAntes.concat([novaEtapa]):etapasPassadasAntes;
     var transicoesNovo=(leadOriginal.transicoes||[]).concat([{Etapa:novaEtapa,Em:agora.toISOString()}]);
+    var novoOrdem=typeof ordemKanban==='number'?ordemKanban:null;
     var registroNovo=Object.assign({},leadOriginal,{
       etapa:novaEtapa, dataProcesso:agora, dataProcessoKey:dateKey(agora),
       diasNaEtapa:0, slaColor:'green', temLog:true, etapasPassadas:etapasPassadasNovo, transicoes:transicoesNovo,
-      motivoPerda:motivoPerda||''
+      motivoPerda:motivoPerda||'', ordemKanban:novoOrdem
     });
     funilRecords[indice]=registroNovo;
     garantirDataVisivelNoFiltro(registroNovo.dataProcessoKey);
@@ -1020,7 +1048,8 @@
       etapa: novaEtapa,
       observacoes: leadOriginal.obs,
       valorEstimado: leadOriginal.valor,
-      motivoPerda: motivoPerda||''
+      motivoPerda: motivoPerda||'',
+      ordemKanban: novoOrdem
     }).then(function(resp){
       if(!resp||!resp.ok){
         var idx=funilRecords.findIndex(function(x){return String(x.id)===String(idLead);});

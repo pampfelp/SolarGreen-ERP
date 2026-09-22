@@ -345,7 +345,10 @@
         // EtapasPassadas (que só marca presença, sem quando) porque
         // "tempo médio por etapa" precisa saber quando cada troca aconteceu,
         // não só que aconteceu.
-        Transicoes: etapaMudou?firebase.firestore.FieldValue.arrayUnion({Etapa:p.etapa,Em:agora.toISOString()}):undefined
+        Transicoes: etapaMudou?firebase.firestore.FieldValue.arrayUnion({Etapa:p.etapa,Em:agora.toISOString()}):undefined,
+        // Posição manual de drag-and-drop (millis) — preserva onde o card
+        // foi solto no kanban; null limpa (nunca foi arrastado manualmente).
+        OrdemKanban: (typeof p.ordemKanban==='number')?p.ordemKanban:undefined
       });
       return ref.set(doc,{merge:true});
     }).then(function(){ return {ok:true,idOportunidade:id}; })
