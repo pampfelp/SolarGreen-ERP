@@ -666,6 +666,13 @@
    */
   function renderKanban(rowsDoPeriodo){
     var wrap=document.getElementById('f-kanbanWrap');
+    // Preserva scroll horizontal do wrapper e vertical de cada coluna antes
+    // de reconstruir o HTML — sem isso o kanban volta ao topo/esquerda a cada re-render.
+    var scrollWrapLeft=wrap.scrollLeft;
+    var scrollColunas={};
+    wrap.querySelectorAll('.kanban-col-body[data-etapa]').forEach(function(col){
+      scrollColunas[col.getAttribute('data-etapa')]=col.scrollTop;
+    });
     var etapaAtiva=getEtapaAtiva();
     var etapasAtuais=etapasDoPipeline();
     var porEtapa={};
@@ -702,6 +709,12 @@
         '<div class="kanban-col-body" data-etapa="'+escapeHtml(etapa)+'">'+cardsHtml+'</div>'+
       '</div>';
     }).join('');
+    // Restaura posições de scroll depois de reconstruir o DOM
+    wrap.scrollLeft=scrollWrapLeft;
+    wrap.querySelectorAll('.kanban-col-body[data-etapa]').forEach(function(col){
+      var s=scrollColunas[col.getAttribute('data-etapa')];
+      if(s)col.scrollTop=s;
+    });
     wrap.querySelectorAll('.kanban-card').forEach(function(card){
       card.addEventListener('click',function(){ if(Date.now()-ultimoDragKanbanTerminouEm<300)return; abrirVisualizacaoLead(card.getAttribute('data-id')); });
     });
