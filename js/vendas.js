@@ -364,11 +364,6 @@
     document.getElementById('funilPropostas').textContent=tp+' no período';
     document.getElementById('funilConversasTotal').textContent=kpisFunilVendasTotal.conversas;
     document.getElementById('funilPropostasTotal').textContent=kpisFunilVendasTotal.propostas;
-    document.getElementById('funilConvContato').textContent=tc>0?((tcv/tc)*100).toFixed(1).replace('.',',')+' %':'—';
-    document.getElementById('funilConvConversa').textContent=tcv>0?((tp/tcv)*100).toFixed(1).replace('.',',')+' %':'—';
-    document.getElementById('funilConvProposta').textContent=tp>0?((tvr/tp)*100).toFixed(1).replace('.',',')+' %':'—';
-    ligarDrillDownKpisVendas(filtered.funilNovosContatos,kpisFunilVendas,todosDoVendedorVendas,kpisFunilVendasTotal,vendasKPI);
-
     // Fallback histórico (sem filtro de período/vendedor) pra quando o período
     // selecionado não tem dado suficiente pra calcular uma taxa — mesma lógica
     // de antes, só que a fonte agora é o funil inteiro em vez do histórico de
@@ -384,6 +379,12 @@
     var tvph=hp>0?hvr/hp:null,tpch=hcv>0?hp/hcv:null,tcch=hc>0?hcv/hc:null;
     var tax1=tvpp!==null?tvpp:tvph,tax2=tpc!==null?tpc:tpch,tax3=tcc!==null?tcc:tcch;
     var taxP=(tvpp===null&&tax1!==null)||(tpc===null&&tax2!==null)||(tcc===null&&tax3!==null);
+    // Exibe a taxa do período; se zero, usa a média histórica como fallback
+    var dispTcc=tcc!==null?tcc:tcch,dispTpc=tpc!==null?tpc:tpch,dispTvpp=tvpp!==null?tvpp:tvph;
+    document.getElementById('funilConvContato').textContent=dispTcc!==null?((dispTcc*100).toFixed(1).replace('.',',')+' %'):'—';
+    document.getElementById('funilConvConversa').textContent=dispTpc!==null?((dispTpc*100).toFixed(1).replace('.',',')+' %'):'—';
+    document.getElementById('funilConvProposta').textContent=dispTvpp!==null?((dispTvpp*100).toFixed(1).replace('.',',')+' %'):'—';
+    ligarDrillDownKpisVendas(filtered.funilNovosContatos,kpisFunilVendas,todosDoVendedorVendas,kpisFunilVendasTotal,vendasKPI);
 
     function projetarFunil(va){
       if(va===null||va<=0)return{leads:0,conversas:0,propostas:0,vendas:0,ok:va===0};
@@ -403,11 +404,13 @@
     renderSimples('fcTotalVendedor',div(pT,na));renderSimples('fcRestanteVendedor',div(pR,na));
     document.getElementById('fcTotalVendedorSub').textContent='÷ '+na+' vendedor(es)';document.getElementById('fcRestanteVendedorSub').textContent='÷ '+na+' vendedor(es)';
     document.getElementById('fcPorVendedorHint').textContent='meta total e restante ÷ '+na+' vendedor(es) ativo(s)'+(taxP?' · taxas projetadas':'');
-    var dr=ctx.diasUteisRestantes||0,dd=na*dr;
+    var dpFrom=filtered.from?new Date(filtered.from+'T00:00:00'):new Date(ctx.ano,ctx.mes-1,1);
+    var dpTo=filtered.to?new Date(filtered.to+'T00:00:00'):new Date(ctx.ano,ctx.mes,0);
+    var dp=countDiasUteis(dpFrom,dpTo),dd=na*dp;
     renderSimples('fcTotalDia',div(pT,dd));renderSimples('fcRestanteDia',div(pR,dd));
-    var ds=dr>0?'÷ '+na+' × '+dr+' dia(s) útil(eis) restante(s)':'sem dias úteis restantes';
+    var ds=dp>0?'÷ '+na+' × '+dp+' dia(s) útil(eis) do período':'sem dias úteis no período';
     document.getElementById('fcTotalDiaSub').textContent=ds;document.getElementById('fcRestanteDiaSub').textContent=ds;
-    document.getElementById('fcPorDiaHint').textContent=(dr>0?'dividindo pelos '+dr+' dia(s) útil(eis) restantes':'sem dias úteis restantes')+(taxP?' · taxas projetadas':'');
+    document.getElementById('fcPorDiaHint').textContent=(dp>0?'dividindo pelos '+dp+' dia(s) útil(eis) do período':'sem dias úteis no período')+(taxP?' · taxas projetadas':'');
     setUpdateClock();
     renderVendasTable(filtered.vendasTodas);
   }
