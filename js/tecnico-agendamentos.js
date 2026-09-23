@@ -7,6 +7,7 @@
   var statusFiltro=null; // null = todos
   var rangeFiltro='all';
   var servicoFiltro='',vendedorFiltro=''; // '' = todos
+  var buscaTermo=''; // termo normalizado da barra de pesquisa
   var agendamentoAtual=null;
   var paginaAtual=1;
   var ITENS_POR_PAGINA=10;
@@ -100,8 +101,21 @@
     return true;
   }
 
+  function normBusca(s){return String(s==null?'':s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');}
+  function passaBusca(a){
+    if(!buscaTermo)return true;
+    var c=clientesMap[a.IdCliente]||{};
+    var campos=[nomeCliente(a.IdCliente),nomeServico(a.IdServico),nomeVendedorDoCliente(a.IdCliente),a.IdAgendamento,a.Endereco,a['Data Inicio']];
+    for(var k in c){if(typeof c[k]==='string'||typeof c[k]==='number')campos.push(c[k]);}
+    var texto=normBusca(campos.join(' '));
+    var digitos=buscaTermo.replace(/\D/g,'');
+    if(digitos.length>=3&&texto.replace(/\D/g,'').indexOf(digitos)!==-1)return true;
+    return buscaTermo.split(/\s+/).every(function(p){return texto.indexOf(p)!==-1;});
+  }
+
   function getFiltrados(){
     return agendamentos.filter(function(a){
+      if(!passaBusca(a))return false;
       if(statusFiltro&&(a['Status Agendamento']||'Agendado').trim()!==statusFiltro)return false;
       if(!passaRange(a))return false;
       if(servicoFiltro&&String(a.IdServico)!==servicoFiltro)return false;
@@ -271,6 +285,18 @@
       renderLista();
     });
   });
+
+  var inBusca=document.getElementById('busca-os'),btnLimparBusca=document.getElementById('busca-os-limpar');
+  var buscaTimer=null;
+  function aplicarBusca(){
+    buscaTermo=normBusca(inBusca.value).trim();
+    btnLimparBusca.classList.toggle('hidden',!inBusca.value);
+    paginaAtual=1;
+    renderKPIs();
+    renderLista();
+  }
+  inBusca.addEventListener('input',function(){clearTimeout(buscaTimer);buscaTimer=setTimeout(aplicarBusca,150);});
+  btnLimparBusca.addEventListener('click',function(){inBusca.value='';aplicarBusca();inBusca.focus();});
 
   document.getElementById('btn-refresh').addEventListener('click',function(){ carregar(); });
   var btnAbrirDim=document.getElementById('btn-abrir-dimensionamento');
