@@ -616,6 +616,49 @@
       .then(function(respostas){ return {ok:true, respostas:respostas}; })
       .catch(function(err){ return {ok:false, erro:err.message}; });
   }
+  // Respostas do técnico editadas pelo admin (2026-09-24): antes essas 3
+  // actions caíam no Apps Script antigo, que já não acha o agendamento na
+  // planilha depois da migração ("Sem permissão para essa ordem de serviço").
+  // Mesmo doc/campos do app do técnico (tecnico-router.js): idAgendamento_idTemplate.
+  // Diferente do app do técnico, NÃO recalcula o status automático — o admin
+  // já tem o campo de status manual, e editar uma resposta não deve reabrir/
+  // fechar a OS por conta própria.
+  function salvarRespostasAgendamento(p){
+    var idAg=p.idAgendamento, respostas=p.respostas||[];
+    if(!idAg) return Promise.resolve({ok:false,erro:'idAgendamento é obrigatório.'});
+    return getColecao('templates').then(function(templates){
+      var tplById={}; templates.forEach(function(t){ if(t.IdTemplate)tplById[t.IdTemplate]=t; });
+      var batch=db().batch();
+      respostas.forEach(function(r){
+        if(!r.idTemplate)return;
+        var tpl=tplById[r.idTemplate];
+        var tipo=tpl?String(tpl.TipoInput||'').trim():'Texto';
+        var idDoc=idAg+'_'+r.idTemplate;
+        var patch={IdResposta:idDoc,IdAgendamento:idAg,IdTemplate:r.idTemplate};
+        patch[tipo==='Number'?'RespostaQuantidade':'RespostaTexto']=(r.resposta===undefined||r.resposta===null)?'':r.resposta;
+        batch.set(db().collection('agendamentos_respostas').doc(idDoc),patch,{merge:true});
+      });
+      return batch.commit();
+    }).then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+  function uploadFotoResposta(p){
+    if(!p.idAgendamento||!p.idTemplate||!p.base64) return Promise.resolve({ok:false,erro:'Dados incompletos.'});
+    var dataUri='data:'+(p.mimeType||'image/jpeg')+';base64,'+p.base64;
+    // Limite de ~1MiB por documento do Firestore (mesma rede de segurança do app do técnico).
+    if(dataUri.length>900000) return Promise.resolve({ok:false,erro:'Foto muito grande mesmo depois de comprimida — tente de novo com outra.'});
+    var idDoc=p.idAgendamento+'_'+p.idTemplate;
+    return db().collection('agendamentos_respostas').doc(idDoc).set({
+      IdResposta:idDoc,IdAgendamento:p.idAgendamento,IdTemplate:p.idTemplate,RespostaFoto:dataUri
+    },{merge:true}).then(function(){ return {ok:true,url:dataUri}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+  function removerFotoResposta(p){
+    if(!p.idAgendamento||!p.idTemplate) return Promise.resolve({ok:false,erro:'Dados incompletos.'});
+    return db().collection('agendamentos_respostas').doc(p.idAgendamento+'_'+p.idTemplate).set({RespostaFoto:''},{merge:true})
+      .then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
   function salvarAgendamento(p){
     var id=p.idAgendamento;
     if(!id) return Promise.resolve({ok:false,erro:'idAgendamento é obrigatório.'});
@@ -944,6 +987,9 @@
 
     getAgendamentosData:comAuthPronto(getAgendamentosData),
     getRespostasAgendamentosVendedor:comAuthPronto(getRespostasAgendamentosVendedor),
+    salvarRespostasAgendamento:comSync('agendamentos_respostas',function(p){return 'resposta da OS '+p.idAgendamento;},comAuthPronto(salvarRespostasAgendamento)),
+    uploadFotoResposta:comSync('agendamentos_respostas',function(p){return 'foto da OS '+p.idAgendamento;},comAuthPronto(uploadFotoResposta)),
+    removerFotoResposta:comSync('agendamentos_respostas',function(p){return 'remover foto da OS '+p.idAgendamento;},comAuthPronto(removerFotoResposta)),
     salvarAgendamento:comSync('agendamentos',function(p){return 'agendamento de '+(p.idCliente||'');},comAuthPronto(salvarAgendamento)),
     atualizarStatusAgendamento:comSync('agendamentos',function(p){return 'status → '+(p.status||'');},comAuthPronto(atualizarStatusAgendamento)),
     excluirAgendamento:comSync('agendamentos',function(p){return 'excluir '+p.idAgendamento;},comAuthPronto(excluirAgendamento)),
