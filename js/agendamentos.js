@@ -585,7 +585,15 @@
   function montarHtmlOS(a){
     var idAgendamento=a.IdAgendamento;
     var cliente=clientesMap[a.IdCliente]||{};
-    var lista=(respostasPorAgendamento[idAgendamento]||[]).filter(respostaTemValor);
+    var todas=(respostasPorAgendamento[idAgendamento]||[]).filter(respostaTemValor);
+    // Informações adicionais do técnico (IdTemplate "extra_*", campos livres
+    // fora dos templates) vão numa seção própria, ANTES da página de aceite —
+    // a assinatura da Autentique é posicionada na ÚLTIMA página (resolvida por
+    // contarPaginasPdf_ no Code.gs), então essa seção pode ocupar quantas
+    // páginas precisar sem afetar a posição da assinatura.
+    var extras=todas.filter(function(r){return r.ExtraNome;});
+    var lista=todas.filter(function(r){return !r.ExtraNome;});
+    extras.sort(function(x,y){return String(x.IdTemplate).localeCompare(String(y.IdTemplate));});
     lista.sort(function(x,y){
       return ordemTemplate(templatesPorId[x.IdTemplate])-ordemTemplate(templatesPorId[y.IdTemplate]);
     });
@@ -601,6 +609,25 @@
         :('<div>'+escapeHtml(valorDaResposta(r))+'</div>');
       return '<div style="padding:10px 0;border-bottom:1px solid #eee;"><div style="font-weight:700;font-size:13px;margin-bottom:4px;">'+escapeHtml(pergunta)+'</div>'+valorHtml+'</div>';
     }).join('');
+
+    var extrasFotos=extras.filter(function(r){return r.ExtraTipo==='foto'&&r.RespostaFoto&&/^(https?:|data:image)/.test(r.RespostaFoto);});
+    var extrasTextos=extras.filter(function(r){return r.ExtraTipo!=='foto'&&String(r.RespostaTexto||'').trim();});
+    var htmlExtras='';
+    if(extrasTextos.length||extrasFotos.length){
+      htmlExtras='<div style="margin-top:22px;"><h1 style="font-size:16px;margin-bottom:8px;">Informações adicionais</h1>'+
+        extrasTextos.map(function(r){
+          return '<div style="padding:10px 0;border-bottom:1px solid #eee;page-break-inside:avoid;"><div style="font-weight:700;font-size:13px;margin-bottom:4px;">'+escapeHtml(r.ExtraNome)+'</div><div>'+escapeHtml(r.RespostaTexto)+'</div></div>';
+        }).join('')+
+        // Fotos em tabela de 2 colunas (mais compacta que 1 por linha e mais
+        // segura no conversor HTML->PDF do Apps Script que flex/grid).
+        (extrasFotos.length?('<table style="width:100%;border-collapse:collapse;margin-top:10px;table-layout:fixed;">'+
+          extrasFotos.map(function(r,i){
+            var cel='<td style="width:50%;vertical-align:top;padding:6px;page-break-inside:avoid;"><img src="'+r.RespostaFoto+'" style="max-width:250px;max-height:250px;border-radius:8px;border:1px solid #dde8dd;display:block;"><div style="font-size:12px;font-weight:700;margin-top:4px;">'+escapeHtml(r.ExtraNome)+'</div></td>';
+            if(i%2===0)return '<tr>'+cel+(i===extrasFotos.length-1?'<td></td></tr>':'');
+            return cel+'</tr>';
+          }).join('')+'</table>'):'')+
+        '</div>';
+    }
 
     // Página final: cláusula de aceite do serviço + linha de assinatura.
     // "page-break-before" garante que ela sempre comece numa folha nova,
@@ -673,7 +700,8 @@
         '<div><strong>Data:</strong> '+dataFmt+' · '+escapeHtml((a['Hora inicio']||'—')+' – '+(a['Hora Fim']||'—'))+'</div>'+
         '<div><strong>Status:</strong> '+escapeHtml(a['Status Agendamento']||'Agendado')+'</div>'+
       '</div>'+
-      (linhas||'<p>Nenhuma resposta preenchida.</p>')+
+      (linhas||(htmlExtras?'':'<p>Nenhuma resposta preenchida.</p>'))+
+      htmlExtras+
       paginaAceite+
       '</body></html>';
   }
