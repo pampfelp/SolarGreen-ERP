@@ -426,3 +426,23 @@
   #tec-sync-panel .empty{font-size:12.5px;color:var(--ink-faint);text-align:center;padding:10px 0;}
   @media(max-width:480px){ #tec-sync-panel{top:56px;right:10px;width:calc(100vw - 20px);} }
 
+
+  /* Informações adicionais (campos livres por OS) */
+  .extras-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px;}
+  .extra-tile{position:relative;aspect-ratio:1;border-radius:11px;border:1px solid var(--line);background:#fff;overflow:hidden;cursor:pointer;padding:0;display:flex;flex-direction:column;text-align:left;font-family:inherit;}
+  .extra-tile.foto img{width:100%;height:100%;object-fit:cover;display:block;}
+  .extra-tile.foto .et-nome{position:absolute;left:0;right:0;bottom:0;padding:14px 6px 5px;background:linear-gradient(transparent,rgba(0,0,0,.65));color:#fff;font-size:10.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .extra-tile.texto{padding:8px;background:var(--accent-soft);border-color:var(--accent);}
+  .extra-tile.texto .et-nome{font-size:11px;font-weight:800;color:var(--accent-deep);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;}
+  .extra-tile.texto .et-desc{font-size:11px;line-height:1.35;color:var(--ink);overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;}
+  .extra-tile.vazio{border:1.5px dashed var(--line);background:#fbfdfb;color:var(--ink-faint);align-items:center;justify-content:center;}
+  .extra-tile.vazio.add{color:var(--accent-deep);border-color:var(--accent);}
+  .extra-tile.vazio.ghost{cursor:default;opacity:.55;}
+  .extra-tile.vazio svg{width:22px;height:22px;}
+  .extra-tipos{display:flex;gap:10px;}
+  .extra-tipos button{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;padding:18px 8px;border:1.5px solid var(--line);border-radius:12px;background:#fff;font-weight:800;font-size:13.5px;color:var(--ink);cursor:pointer;}
+  .extra-tipos button svg{color:var(--accent-deep);}
+  #extra-card textarea{width:100%;min-height:110px;font-size:14px;border:1px solid var(--line);border-radius:9px;padding:11px 12px;background:#fff;color:var(--ink);resize:vertical;font-family:inherit;}
+  #extra-card .sheet-actions .btn-remover{background:#fff;color:var(--debit);border:1px solid var(--line)!important;}
+  #extra-card .extra-erro{font-size:12px;color:var(--debit);margin:-6px 0 10px;min-height:0;}
+  #extra-card .extra-foto-prev{width:100%;max-height:260px;object-fit:contain;border-radius:10px;margin-bottom:12px;background:#f3f6f3;}

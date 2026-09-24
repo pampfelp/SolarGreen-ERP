@@ -251,7 +251,7 @@
     });
     return lista.map(function(r){
       var tpl=templatesPorId[r.IdTemplate];
-      var pergunta=tpl?tpl.TextoPergunta:('Pergunta '+r.IdTemplate);
+      var pergunta=tpl?tpl.TextoPergunta:(r.ExtraNome?('Info adicional: '+r.ExtraNome):('Pergunta '+r.IdTemplate));
       var servTag=(tpl&&tpl.IdServico&&String(tpl.IdServico)!==String(a.IdServico))?('Respondido no serviço: '+nomeServico(tpl.IdServico)):'';
       var valor=valorDaResposta(r);
       var isFoto=!!r.RespostaFoto&&/^(https?:|data:image)/.test(r.RespostaFoto);
@@ -594,7 +594,7 @@
 
     var linhas=lista.map(function(r){
       var tpl=templatesPorId[r.IdTemplate];
-      var pergunta=tpl?tpl.TextoPergunta:('Pergunta '+r.IdTemplate);
+      var pergunta=tpl?tpl.TextoPergunta:(r.ExtraNome?('Info adicional: '+r.ExtraNome):('Pergunta '+r.IdTemplate));
       var isFoto=!!r.RespostaFoto&&/^(https?:|data:image)/.test(r.RespostaFoto);
       var valorHtml=isFoto
         ?('<img src="'+r.RespostaFoto+'" style="max-width:280px;max-height:280px;border-radius:8px;border:1px solid #dde8dd;display:block;margin-top:6px;">')
