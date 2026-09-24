@@ -161,6 +161,37 @@
       }).catch(function(err){ return {ok:false,erro:err.message}; });
   }
 
+  // Informações adicionais (campo livre por OS, fora dos templates): mesmo
+  // doc/coleção das respostas, com IdTemplate "extra_<ts>" — assim o
+  // getRespostasAgendamentos já devolve tudo junto e as regras não mudam.
+  // ExtraTipo: 'texto' | 'foto'.
+  function salvarExtraAgendamento(p){
+    var idAgendamento=p.idAgendamento, tipo=p.tipo, nome=String(p.nome||'').trim();
+    if(!idAgendamento||!nome||(tipo!=='texto'&&tipo!=='foto')) return Promise.resolve({ok:false,erro:'Dados incompletos.'});
+    var idTemplate=p.idExtra||('extra_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
+    var idDoc=idAgendamento+'_'+idTemplate;
+    var patch={IdResposta:idDoc,IdAgendamento:idAgendamento,IdTemplate:idTemplate,ExtraTipo:tipo,ExtraNome:nome};
+    if(tipo==='texto'){
+      var texto=String(p.texto||'').trim();
+      if(!texto) return Promise.resolve({ok:false,erro:'Escreva a descrição.'});
+      patch.RespostaTexto=texto;
+    }else if(p.base64){
+      var dataUri='data:'+(p.mimeType||'image/jpeg')+';base64,'+p.base64;
+      if(dataUri.length>900000) return Promise.resolve({ok:false,erro:'Foto muito grande mesmo depois de comprimida — tente tirar de novo.'});
+      patch.RespostaFoto=dataUri;
+    }
+    return db().collection('agendamentos_respostas').doc(idDoc).set(patch,{merge:true}).then(function(){
+      return {ok:true,idExtra:idTemplate,resposta:patch};
+    }).catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+
+  function removerExtraAgendamento(p){
+    if(!p.idAgendamento||!p.idExtra) return Promise.resolve({ok:false,erro:'Dados incompletos.'});
+    return db().collection('agendamentos_respostas').doc(p.idAgendamento+'_'+p.idExtra).delete()
+      .then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+
   function atualizarStatusAgendamento(p){
     var idAgendamento=p.idAgendamento, status=p.status;
     if(!idAgendamento||!status) return Promise.resolve({ok:false,erro:'Dados incompletos.'});
@@ -245,6 +276,8 @@
     salvarRespostasAgendamento:comSync('agendamentos_respostas',function(p){return 'checklist da OS '+p.idAgendamento;},comAuthPronto(salvarRespostasAgendamento)),
     uploadFotoResposta:comSync('agendamentos_respostas',function(p){return 'foto da OS '+p.idAgendamento;},comAuthPronto(uploadFotoResposta)),
     removerFotoResposta:comSync('agendamentos_respostas',function(p){return 'remover foto da OS '+p.idAgendamento;},comAuthPronto(removerFotoResposta)),
+    salvarExtraAgendamento:comSync('agendamentos_respostas',function(p){return 'informação adicional da OS '+p.idAgendamento;},comAuthPronto(salvarExtraAgendamento)),
+    removerExtraAgendamento:comSync('agendamentos_respostas',function(p){return 'remover informação adicional da OS '+p.idAgendamento;},comAuthPronto(removerExtraAgendamento)),
     atualizarStatusAgendamento:comSync('agendamentos',function(p){return 'status da OS '+p.idAgendamento+' → '+p.status;},comAuthPronto(atualizarStatusAgendamento)),
     getCatalogoProdutos:comAuthPronto(getCatalogoProdutos),
     salvarModulo:comSync('produtos_modulos',function(p){return p.modelo||p.idModulo;},comAuthPronto(salvarModulo)),

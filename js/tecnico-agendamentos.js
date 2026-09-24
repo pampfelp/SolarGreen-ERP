@@ -883,6 +883,177 @@
     });
   }
 
+  // ── Informações adicionais (campos livres, texto ou foto, por OS) ──
+
+  var SVG_MAIS='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
+  var SVG_TEXTO='<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>';
+  var SVG_FOTO='<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>';
+
+  function listarExtras(idAgendamento){
+    var prefixo=idAgendamento+'|extra_',lista=[];
+    Object.keys(respostasMap).forEach(function(k){
+      if(k.indexOf(prefixo)===0&&respostasMap[k]&&respostasMap[k].ExtraNome)lista.push(respostasMap[k]);
+    });
+    return lista.sort(function(a,b){return String(a.IdTemplate).localeCompare(String(b.IdTemplate));});
+  }
+
+  function renderExtras(a){
+    var slot=document.getElementById('extras-slot');
+    if(!slot)return;
+    var extras=listarExtras(a.IdAgendamento);
+    var tiles=extras.map(function(e){
+      var nome=escapeHtml(e.ExtraNome);
+      if(e.ExtraTipo==='foto'&&e.RespostaFoto)
+        return '<button type="button" class="extra-tile foto" data-extra="'+escapeHtml(e.IdTemplate)+'"><img src="'+escapeHtml(e.RespostaFoto)+'" alt="'+nome+'"><span class="et-nome">'+nome+'</span></button>';
+      return '<button type="button" class="extra-tile texto" data-extra="'+escapeHtml(e.IdTemplate)+'"><span class="et-nome">'+nome+'</span><span class="et-desc">'+escapeHtml(e.RespostaTexto||'')+'</span></button>';
+    }).join('');
+    // Sempre um "+" pra adicionar, e quadradinhos vazios de fundo pra fechar
+    // a fileira de 3 e indicar que cabe mais.
+    var vazios=Math.max(0,(3-((extras.length+1)%3))%3);
+    var ghosts='';for(var i=0;i<vazios;i++)ghosts+='<div class="extra-tile vazio ghost">'+SVG_MAIS+'</div>';
+    slot.innerHTML='<div class="det-section">'+
+      '<h3>Informações adicionais <span style="color:var(--ink-faint);font-weight:600;">'+extras.length+'</span></h3>'+
+      '<p style="font-size:12px;color:var(--ink-faint);line-height:1.4;">Detalhes específicos desse cliente que não têm campo no formulário: texto ou foto.</p>'+
+      '<div class="extras-grid">'+tiles+
+        '<button type="button" class="extra-tile vazio add" id="btn-extra-add" aria-label="Adicionar informação">'+SVG_MAIS+'</button>'+ghosts+
+      '</div></div>';
+    document.getElementById('btn-extra-add').addEventListener('click',function(){extraModalEscolha(a);});
+    slot.querySelectorAll('.extra-tile[data-extra]').forEach(function(t){
+      t.addEventListener('click',function(){extraModalVer(a,t.getAttribute('data-extra'));});
+    });
+  }
+
+  function extraAbrirModal(html){
+    document.getElementById('extra-card').innerHTML=html;
+    document.getElementById('extra-overlay').classList.remove('hidden');
+  }
+  function extraFecharModal(){document.getElementById('extra-overlay').classList.add('hidden');}
+  document.getElementById('extra-overlay').addEventListener('click',function(e){
+    if(e.target.id==='extra-overlay')extraFecharModal();
+  });
+
+  function extraModalEscolha(a){
+    extraAbrirModal('<h3>Inserir informação</h3>'+
+      '<div class="extra-tipos">'+
+        '<button type="button" id="ex-tipo-texto">'+SVG_TEXTO+'Texto</button>'+
+        '<button type="button" id="ex-tipo-foto">'+SVG_FOTO+'Foto</button>'+
+      '</div>'+
+      '<div class="sheet-actions" style="margin-top:14px;"><button class="btn-limpar" id="ex-cancelar">Voltar</button></div>');
+    document.getElementById('ex-tipo-texto').onclick=function(){extraModalForm(a,'texto',null);};
+    document.getElementById('ex-tipo-foto').onclick=function(){extraModalForm(a,'foto',null);};
+    document.getElementById('ex-cancelar').onclick=extraFecharModal;
+  }
+
+  // existente: resposta já salva (edição) ou null (nova)
+  function extraModalForm(a,tipo,existente){
+    var ehFoto=tipo==='foto';
+    extraAbrirModal('<h3>'+(existente?'Editar':'Nova')+' informação — '+(ehFoto?'foto':'texto')+'</h3>'+
+      '<div class="sheet-field"><label>'+(ehFoto?'Nome da foto':'Nome do campo')+'</label><input type="text" id="ex-nome" maxlength="60" value="'+escapeHtml(existente?existente.ExtraNome:'')+'"></div>'+
+      (ehFoto
+        ? '<div class="sheet-field"><label>Foto</label>'+
+            '<img class="extra-foto-prev'+(existente&&existente.RespostaFoto?'':' hidden')+'" id="ex-prev" src="'+escapeHtml(existente&&existente.RespostaFoto||'')+'" alt="">'+
+            '<div class="photo-field" style="padding:10px;"><div class="ph-btn-row">'+
+              '<label class="ph-btn" for="ex-cam">Tirar foto</label><label class="ph-btn" for="ex-gal">Galeria</label></div>'+
+              '<input type="file" accept="image/*" capture="environment" id="ex-cam"><input type="file" accept="image/*" id="ex-gal">'+
+            '</div></div>'
+        : '<div class="sheet-field"><label>Descrição</label><textarea id="ex-desc" maxlength="2000">'+escapeHtml(existente?existente.RespostaTexto||'':'')+'</textarea></div>')+
+      '<div class="extra-erro" id="ex-erro"></div>'+
+      '<div class="sheet-actions">'+
+        '<button class="btn-limpar" id="ex-voltar">Voltar</button>'+
+        '<button class="btn-aplicar" id="ex-salvar">Salvar</button>'+
+      '</div>');
+    var base64=null,fotoBlobUrl=null;
+    var erroEl=document.getElementById('ex-erro');
+    document.getElementById('ex-voltar').onclick=function(){existente?extraModalVer(a,existente.IdTemplate):extraModalEscolha(a);};
+    if(ehFoto){
+      ['ex-cam','ex-gal'].forEach(function(id){
+        document.getElementById(id).addEventListener('change',function(ev){
+          var file=ev.target.files&&ev.target.files[0];
+          if(!file)return;
+          erroEl.textContent='Preparando foto…';
+          comprimirImagem(file,1600,0.8).then(function(blob){
+            var reader=new FileReader();
+            reader.onload=function(){
+              base64=String(reader.result).split(',')[1];
+              var prev=document.getElementById('ex-prev');
+              prev.src=reader.result;prev.classList.remove('hidden');
+              erroEl.textContent='';
+            };
+            reader.readAsDataURL(blob);
+          }).catch(function(err){erroEl.textContent='Erro ao preparar a foto: '+err.message;});
+        });
+      });
+    }
+    document.getElementById('ex-salvar').onclick=function(){
+      var nome=document.getElementById('ex-nome').value.trim();
+      if(!nome){erroEl.textContent='Dê um nome '+(ehFoto?'à foto':'ao campo')+'.';return;}
+      var texto=ehFoto?'':document.getElementById('ex-desc').value.trim();
+      if(!ehFoto&&!texto){erroEl.textContent='Escreva a descrição.';return;}
+      if(ehFoto&&!base64&&!(existente&&existente.RespostaFoto)){erroEl.textContent='Escolha uma foto.';return;}
+      var idExtra=existente?existente.IdTemplate:('extra_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
+      // Otimista, como nos demais campos: aparece na hora, a bolinha de
+      // sincronização mostra o estado real.
+      var chave=a.IdAgendamento+'|'+idExtra;
+      var anterior=respostasMap[chave]||null;
+      var local=Object.assign({IdResposta:a.IdAgendamento+'_'+idExtra,IdAgendamento:a.IdAgendamento,IdTemplate:idExtra},anterior||{},{ExtraTipo:tipo,ExtraNome:nome});
+      if(ehFoto){ if(base64)local.RespostaFoto='data:image/jpeg;base64,'+base64; }
+      else local.RespostaTexto=texto;
+      respostasMap[chave]=local;
+      renderExtras(a);
+      extraFecharModal();
+      SGAuth.apiCall('salvarExtraAgendamento',{
+        solicitanteId:session.idVendedor,idAgendamento:a.IdAgendamento,idExtra:idExtra,tipo:tipo,nome:nome,texto:texto,base64:base64,mimeType:'image/jpeg'
+      }).then(function(resp){
+        if(resp&&resp.ok)return;
+        if(anterior)respostasMap[chave]=anterior;else delete respostasMap[chave];
+        if(agendamentoAtual&&agendamentoAtual.IdAgendamento===a.IdAgendamento)renderExtras(a);
+        showToast((resp&&resp.erro)||'Não foi possível salvar a informação.',true);
+      }).catch(function(){
+        if(anterior)respostasMap[chave]=anterior;else delete respostasMap[chave];
+        if(agendamentoAtual&&agendamentoAtual.IdAgendamento===a.IdAgendamento)renderExtras(a);
+        showToast('Erro de conexão ao salvar a informação.',true);
+      });
+    };
+  }
+
+  function extraModalVer(a,idExtra){
+    var e=respostasMap[a.IdAgendamento+'|'+idExtra];
+    if(!e)return;
+    var ehFoto=e.ExtraTipo==='foto';
+    extraAbrirModal('<h3>'+escapeHtml(e.ExtraNome)+'</h3>'+
+      (ehFoto?'<img class="extra-foto-prev" src="'+escapeHtml(e.RespostaFoto||'')+'" alt="'+escapeHtml(e.ExtraNome)+'">'
+             :'<p style="font-size:14px;line-height:1.5;white-space:pre-wrap;margin-bottom:16px;">'+escapeHtml(e.RespostaTexto||'')+'</p>')+
+      '<div class="extra-erro" id="ex-erro"></div>'+
+      '<div class="sheet-actions" id="ex-acoes">'+
+        '<button class="btn-remover" id="ex-remover">Remover</button>'+
+        '<button class="btn-limpar" id="ex-editar">Editar</button>'+
+        '<button class="btn-aplicar" id="ex-fechar">Fechar</button>'+
+      '</div>');
+    document.getElementById('ex-fechar').onclick=extraFecharModal;
+    document.getElementById('ex-editar').onclick=function(){extraModalForm(a,e.ExtraTipo,e);};
+    document.getElementById('ex-remover').onclick=function(){
+      // confirmação inline (sem confirm() nativo)
+      document.getElementById('ex-acoes').innerHTML=
+        '<button class="btn-limpar" id="ex-nao">Cancelar</button>'+
+        '<button class="btn-remover" id="ex-sim">Sim, remover</button>';
+      document.getElementById('ex-nao').onclick=function(){extraModalVer(a,idExtra);};
+      document.getElementById('ex-sim').onclick=function(){
+        var chave=a.IdAgendamento+'|'+idExtra,anterior=respostasMap[chave];
+        delete respostasMap[chave];
+        renderExtras(a);
+        extraFecharModal();
+        var desfazer=function(msg){
+          respostasMap[chave]=anterior;
+          if(agendamentoAtual&&agendamentoAtual.IdAgendamento===a.IdAgendamento)renderExtras(a);
+          showToast(msg,true);
+        };
+        SGAuth.apiCall('removerExtraAgendamento',{solicitanteId:session.idVendedor,idAgendamento:a.IdAgendamento,idExtra:idExtra}).then(function(resp){
+          if(!resp||!resp.ok)desfazer((resp&&resp.erro)||'Não foi possível remover.');
+        }).catch(function(){desfazer('Erro de conexão ao remover.');});
+      };
+    };
+  }
+
   function abrirDetalhe(idAgendamento){
     var a=agendamentos.filter(function(x){return String(x.IdAgendamento)===String(idAgendamento);})[0];
     if(!a)return;
@@ -949,6 +1120,7 @@
       ? renderFormulario(a)
       : '<div class="det-section" id="form-section"><h3>Respostas</h3><p style="font-size:12.5px;color:var(--ink-faint);padding:8px 0;">Carregando respostas…</p></div>';
 
+    html+='<div id="extras-slot"></div>';
     document.getElementById('det-body').innerHTML=html;
     document.getElementById('status-manual').value=(a['Status Agendamento']||'Agendado').trim();
     document.getElementById('btn-salvar-status').addEventListener('click',function(){
@@ -972,6 +1144,7 @@
     });
     wireCampoEvents(a.IdAgendamento);
     wireRespostasCard(a.IdAgendamento);
+    if(jaTemDados)renderExtras(a);
 
     montarAcoes(a,statusNorm);
 
@@ -986,6 +1159,7 @@
         if(secao)secao.outerHTML=renderFormulario(a);
         wireCampoEvents(a.IdAgendamento);
         wireRespostasCard(a.IdAgendamento);
+        renderExtras(a);
         atualizarProgressoObrigatorios(); // as respostas só chegaram agora — recalcula o contador e o botão
       });
     }
