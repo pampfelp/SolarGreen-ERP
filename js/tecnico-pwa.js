@@ -6,7 +6,7 @@
       if(swJaRecarregou)return; swJaRecarregou=true; location.reload();
     });
   }
-  var DISMISS_KEY='sg_install_dismissed_v1';
+  var DISMISS_KEY='sg_tecnico_install_dismissed_v1';
   var banner=document.getElementById('sg-install-banner');
   if(!banner)return;
   var msgEl=document.getElementById('sg-ib-msg');
