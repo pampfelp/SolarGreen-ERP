@@ -25,7 +25,7 @@
 
   function getApiUrl(){return(localStorage.getItem(API_URL_KEY)||'').trim()||DEFAULT_API_URL;}
   function getApiKey(){return(localStorage.getItem(API_KEY_KEY)||'').trim()||DEFAULT_API_KEY;}
-  function setApiCreds(u,k){localStorage.setItem(API_URL_KEY,u.trim());localStorage.setItem(API_KEY_KEY,k.trim());}
+  function setApiCreds(u,k){window.SGLocal.guardar(API_URL_KEY,u.trim());window.SGLocal.guardar(API_KEY_KEY,k.trim());}
   function hasApiCreds(){return !!getApiUrl()&&!!getApiKey();}
   // Delega pra SGAuth.apiCall (mesmos localStorage keys) — ganha
   // solicitanteId automático (Fase A), a causa raiz do bug original nesse

@@ -67,6 +67,38 @@
     });
   }
 
+  /**
+   * Escrita no localStorage que não derruba a ação da pessoa quando a cota
+   * estoura (2026-09-28, achado pelo Felipe: o login morria com "Setting the
+   * value of 'sg_auth_session' exceeded the quota" — a sessão tem uns 150
+   * bytes, não tinha como ser ela). A cota (~5 MB) é POR ORIGEM, e os quatro
+   * apps desta pasta (painel, técnico, ponto, planilha) dividem a mesma.
+   * Quem enchia era o cache de tela (`sg_cache_*`, abaixo), que guardava
+   * coleções inteiras — ou seja, um cache de conforto estava impedindo o
+   * login. Como esse cache é descartável por definição, ele é o primeiro a
+   * sair: se a gravação falhar, limpa todo `sg_cache_*` e tenta uma vez mais.
+   * Devolve true/false e nunca joga exceção; quem chama decide se o fracasso
+   * importa (a sessão importa, a preferência de barra lateral não).
+   */
+  function limparCacheDeTela(){
+    var chaves=[];
+    for(var i=0;i<localStorage.length;i++){
+      var k=localStorage.key(i);
+      if(k&&k.indexOf('sg_cache_')===0)chaves.push(k);
+    }
+    chaves.forEach(function(k){ localStorage.removeItem(k); });
+    return chaves.length;
+  }
+  function guardarLocal(chave,valor){
+    try{ localStorage.setItem(chave,valor); return true; }
+    catch(e){
+      if(!limparCacheDeTela())return false;
+      try{ localStorage.setItem(chave,valor); return true; }
+      catch(e2){ return false; }
+    }
+  }
+  window.SGLocal={guardar:guardarLocal,limparCacheDeTela:limparCacheDeTela};
+
   function getSession(){
     try{
       var raw=localStorage.getItem(SESSION_KEY);
@@ -77,7 +109,9 @@
   }
   function setSession(usuario){
     var s={idVendedor:usuario.idVendedor,nome:usuario.nome,email:usuario.email,tipo:usuario.tipo||'',expiresAt:Date.now()+SESSION_DURATION_MS};
-    localStorage.setItem(SESSION_KEY,JSON.stringify(s));
+    if(!guardarLocal(SESSION_KEY,JSON.stringify(s))){
+      throw new Error('Não foi possível guardar a sessão neste navegador (armazenamento local cheio ou bloqueado). Feche as outras abas do sistema e tente de novo.');
+    }
     return s;
   }
   function clearSession(){ localStorage.removeItem(SESSION_KEY); }
@@ -110,6 +144,9 @@
   // antigos pra sempre (ex: cliente sem endereço mesmo já tendo sido
   // corrigido na planilha há dias) — sem nenhum aviso de que era cache velho.
   var SG_CACHE_TTL_MS=12*60*60*1000;
+  // Em caracteres: o navegador guarda 2 bytes por caractere, então 150 mil
+  // caracteres são ~300 KB de cota. Ver o comentário em SGCache.set.
+  var SG_CACHE_MAX_CHARS=150*1024;
   window.SGCache={
     get:function(chave){
       try{
@@ -121,8 +158,19 @@
       }catch(e){ return null; }
     },
     set:function(chave,dados){
-      try{ localStorage.setItem('sg_cache_'+chave,JSON.stringify({ts:Date.now(),dados:dados})); }
-      catch(e){ /* localStorage cheio/indisponível — não é crítico, só não guarda cache dessa vez */ }
+      var k='sg_cache_'+chave,texto;
+      try{ texto=JSON.stringify({ts:Date.now(),dados:dados}); }catch(e){ return; }
+      // Teto por entrada (2026-09-28): as coleções grandes (clientes com ~1.200
+      // docs, funil, vendas, agendamentos) sozinhas comiam quase toda a cota da
+      // origem e faziam a gravação da SESSÃO falhar — o cache derrubava o
+      // login. Essas mesmas coleções já têm cache local de verdade pela
+      // persistência do Firestore (IndexedDB, js/firebase-init.js), sem limite
+      // apertado, então guardá-las aqui também era trabalho repetido. O que
+      // continua cabendo são as telas pequenas, que é onde a pintura
+      // instantânea aparece sem custo. Se passar do teto, apaga a cópia velha
+      // em vez de deixar um retrato desatualizado ocupando espaço.
+      if(texto.length>SG_CACHE_MAX_CHARS){ localStorage.removeItem(k); return; }
+      guardarLocal(k,texto);
     }
   };
 

@@ -5,7 +5,7 @@
   function switchTo(name){
     if((name==='usuarios'||name==='permissoes'||name==='metas'||name==='custorecorrente')&&(!window.SGAuth||!window.SGAuth.isAdmin()))name='ponto';
     Object.keys(views).forEach(function(k){if(!views[k]||!navLinks[k])return;views[k].classList.toggle('active',k===name);navLinks[k].classList.toggle('active',k===name);});
-    localStorage.setItem('sg_active_view',name);
+    window.SGLocal.guardar('sg_active_view',name);
     if(name==='dashboard'&&window.dashboardApp)window.dashboardApp.init();
     if(name==='funil'&&window.funilApp)window.funilApp.init();
     if(name==='agendamentos'&&window.agendamentosApp)window.agendamentosApp.init();
@@ -49,7 +49,7 @@
   var sidebar=document.querySelector('.sidebar'),btn=document.getElementById('sidebarToggle'),ico=document.getElementById('toggleIco'),KEY='sg_sidebar_collapsed';
   function apply(collapsed,animate){if(!animate){sidebar.style.transition='none';requestAnimationFrame(function(){sidebar.style.transition='';});}sidebar.classList.toggle('collapsed',collapsed);ico.classList.toggle('collapsed-ico',collapsed);btn.title=collapsed?'Expandir menu':'Recolher menu';}
   apply(localStorage.getItem(KEY)==='1',false);
-  btn.addEventListener('click',function(){var c=!sidebar.classList.contains('collapsed');apply(c,true);localStorage.setItem(KEY,c?'1':'0');});
+  btn.addEventListener('click',function(){var c=!sidebar.classList.contains('collapsed');apply(c,true);window.SGLocal.guardar(KEY,c?'1':'0');});
   // Em telas ≤760px a sidebar vira gaveta lateral (ver CSS) e o botão de recolher fica oculto — não é necessário nesse layout.
 })();
 

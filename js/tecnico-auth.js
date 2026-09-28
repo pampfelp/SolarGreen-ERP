@@ -16,6 +16,28 @@ var SGAuth=(function(){
     var body=Object.assign({action:action,chave:DEFAULT_API_KEY},payload||{});
     return fetch(DEFAULT_API_URL,{method:'POST',body:JSON.stringify(body)}).then(function(r){return r.json();});
   }
+  /**
+   * Cópia enxuta de SGLocal.guardar (js/sg-auth.js) — esse app é standalone
+   * e não carrega aquele arquivo, mesma postura do resto deste arquivo.
+   * Necessária porque a cota do localStorage (~5 MB) é POR ORIGEM: o painel
+   * admin, na mesma pasta, enche com o cache de tela dele (`sg_cache_*`) e o
+   * LOGIN DAQUI morre com "exceeded the quota" mesmo a sessão tendo 150
+   * bytes (2026-09-28). O cache do painel é descartável, então sai primeiro.
+   */
+  function guardarLocal(chave,valor){
+    try{ localStorage.setItem(chave,valor); return true; }
+    catch(e){
+      var chaves=[];
+      for(var i=0;i<localStorage.length;i++){
+        var k=localStorage.key(i);
+        if(k&&k.indexOf('sg_cache_')===0)chaves.push(k);
+      }
+      if(!chaves.length)return false;
+      chaves.forEach(function(k){ localStorage.removeItem(k); });
+      try{ localStorage.setItem(chave,valor); return true; }
+      catch(e2){ return false; }
+    }
+  }
   function getSession(){
     try{
       var raw=localStorage.getItem(SESSION_KEY);
@@ -26,7 +48,9 @@ var SGAuth=(function(){
   }
   function setSession(usuario){
     var s={idVendedor:usuario.idVendedor,nome:usuario.nome,email:usuario.email,tipo:usuario.tipo||'',expiresAt:Date.now()+SESSION_DURATION_MS};
-    localStorage.setItem(SESSION_KEY,JSON.stringify(s));
+    if(!guardarLocal(SESSION_KEY,JSON.stringify(s))){
+      throw new Error('Não foi possível guardar a sessão neste celular (armazenamento local cheio ou bloqueado). Feche as outras abas do sistema e tente de novo.');
+    }
     return s;
   }
   function clearSession(){ localStorage.removeItem(SESSION_KEY); }

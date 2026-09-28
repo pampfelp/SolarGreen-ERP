@@ -266,7 +266,13 @@
     return function(payload){
       var idPendente=window.TecnicoSync?window.TecnicoSync.iniciar(colecao,resumoFn(payload)):null;
       function finalizar(){ if(window.TecnicoSync&&idPendente!==null)window.TecnicoSync.concluir(idPendente); }
-      return fn(payload).then(function(resp){ finalizar(); return resp; }).catch(function(err){ finalizar(); throw err; });
+      return fn(payload).then(function(resp){ finalizar(); return resp; }).catch(function(err){
+        finalizar();
+        // Mesma checagem do painel admin: o bug do SDK chega aqui como rejeição
+        // e viraria um "erro de conexão" enganoso (ver js/tecnico-firebase-init.js).
+        if(window.TecnicoFirestoreFatal)window.TecnicoFirestoreFatal.verificar(err);
+        throw err;
+      });
     };
   }
 

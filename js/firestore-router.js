@@ -947,7 +947,14 @@
     return function(payload){
       var idPendente=window.SGSync?window.SGSync.iniciar(colecao,resumoFn(payload)):null;
       function finalizar(){ if(window.SGSync&&idPendente!==null)window.SGSync.concluir(idPendente); }
-      return fn(payload).then(function(resp){ finalizar(); return resp; }).catch(function(err){ finalizar(); throw err; });
+      return fn(payload).then(function(resp){ finalizar(); return resp; }).catch(function(err){
+        finalizar();
+        // O bug "INTERNAL ASSERTION FAILED" do SDK chega aqui como rejeição e,
+        // sem isso, viraria só um toast de "erro de conexão" — que não é
+        // conexão, é a instância do Firestore morta (ver js/firebase-init.js).
+        if(window.SGFirestoreFatal)window.SGFirestoreFatal.verificar(err);
+        throw err;
+      });
     };
   }
 
