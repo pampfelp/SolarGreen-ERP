@@ -335,9 +335,37 @@
   });
   // Persistência offline: é o que faz o registro de ponto funcionar sem
   // sinal (a escrita fica na fila do SDK e sincroniza sozinha ao reconectar).
-  firebase.firestore().enablePersistence({synchronizeTabs:true}).catch(function(err){
+  // 2026-09-28: synchronizeTabs desligado, mesma correção do painel admin
+  // (js/firebase-init.js, onde está o porquê completo) — a disputa de aba
+  // primária entre os apps desta pasta, que são mesma origem, dispara o bug
+  // aberto do SDK "INTERNAL ASSERTION FAILED" e mata o Firestore da página.
+  firebase.firestore().enablePersistence({synchronizeTabs:false}).catch(function(err){
     console.warn('Persistência offline indisponível:',err.code);
   });
+
+  // Rede de segurança pro mesmo bug: quando ele estoura, a instância do
+  // Firestore morre até recarregar, e um registro de ponto que parece salvo
+  // não salvou.
+  function firestoreMorreu(){
+    if(document.getElementById('sg-fs-morto'))return;
+    var barra=document.createElement('div');
+    barra.id='sg-fs-morto';
+    barra.style.cssText='position:fixed;left:0;right:0;top:0;z-index:2100;background:#dc2626;color:#fff;padding:12px 16px;font-size:13px;line-height:1.45;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;';
+    var texto=document.createElement('span');
+    texto.textContent='A conexão com o banco travou. O registro de ponto não vai salvar — recarregue antes de bater o ponto.';
+    var botao=document.createElement('button');
+    botao.type='button';
+    botao.textContent='Recarregar';
+    botao.style.cssText='background:#fff;color:#dc2626;border:0;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;';
+    botao.addEventListener('click',function(){ location.reload(); });
+    barra.appendChild(texto); barra.appendChild(botao);
+    (document.body||document.documentElement).appendChild(barra);
+  }
+  function ehAssercaoFirestore(erro){
+    return !!(erro&&String(erro.message||erro).indexOf('INTERNAL ASSERTION FAILED')!==-1);
+  }
+  window.addEventListener('error',function(e){ if(ehAssercaoFirestore(e.error||e.message))firestoreMorreu(); });
+  window.addEventListener('unhandledrejection',function(e){ if(ehAssercaoFirestore(e.reason))firestoreMorreu(); });
   // Espera o Firebase Auth restaurar a sessão salva antes de qualquer
   // leitura/escrita (senão a checagem "está logado?" roda cedo demais).
   window.PontoFireReady=new Promise(function(resolve){
@@ -358,9 +386,33 @@ var PontoSessao=(function(){
     }catch(e){}
     return null;
   }
+  /**
+   * Cópia enxuta de SGLocal.guardar (js/sg-auth.js) — esta tela é standalone
+   * e não carrega aquele arquivo.
+   * Necessária porque a cota do localStorage (~5 MB) é POR ORIGEM: o painel
+   * admin, na mesma pasta, enche com o cache de tela dele (`sg_cache_*`) e o
+   * LOGIN DAQUI morre com "exceeded the quota" mesmo a sessão tendo 150
+   * bytes (2026-09-28). O cache do painel é descartável, então sai primeiro.
+   */
+  function guardarLocal(chave,valor){
+    try{ localStorage.setItem(chave,valor); return true; }
+    catch(e){
+      var chaves=[];
+      for(var i=0;i<localStorage.length;i++){
+        var k=localStorage.key(i);
+        if(k&&k.indexOf('sg_cache_')===0)chaves.push(k);
+      }
+      if(!chaves.length)return false;
+      chaves.forEach(function(k){ localStorage.removeItem(k); });
+      try{ localStorage.setItem(chave,valor); return true; }
+      catch(e2){ return false; }
+    }
+  }
   function set(u){
     var s={idVendedor:u.idVendedor,uid:u.uid,nome:u.nome,email:u.email,tipo:u.tipo||'',expiresAt:Date.now()+DUR};
-    localStorage.setItem(KEY,JSON.stringify(s));
+    if(!guardarLocal(KEY,JSON.stringify(s))){
+      throw new Error('Não foi possível guardar a sessão neste aparelho (armazenamento local cheio ou bloqueado). Feche as outras abas do sistema e tente de novo.');
+    }
     return s;
   }
   function clear(){ localStorage.removeItem(KEY); }

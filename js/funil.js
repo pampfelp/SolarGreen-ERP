@@ -369,7 +369,7 @@
     menu.querySelectorAll('.pipeline-switch-item').forEach(function(item){
       item.addEventListener('click',function(){
         pipelineAtivo=item.getAttribute('data-pipeline');
-        localStorage.setItem('sg_funil_pipeline',pipelineAtivo);
+        window.SGLocal.guardar('sg_funil_pipeline',pipelineAtivo);
         menu.classList.add('hidden');
         renderAbasPipeline();
         renderStagePills();   // etapas mudam junto com o pipeline
@@ -1393,7 +1393,7 @@
     // Leva a pessoa direto pro card novo, no pipeline de destino — senão o
     // card "some" (fica numa aba que não está aberta) e parece que não criou.
     pipelineAtivo=idPipelineDestino;
-    localStorage.setItem('sg_funil_pipeline',pipelineAtivo);
+    window.SGLocal.guardar('sg_funil_pipeline',pipelineAtivo);
     if(window.SGViewPanel)window.SGViewPanel.fechar();
     renderAbasPipeline();renderStagePills();
     garantirDataVisivelNoFiltro(registroNovo.dataProcessoKey);
@@ -2374,7 +2374,7 @@
     // "Automação" é exclusiva: ligar aqui desliga nos outros (o servidor faz
     // o mesmo, isso é só pra tela não mostrar dois marcados até recarregar).
     if(automacao)funilPipelines.forEach(function(p){ if(String(p.IdPipeline)!==String(id))p.AutomacaoVenda=false; });
-    if(ehNovo){ pipelineAtivo=id; localStorage.setItem('sg_funil_pipeline',id); }
+    if(ehNovo){ pipelineAtivo=id; window.SGLocal.guardar('sg_funil_pipeline',id); }
     _epoca.marcar();
     fecharModalPipelines();
     renderAbasPipeline();renderStagePills();render();
@@ -2416,7 +2416,7 @@
       if(pipelineAtivo===id){
         var primeiro=pipelinesOrdenados()[0];
         pipelineAtivo=primeiro?primeiro.IdPipeline:'';
-        localStorage.setItem('sg_funil_pipeline',pipelineAtivo);
+        window.SGLocal.guardar('sg_funil_pipeline',pipelineAtivo);
       }
       _epoca.marcar();
       fecharModalPipelines();
@@ -2518,8 +2518,8 @@
       document.getElementById('f-viewKanban').classList.toggle('active',!listaAtiva);
     }
     aplicarVisao();
-    document.getElementById('f-viewLista').addEventListener('click',function(){ visaoAtual='lista'; localStorage.setItem('sg_funil_visao','lista'); aplicarVisao(); });
-    document.getElementById('f-viewKanban').addEventListener('click',function(){ visaoAtual='kanban'; localStorage.setItem('sg_funil_visao','kanban'); aplicarVisao(); });
+    document.getElementById('f-viewLista').addEventListener('click',function(){ visaoAtual='lista'; window.SGLocal.guardar('sg_funil_visao','lista'); aplicarVisao(); });
+    document.getElementById('f-viewKanban').addEventListener('click',function(){ visaoAtual='kanban'; window.SGLocal.guardar('sg_funil_visao','kanban'); aplicarVisao(); });
 
     document.getElementById('f-novoLeadBtn').addEventListener('click',function(){ abrirPainelLead(null); });
     document.getElementById('f-relatorioBtn').addEventListener('click',abrirRelatorioFunil);
