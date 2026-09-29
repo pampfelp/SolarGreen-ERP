@@ -19,7 +19,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=20260903a">
+<link rel="stylesheet" href="css/app.css?v=20260929b">
 </head>
 <body>
 
@@ -209,6 +209,8 @@
     <a href="#" id="nav-ponto"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></span><span class="nav-label"> Ponto Eletrônico</span></a>
     <a href="#" id="nav-vendas"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 7-8"/><path d="M15 7h5v5"/></svg></span><span class="nav-label"> Vendas</span></a>
     <a href="#" id="nav-funil"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16l-6 8v6l-4 2v-8L4 4z"/></svg></span><span class="nav-label"> Funil</span></a>
+    <a href="#" id="nav-leadssite" style="display:none;"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span><span class="nav-label"> Leads do site</span></a>
+    <a href="#" id="nav-funilsite" style="display:none;"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="4" height="8" rx="1"/></svg></span><span class="nav-label"> Funil do site</span></a>
     <a href="#" id="nav-relatorios"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l4 4v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v4h4"/><path d="M9 13h6M9 17h6M9 9h2"/></svg></span><span class="nav-label"> Relatórios</span></a>
     <a href="#" id="nav-custosvenda"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-2.5-1.5L13 21l-2.5-1.5L8 21l-2-1.5V3z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span><span class="nav-label"> Custos da Venda</span></a>
     <a href="#" id="nav-custorecorrente" style="display:none;"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></span><span class="nav-label"> Custos Recorrentes</span></a>
@@ -1270,6 +1272,108 @@
   </div>
 </div>
 
+<!-- ═══ VIEW: LEADS DO SITE (somente administradores) ═══ -->
+<div id="view-leadssite" class="view">
+<div class="app">
+
+  <header class="top">
+    <div>
+      <h1>Leads do <span>site</span></h1>
+      <div class="top-sub">Contatos que chegam pelo site e viram lead no Funil, com vendedor em rodízio · <span id="ls-appVersion"></span></div>
+    </div>
+  </header>
+
+  <div class="kpis" id="ls-kpis">
+    <div class="kpi"><div class="tag">Recebidos</div><div class="num" id="ls-kpiTotal">0</div><div class="sub">desde o começo</div><div class="bar"></div></div>
+    <div class="kpi"><div class="tag">Aguardando</div><div class="num" id="ls-kpiAguardando">0</div><div class="sub">o ERP promove assim que alguém abrir</div><div class="bar" style="background:var(--warn);"></div></div>
+    <div class="kpi"><div class="tag">Promovidos</div><div class="num" id="ls-kpiPromovidos">0</div><div class="sub">já estão no Funil</div><div class="bar"></div></div>
+    <div class="kpi"><div class="tag">Duplicados</div><div class="num" id="ls-kpiDuplicados">0</div><div class="sub">mesmo telefone e serviço em 24 h</div><div class="bar" style="background:var(--info);"></div></div>
+    <div class="kpi" id="ls-kpiAtencaoCard"><div class="tag">Precisam de atenção</div><div class="num" id="ls-kpiAtencao">0</div><div class="sub">suspeitos ou com erro</div><div class="bar" style="background:var(--debit);"></div></div>
+  </div>
+
+  <div class="section-head">
+    <h2>Contatos <span>do site</span></h2>
+    <div class="hint">o mais recente primeiro · clique numa linha pra ver o diagnóstico da calculadora</div>
+  </div>
+  <div class="table-wrap">
+    <table style="min-width:860px;">
+      <thead>
+        <tr><th>Recebido</th><th>Nome</th><th>WhatsApp</th><th>Cidade</th><th>Serviço</th><th>Perda estimada</th><th>Situação</th><th></th></tr>
+      </thead>
+      <tbody id="ls-tbody"></tbody>
+    </table>
+  </div>
+  <div class="empty" id="ls-emptyState" style="display:none;">
+    <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
+    <p>Nenhum contato do site ainda.</p>
+  </div>
+
+  <div class="section-head" style="margin-top:28px;">
+    <h2>Tarifa da <span>calculadora do site</span></h2>
+    <div class="hint">o site mostra "atualizada em" com o mês que você informar</div>
+  </div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;max-width:560px;">
+    <div class="uform-field" style="flex:1;min-width:160px;"><label>Tarifa de referência (R$/kWh)</label><input type="number" id="ls-tarifa" step="0.01" min="0.1" placeholder="0,98"></div>
+    <div class="uform-field" style="flex:1;min-width:160px;"><label>Conferida em</label><input type="month" id="ls-tarifaMes"></div>
+    <button class="connect-btn" id="ls-tarifaSalvar" type="button">Salvar tarifa</button>
+  </div>
+  <div class="uform-msg" id="ls-tarifaMsg" style="margin-top:8px;"></div>
+
+</div>
+</div>
+
+<div class="modal-overlay hidden" id="leadSiteModal">
+  <div class="modal-card">
+    <h3>Contato do site</h3>
+    <div class="modal-sub">O que a pessoa preencheu e o que a calculadora mostrou pra ela.</div>
+    <div id="ls-detalheCorpo"></div>
+    <div class="modal-actions">
+      <button class="reset-btn" id="ls-detalheFechar" type="button">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ VIEW: FUNIL DO SITE (somente administradores) ═══ -->
+<div id="view-funilsite" class="view">
+<div class="app">
+
+  <header class="top">
+    <div>
+      <h1>Funil do <span>site</span></h1>
+      <div class="top-sub">Só os leads que vieram do site · arraste o cartão ou use o seletor pra mover · <span id="fs-appVersion"></span></div>
+    </div>
+  </header>
+
+  <div class="kpis">
+    <div class="kpi"><div class="tag">Leads do site</div><div class="num" id="fs-kpiTotal">0</div><div class="sub">no funil, desde o começo</div><div class="bar"></div></div>
+    <div class="kpi"><div class="tag">Em andamento</div><div class="num" id="fs-kpiAndamento">0</div><div class="sub">ainda sem resultado</div><div class="bar" style="background:var(--warn);"></div></div>
+    <div class="kpi"><div class="tag">Compraram</div><div class="num" id="fs-kpiComprou">0</div><div class="sub">marcados como "Comprou"</div><div class="bar"></div></div>
+    <div class="kpi"><div class="tag">Não compraram</div><div class="num" id="fs-kpiNao">0</div><div class="sub">marcados como "Não comprou"</div><div class="bar" style="background:var(--debit);"></div></div>
+    <div class="kpi"><div class="tag">Taxa de compra</div><div class="num" id="fs-kpiTaxa">0%</div><div class="sub">compraram ÷ leads do site</div><div class="bar" style="background:var(--info);"></div></div>
+  </div>
+
+  <div class="section-head">
+    <h2>Etapas do <span>funil comercial</span></h2>
+    <div class="hint">"Comprou" e "Não comprou" ficam guardados no lead, prontos pra ligar no Pixel do Facebook</div>
+  </div>
+  <div class="kanban-wrap" id="fs-kanban"></div>
+  <div class="empty" id="fs-emptyState" style="display:none;"><p>Carregando o funil…</p></div>
+
+</div>
+</div>
+
+<div class="modal-overlay hidden" id="motivoSiteModal">
+  <div class="modal-card" style="max-width:400px;">
+    <h3>Por que não comprou?</h3>
+    <div class="modal-sub">Escolha o motivo mais próximo. Ele fica no lead.</div>
+    <div class="uform-field"><label>Motivo</label><select id="fs-motivo"></select></div>
+    <div class="modal-actions">
+      <button class="reset-btn" id="fs-motivoCancelar" type="button">Cancelar</button>
+      <button class="connect-btn" id="fs-motivoOk" type="button">Marcar como não comprou</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ VIEW: USUÁRIOS (somente administradores) ═══ -->
 
 
@@ -1843,11 +1947,11 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="js/firebase-init.js?v=20260928b"></script>
-<script src="js/firestore-router.js?v=20260928b"></script>
-<script src="js/sg-auth.js?v=20260928b"></script>
+<script src="js/firestore-router.js?v=20260929b"></script>
+<script src="js/sg-auth.js?v=20260929b"></script>
 <script src="js/dashboard.js?v=20260903a"></script>
 <script src="js/ponto.js?v=20260928b"></script>
-<script src="js/vendas.js?v=20260928b"></script>
+<script src="js/vendas.js?v=20260929b"></script>
 <script src="js/funil.js?v=20260928b"></script>
 <script src="js/agendamentos.js?v=20260924a"></script>
 <script src="js/clientes.js?v=20260901a"></script>
@@ -1858,9 +1962,11 @@
 <script src="js/catalogo.js?v=20260829f"></script>
 <script src="js/metas.js?v=20260829f"></script>
 <script src="js/planos.js?v=20260903a"></script>
+<script src="js/leads-site-motor.js?v=20260929b"></script>
+<script src="js/leads-site.js?v=20260929b"></script>
 <script src="js/usuarios.js?v=20260829f"></script>
 <script src="js/permissoes.js?v=20260829f"></script>
-<script src="js/controller.js?v=20260928b"></script>
+<script src="js/controller.js?v=20260929b"></script>
 
 <div id="sg-install-banner">
   <span class="sg-ib-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>

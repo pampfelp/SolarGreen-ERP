@@ -43,6 +43,7 @@
   function isDiaUtil(d){var dow=d.getDay();return dow!==0&&dow!==6;}
   function countDiasUteis(start,end){var count=0,cursor=new Date(start.getTime());while(cursor<=end){if(isDiaUtil(cursor))count++;cursor.setDate(cursor.getDate()+1);}return count;}
   function isVendedorAtivo(v){return(v.Tipo||'').trim()==='Vendedor'&&(v.Status||'').trim()==='Ativo';}
+  window.SGUtil.ehVendedorAtivo=isVendedorAtivo; // o rodízio dos leads do site (js/leads-site-motor.js) usa a mesma regra
   // Vendas feitas pelo CEO não entram nos indicadores/meta agregados da
   // empresa (ele já não conta como "vendedor ativo" pra divisão de meta, mas
   // as vendas dele continuavam inflando Faturado/Ticket/Lucro/Saldo) — mas

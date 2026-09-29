@@ -333,6 +333,17 @@
         // card que já existe.
         Pipeline: p.pipeline||undefined,
         AtividadeAdm: p.atividadeAdm||undefined,
+        // Origem do lead (2026-09-29): 'Site' quando vem da antessala leads_site
+        // (js/leads-site-motor.js). Só grava se veio no payload, pra nenhuma
+        // outra tela zerar a origem de um lead que já tem.
+        Origem: p.origem||undefined,
+        // Nome de quem já cuidava do cliente antes deste lead do site (só informativo).
+        VendedorAnterior: p.vendedorAnterior||undefined,
+        // Resultado do lead do site, marcado na tela "Funil do site": 'comprou' ou
+        // 'nao_comprou' ('' limpa, se o lead volta pra uma etapa aberta). É o dado que
+        // um dia alimenta o Pixel/API de Conversões do Facebook (ver plano do site, fase 6).
+        ConversaoSite: p.conversaoSite,
+        ConversaoEm: p.conversaoEm,
         CopiadoDeOportunidade: p.copiadoDeOportunidade||undefined,
         DataCriacao: snap.exists?undefined:(agora.getFullYear()+'-'+String(agora.getMonth()+1).padStart(2,'0')+'-'+String(agora.getDate()).padStart(2,'0')),
         // Acumula toda etapa por onde o lead já passou (não sobrescreve —
