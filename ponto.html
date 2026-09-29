@@ -121,6 +121,47 @@
   .paginacao button:disabled{opacity:.4;}
   .paginacao .pg-info{font-size:12px;color:var(--ink-faint);font-weight:600;}
 
+  /* ── Visão de equipe (só admin) ── 2026-09-29 ──────────────────────────
+     O nome de quem bateu só aparece no modo equipe; no modo "meus" seria
+     repetir o próprio nome em toda linha. */
+  .hist-item .quem{display:block;font-size:11.5px;font-weight:700;color:var(--sidebar-bg);margin-bottom:1px;}
+  .equipe-head{display:flex;align-items:center;gap:10px;margin:22px 0 10px;}
+  .equipe-head .hist-title{margin:0;flex:1;}
+  .btn-carregar{width:100%;background:#fff;border:1px solid var(--line);border-radius:11px;padding:13px;font-size:13px;font-weight:700;color:var(--ink-soft);display:flex;align-items:center;justify-content:center;gap:8px;}
+  .btn-carregar svg{width:16px;height:16px;}
+  .btn-carregar:disabled{opacity:.55;}
+
+  /* alternância Meus / Todos no histórico */
+  .modo-switch{display:flex;background:#e7efe7;border-radius:11px;padding:3px;margin-bottom:14px;}
+  .modo-switch button{flex:1;background:none;border:none;border-radius:9px;padding:9px;font-size:12.5px;font-weight:700;color:var(--ink-soft);}
+  .modo-switch button.active{background:#fff;color:var(--sidebar-bg);box-shadow:0 1px 4px rgba(0,0,0,.08);}
+
+  /* botão único que abre o seletor de período */
+  .filtro-btn{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:12px 14px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;color:var(--ink);margin-bottom:14px;}
+  .filtro-btn svg{width:17px;height:17px;flex:none;color:var(--ink-faint);}
+  .filtro-btn .fb-valor{flex:1;text-align:left;}
+  .filtro-btn .fb-seta{width:15px;height:15px;}
+
+  /* seletor de período: folha de baixo, mesmo padrão do #install-help */
+  #periodo-sheet{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1300;align-items:flex-end;justify-content:center;}
+  #periodo-sheet.active{display:flex;}
+  #periodo-sheet .ps-card{background:var(--panel);width:100%;max-width:480px;border-radius:18px 18px 0 0;padding:20px 20px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -12px 40px rgba(0,0,0,.3);max-height:88vh;overflow-y:auto;}
+  #periodo-sheet .ps-title{font-family:var(--unbounded);font-weight:700;font-size:16px;color:var(--sidebar-bg);margin-bottom:14px;}
+  .ps-opt{width:100%;background:none;border:1px solid var(--line);border-radius:11px;padding:13px 14px;font-size:13.5px;font-weight:600;color:var(--ink);text-align:left;margin-bottom:8px;display:flex;align-items:center;gap:10px;}
+  .ps-opt.active{border-color:var(--accent);background:#f4fbe8;color:var(--accent-deep);font-weight:700;}
+  .ps-opt .ps-check{width:17px;height:17px;flex:none;visibility:hidden;}
+  .ps-opt.active .ps-check{visibility:visible;}
+  .ps-custom{border-top:1px solid var(--line);margin-top:6px;padding-top:14px;}
+  .ps-custom[hidden]{display:none;}
+  .ps-datas{display:flex;gap:10px;}
+  .ps-datas .ps-campo{flex:1;}
+  .ps-campo label{display:block;font-size:11.5px;font-weight:700;color:var(--ink-soft);margin-bottom:5px;}
+  .ps-campo input{width:100%;font-size:14px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#fbfdfb;color:var(--ink);}
+  .ps-campo input:focus{outline:none;border-color:var(--accent);}
+  .ps-erro{font-size:12px;color:var(--debit);margin-top:8px;display:none;}
+  .ps-erro.show{display:block;}
+  .ps-aplicar{width:100%;background:var(--sidebar-bg);color:#fff;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:700;margin-top:12px;}
+
   /* lightbox da selfie (nunca window.open de dataURI/base64) */
   #lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1200;align-items:center;justify-content:center;padding:20px;}
   #lightbox.active{display:flex;}
@@ -256,6 +297,20 @@
 
     <div class="hist-title">Seus registros de hoje</div>
     <div id="histLista"><div style="font-size:12.5px;color:var(--ink-faint);">Nenhum registro ainda hoje.</div></div>
+
+    <!-- Toda a equipe hoje: só aparece pra quem tem papel de gestão, e só
+         carrega quando a pessoa pede. Cada batida carrega a selfie em base64
+         dentro do documento, então um dia inteiro da equipe são vários MB —
+         puxar isso na abertura do app faria todo mundo pagar por uma tela
+         que só a gestão usa. -->
+    <div id="equipeBloco" hidden>
+      <div class="equipe-head"><div class="hist-title">Toda a equipe hoje</div></div>
+      <button type="button" class="btn-carregar" id="btn-carregarEquipe">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Ver quem bateu hoje
+      </button>
+      <div id="equipeLista"></div>
+    </div>
   </div>
 </div>
 
@@ -264,12 +319,42 @@
     <button class="icon-btn" id="btn-fecharHistorico" aria-label="Voltar">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
     </button>
-    <div class="brand" style="flex:1;text-align:center;font-family:var(--unbounded);font-weight:900;font-size:15px;">Meu histórico</div>
+    <div class="brand" id="histTitulo" style="flex:1;text-align:center;font-family:var(--unbounded);font-weight:900;font-size:15px;">Meu histórico</div>
     <div style="width:38px;"></div>
   </div>
   <div class="wrap">
+    <div class="modo-switch" id="histModoSwitch" hidden>
+      <button type="button" data-modo="meus" class="active">Meus</button>
+      <button type="button" data-modo="todos">Todos</button>
+    </div>
+    <button type="button" class="filtro-btn" id="btn-abrirPeriodo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <span class="fb-valor" id="fbValor">Últimos 7 dias</span>
+      <svg class="fb-seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
     <div id="histCompletoLista"><div style="font-size:12.5px;color:var(--ink-faint);text-align:center;padding:30px 0;">Carregando…</div></div>
     <div id="histPaginacao" class="paginacao"></div>
+  </div>
+</div>
+
+<!-- Seletor de período: um controle só pros atalhos e pro intervalo
+     personalizado (crença 3, nunca diálogo nativo). -->
+<div id="periodo-sheet">
+  <div class="ps-card">
+    <div class="ps-title">Período</div>
+    <button type="button" class="ps-opt" data-periodo="7"><svg class="ps-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Últimos 7 dias</button>
+    <button type="button" class="ps-opt" data-periodo="15"><svg class="ps-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Últimos 15 dias</button>
+    <button type="button" class="ps-opt" data-periodo="30"><svg class="ps-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Últimos 30 dias</button>
+    <button type="button" class="ps-opt" data-periodo="mes"><svg class="ps-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Este mês</button>
+    <button type="button" class="ps-opt" data-periodo="custom"><svg class="ps-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Escolher as datas</button>
+    <div class="ps-custom" id="psCustom" hidden>
+      <div class="ps-datas">
+        <div class="ps-campo"><label for="psDe">De</label><input type="date" id="psDe"></div>
+        <div class="ps-campo"><label for="psAte">Até</label><input type="date" id="psAte"></div>
+      </div>
+      <div class="ps-erro" id="psErro"></div>
+    </div>
+    <button type="button" class="ps-aplicar" id="psAplicar">Aplicar</button>
   </div>
 </div>
 
@@ -457,6 +542,17 @@ window.PontoApp=(function(){
   var tipoSelecionado=null;
   var registros=[];         // todos os registros do funcionário (histórico completo, buscado uma vez)
   var registrosCarregados=false;
+
+  // ── Visão de equipe (2026-09-29) ──────────────────────────────────────
+  // Mesma lista de papéis do painel admin (SG_ADMIN_ROLES em js/sg-auth.js).
+  // Mantenha as duas em sincronia: quem é gestão lá é gestão aqui.
+  var PAPEIS_GESTAO=['admin','administrador','ceo','gestor','gerente'];
+  function ehGestao(){
+    var t=((session&&session.tipo)||'').trim().toLowerCase();
+    return PAPEIS_GESTAO.indexOf(t)!==-1;
+  }
+  var nomesPorId=null;          // id do vendedor -> nome, carregado sob demanda
+  var equipePorDia={};          // 'aaaa-mm-dd' -> array de batidas daquele dia
   var fotoDataUri=null;      // "data:image/jpeg;base64,...."
   var geo={status:'pending', texto:'', coords:null}; // pending | ok | fail
 
@@ -648,6 +744,7 @@ window.PontoApp=(function(){
     // Feedback otimista: a batida aparece na hora, a Promise do Firestore só
     // corrige em segundo plano se der erro de verdade (crença 11 / antecip. A2).
     registros.push(doc);
+    delete equipePorDia[doc.DataKey];   // o dia mudou: quem já viu a equipe precisa ver de novo
     PontoSync.iniciar();
     var salvoTipo=tipoSelecionado;
     showToast(salvoTipo+' registrado');
@@ -667,7 +764,11 @@ window.PontoApp=(function(){
   }
 
   // ── listas ──
-  function linhaRegistro(r,mostrarData){
+  function nomeDe(idVendedor){
+    if(nomesPorId&&nomesPorId[idVendedor])return nomesPorId[idVendedor];
+    return 'Colaborador '+String(idVendedor||'—').slice(0,8);
+  }
+  function linhaRegistro(r,mostrarData,mostrarQuem){
     var d=parseLocal(r['Data e Hora']);
     var hora=d?pad(d.getHours())+':'+pad(d.getMinutes()):'—';
     var foto=r['Foto Selfie']||'';
@@ -675,7 +776,9 @@ window.PontoApp=(function(){
     var vazio='<div class="hist-foto-vazia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>';
     return '<div class="hist-item">'+
       (temFoto?'<button type="button" class="hist-foto" data-full="'+esc(foto)+'" style="background-image:url(\''+esc(foto)+'\');background-size:cover;background-position:center;"></button>':vazio)+
-      '<div class="hist-info"><span class="tipo">'+esc(r.Tipo)+'</span>'+
+      '<div class="hist-info">'+
+        (mostrarQuem?'<span class="quem">'+esc(nomeDe(r.Funcionario))+'</span>':'')+
+        '<span class="tipo">'+esc(r.Tipo)+'</span>'+
         (r.Localizacao?'<span class="loc">'+esc(r.Localizacao)+'</span>':'<span class="loc">sem localização</span>')+
       '</div>'+
       '<span class="hora">'+(mostrarData&&d?pad(d.getDate())+'/'+pad(d.getMonth()+1)+' ':'')+hora+'</span>'+
@@ -695,20 +798,128 @@ window.PontoApp=(function(){
       .sort(function(a,b){ return (parseLocal(a['Data e Hora'])||0)-(parseLocal(b['Data e Hora'])||0); });
     var wrap=el('histLista');
     if(!doDia.length){ wrap.innerHTML='<div style="font-size:12.5px;color:var(--ink-faint);">Nenhum registro ainda hoje.</div>'; return; }
-    wrap.innerHTML=doDia.map(function(r){ return linhaRegistro(r,false); }).join('');
+    wrap.innerHTML=doDia.map(function(r){ return linhaRegistro(r,false,false); }).join('');
     wireFotos(wrap);
   }
 
   var histPagina=1, HIST_POR_PAGINA=12;
+  var histModo='meus';          // 'meus' | 'todos'
+
+  // ── Período ───────────────────────────────────────────────────────────
+  // Um controle só pros atalhos e pro intervalo escolhido a dedo. O período
+  // é sempre resolvido pra um par de DataKey ('aaaa-mm-dd'), que é o formato
+  // gravado em cada batida — então serve tanto pro filtro em memória (modo
+  // "meus") quanto pra query do Firestore (modo "todos").
+  var periodoSel='7';                     // '7' | '15' | '30' | 'mes' | 'custom'
+  var periodoDe='', periodoAte='';        // usados só quando periodoSel==='custom'
+
+  function diaMenos(n){ var d=new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()-n); return d; }
+  function periodoRange(){
+    var hoje=dataKeyLocal();
+    if(periodoSel==='custom')return {ini:periodoDe||hoje, fim:periodoAte||hoje};
+    if(periodoSel==='mes'){
+      var d=new Date();
+      return {ini:dataKeyLocal(new Date(d.getFullYear(),d.getMonth(),1)), fim:hoje};
+    }
+    var n=parseInt(periodoSel,10);
+    return {ini:dataKeyLocal(diaMenos(n-1)), fim:hoje};   // "7 dias" inclui hoje
+  }
+  function brDe(dk){ var p=String(dk).split('-'); return p.length===3?(p[2]+'/'+p[1]+'/'+p[0]):dk; }
+  function periodoRotulo(){
+    if(periodoSel==='mes')return 'Este mês';
+    if(periodoSel==='custom'){ var r=periodoRange(); return brDe(r.ini)+' a '+brDe(r.fim); }
+    return 'Últimos '+periodoSel+' dias';
+  }
+  function dentroDoPeriodo(dk){ var r=periodoRange(); return dk>=r.ini&&dk<=r.fim; }
+
+  // ── Nomes da equipe ───────────────────────────────────────────────────
+  // Só pra traduzir o id da batida em nome. Coleção pequena e buscada uma
+  // vez por sessão, nunca na abertura do app.
+  function carregarNomes(){
+    if(nomesPorId)return Promise.resolve(nomesPorId);
+    return db.collection('vendedores').get().then(function(snap){
+      var m={};
+      snap.forEach(function(d){ var v=d.data()||{}; if(v.IdVendedor)m[v.IdVendedor]=v.Nome||v.IdVendedor; });
+      nomesPorId=m;
+      return m;
+    }).catch(function(err){
+      console.error('Falha ao carregar nomes:',err);
+      nomesPorId={};           // segue sem nome em vez de travar a tela
+      return nomesPorId;
+    });
+  }
+
+  // ── Batidas da equipe, um DIA por vez ─────────────────────────────────
+  // Um dia é a menor unidade que dá pra mostrar em ordem cronológica certa:
+  // o id da batida é aleatório (idCurto), então paginar "de 12 em 12" dentro
+  // de um dia embaralharia a ordem entre páginas. Buscar por DataKey exato é
+  // igualdade simples — não precisa de índice composto no Firestore.
+  // O peso é real: cada batida carrega a selfie em base64 dentro do próprio
+  // documento, então um dia da equipe inteira são alguns MB. É por isso que
+  // nada aqui carrega sozinho.
+  function carregarDiaEquipe(dia){
+    if(equipePorDia[dia])return Promise.resolve(equipePorDia[dia]);
+    return carregarNomes().then(function(){
+      return db.collection('ponto').where('DataKey','==',dia).get();
+    }).then(function(snap){
+      var lista=snap.docs.map(function(d){ return Object.assign({},d.data(),{IdPonto:d.id}); });
+      lista.sort(function(a,b){ return (parseLocal(a['Data e Hora'])||0)-(parseLocal(b['Data e Hora'])||0); });
+      equipePorDia[dia]=lista;
+      return lista;
+    });
+  }
+
+  // Anda pra trás/frente até achar um dia COM batida dentro do período —
+  // fim de semana e feriado não viram página vazia pra pessoa atravessar.
+  function acharDiaComRegistro(partindoDe,passo){
+    var r=periodoRange();
+    function tentar(dia,restantes){
+      if(restantes<0||dia<r.ini||dia>r.fim)return Promise.resolve(null);
+      return carregarDiaEquipe(dia).then(function(lista){
+        if(lista.length)return dia;
+        var d=new Date(dia+'T12:00:00');
+        d.setDate(d.getDate()+passo);
+        return tentar(dataKeyLocal(d),restantes-1);
+      });
+    }
+    return tentar(partindoDe,40);
+  }
+
+  var equipeDia=null;      // dia mostrado agora no histórico da equipe
+
   function abrirHistorico(){
     el('screen-historico').classList.add('active');
     renderHistoricoCompleto();
   }
+
+  function atualizarChromeHistorico(){
+    el('histTitulo').textContent = histModo==='todos' ? 'Histórico da equipe' : 'Meu histórico';
+    el('fbValor').textContent = periodoRotulo();
+    Array.prototype.forEach.call(el('histModoSwitch').querySelectorAll('button'),function(b){
+      b.classList.toggle('active',b.getAttribute('data-modo')===histModo);
+    });
+  }
+
+  function msgHist(texto){
+    return '<div style="font-size:12.5px;color:var(--ink-faint);text-align:center;padding:30px 0;">'+esc(texto)+'</div>';
+  }
+
   function renderHistoricoCompleto(){
-    var lista=registros.slice().sort(function(a,b){ return (parseLocal(b['Data e Hora'])||0)-(parseLocal(a['Data e Hora'])||0); });
+    atualizarChromeHistorico();
+    if(histModo==='todos')renderHistoricoEquipe(); else renderHistoricoProprio();
+  }
+
+  // Modo "meus": os registros já estão todos em memória (carregarRegistros
+  // busca uma vez, e renderTipos depende disso), então filtrar e paginar aqui
+  // não custa leitura nenhuma.
+  function renderHistoricoProprio(){
     var wrap=el('histCompletoLista');
-    if(!registrosCarregados){ wrap.innerHTML='<div style="font-size:12.5px;color:var(--ink-faint);text-align:center;padding:30px 0;">Carregando…</div>'; el('histPaginacao').innerHTML=''; return; }
-    if(!lista.length){ wrap.innerHTML='<div style="font-size:12.5px;color:var(--ink-faint);text-align:center;padding:30px 0;">Nenhum registro de ponto ainda.</div>'; el('histPaginacao').innerHTML=''; return; }
+    if(!registrosCarregados){ wrap.innerHTML=msgHist('Carregando…'); el('histPaginacao').innerHTML=''; return; }
+    var lista=registros.filter(function(r){
+      var d=parseLocal(r['Data e Hora']);
+      return d?dentroDoPeriodo(dataKeyLocal(d)):false;
+    }).sort(function(a,b){ return (parseLocal(b['Data e Hora'])||0)-(parseLocal(a['Data e Hora'])||0); });
+    if(!lista.length){ wrap.innerHTML=msgHist('Nenhum registro seu nesse período.'); el('histPaginacao').innerHTML=''; return; }
     var totalPg=Math.max(1,Math.ceil(lista.length/HIST_POR_PAGINA));
     if(histPagina>totalPg)histPagina=totalPg; if(histPagina<1)histPagina=1;
     var pagina=lista.slice((histPagina-1)*HIST_POR_PAGINA, histPagina*HIST_POR_PAGINA);
@@ -717,7 +928,7 @@ window.PontoApp=(function(){
       var d=parseLocal(r['Data e Hora']);
       var dk=d?pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear():'—';
       if(dk!==diaAtual){ html+='<div class="hist-day-label">'+dk+'</div>'; diaAtual=dk; }
-      html+=linhaRegistro(r,false);
+      html+=linhaRegistro(r,false,false);
     });
     wrap.innerHTML=html;
     wireFotos(wrap);
@@ -725,8 +936,61 @@ window.PontoApp=(function(){
       '<button type="button" id="pgPrev" '+(histPagina<=1?'disabled':'')+'>Anterior</button>'+
       '<span class="pg-info">Página '+histPagina+' de '+totalPg+'</span>'+
       '<button type="button" id="pgNext" '+(histPagina>=totalPg?'disabled':'')+'>Próxima</button>';
-    var p=el('pgPrev'); if(p)p.addEventListener('click',function(){ histPagina--; renderHistoricoCompleto(); });
-    var n=el('pgNext'); if(n)n.addEventListener('click',function(){ histPagina++; renderHistoricoCompleto(); });
+    var p=el('pgPrev'); if(p)p.addEventListener('click',function(){ histPagina--; renderHistoricoProprio(); });
+    var n=el('pgNext'); if(n)n.addEventListener('click',function(){ histPagina++; renderHistoricoProprio(); });
+  }
+
+  // Modo "todos": navega dia a dia dentro do período, do mais recente pro
+  // mais antigo. Cada dia é uma busca própria, e o dia já visto fica em
+  // cache pra ida e volta não repetir a leitura.
+  function renderHistoricoEquipe(){
+    var wrap=el('histCompletoLista'), r=periodoRange();
+    if(!equipeDia||!dentroDoPeriodo(equipeDia)){
+      wrap.innerHTML=msgHist('Carregando…'); el('histPaginacao').innerHTML='';
+      acharDiaComRegistro(r.fim,-1).then(function(dia){
+        if(histModo!=='todos')return;
+        if(!dia){ wrap.innerHTML=msgHist('Ninguém bateu ponto nesse período.'); el('histPaginacao').innerHTML=''; return; }
+        equipeDia=dia; renderHistoricoEquipe();
+      }).catch(function(err){
+        console.error('Falha ao carregar o histórico da equipe:',err);
+        wrap.innerHTML=msgHist('Não foi possível carregar agora.');
+      });
+      return;
+    }
+    var lista=(equipePorDia[equipeDia]||[]).slice().reverse();   // mais recente primeiro dentro do dia
+    var html='<div class="hist-day-label">'+esc(brDe(equipeDia))+'</div>';
+    html+=lista.map(function(x){ return linhaRegistro(x,false,true); }).join('');
+    wrap.innerHTML=html;
+    wireFotos(wrap);
+
+    // "Anterior" é o dia mais novo, "Próxima" o mais antigo — a lista corre
+    // do mais recente pro mais antigo, então a seta segue a leitura.
+    el('histPaginacao').innerHTML=
+      '<button type="button" id="pgPrev">Dia mais novo</button>'+
+      '<span class="pg-info">'+esc(lista.length+(lista.length===1?' batida':' batidas'))+'</span>'+
+      '<button type="button" id="pgNext">Dia anterior</button>';
+    function pular(passo,botao){
+      var d=new Date(equipeDia+'T12:00:00'); d.setDate(d.getDate()+passo);
+      botao.disabled=true; botao.textContent='Buscando…';
+      acharDiaComRegistro(dataKeyLocal(d),passo).then(function(dia){
+        if(!dia){ showToast(passo<0?'Não há dia anterior com ponto nesse período.':'Você já está no dia mais recente.'); renderHistoricoEquipe(); return; }
+        equipeDia=dia; renderHistoricoEquipe();
+      }).catch(function(err){
+        console.error('Falha ao trocar de dia:',err);
+        showToast('Não foi possível carregar esse dia.',true);
+        renderHistoricoEquipe();
+      });
+    }
+    el('pgPrev').addEventListener('click',function(){ pular(1,this); });
+    el('pgNext').addEventListener('click',function(){ pular(-1,this); });
+  }
+
+  // ── Toda a equipe hoje, na tela principal ─────────────────────────────
+  function renderEquipeHoje(lista){
+    var wrap=el('equipeLista');
+    if(!lista.length){ wrap.innerHTML='<div style="font-size:12.5px;color:var(--ink-faint);">Ninguém bateu ponto hoje ainda.</div>'; return; }
+    wrap.innerHTML=lista.map(function(r){ return linhaRegistro(r,false,true); }).join('');
+    wireFotos(wrap);
   }
 
   // Uma query só, do próprio funcionário — nunca a coleção inteira
@@ -756,9 +1020,82 @@ window.PontoApp=(function(){
     el('lb-close').addEventListener('click',function(){ el('lightbox').classList.remove('active'); el('lb-img').src=''; });
     el('lightbox').addEventListener('click',function(e){ if(e.target===this){ this.classList.remove('active'); el('lb-img').src=''; } });
     el('btn-logout').addEventListener('click',function(){ PontoSessao.clear(); location.reload(); });
+    wirePeriodo();
+    if(ehGestao())wireGestao();
     PontoSync.render();
     renderTipos();
     carregarRegistros();
+  }
+
+  // ── Seletor de período ────────────────────────────────────────────────
+  function abrirPeriodo(){
+    var r=periodoRange();
+    el('psDe').value=periodoDe||r.ini;
+    el('psAte').value=periodoAte||r.fim;
+    marcarOpcaoPeriodo(periodoSel);
+    el('psErro').classList.remove('show');
+    el('periodo-sheet').classList.add('active');
+  }
+  function fecharPeriodo(){ el('periodo-sheet').classList.remove('active'); }
+  function marcarOpcaoPeriodo(valor){
+    Array.prototype.forEach.call(document.querySelectorAll('.ps-opt'),function(b){
+      b.classList.toggle('active',b.getAttribute('data-periodo')===valor);
+    });
+    el('psCustom').hidden = valor!=='custom';
+  }
+  function wirePeriodo(){
+    el('btn-abrirPeriodo').addEventListener('click',abrirPeriodo);
+    el('periodo-sheet').addEventListener('click',function(e){ if(e.target===this)fecharPeriodo(); });
+    // A opção só fica marcada; nada é aplicado antes do "Aplicar", pra
+    // escolher as datas não disparar uma busca a cada toque.
+    Array.prototype.forEach.call(document.querySelectorAll('.ps-opt'),function(b){
+      b.addEventListener('click',function(){ marcarOpcaoPeriodo(b.getAttribute('data-periodo')); el('psErro').classList.remove('show'); });
+    });
+    el('psAplicar').addEventListener('click',function(){
+      var marcado=document.querySelector('.ps-opt.active');
+      var escolhido=marcado?marcado.getAttribute('data-periodo'):periodoSel;
+      if(escolhido==='custom'){
+        var de=el('psDe').value, ate=el('psAte').value;
+        if(!de||!ate){ el('psErro').textContent='Escolha as duas datas.'; el('psErro').classList.add('show'); return; }
+        if(de>ate){ el('psErro').textContent='A data inicial não pode ser depois da final.'; el('psErro').classList.add('show'); return; }
+        periodoDe=de; periodoAte=ate;
+      }
+      periodoSel=escolhido;
+      histPagina=1; equipeDia=null;      // período novo, navegação recomeça
+      fecharPeriodo();
+      renderHistoricoCompleto();
+    });
+  }
+
+  // ── Controles que só a gestão vê ──────────────────────────────────────
+  // Isto é esconder botão, não proteger dado: hoje a regra do Firestore
+  // deixa qualquer pessoa logada ler a coleção `ponto` inteira (ver
+  // firestore.rules, match /ponto). Fechar isso de verdade é mudar a regra.
+  function wireGestao(){
+    el('equipeBloco').hidden=false;
+    el('histModoSwitch').hidden=false;
+
+    var btn=el('btn-carregarEquipe');
+    btn.addEventListener('click',function(){
+      btn.disabled=true; btn.textContent='Carregando…';
+      carregarDiaEquipe(dataKeyLocal()).then(function(lista){
+        btn.hidden=true;
+        renderEquipeHoje(lista);
+      }).catch(function(err){
+        console.error('Falha ao carregar a equipe:',err);
+        btn.disabled=false; btn.textContent='Ver quem bateu hoje';
+        showToast('Não foi possível carregar os pontos de hoje.',true);
+      });
+    });
+
+    Array.prototype.forEach.call(el('histModoSwitch').querySelectorAll('button'),function(b){
+      b.addEventListener('click',function(){
+        var modo=b.getAttribute('data-modo');
+        if(modo===histModo)return;
+        histModo=modo; histPagina=1;
+        renderHistoricoCompleto();
+      });
+    });
   }
 
   return {init:init};
