@@ -1,9 +1,9 @@
 // ════ CONTROLLER ════
 (function(){
-  var views={dashboard:document.getElementById('view-dashboard'),ponto:document.getElementById('view-ponto'),vendas:document.getElementById('view-vendas'),funil:document.getElementById('view-funil'),agendamentos:document.getElementById('view-agendamentos'),clientes:document.getElementById('view-clientes'),planos:document.getElementById('view-planos'),relatorios:document.getElementById('view-relatorios'),custosvenda:document.getElementById('view-custosvenda'),custorecorrente:document.getElementById('view-custorecorrente'),servicos:document.getElementById('view-servicos'),catalogo:document.getElementById('view-catalogo'),metas:document.getElementById('view-metas'),usuarios:document.getElementById('view-usuarios'),permissoes:document.getElementById('view-permissoes')};
-  var navLinks={dashboard:document.getElementById('nav-dashboard'),ponto:document.getElementById('nav-ponto'),vendas:document.getElementById('nav-vendas'),funil:document.getElementById('nav-funil'),agendamentos:document.getElementById('nav-agendamentos'),clientes:document.getElementById('nav-clientes'),planos:document.getElementById('nav-planos'),relatorios:document.getElementById('nav-relatorios'),custosvenda:document.getElementById('nav-custosvenda'),custorecorrente:document.getElementById('nav-custorecorrente'),servicos:document.getElementById('nav-servicos'),catalogo:document.getElementById('nav-catalogo'),metas:document.getElementById('nav-metas'),usuarios:document.getElementById('nav-usuarios'),permissoes:document.getElementById('nav-permissoes')};
+  var views={dashboard:document.getElementById('view-dashboard'),ponto:document.getElementById('view-ponto'),vendas:document.getElementById('view-vendas'),funil:document.getElementById('view-funil'),agendamentos:document.getElementById('view-agendamentos'),clientes:document.getElementById('view-clientes'),planos:document.getElementById('view-planos'),relatorios:document.getElementById('view-relatorios'),custosvenda:document.getElementById('view-custosvenda'),custorecorrente:document.getElementById('view-custorecorrente'),servicos:document.getElementById('view-servicos'),catalogo:document.getElementById('view-catalogo'),metas:document.getElementById('view-metas'),usuarios:document.getElementById('view-usuarios'),permissoes:document.getElementById('view-permissoes'),leadssite:document.getElementById('view-leadssite'),funilsite:document.getElementById('view-funilsite')};
+  var navLinks={dashboard:document.getElementById('nav-dashboard'),ponto:document.getElementById('nav-ponto'),vendas:document.getElementById('nav-vendas'),funil:document.getElementById('nav-funil'),agendamentos:document.getElementById('nav-agendamentos'),clientes:document.getElementById('nav-clientes'),planos:document.getElementById('nav-planos'),relatorios:document.getElementById('nav-relatorios'),custosvenda:document.getElementById('nav-custosvenda'),custorecorrente:document.getElementById('nav-custorecorrente'),servicos:document.getElementById('nav-servicos'),catalogo:document.getElementById('nav-catalogo'),metas:document.getElementById('nav-metas'),usuarios:document.getElementById('nav-usuarios'),permissoes:document.getElementById('nav-permissoes'),leadssite:document.getElementById('nav-leadssite'),funilsite:document.getElementById('nav-funilsite')};
   function switchTo(name){
-    if((name==='usuarios'||name==='permissoes'||name==='metas'||name==='custorecorrente')&&(!window.SGAuth||!window.SGAuth.isAdmin()))name='ponto';
+    if((name==='usuarios'||name==='permissoes'||name==='metas'||name==='custorecorrente'||name==='leadssite'||name==='funilsite')&&(!window.SGAuth||!window.SGAuth.isAdmin()))name='ponto';
     Object.keys(views).forEach(function(k){if(!views[k]||!navLinks[k])return;views[k].classList.toggle('active',k===name);navLinks[k].classList.toggle('active',k===name);});
     window.SGLocal.guardar('sg_active_view',name);
     if(name==='dashboard'&&window.dashboardApp)window.dashboardApp.init();
@@ -19,6 +19,7 @@
     if(name==='clientes'&&window.clientesApp)window.clientesApp.init();
     if(name==='usuarios'&&window.usuariosApp)window.usuariosApp.init();
     if(name==='permissoes'&&window.permissoesApp)window.permissoesApp.init();
+    if((name==='leadssite'||name==='funilsite')&&window.leadsSiteApp)window.leadsSiteApp.init();
   }
   navLinks.dashboard.addEventListener('click',function(e){e.preventDefault();switchTo('dashboard');});
   navLinks.ponto.addEventListener('click',function(e){e.preventDefault();switchTo('ponto');});
@@ -35,6 +36,8 @@
   if(navLinks.clientes)navLinks.clientes.addEventListener('click',function(e){e.preventDefault();switchTo('clientes');});
   if(navLinks.usuarios)navLinks.usuarios.addEventListener('click',function(e){e.preventDefault();switchTo('usuarios');});
   if(navLinks.permissoes)navLinks.permissoes.addEventListener('click',function(e){e.preventDefault();switchTo('permissoes');});
+  if(navLinks.leadssite)navLinks.leadssite.addEventListener('click',function(e){e.preventDefault();switchTo('leadssite');});
+  if(navLinks.funilsite)navLinks.funilsite.addEventListener('click',function(e){e.preventDefault();switchTo('funilsite');});
   window.SGControllerSwitchTo=switchTo; // exposto pra SGPermissoes poder trocar de tela se a atual for escondida
   var saved=localStorage.getItem('sg_active_view')||'ponto';
   if(!views[saved])saved='ponto';

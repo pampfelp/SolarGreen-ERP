@@ -837,3 +837,5 @@
   #sg-install-banner .sg-ib-fechar{background:rgba(255,255,255,.12);color:#fff;}
   @media(max-width:480px){ #sg-install-banner{flex-wrap:wrap;} #sg-install-banner .sg-ib-actions{flex-direction:row;width:100%;} #sg-install-banner .sg-ib-actions button{flex:1;} }
 
+  /* Leads do site (2026-09-29) */
+  .pill.ls-erro{background:#fdecea;color:#c0392b;}

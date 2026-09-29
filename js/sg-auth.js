@@ -1056,6 +1056,10 @@
     if(navMetas&&isAdmin()) navMetas.style.display='';
     var navCustoRecorrente=document.getElementById('nav-custorecorrente');
     if(navCustoRecorrente&&isAdmin()) navCustoRecorrente.style.display='';
+    var navLeadsSite=document.getElementById('nav-leadssite');
+    if(navLeadsSite&&isAdmin()) navLeadsSite.style.display='';
+    var navFunilSite=document.getElementById('nav-funilsite');
+    if(navFunilSite&&isAdmin()) navFunilSite.style.display='';
     if(window.SGPermissoes)window.SGPermissoes.carregar();
     aquecerAbasEmSegundoPlano();
   }
@@ -1084,7 +1088,7 @@
     var modulos=[
       'dashboardApp','funilApp','agendamentosApp','clientesApp','planosApp','relatoriosApp',
       'custosVendaApp','metasApp','custoRecorrenteApp','servicosApp',
-      'usuariosApp','permissoesApp'
+      'usuariosApp','permissoesApp','leadsSiteApp'
     ];
     modulos.forEach(function(nomeModulo,i){
       setTimeout(function(){

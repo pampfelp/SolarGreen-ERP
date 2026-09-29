@@ -115,6 +115,58 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
     }
 
+    // ── Site institucional (2026-09-29) ──
+    // Antessala dos contatos do site: o público CRIA e nunca lê, atualiza nem
+    // apaga. Quem lê e promove pra funil/clientes é o ERP logado
+    // (js/leads-site-motor.js). Sem login anônimo de propósito: "estar
+    // autenticado" continua significando "ser da equipe" (crença 12).
+    // `hasOnly` fecha mass assignment; cada campo tem tipo e tamanho.
+    function leadSiteValido(id){
+      let d=request.resource.data;
+      return d.keys().hasAll(['id','nome','whatsapp','whatsappFim8','servico','consentimento','origem','status','criadoEm'])
+        && d.keys().hasOnly(['id','nome','whatsapp','whatsappFim8','cidade','servico','consentimento','consentimentoVersao',
+             'origem','status','criadoEm','pagina','utmSource','utmMedium','utmCampaign','tempoPreenchimentoMs','suspeito',
+             'calcPlacas','calcPotenciaW','calcKwp','calcCidade','calcForaDaLista','calcDesempenho','calcTarifa','calcPerdaAno'])
+        && d.id==id
+        && d.nome is string && d.nome.size()>=2 && d.nome.size()<=120
+        && d.whatsapp is string && d.whatsapp.matches('^[0-9]{10,13}$')
+        && d.whatsappFim8 is string && d.whatsappFim8.matches('^[0-9]{8}$')
+        && d.whatsapp.matches('.*'+d.whatsappFim8)
+        && d.servico is string && d.servico.size()>=1 && d.servico.size()<=60
+        && d.consentimento==true
+        && d.origem=='Site'
+        && d.status=='novo'
+        && d.criadoEm==request.time
+        && (!('cidade' in d)||(d.cidade is string&&d.cidade.size()<=80))
+        && (!('consentimentoVersao' in d)||(d.consentimentoVersao is string&&d.consentimentoVersao.size()<=20))
+        && (!('pagina' in d)||(d.pagina is string&&d.pagina.size()<=200))
+        && (!('utmSource' in d)||(d.utmSource is string&&d.utmSource.size()<=80))
+        && (!('utmMedium' in d)||(d.utmMedium is string&&d.utmMedium.size()<=80))
+        && (!('utmCampaign' in d)||(d.utmCampaign is string&&d.utmCampaign.size()<=120))
+        && (!('tempoPreenchimentoMs' in d)||(d.tempoPreenchimentoMs is int&&d.tempoPreenchimentoMs>=0))
+        && (!('suspeito' in d)||d.suspeito is bool)
+        && (!('calcPlacas' in d)||(d.calcPlacas is int&&d.calcPlacas>=1&&d.calcPlacas<=10000))
+        && (!('calcPotenciaW' in d)||(d.calcPotenciaW is number&&d.calcPotenciaW>=50&&d.calcPotenciaW<=2000))
+        && (!('calcKwp' in d)||(d.calcKwp is number&&d.calcKwp>0&&d.calcKwp<=100000))
+        && (!('calcCidade' in d)||(d.calcCidade is string&&d.calcCidade.size()<=80))
+        && (!('calcForaDaLista' in d)||d.calcForaDaLista is bool)
+        && (!('calcDesempenho' in d)||(d.calcDesempenho is number&&d.calcDesempenho>0&&d.calcDesempenho<=1.2))
+        && (!('calcTarifa' in d)||(d.calcTarifa is number&&d.calcTarifa>0&&d.calcTarifa<=20))
+        && (!('calcPerdaAno' in d)||(d.calcPerdaAno is number&&d.calcPerdaAno>=0&&d.calcPerdaAno<=100000000));
+    }
+    match /leads_site/{id} {
+      allow create: if leadSiteValido(id);
+      allow read, update: if isSignedIn();
+      allow delete: if false;
+    }
+    // Único dado que o público lê: a tarifa de referência que a calculadora do
+    // site usa. Fica numa coleção própria e NÃO em `config`, porque regras de
+    // dois `match` sobre o mesmo documento se somam e `config` é de quem loga.
+    match /config_publica/{id} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
     // Tudo o que não faz parte desse piloto fica fechado por padrão.
     match /{document=**} {
       allow read, write: if false;
