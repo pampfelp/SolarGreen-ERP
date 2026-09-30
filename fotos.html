@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solar Green · Galeria de Fotos</title>
+<link rel="icon" type="image/x-icon" href="favicon_1.ico?v=20260902a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F2F7F2; --panel:#FFFFFF; --ink:#1E1E1E; --ink-soft:#5a6b5a; --ink-faint:#9aab9a;
+  --line:#dde8dd; --accent:#78D800; --accent-soft:#eef9d6; --accent-deep:#5aaa00;
+  --sidebar-bg:#003122; --warn:#d97706; --warn-soft:#fef3c7; --debit:#dc2626;
+  --radius:10px; --unbounded:'Unbounded',sans-serif;
+  --sans:'Inter','Helvetica Neue',Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13.5px;min-height:100vh;-webkit-font-smoothing:antialiased;}
+button,input,select{font-family:var(--sans);font-size:13px;}
+.hidden{display:none!important;}
+svg{display:block;}
+
+#tela-bloqueada{position:fixed;inset:0;background:var(--sidebar-bg);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:999;text-align:center;padding:24px;}
+#tela-bloqueada .marca{font-family:var(--unbounded);font-weight:900;font-size:19px;letter-spacing:.02em;}
+#tela-bloqueada .marca span{color:var(--accent);}
+#tela-bloqueada .msg{font-size:13.5px;color:rgba(255,255,255,.8);max-width:440px;line-height:1.6;}
+#tela-bloqueada a{color:var(--accent);font-weight:700;text-decoration:none;border:1.5px solid var(--accent);border-radius:9px;padding:9px 18px;}
+
+.topo{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 22px;background:var(--sidebar-bg);color:#fff;flex-wrap:wrap;}
+.topo h1{font-family:var(--unbounded);font-size:15px;font-weight:800;}
+.topo h1 span{color:var(--accent);}
+.topo .direita{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.topo .quem{font-size:11.5px;color:rgba(255,255,255,.75);}
+.topo .voltar{font-size:12px;color:#fff;text-decoration:none;border:1px solid rgba(255,255,255,.35);border-radius:8px;padding:6px 12px;}
+.topo .voltar:hover{border-color:var(--accent);color:var(--accent);}
+
+.barra{display:flex;align-items:flex-end;gap:12px;padding:14px 22px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap;}
+.campo{display:flex;flex-direction:column;gap:5px;min-width:210px;}
+.campo label{font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;}
+.campo select{padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:#fbfdfb;color:var(--ink);min-width:210px;max-width:420px;}
+.campo select:focus{outline:none;border-color:var(--accent);}
+.campo select:disabled{opacity:.55;}
+.espaco{flex:1;}
+.btn{font-size:12.5px;border-radius:8px;padding:9px 14px;cursor:pointer;border:1.5px solid var(--line);background:#fff;color:var(--ink);font-weight:700;}
+.btn:hover:not(:disabled){background:var(--bg);}
+.btn:disabled{opacity:.45;cursor:not-allowed;}
+.btn-primary{background:var(--sidebar-bg);border-color:var(--sidebar-bg);color:#fff;}
+.btn-primary:hover:not(:disabled){background:#004b34;}
+
+.aviso{background:var(--warn-soft);color:#7c4a03;font-size:12px;padding:9px 22px;border-bottom:1px solid #f5d99b;line-height:1.5;}
+
+.conteudo{padding:18px 22px 40px;}
+.resumo{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;}
+.resumo .contagem{font-size:12.5px;color:var(--ink-soft);font-weight:600;}
+
+.galeria{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;}
+.cartao{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column;}
+.cartao .thumb{width:100%;aspect-ratio:4/3;object-fit:cover;background:#e7efe7;border:none;padding:0;cursor:zoom-in;display:block;}
+.cartao .info{padding:9px 11px;font-size:12px;line-height:1.45;flex:1;}
+.cartao .info .cliente{font-weight:700;color:var(--sidebar-bg);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cartao .info .meta{color:var(--ink-faint);font-size:11px;display:block;margin-top:2px;}
+.cartao .acoes{padding:0 11px 11px;}
+.cartao .baixar{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;text-decoration:none;font-size:12px;font-weight:700;color:var(--ink-soft);border:1px solid var(--line);border-radius:8px;padding:7px;background:#fff;}
+.cartao .baixar:hover{border-color:var(--accent);color:var(--accent-deep);}
+.cartao .baixar svg{width:14px;height:14px;}
+
+.vazio{text-align:center;color:var(--ink-faint);padding:56px 20px;font-size:13px;line-height:1.6;}
+.vazio .glifo{width:42px;height:42px;margin:0 auto 14px;color:var(--line);}
+.vazio .glifo svg{width:42px;height:42px;stroke-width:1.4;}
+
+.paginacao{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:22px;}
+.paginacao .pg-info{font-size:12.5px;color:var(--ink-faint);font-weight:600;}
+
+#lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.86);z-index:800;align-items:center;justify-content:center;padding:26px;}
+#lightbox.active{display:flex;}
+#lightbox img{max-width:100%;max-height:100%;border-radius:10px;}
+#lightbox .lb-fechar{position:absolute;top:16px;right:18px;background:rgba(255,255,255,.14);border:none;color:#fff;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+#lightbox .lb-fechar svg{width:19px;height:19px;}
+#lightbox .lb-legenda{position:absolute;left:0;right:0;bottom:18px;text-align:center;color:rgba(255,255,255,.85);font-size:12.5px;padding:0 20px;}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--sidebar-bg);color:#fff;padding:12px 18px;border-radius:10px;font-size:13px;z-index:900;box-shadow:0 10px 30px rgba(0,0,0,.3);opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center;}
+.toast.show{opacity:1;}
+.toast.erro{background:var(--debit);}
+</style>
+</head>
+<body>
+
+<div id="tela-bloqueada">
+  <div class="marca">SOLAR <span>GREEN</span></div>
+  <div class="msg" id="bloqueio-msg">Verificando acesso…</div>
+  <a href="index.html" id="bloqueio-link" class="hidden">Voltar ao sistema</a>
+</div>
+
+<div class="topo">
+  <h1>Galeria de <span>Fotos</span></h1>
+  <div class="direita">
+    <span class="quem" id="quem"></span>
+    <a class="voltar" href="index.html">Voltar ao sistema</a>
+  </div>
+</div>
+
+<div class="barra">
+  <div class="campo">
+    <label for="sel-servico">Serviço</label>
+    <select id="sel-servico"><option value="">Carregando…</option></select>
+  </div>
+  <div class="campo">
+    <label for="sel-campo">Campo do checklist</label>
+    <select id="sel-campo" disabled><option value="">Escolha o serviço primeiro</option></select>
+  </div>
+  <div class="espaco"></div>
+  <button class="btn" id="btn-baixar-pagina" disabled>Baixar as desta página</button>
+</div>
+
+<div class="aviso" id="aviso-peso">
+  As fotos ficam guardadas dentro do próprio registro de resposta, então cada página baixa as 20 imagens de verdade. Por isso a galeria só carrega depois que você escolhe o campo, e vai de 20 em 20.
+</div>
+
+<div class="conteudo">
+  <div class="resumo"><span class="contagem" id="contagem"></span></div>
+  <div class="galeria" id="galeria"></div>
+  <div class="vazio" id="vazio">
+    <div class="glifo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
+    <p>Escolha um serviço e um campo do checklist para ver as fotos.</p>
+  </div>
+  <div class="paginacao hidden" id="paginacao">
+    <button class="btn" id="pg-anterior">‹ Anterior</button>
+    <span class="pg-info" id="pg-info"></span>
+    <button class="btn" id="pg-proxima">Próxima ›</button>
+  </div>
+</div>
+
+<div id="lightbox">
+  <button class="lb-fechar" id="lb-fechar" aria-label="Fechar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
+  <img id="lb-img" alt="Foto do checklist">
+  <div class="lb-legenda" id="lb-legenda"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="js/firebase-init.js?v=20260928b"></script>
+<script>
+(function(){
+  var SG_ADMIN_ROLES=['admin','administrador','ceo','gestor','gerente'];
+
+  // ══════════════ TRAVA DE ACESSO ══════════════
+  // Mesma trava do planilha.html — esta tela mostra foto de imóvel de cliente
+  // com nome junto, não é coisa pra deixar aberta pra qualquer conta.
+
+  function sessaoValida(){
+    try{
+      var raw=localStorage.getItem('sg_auth_session');
+      var s=raw?JSON.parse(raw):null;
+      if(s&&s.idVendedor&&s.expiresAt&&Date.now()<s.expiresAt)return s;
+    }catch(e){}
+    return null;
+  }
+  function ehAdmin(s){
+    return !!s&&SG_ADMIN_ROLES.indexOf(String(s.tipo||'').trim().toLowerCase())!==-1;
+  }
+  function bloquear(msg){
+    document.getElementById('bloqueio-msg').textContent=msg;
+    document.getElementById('bloqueio-link').classList.remove('hidden');
+  }
+
+  var SESSAO=sessaoValida();
+  if(!SESSAO){ window.location.replace('index.html'); return; }
+  if(!ehAdmin(SESSAO)){
+    bloquear('Esta galeria só abre para conta de administrador. Você está logado como "'+(SESSAO.tipo||'usuário')+'".');
+    return;
+  }
+  document.getElementById('quem').textContent=(SESSAO.nome||SESSAO.email||'')+' · '+(SESSAO.tipo||'');
+  document.getElementById('tela-bloqueada').classList.add('hidden');
+
+  // ══════════════ ESTADO ══════════════
+
+  var POR_PAGINA=20;
+  // Quanto se pede ao Firestore por vez. É maior que POR_PAGINA porque nem
+  // toda resposta do mesmo campo tem foto (a mesma coleção guarda resposta de
+  // texto e de quantidade), então às vezes é preciso varrer mais documentos
+  // pra juntar 20 imagens. Os sem foto são leves — o peso está na imagem.
+  var BLOCO=40;
+
+  var db=null;
+  var STATE={
+    servicos:[], templates:[],
+    idServico:'', idTemplate:'', nomeCampo:'',
+    paginas:[],          // uma entrada por página já carregada: {fotos, cursor}
+    indice:-1,           // página mostrada agora
+    fim:false,           // já chegou ao fim da coleção?
+    agendamentos:{},     // IdAgendamento -> {cliente, data, tecnico}
+    carregando:false
+  };
+
+  function el(id){ return document.getElementById(id); }
+  function esc(s){ var d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
+
+  var toastTimer=null;
+  function toast(msg,erro){
+    var t=el('toast');
+    t.textContent=msg;
+    t.className='toast show'+(erro?' erro':'');
+    clearTimeout(toastTimer);
+    toastTimer=setTimeout(function(){ t.className='toast'+(erro?' erro':''); },3400);
+  }
+
+  // ══════════════ SELETORES ══════════════
+
+  // `servicos` e `templates` são coleções pequenas e não têm foto dentro —
+  // podem ser lidas inteiras sem medo. A coleção pesada (agendamentos_respostas)
+  // só é tocada depois que a pessoa escolhe o campo.
+  function carregarServicos(){
+    return db.collection('servicos').get().then(function(snap){
+      STATE.servicos=snap.docs.map(function(d){ return d.data(); })
+        .filter(function(s){ return s.IdServico; })
+        .sort(function(a,b){ return String(a['Nome Servico']||'').localeCompare(String(b['Nome Servico']||''),'pt-BR'); });
+      var sel=el('sel-servico');
+      sel.innerHTML='<option value="">Selecione um serviço…</option>'+
+        STATE.servicos.map(function(s){
+          return '<option value="'+esc(s.IdServico)+'">'+esc(s['Nome Servico']||s.IdServico)+'</option>';
+        }).join('');
+    });
+  }
+
+  function carregarCampos(idServico){
+    var sel=el('sel-campo');
+    sel.disabled=true;
+    sel.innerHTML='<option value="">Carregando…</option>';
+    return db.collection('templates').where('IdServico','==',idServico).get().then(function(snap){
+      STATE.templates=snap.docs.map(function(d){ return d.data(); })
+        .filter(function(t){ return t.IdTemplate; })
+        .sort(function(a,b){ return (Number(a.Ordem)||0)-(Number(b.Ordem)||0); });
+      if(!STATE.templates.length){
+        sel.innerHTML='<option value="">Esse serviço não tem checklist</option>';
+        return;
+      }
+      // Todos os campos entram, não só os do tipo Foto: o técnico pode ter
+      // anexado imagem num campo que hoje está configurado como texto, e
+      // esconder o campo esconderia a foto junto.
+      sel.innerHTML='<option value="">Selecione um campo…</option>'+
+        STATE.templates.map(function(t){
+          var tipo=t.TipoInput?(' · '+t.TipoInput):'';
+          return '<option value="'+esc(t.IdTemplate)+'">'+esc((t.TextoPergunta||t.IdTemplate)+tipo)+'</option>';
+        }).join('');
+      sel.disabled=false;
+    });
+  }
+
+  // ══════════════ BUSCA DAS FOTOS ══════════════
+
+  // Uma página por vez, com cursor do Firestore — nunca a coleção inteira.
+  // Cada resposta carrega a imagem em base64 dentro do documento, então
+  // baixar tudo de um campo muito usado seriam centenas de MB no navegador.
+  function buscarPagina(cursor){
+    var acumulado=[], ultimoDoc=cursor;
+
+    function bloco(apos){
+      var q=db.collection('agendamentos_respostas').where('IdTemplate','==',STATE.idTemplate).limit(BLOCO);
+      if(apos)q=q.startAfter(apos);
+      return q.get().then(function(snap){
+        if(snap.empty)return {fotos:acumulado, cursor:ultimoDoc, fim:true};
+        var cheio=false;
+        snap.docs.forEach(function(d){
+          if(cheio)return;
+          // O cursor anda por documento PERCORRIDO, não pelo último do bloco:
+          // se a página encher no meio, o que sobrou tem que aparecer na
+          // próxima página em vez de ser pulado.
+          ultimoDoc=d;
+          var v=d.data()||{};
+          if(String(v.RespostaFoto||'').trim()){
+            acumulado.push(v);
+            if(acumulado.length>=POR_PAGINA)cheio=true;
+          }
+        });
+        if(cheio)return {fotos:acumulado, cursor:ultimoDoc, fim:false};
+        if(snap.size<BLOCO)return {fotos:acumulado, cursor:ultimoDoc, fim:true};
+        return bloco(ultimoDoc);
+      });
+    }
+    return bloco(cursor);
+  }
+
+  // Nome do cliente, data e técnico de cada foto. Uma query por lote de 30
+  // (limite do `in`), e só dos agendamentos que ainda não estão em memória.
+  function carregarContexto(fotos){
+    var faltam={};
+    fotos.forEach(function(f){
+      var id=f.IdAgendamento;
+      if(id&&!STATE.agendamentos[id])faltam[id]=true;
+    });
+    var ids=Object.keys(faltam);
+    if(!ids.length)return Promise.resolve();
+    var lotes=[];
+    for(var i=0;i<ids.length;i+=30)lotes.push(ids.slice(i,i+30));
+    return Promise.all(lotes.map(function(lote){
+      return db.collection('agendamentos')
+        .where(firebase.firestore.FieldPath.documentId(),'in',lote).get()
+        .then(function(snap){
+          snap.forEach(function(d){
+            var a=d.data()||{};
+            STATE.agendamentos[d.id]={
+              cliente:a.NomeCliente||'',
+              data:a['Data Inicio']||'',
+              tecnico:a.TecnicoResponsavel||''
+            };
+          });
+        });
+    })).catch(function(err){
+      // Sem o contexto a galeria ainda serve: mostra a foto e o id do
+      // agendamento. Não vale derrubar a tela por causa do rótulo.
+      console.error('Falha ao carregar o contexto dos agendamentos:',err);
+    });
+  }
+
+  // ══════════════ GALERIA ══════════════
+
+  function nomeArquivo(foto){
+    var ctx=STATE.agendamentos[foto.IdAgendamento]||{};
+    var partes=[STATE.nomeCampo,ctx.cliente||foto.IdAgendamento,ctx.data];
+    var base=partes.filter(Boolean).join(' - ')
+      .normalize('NFD').replace(/[̀-ͯ]/g,'')
+      .replace(/\//g,'-')                       // 30/09/2026 vira 30-09-2026 em vez de 30092026
+      .replace(/[^a-zA-Z0-9\- ]+/g,'').replace(/\s+/g,'_').slice(0,90);
+    return (base||'foto')+'.jpg';
+  }
+
+  function render(){
+    var galeria=el('galeria'), vazio=el('vazio'), pag=el('paginacao');
+    var atual=STATE.paginas[STATE.indice];
+
+    if(!STATE.idTemplate){
+      galeria.innerHTML=''; pag.classList.add('hidden');
+      vazio.classList.remove('hidden');
+      vazio.querySelector('p').textContent='Escolha um serviço e um campo do checklist para ver as fotos.';
+      el('contagem').textContent='';
+      el('btn-baixar-pagina').disabled=true;
+      return;
+    }
+    if(STATE.carregando){
+      galeria.innerHTML=''; pag.classList.add('hidden');
+      vazio.classList.remove('hidden');
+      vazio.querySelector('p').textContent='Carregando as fotos…';
+      el('contagem').textContent='';
+      el('btn-baixar-pagina').disabled=true;
+      return;
+    }
+    if(!atual||!atual.fotos.length){
+      galeria.innerHTML=''; pag.classList.add('hidden');
+      vazio.classList.remove('hidden');
+      vazio.querySelector('p').textContent='Nenhuma foto respondida nesse campo ainda.';
+      el('contagem').textContent='';
+      el('btn-baixar-pagina').disabled=true;
+      return;
+    }
+
+    vazio.classList.add('hidden');
+    galeria.innerHTML=atual.fotos.map(function(f,i){
+      var ctx=STATE.agendamentos[f.IdAgendamento]||{};
+      var titulo=ctx.cliente||('OS '+(f.IdAgendamento||'—'));
+      var meta=[ctx.data,ctx.tecnico].filter(Boolean).join(' · ')||(f.IdAgendamento||'');
+      return '<div class="cartao">'+
+        '<button type="button" class="thumb" data-i="'+i+'" style="background-image:url(\''+esc(f.RespostaFoto)+'\');background-size:cover;background-position:center;" aria-label="Ampliar foto de '+esc(titulo)+'"></button>'+
+        '<div class="info"><span class="cliente">'+esc(titulo)+'</span><span class="meta">'+esc(meta)+'</span></div>'+
+        '<div class="acoes"><a class="baixar" download="'+esc(nomeArquivo(f))+'" href="'+esc(f.RespostaFoto)+'">'+
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'+
+          'Baixar</a></div>'+
+      '</div>';
+    }).join('');
+
+    Array.prototype.forEach.call(galeria.querySelectorAll('.thumb'),function(b){
+      b.addEventListener('click',function(){
+        var f=atual.fotos[Number(b.getAttribute('data-i'))];
+        var ctx=STATE.agendamentos[f.IdAgendamento]||{};
+        el('lb-img').src=f.RespostaFoto;
+        el('lb-legenda').textContent=[ctx.cliente,ctx.data,ctx.tecnico].filter(Boolean).join(' · ')||(f.IdAgendamento||'');
+        el('lightbox').classList.add('active');
+      });
+    });
+
+    var de=STATE.indice*POR_PAGINA+1, ate=de+atual.fotos.length-1;
+    el('contagem').textContent='Mostrando '+de+' a '+ate+(STATE.fim&&STATE.indice===STATE.paginas.length-1?' (fim)':'');
+    el('btn-baixar-pagina').disabled=false;
+
+    pag.classList.remove('hidden');
+    el('pg-info').textContent='Página '+(STATE.indice+1);
+    el('pg-anterior').disabled=STATE.indice<=0;
+    // Só desabilita "Próxima" quando a última página carregada é a que está
+    // na tela E o Firestore já disse que acabou.
+    el('pg-proxima').disabled=STATE.fim&&STATE.indice>=STATE.paginas.length-1;
+  }
+
+  function irParaPagina(i){
+    if(i<STATE.paginas.length){ STATE.indice=i; render(); return; }
+    if(STATE.fim)return;
+    var anterior=STATE.paginas[STATE.paginas.length-1];
+    STATE.carregando=true; render();
+    buscarPagina(anterior?anterior.cursor:null).then(function(r){
+      STATE.fim=r.fim;
+      return carregarContexto(r.fotos).then(function(){
+        if(r.fotos.length){
+          STATE.paginas.push({fotos:r.fotos,cursor:r.cursor});
+          STATE.indice=STATE.paginas.length-1;
+        }else if(STATE.paginas.length){
+          toast('Não há mais fotos nesse campo.');
+        }
+        STATE.carregando=false;
+        render();
+      });
+    }).catch(function(err){
+      console.error('Falha ao buscar as fotos:',err);
+      STATE.carregando=false;
+      render();
+      toast('Não foi possível carregar as fotos: '+(err.message||err.code),true);
+    });
+  }
+
+  function recomecar(){
+    STATE.paginas=[]; STATE.indice=-1; STATE.fim=false;
+    if(STATE.idTemplate)irParaPagina(0); else render();
+  }
+
+  // ══════════════ AÇÕES ══════════════
+
+  el('sel-servico').addEventListener('change',function(){
+    STATE.idServico=this.value;
+    STATE.idTemplate=''; STATE.nomeCampo='';
+    var sel=el('sel-campo');
+    if(!STATE.idServico){
+      sel.disabled=true;
+      sel.innerHTML='<option value="">Escolha o serviço primeiro</option>';
+      recomecar();
+      return;
+    }
+    recomecar();
+    carregarCampos(STATE.idServico).catch(function(err){
+      console.error('Falha ao carregar os campos:',err);
+      toast('Não foi possível carregar os campos desse serviço.',true);
+    });
+  });
+
+  el('sel-campo').addEventListener('change',function(){
+    STATE.idTemplate=this.value;
+    var t=STATE.templates.filter(function(x){ return x.IdTemplate===STATE.idTemplate; })[0];
+    STATE.nomeCampo=t?(t.TextoPergunta||t.IdTemplate):'';
+    recomecar();
+  });
+
+  el('pg-anterior').addEventListener('click',function(){ if(STATE.indice>0)irParaPagina(STATE.indice-1); });
+  el('pg-proxima').addEventListener('click',function(){ irParaPagina(STATE.indice+1); });
+
+  // Baixar a página inteira dispara um clique por link já montado. Sem zip
+  // de propósito: exigiria uma biblioteca a mais só pra isso, e o navegador
+  // dá conta de 20 downloads seguidos.
+  el('btn-baixar-pagina').addEventListener('click',function(){
+    var atual=STATE.paginas[STATE.indice];
+    if(!atual||!atual.fotos.length)return;
+    var links=el('galeria').querySelectorAll('.baixar');
+    Array.prototype.forEach.call(links,function(a,i){
+      setTimeout(function(){ a.click(); },i*220);
+    });
+    toast('Baixando '+links.length+' foto(s). O navegador pode pedir permissão para vários downloads.');
+  });
+
+  el('lb-fechar').addEventListener('click',function(){ el('lightbox').classList.remove('active'); el('lb-img').src=''; });
+  el('lightbox').addEventListener('click',function(e){ if(e.target===this){ this.classList.remove('active'); el('lb-img').src=''; } });
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&el('lightbox').classList.contains('active')){ el('lightbox').classList.remove('active'); el('lb-img').src=''; } });
+
+  // ══════════════ INÍCIO ══════════════
+  // Espera o Firebase Auth terminar de restaurar a sessão antes de qualquer
+  // leitura — senão a primeira query chega antes e as rules recusam.
+  window.SGFireReady.then(function(user){
+    if(!user){ window.location.replace('index.html'); return; }
+    db=firebase.firestore();
+    return carregarServicos();
+  }).catch(function(err){
+    console.error('Falha ao iniciar a galeria:',err);
+    toast('Não foi possível carregar os serviços: '+(err.message||err.code),true);
+  });
+})();
+</script>
+</body>
+</html>
