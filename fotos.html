@@ -36,13 +36,29 @@ svg{display:block;}
 .topo .voltar{font-size:12px;color:#fff;text-decoration:none;border:1px solid rgba(255,255,255,.35);border-radius:8px;padding:6px 12px;}
 .topo .voltar:hover{border-color:var(--accent);color:var(--accent);}
 
+.modos{display:flex;gap:4px;padding:10px 22px 0;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap;}
+.modos button{background:none;border:none;padding:9px 15px;font-weight:700;font-size:12.5px;color:var(--ink-soft);cursor:pointer;border-bottom:3px solid transparent;border-radius:8px 8px 0 0;}
+.modos button:hover{background:var(--bg);}
+.modos button.active{color:var(--sidebar-bg);border-bottom-color:var(--accent);background:var(--accent-soft);}
+
 .barra{display:flex;align-items:flex-end;gap:12px;padding:14px 22px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap;}
-.campo{display:flex;flex-direction:column;gap:5px;min-width:210px;}
+.campo{display:flex;flex-direction:column;gap:5px;min-width:240px;}
 .campo label{font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;}
-.campo select{padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:#fbfdfb;color:var(--ink);min-width:210px;max-width:420px;}
-.campo select:focus{outline:none;border-color:var(--accent);}
-.campo select:disabled{opacity:.55;}
 .espaco{flex:1;}
+
+/* combo com digitação — mesma ideia do SGCombo do painel (js/sg-auth.js),
+   copiado aqui porque esta página é standalone */
+.combo-wrap{position:relative;}
+.combo-wrap input{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:#fbfdfb;color:var(--ink);}
+.combo-wrap input:focus{outline:none;border-color:var(--accent);}
+.combo-wrap input:disabled{opacity:.55;background:#f4f7f4;}
+.combo-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;max-height:280px;overflow-y:auto;background:#fff;border:1px solid var(--line);border-radius:9px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:60;}
+.combo-item{padding:9px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid #f1f6f1;}
+.combo-item:last-child{border-bottom:none;}
+.combo-item:hover{background:var(--accent-soft);color:var(--accent-deep);}
+.combo-item .sub{display:block;font-size:11px;color:var(--ink-faint);margin-top:1px;}
+.combo-empty{padding:11px 12px;font-size:12.5px;color:var(--ink-faint);}
+
 .btn{font-size:12.5px;border-radius:8px;padding:9px 14px;cursor:pointer;border:1.5px solid var(--line);background:#fff;color:var(--ink);font-weight:700;}
 .btn:hover:not(:disabled){background:var(--bg);}
 .btn:disabled{opacity:.45;cursor:not-allowed;}
@@ -57,13 +73,17 @@ svg{display:block;}
 
 .galeria{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;}
 .cartao{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column;}
-.cartao .thumb{width:100%;aspect-ratio:4/3;object-fit:cover;background:#e7efe7;border:none;padding:0;cursor:zoom-in;display:block;}
+.moldura{position:relative;width:100%;aspect-ratio:4/3;background:#e7efe7;border:none;padding:0;cursor:zoom-in;display:block;overflow:hidden;}
+.moldura img{width:100%;height:100%;object-fit:cover;display:block;}
+.moldura .falhou{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--debit);font-size:11.5px;font-weight:700;text-align:center;padding:10px;background:#fdf0f0;}
+.moldura .falhou svg{width:22px;height:22px;stroke-width:1.6;}
 .cartao .info{padding:9px 11px;font-size:12px;line-height:1.45;flex:1;}
 .cartao .info .cliente{font-weight:700;color:var(--sidebar-bg);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.cartao .info .meta{color:var(--ink-faint);font-size:11px;display:block;margin-top:2px;}
+.cartao .info .meta{color:var(--ink-faint);font-size:11px;display:block;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .cartao .acoes{padding:0 11px 11px;}
-.cartao .baixar{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;text-decoration:none;font-size:12px;font-weight:700;color:var(--ink-soft);border:1px solid var(--line);border-radius:8px;padding:7px;background:#fff;}
-.cartao .baixar:hover{border-color:var(--accent);color:var(--accent-deep);}
+.cartao .baixar{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;font-size:12px;font-weight:700;color:var(--ink-soft);border:1px solid var(--line);border-radius:8px;padding:7px;background:#fff;cursor:pointer;}
+.cartao .baixar:hover:not(:disabled){border-color:var(--accent);color:var(--accent-deep);}
+.cartao .baixar:disabled{opacity:.5;cursor:not-allowed;}
 .cartao .baixar svg{width:14px;height:14px;}
 
 .vazio{text-align:center;color:var(--ink-faint);padding:56px 20px;font-size:13px;line-height:1.6;}
@@ -101,21 +121,55 @@ svg{display:block;}
   </div>
 </div>
 
-<div class="barra">
-  <div class="campo">
-    <label for="sel-servico">Serviço</label>
-    <select id="sel-servico"><option value="">Carregando…</option></select>
-  </div>
-  <div class="campo">
-    <label for="sel-campo">Campo do checklist</label>
-    <select id="sel-campo" disabled><option value="">Escolha o serviço primeiro</option></select>
-  </div>
-  <div class="espaco"></div>
-  <button class="btn" id="btn-baixar-pagina" disabled>Baixar as desta página</button>
+<div class="modos" id="modos">
+  <button type="button" data-modo="campo" class="active">Por serviço e campo</button>
+  <button type="button" data-modo="cliente">Por cliente</button>
 </div>
 
-<div class="aviso" id="aviso-peso">
-  As fotos ficam guardadas dentro do próprio registro de resposta, então cada página baixa as 20 imagens de verdade. Por isso a galeria só carrega depois que você escolhe o campo, e vai de 20 em 20.
+<div class="barra" id="barra-campo">
+  <div class="campo">
+    <label for="in-servico">Serviço</label>
+    <div class="combo-wrap">
+      <input type="text" id="in-servico" placeholder="Digite ou escolha…" autocomplete="off">
+      <input type="hidden" id="hid-servico">
+      <div class="combo-dropdown hidden" id="dd-servico"></div>
+    </div>
+  </div>
+  <div class="campo">
+    <label for="in-campo">Campo de foto</label>
+    <div class="combo-wrap">
+      <input type="text" id="in-campo" placeholder="Escolha o serviço primeiro" autocomplete="off" disabled>
+      <input type="hidden" id="hid-campo">
+      <div class="combo-dropdown hidden" id="dd-campo"></div>
+    </div>
+  </div>
+  <div class="espaco"></div>
+  <button class="btn btn-primary" id="btn-baixar-pagina" disabled>Baixar as desta página (.zip)</button>
+</div>
+
+<div class="barra hidden" id="barra-cliente">
+  <div class="campo">
+    <label for="in-cliente">Cliente</label>
+    <div class="combo-wrap">
+      <input type="text" id="in-cliente" placeholder="Digite o nome do cliente…" autocomplete="off">
+      <input type="hidden" id="hid-cliente">
+      <div class="combo-dropdown hidden" id="dd-cliente"></div>
+    </div>
+  </div>
+  <div class="campo">
+    <label for="in-os">Ordem de serviço</label>
+    <div class="combo-wrap">
+      <input type="text" id="in-os" placeholder="Escolha o cliente primeiro" autocomplete="off" disabled>
+      <input type="hidden" id="hid-os">
+      <div class="combo-dropdown hidden" id="dd-os"></div>
+    </div>
+  </div>
+  <div class="espaco"></div>
+  <button class="btn btn-primary" id="btn-baixar-pagina-2" disabled>Baixar as desta página (.zip)</button>
+</div>
+
+<div class="aviso">
+  As fotos ficam guardadas dentro do próprio registro de resposta, então cada página baixa as imagens de verdade. Por isso a galeria só carrega depois que você escolhe, e vai de 20 em 20, da mais recente para a mais antiga.
 </div>
 
 <div class="conteudo">
@@ -123,7 +177,7 @@ svg{display:block;}
   <div class="galeria" id="galeria"></div>
   <div class="vazio" id="vazio">
     <div class="glifo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
-    <p>Escolha um serviço e um campo do checklist para ver as fotos.</p>
+    <p id="vazio-texto">Escolha um serviço e um campo de foto para ver as imagens.</p>
   </div>
   <div class="paginacao hidden" id="paginacao">
     <button class="btn" id="pg-anterior">‹ Anterior</button>
@@ -142,6 +196,7 @@ svg{display:block;}
 
 <div class="toast" id="toast"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
@@ -182,21 +237,20 @@ svg{display:block;}
   // ══════════════ ESTADO ══════════════
 
   var POR_PAGINA=20;
-  // Quanto se pede ao Firestore por vez. É maior que POR_PAGINA porque nem
-  // toda resposta do mesmo campo tem foto (a mesma coleção guarda resposta de
-  // texto e de quantidade), então às vezes é preciso varrer mais documentos
-  // pra juntar 20 imagens. Os sem foto são leves — o peso está na imagem.
-  var BLOCO=40;
 
   var db=null;
   var STATE={
-    servicos:[], templates:[],
+    modo:'campo',                 // 'campo' | 'cliente'
+    servicos:[], servicosPorId:{},
+    templates:[], templatesPorId:{},   // checklist inteiro, de todos os serviços
     idServico:'', idTemplate:'', nomeCampo:'',
-    paginas:[],          // uma entrada por página já carregada: {fotos, cursor}
-    indice:-1,           // página mostrada agora
-    fim:false,           // já chegou ao fim da coleção?
-    agendamentos:{},     // IdAgendamento -> {cliente, data, tecnico}
-    carregando:false
+    idCliente:'', nomeCliente:'', idOS:'',
+    agendamentos:[],              // { id, idCliente, cliente, idServico, quando, dataTexto }
+    agsPorId:{},
+    clientesDoCadastro:{},        // fallback de nome, buscado em lotes
+    ordemAtual:[],                // OS candidatas, já ordenadas da mais nova pra mais velha
+    posicao:0,                    // até onde já varremos `ordemAtual`
+    paginas:[], indice:-1, fim:false, carregando:false
   };
 
   function el(id){ return document.getElementById(id); }
@@ -208,211 +262,474 @@ svg{display:block;}
     t.textContent=msg;
     t.className='toast show'+(erro?' erro':'');
     clearTimeout(toastTimer);
-    toastTimer=setTimeout(function(){ t.className='toast'+(erro?' erro':''); },3400);
+    toastTimer=setTimeout(function(){ t.className='toast'+(erro?' erro':''); },4000);
   }
 
-  // ══════════════ SELETORES ══════════════
+  // ══════════════ DATAS ══════════════
+  // O cadastro tem os dois formatos convivendo: "21/07/2026" (escrito pelo
+  // painel) e "2026-09-19" (vindo da migração). Ordenar a string direto
+  // misturaria os dois, então tudo vira número antes de comparar.
+  function paraData(txt){
+    var s=String(txt||'').trim();
+    var m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if(m)return new Date(+m[3],+m[2]-1,+m[1]).getTime();
+    m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if(m)return new Date(+m[1],+m[2]-1,+m[3]).getTime();
+    return 0;   // sem data legível vai pro fim da lista
+  }
+  function dataBR(txt){
+    var t=paraData(txt);
+    if(!t)return '';
+    var d=new Date(t);
+    return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
+  }
 
-  // `servicos` e `templates` são coleções pequenas e não têm foto dentro —
-  // podem ser lidas inteiras sem medo. A coleção pesada (agendamentos_respostas)
-  // só é tocada depois que a pessoa escolhe o campo.
+  // ══════════════ COMBO COM DIGITAÇÃO ══════════════
+  // Cópia enxuta do SGCombo (js/sg-auth.js). Esta página é standalone e não
+  // carrega aquele arquivo, mesma postura do resto do projeto.
+  function criarCombo(cfg){
+    var input=el(cfg.inputId), hidden=el(cfg.hiddenId), dd=el(cfg.dropdownId);
+    function render(filtro){
+      var termo=String(filtro||'').trim().toLowerCase();
+      var todas=cfg.getOpcoes()||[];
+      var lista=todas.filter(function(o){
+        return !termo||String(o.label||'').toLowerCase().indexOf(termo)!==-1
+                     ||String(o.sub||'').toLowerCase().indexOf(termo)!==-1;
+      }).slice(0,80);
+      dd.innerHTML=lista.length
+        ? lista.map(function(o){
+            return '<div class="combo-item" data-id="'+esc(o.id)+'" data-label="'+esc(o.label)+'">'+
+              esc(o.label)+(o.sub?'<span class="sub">'+esc(o.sub)+'</span>':'')+'</div>';
+          }).join('')
+        : '<div class="combo-empty">Nenhuma opção encontrada.</div>';
+      dd.classList.remove('hidden');
+      Array.prototype.forEach.call(dd.querySelectorAll('.combo-item'),function(item){
+        item.addEventListener('mousedown',function(e){
+          e.preventDefault();
+          hidden.value=item.getAttribute('data-id');
+          input.value=item.getAttribute('data-label');
+          dd.classList.add('hidden');
+          if(cfg.onSelecionar)cfg.onSelecionar(hidden.value,input.value);
+        });
+      });
+    }
+    input.addEventListener('input',function(){ hidden.value=''; render(input.value); if(cfg.onLimpar)cfg.onLimpar(); });
+    input.addEventListener('focus',function(){ render(input.value); });
+    input.addEventListener('blur',function(){ setTimeout(function(){ dd.classList.add('hidden'); },150); });
+    return {
+      limpar:function(){ hidden.value=''; input.value=''; dd.classList.add('hidden'); },
+      habilitar:function(liga,placeholder){ input.disabled=!liga; if(placeholder)input.placeholder=placeholder; }
+    };
+  }
+
+  // ══════════════ CARGA BASE ══════════════
+
   function carregarServicos(){
     return db.collection('servicos').get().then(function(snap){
       STATE.servicos=snap.docs.map(function(d){ return d.data(); })
         .filter(function(s){ return s.IdServico; })
         .sort(function(a,b){ return String(a['Nome Servico']||'').localeCompare(String(b['Nome Servico']||''),'pt-BR'); });
-      var sel=el('sel-servico');
-      sel.innerHTML='<option value="">Selecione um serviço…</option>'+
-        STATE.servicos.map(function(s){
-          return '<option value="'+esc(s.IdServico)+'">'+esc(s['Nome Servico']||s.IdServico)+'</option>';
-        }).join('');
+      STATE.servicos.forEach(function(s){ STATE.servicosPorId[s.IdServico]=s['Nome Servico']||s.IdServico; });
     });
   }
 
-  function carregarCampos(idServico){
-    var sel=el('sel-campo');
-    sel.disabled=true;
-    sel.innerHTML='<option value="">Carregando…</option>';
-    return db.collection('templates').where('IdServico','==',idServico).get().then(function(snap){
-      STATE.templates=snap.docs.map(function(d){ return d.data(); })
-        .filter(function(t){ return t.IdTemplate; })
-        .sort(function(a,b){ return (Number(a.Ordem)||0)-(Number(b.Ordem)||0); });
-      if(!STATE.templates.length){
-        sel.innerHTML='<option value="">Esse serviço não tem checklist</option>';
-        return;
-      }
-      // Todos os campos entram, não só os do tipo Foto: o técnico pode ter
-      // anexado imagem num campo que hoje está configurado como texto, e
-      // esconder o campo esconderia a foto junto.
-      sel.innerHTML='<option value="">Selecione um campo…</option>'+
-        STATE.templates.map(function(t){
-          var tipo=t.TipoInput?(' · '+t.TipoInput):'';
-          return '<option value="'+esc(t.IdTemplate)+'">'+esc((t.TextoPergunta||t.IdTemplate)+tipo)+'</option>';
-        }).join('');
-      sel.disabled=false;
-    });
-  }
-
-  // ══════════════ BUSCA DAS FOTOS ══════════════
-
-  // Uma página por vez, com cursor do Firestore — nunca a coleção inteira.
-  // Cada resposta carrega a imagem em base64 dentro do documento, então
-  // baixar tudo de um campo muito usado seriam centenas de MB no navegador.
-  function buscarPagina(cursor){
-    var acumulado=[], ultimoDoc=cursor;
-
-    function bloco(apos){
-      var q=db.collection('agendamentos_respostas').where('IdTemplate','==',STATE.idTemplate).limit(BLOCO);
-      if(apos)q=q.startAfter(apos);
-      return q.get().then(function(snap){
-        if(snap.empty)return {fotos:acumulado, cursor:ultimoDoc, fim:true};
-        var cheio=false;
-        snap.docs.forEach(function(d){
-          if(cheio)return;
-          // O cursor anda por documento PERCORRIDO, não pelo último do bloco:
-          // se a página encher no meio, o que sobrou tem que aparecer na
-          // próxima página em vez de ser pulado.
-          ultimoDoc=d;
-          var v=d.data()||{};
-          if(String(v.RespostaFoto||'').trim()){
-            acumulado.push(v);
-            if(acumulado.length>=POR_PAGINA)cheio=true;
-          }
-        });
-        if(cheio)return {fotos:acumulado, cursor:ultimoDoc, fim:false};
-        if(snap.size<BLOCO)return {fotos:acumulado, cursor:ultimoDoc, fim:true};
-        return bloco(ultimoDoc);
+  // Os agendamentos são o índice da galeria: é deles que saem a data (pra
+  // ordenar), o cliente (pra mostrar e pra filtrar) e o serviço. São leves —
+  // a foto não mora aqui, mora na resposta — então cabe uma leitura só por
+  // sessão, e é ela que permite ordenar de verdade por data em vez de pela
+  // ordem interna do Firestore.
+  var promessaAgendamentos=null;
+  function carregarAgendamentos(){
+    if(promessaAgendamentos)return promessaAgendamentos;
+    promessaAgendamentos=db.collection('agendamentos').get().then(function(snap){
+      STATE.agendamentos=snap.docs.map(function(d){
+        var a=d.data()||{};
+        var quando=a['Data Inicio']||a.DataCriacao||'';
+        return {
+          id:d.id,
+          idCliente:a.IdCliente||'',
+          cliente:String(a.NomeCliente||'').trim(),
+          idServico:a.IdServico||'',
+          quando:paraData(quando),
+          dataTexto:dataBR(quando)
+        };
       });
-    }
-    return bloco(cursor);
+      STATE.agendamentos.forEach(function(a){ STATE.agsPorId[a.id]=a; });
+      return completarNomes();
+    });
+    return promessaAgendamentos;
   }
 
-  // Nome do cliente, data e técnico de cada foto. Uma query por lote de 30
-  // (limite do `in`), e só dos agendamentos que ainda não estão em memória.
-  function carregarContexto(fotos){
+  // NomeCliente só passou a ser gravado junto do agendamento em 2026-09-03;
+  // tudo que é anterior está sem. Sem isto o cartão mostraria "OS 0048cd22"
+  // no lugar do nome, que foi exatamente o que apareceu na primeira versão.
+  function completarNomes(){
     var faltam={};
-    fotos.forEach(function(f){
-      var id=f.IdAgendamento;
-      if(id&&!STATE.agendamentos[id])faltam[id]=true;
-    });
+    STATE.agendamentos.forEach(function(a){ if(!a.cliente&&a.idCliente)faltam[a.idCliente]=true; });
     var ids=Object.keys(faltam);
     if(!ids.length)return Promise.resolve();
     var lotes=[];
     for(var i=0;i<ids.length;i+=30)lotes.push(ids.slice(i,i+30));
     return Promise.all(lotes.map(function(lote){
-      return db.collection('agendamentos')
+      return db.collection('clientes')
         .where(firebase.firestore.FieldPath.documentId(),'in',lote).get()
         .then(function(snap){
           snap.forEach(function(d){
-            var a=d.data()||{};
-            STATE.agendamentos[d.id]={
-              cliente:a.NomeCliente||'',
-              data:a['Data Inicio']||'',
-              tecnico:a.TecnicoResponsavel||''
-            };
+            var c=d.data()||{};
+            STATE.clientesDoCadastro[d.id]=String(c['Nome Razao Social']||c.Nome||'').trim();
           });
         });
-    })).catch(function(err){
-      // Sem o contexto a galeria ainda serve: mostra a foto e o id do
-      // agendamento. Não vale derrubar a tela por causa do rótulo.
-      console.error('Falha ao carregar o contexto dos agendamentos:',err);
+    })).then(function(){
+      STATE.agendamentos.forEach(function(a){
+        if(!a.cliente&&STATE.clientesDoCadastro[a.idCliente])a.cliente=STATE.clientesDoCadastro[a.idCliente];
+      });
+    }).catch(function(err){
+      // Sem o nome a galeria ainda serve: cai pro id da OS. Não vale derrubar.
+      console.error('Falha ao completar nomes de cliente:',err);
+    });
+  }
+
+  function nomeDaOS(idAg){
+    var a=STATE.agsPorId[idAg];
+    return (a&&a.cliente)||('OS '+String(idAg||'').slice(0,8));
+  }
+
+  // ══════════════ OPÇÕES DOS COMBOS ══════════════
+
+  function opcoesServico(){
+    return STATE.servicos.map(function(s){ return {id:s.IdServico,label:s['Nome Servico']||s.IdServico}; });
+  }
+  // Só os campos de FOTO do serviço escolhido: campo de texto nunca teve
+  // imagem pra mostrar e só poluía a lista.
+  function opcoesCampo(){
+    return STATE.templates.filter(function(t){
+      return t.IdServico===STATE.idServico&&String(t.TipoInput||'').trim().toLowerCase()==='foto';
+    }).sort(function(a,b){ return (Number(a.Ordem)||0)-(Number(b.Ordem)||0); })
+      .map(function(t){ return {id:t.IdTemplate,label:t.TextoPergunta||t.IdTemplate}; });
+  }
+  function temCampoDeFoto(idServico){
+    return STATE.templates.some(function(t){
+      return t.IdServico===idServico&&String(t.TipoInput||'').trim().toLowerCase()==='foto';
+    });
+  }
+  // Só clientes que têm agendamento — quem não tem OS não tem foto.
+  function opcoesCliente(){
+    var vistos={};
+    STATE.agendamentos.forEach(function(a){
+      if(!a.idCliente)return;
+      if(!vistos[a.idCliente])vistos[a.idCliente]={id:a.idCliente,label:a.cliente||('Cliente '+a.idCliente.slice(0,8)),n:0};
+      vistos[a.idCliente].n++;
+    });
+    return Object.keys(vistos).map(function(k){
+      var v=vistos[k];
+      return {id:v.id,label:v.label,sub:v.n+(v.n===1?' ordem de serviço':' ordens de serviço')};
+    }).sort(function(a,b){ return a.label.localeCompare(b.label,'pt-BR'); });
+  }
+  function opcoesOS(){
+    if(!STATE.idCliente)return [];
+    return STATE.agendamentos.filter(function(a){ return a.idCliente===STATE.idCliente; })
+      .sort(function(a,b){ return b.quando-a.quando; })
+      .map(function(a){
+        return {id:a.id,
+          label:(STATE.servicosPorId[a.idServico]||'Serviço')+(a.dataTexto?(' · '+a.dataTexto):''),
+          sub:'OS '+a.id.slice(0,8)};
+      });
+  }
+
+  // O checklist inteiro, de uma vez. É coleção pequena e sem imagem dentro, e
+  // o modo "por cliente" precisa traduzir o campo de QUALQUER serviço — com a
+  // busca por serviço, uma foto de outro serviço aparecia rotulada com o id
+  // cru do template.
+  function carregarTemplates(){
+    return db.collection('templates').get().then(function(snap){
+      STATE.templates=snap.docs.map(function(d){ return d.data(); }).filter(function(t){ return t.IdTemplate; });
+      STATE.templates.forEach(function(t){ STATE.templatesPorId[t.IdTemplate]=t; });
+    });
+  }
+
+  // ══════════════ BUSCA DAS FOTOS ══════════════
+
+  // A ordem é decidida aqui, em memória, pelas datas já normalizadas — e as
+  // respostas são buscadas pelo id do documento ({OS}_{campo}), que é exato
+  // e não depende da ordem interna do Firestore.
+  function prepararOrdem(){
+    var lista;
+    if(STATE.modo==='campo'){
+      lista=STATE.agendamentos.filter(function(a){ return a.idServico===STATE.idServico; });
+    }else{
+      lista=STATE.agendamentos.filter(function(a){ return a.idCliente===STATE.idCliente; });
+      if(STATE.idOS)lista=lista.filter(function(a){ return a.id===STATE.idOS; });
+    }
+    STATE.ordemAtual=lista.sort(function(a,b){ return b.quando-a.quando; });
+    STATE.posicao=0;
+  }
+
+  function temFoto(v){ return !!v&&!!String(v.RespostaFoto||'').trim(); }
+
+  // Modo "por campo": uma OS tem no máximo uma resposta daquele campo, então
+  // dá pra ir direto no documento por id, sem varrer a coleção.
+  function buscarPaginaPorCampo(){
+    var achadas=[];
+    function rodada(){
+      if(achadas.length>=POR_PAGINA||STATE.posicao>=STATE.ordemAtual.length){
+        return Promise.resolve({fotos:achadas,fim:STATE.posicao>=STATE.ordemAtual.length});
+      }
+      // Sonda exatamente o que falta, nunca mais: cada acerto traz a imagem
+      // junto, então pedir de sobra é banda baixada pra ser descartada.
+      var falta=POR_PAGINA-achadas.length;
+      var lote=STATE.ordemAtual.slice(STATE.posicao,STATE.posicao+falta);
+      STATE.posicao+=lote.length;
+      return Promise.all(lote.map(function(a){
+        return db.collection('agendamentos_respostas').doc(a.id+'_'+STATE.idTemplate).get()
+          .then(function(d){ return d.exists?Object.assign({},d.data(),{IdAgendamento:a.id}):null; })
+          .catch(function(){ return null; });
+      })).then(function(res){
+        res.forEach(function(v){ if(temFoto(v)&&achadas.length<POR_PAGINA)achadas.push(v); });
+        return rodada();
+      });
+    }
+    return rodada();
+  }
+
+  // Modo "por cliente": traz todas as respostas das OS dele e fica com as que
+  // têm foto. `in` aceita 30 ids por vez.
+  function buscarPaginaPorCliente(){
+    var achadas=[];
+    function rodada(){
+      if(achadas.length>=POR_PAGINA||STATE.posicao>=STATE.ordemAtual.length){
+        return Promise.resolve({fotos:achadas,fim:STATE.posicao>=STATE.ordemAtual.length});
+      }
+      var lote=STATE.ordemAtual.slice(STATE.posicao,STATE.posicao+30);
+      STATE.posicao+=lote.length;
+      var ids=lote.map(function(a){ return a.id; });
+      return db.collection('agendamentos_respostas').where('IdAgendamento','in',ids).get().then(function(snap){
+        var doLote=[];
+        snap.forEach(function(d){ var v=d.data()||{}; if(temFoto(v))doLote.push(v); });
+        // Dentro do lote, a ordem volta a ser a das OS (mais nova primeiro).
+        var pos={}; lote.forEach(function(a,i){ pos[a.id]=i; });
+        doLote.sort(function(x,y){ return (pos[x.IdAgendamento]||0)-(pos[y.IdAgendamento]||0); });
+        doLote.forEach(function(v){ if(achadas.length<POR_PAGINA)achadas.push(v); });
+        return rodada();
+      });
+    }
+    return rodada();
+  }
+
+  // ══════════════ NOMES DE ARQUIVO ══════════════
+
+  function limpar(txt){
+    return String(txt||'').normalize('NFD').replace(/[̀-ͯ]/g,'')
+      .replace(/[\/\\:*?"<>|]+/g,'-').replace(/\s+/g,' ').trim();
+  }
+  function tituloDoCampo(foto){
+    if(STATE.modo==='campo')return STATE.nomeCampo;
+    if(foto.ExtraNome)return foto.ExtraNome;
+    var t=STATE.templatesPorId[foto.IdTemplate];
+    return (t&&t.TextoPergunta)||foto.IdTemplate||'Campo';
+  }
+  // "Cliente - Serviço - Campo - Data", como pedido.
+  function nomeDaFoto(foto){
+    var a=STATE.agsPorId[foto.IdAgendamento]||{};
+    var partes=[nomeDaOS(foto.IdAgendamento), STATE.servicosPorId[a.idServico]||'', tituloDoCampo(foto), a.dataTexto||''];
+    var base=limpar(partes.filter(Boolean).join(' - ')).slice(0,110);
+    return (base||'foto')+extensaoDe(foto.RespostaFoto);
+  }
+  function extensaoDe(dataUri){
+    var m=String(dataUri||'').match(/^data:image\/([a-z0-9.+-]+)/i);
+    if(!m)return '.jpg';
+    var t=m[1].toLowerCase();
+    if(t==='jpeg')return '.jpg';
+    return '.'+t.replace(/[^a-z0-9]/g,'');
+  }
+  function nomeDoZipDaPagina(){
+    var partes=STATE.modo==='campo'
+      ? [STATE.servicosPorId[STATE.idServico]||'Servico', STATE.nomeCampo]
+      : [STATE.nomeCliente||'Cliente', STATE.idOS?('OS '+STATE.idOS.slice(0,8)):''];
+    partes.push('pagina '+(STATE.indice+1));
+    return limpar(partes.filter(Boolean).join(' - ')).slice(0,110)+'.zip';
+  }
+
+  // ══════════════ DOWNLOAD (sempre .zip) ══════════════
+
+  function salvarBlob(blob,nome){
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url; a.download=nome;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); },4000);
+  }
+  function base64De(dataUri){
+    var i=String(dataUri||'').indexOf(',');
+    return i===-1?'':dataUri.slice(i+1);
+  }
+  // O JSZip só valida o base64 na hora de gerar o arquivo, e aí uma única
+  // foto gravada pela metade derruba o zip inteiro — nenhuma das outras 19
+  // chega no disco. Como esse dado existe de verdade no cadastro, cada foto
+  // é conferida antes de entrar.
+  // `atob` sozinho não serve: ele aceita comprimentos que o JSZip recusa.
+  // A regra do JSZip é comprimento múltiplo de 4; a do alfabeto pega o resto.
+  function base64Limpo(dataUri){
+    return base64De(dataUri).replace(/\s+/g,'');
+  }
+  function base64Valido(b64){
+    if(!b64||b64.length%4!==0)return false;
+    if(!/^[A-Za-z0-9+/]+={0,2}$/.test(b64))return false;
+    try{ atob(b64); return true; }catch(e){ return false; }
+  }
+  function zipar(fotos,nomeZip,botao){
+    if(typeof JSZip==='undefined'){
+      toast('A biblioteca de zip não carregou. Verifique a conexão e recarregue a página.',true);
+      return Promise.resolve();
+    }
+    var textoOriginal=botao?botao.textContent:'';
+    if(botao){ botao.disabled=true; botao.textContent='Compactando…'; }
+    var zip=new JSZip(), usados={}, puladas=0, entraram=0;
+    fotos.forEach(function(f){
+      var b64=base64Limpo(f.RespostaFoto);
+      if(!base64Valido(b64)){ puladas++; return; }
+      var nome=nomeDaFoto(f);
+      // Dois atendimentos do mesmo cliente no mesmo dia gerariam nomes iguais
+      // e o zip guardaria só um deles.
+      if(usados[nome]){
+        usados[nome]++;
+        var p=nome.lastIndexOf('.');
+        nome=nome.slice(0,p)+' ('+usados[nome]+')'+nome.slice(p);
+      }else usados[nome]=1;
+      zip.file(nome,b64,{base64:true});
+      entraram++;
+    });
+    if(!entraram){
+      if(botao){ botao.disabled=false; botao.textContent=textoOriginal; }
+      toast(puladas===1?'Essa foto está gravada incompleta e não dá para baixar.'
+                       :'Nenhuma dessas fotos está inteira no banco.',true);
+      return Promise.resolve();
+    }
+    return zip.generateAsync({type:'blob'}).then(function(blob){
+      salvarBlob(blob,nomeZip);
+      if(botao){ botao.disabled=false; botao.textContent=textoOriginal; }
+      if(puladas)toast(entraram+' foto(s) baixadas. '+puladas+' ficaram de fora por estarem gravadas incompletas.');
+    }).catch(function(err){
+      console.error('Falha ao compactar:',err);
+      if(botao){ botao.disabled=false; botao.textContent=textoOriginal; }
+      toast('Não foi possível compactar as fotos: '+(err.message||err),true);
     });
   }
 
   // ══════════════ GALERIA ══════════════
 
-  function nomeArquivo(foto){
-    var ctx=STATE.agendamentos[foto.IdAgendamento]||{};
-    var partes=[STATE.nomeCampo,ctx.cliente||foto.IdAgendamento,ctx.data];
-    var base=partes.filter(Boolean).join(' - ')
-      .normalize('NFD').replace(/[̀-ͯ]/g,'')
-      .replace(/\//g,'-')                       // 30/09/2026 vira 30-09-2026 em vez de 30092026
-      .replace(/[^a-zA-Z0-9\- ]+/g,'').replace(/\s+/g,'_').slice(0,90);
-    return (base||'foto')+'.jpg';
+  function paginaAtual(){ return STATE.paginas[STATE.indice]; }
+
+  function mostrarVazio(texto){
+    el('galeria').innerHTML='';
+    el('paginacao').classList.add('hidden');
+    el('vazio').classList.remove('hidden');
+    el('vazio-texto').textContent=texto;
+    el('contagem').textContent='';
+    el('btn-baixar-pagina').disabled=true;
+    el('btn-baixar-pagina-2').disabled=true;
+  }
+
+  function prontoParaBuscar(){
+    return STATE.modo==='campo' ? !!(STATE.idServico&&STATE.idTemplate) : !!STATE.idCliente;
   }
 
   function render(){
-    var galeria=el('galeria'), vazio=el('vazio'), pag=el('paginacao');
-    var atual=STATE.paginas[STATE.indice];
+    if(!prontoParaBuscar()){
+      mostrarVazio(STATE.modo==='campo'
+        ? 'Escolha um serviço e um campo de foto para ver as imagens.'
+        : 'Escolha um cliente para ver todas as fotos das ordens de serviço dele.');
+      return;
+    }
+    if(STATE.carregando){ mostrarVazio('Carregando as fotos…'); return; }
+    var atual=paginaAtual();
+    if(!atual||!atual.fotos.length){ mostrarVazio('Nenhuma foto encontrada aqui.'); return; }
 
-    if(!STATE.idTemplate){
-      galeria.innerHTML=''; pag.classList.add('hidden');
-      vazio.classList.remove('hidden');
-      vazio.querySelector('p').textContent='Escolha um serviço e um campo do checklist para ver as fotos.';
-      el('contagem').textContent='';
-      el('btn-baixar-pagina').disabled=true;
-      return;
-    }
-    if(STATE.carregando){
-      galeria.innerHTML=''; pag.classList.add('hidden');
-      vazio.classList.remove('hidden');
-      vazio.querySelector('p').textContent='Carregando as fotos…';
-      el('contagem').textContent='';
-      el('btn-baixar-pagina').disabled=true;
-      return;
-    }
-    if(!atual||!atual.fotos.length){
-      galeria.innerHTML=''; pag.classList.add('hidden');
-      vazio.classList.remove('hidden');
-      vazio.querySelector('p').textContent='Nenhuma foto respondida nesse campo ainda.';
-      el('contagem').textContent='';
-      el('btn-baixar-pagina').disabled=true;
-      return;
-    }
-
-    vazio.classList.add('hidden');
-    galeria.innerHTML=atual.fotos.map(function(f,i){
-      var ctx=STATE.agendamentos[f.IdAgendamento]||{};
-      var titulo=ctx.cliente||('OS '+(f.IdAgendamento||'—'));
-      var meta=[ctx.data,ctx.tecnico].filter(Boolean).join(' · ')||(f.IdAgendamento||'');
+    el('vazio').classList.add('hidden');
+    el('galeria').innerHTML=atual.fotos.map(function(f,i){
+      var a=STATE.agsPorId[f.IdAgendamento]||{};
+      var titulo=nomeDaOS(f.IdAgendamento);
+      var meta=[STATE.servicosPorId[a.idServico],tituloDoCampo(f),a.dataTexto].filter(Boolean).join(' · ');
       return '<div class="cartao">'+
-        '<button type="button" class="thumb" data-i="'+i+'" style="background-image:url(\''+esc(f.RespostaFoto)+'\');background-size:cover;background-position:center;" aria-label="Ampliar foto de '+esc(titulo)+'"></button>'+
+        '<button type="button" class="moldura" data-i="'+i+'" aria-label="Ampliar foto de '+esc(titulo)+'">'+
+          '<img data-i="'+i+'" src="'+esc(f.RespostaFoto)+'" alt="'+esc(titulo)+'">'+
+        '</button>'+
         '<div class="info"><span class="cliente">'+esc(titulo)+'</span><span class="meta">'+esc(meta)+'</span></div>'+
-        '<div class="acoes"><a class="baixar" download="'+esc(nomeArquivo(f))+'" href="'+esc(f.RespostaFoto)+'">'+
+        '<div class="acoes"><button type="button" class="baixar" data-i="'+i+'">'+
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'+
-          'Baixar</a></div>'+
+          'Baixar (.zip)</button></div>'+
       '</div>';
     }).join('');
 
-    Array.prototype.forEach.call(galeria.querySelectorAll('.thumb'),function(b){
+    var galeria=el('galeria');
+
+    // Uma imagem gravada pela metade (upload cortado) não dispara erro de
+    // rede, só falha ao decodificar. Sem este aviso o cartão ficava só um
+    // retângulo claro e parecia bug da tela.
+    Array.prototype.forEach.call(galeria.querySelectorAll('.moldura img'),function(img){
+      function marcarFalha(){
+        var moldura=galeria.querySelectorAll('.moldura')[Number(img.getAttribute('data-i'))];
+        img.remove();
+        if(!moldura||moldura.querySelector('.falhou'))return;
+        var aviso=document.createElement('div');
+        aviso.className='falhou';
+        aviso.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.3 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'+
+          '<span>Imagem gravada incompleta</span>';
+        moldura.appendChild(aviso);
+        var btn=moldura.parentNode.querySelector('.baixar');
+        if(btn)btn.disabled=true;
+      }
+      img.addEventListener('error',marcarFalha);
+      // Um base64 quebrado costuma falhar já na atribuição do src, antes deste
+      // listener existir — aí o evento nunca chega e o cartão ficava só um
+      // retângulo claro. `complete` com largura zero é a marca disso.
+      if(img.complete&&img.naturalWidth===0)marcarFalha();
+    });
+
+    Array.prototype.forEach.call(galeria.querySelectorAll('.moldura'),function(b){
+      b.addEventListener('click',function(){
+        if(b.querySelector('.falhou'))return;
+        var f=atual.fotos[Number(b.getAttribute('data-i'))];
+        var a=STATE.agsPorId[f.IdAgendamento]||{};
+        el('lb-img').src=f.RespostaFoto;
+        el('lb-legenda').textContent=[nomeDaOS(f.IdAgendamento),STATE.servicosPorId[a.idServico],tituloDoCampo(f),a.dataTexto].filter(Boolean).join(' · ');
+        el('lightbox').classList.add('active');
+      });
+    });
+
+    Array.prototype.forEach.call(galeria.querySelectorAll('.baixar'),function(b){
       b.addEventListener('click',function(){
         var f=atual.fotos[Number(b.getAttribute('data-i'))];
-        var ctx=STATE.agendamentos[f.IdAgendamento]||{};
-        el('lb-img').src=f.RespostaFoto;
-        el('lb-legenda').textContent=[ctx.cliente,ctx.data,ctx.tecnico].filter(Boolean).join(' · ')||(f.IdAgendamento||'');
-        el('lightbox').classList.add('active');
+        var base=nomeDaFoto(f);
+        zipar([f],base.slice(0,base.lastIndexOf('.'))+'.zip',b);
       });
     });
 
     var de=STATE.indice*POR_PAGINA+1, ate=de+atual.fotos.length-1;
     el('contagem').textContent='Mostrando '+de+' a '+ate+(STATE.fim&&STATE.indice===STATE.paginas.length-1?' (fim)':'');
     el('btn-baixar-pagina').disabled=false;
+    el('btn-baixar-pagina-2').disabled=false;
 
-    pag.classList.remove('hidden');
+    el('paginacao').classList.remove('hidden');
     el('pg-info').textContent='Página '+(STATE.indice+1);
     el('pg-anterior').disabled=STATE.indice<=0;
-    // Só desabilita "Próxima" quando a última página carregada é a que está
-    // na tela E o Firestore já disse que acabou.
     el('pg-proxima').disabled=STATE.fim&&STATE.indice>=STATE.paginas.length-1;
   }
 
   function irParaPagina(i){
     if(i<STATE.paginas.length){ STATE.indice=i; render(); return; }
     if(STATE.fim)return;
-    var anterior=STATE.paginas[STATE.paginas.length-1];
     STATE.carregando=true; render();
-    buscarPagina(anterior?anterior.cursor:null).then(function(r){
+    var busca=STATE.modo==='campo'?buscarPaginaPorCampo:buscarPaginaPorCliente;
+    busca().then(function(r){
       STATE.fim=r.fim;
-      return carregarContexto(r.fotos).then(function(){
-        if(r.fotos.length){
-          STATE.paginas.push({fotos:r.fotos,cursor:r.cursor});
-          STATE.indice=STATE.paginas.length-1;
-        }else if(STATE.paginas.length){
-          toast('Não há mais fotos nesse campo.');
-        }
-        STATE.carregando=false;
-        render();
-      });
+      if(r.fotos.length){
+        STATE.paginas.push({fotos:r.fotos});
+        STATE.indice=STATE.paginas.length-1;
+      }else if(STATE.paginas.length){
+        toast('Não há mais fotos aqui.');
+      }
+      STATE.carregando=false;
+      render();
     }).catch(function(err){
       console.error('Falha ao buscar as fotos:',err);
       STATE.carregando=false;
@@ -423,65 +740,95 @@ svg{display:block;}
 
   function recomecar(){
     STATE.paginas=[]; STATE.indice=-1; STATE.fim=false;
-    if(STATE.idTemplate)irParaPagina(0); else render();
+    if(!prontoParaBuscar()){ render(); return; }
+    prepararOrdem();
+    irParaPagina(0);
+  }
+
+  // ══════════════ COMBOS ══════════════
+
+  var comboServico,comboCampo,comboCliente,comboOS;
+
+  function montarCombos(){
+    comboServico=criarCombo({
+      inputId:'in-servico',hiddenId:'hid-servico',dropdownId:'dd-servico',
+      getOpcoes:opcoesServico,
+      onSelecionar:function(id){
+        STATE.idServico=id; STATE.idTemplate=''; STATE.nomeCampo='';
+        comboCampo.limpar();
+        recomecar();
+        if(temCampoDeFoto(id))comboCampo.habilitar(true,'Digite ou escolha…');
+        else comboCampo.habilitar(false,'Esse serviço não tem campo de foto');
+      },
+      onLimpar:function(){ STATE.idServico=''; STATE.idTemplate=''; comboCampo.limpar(); comboCampo.habilitar(false,'Escolha o serviço primeiro'); recomecar(); }
+    });
+    comboCampo=criarCombo({
+      inputId:'in-campo',hiddenId:'hid-campo',dropdownId:'dd-campo',
+      getOpcoes:opcoesCampo,
+      onSelecionar:function(id,label){ STATE.idTemplate=id; STATE.nomeCampo=label; recomecar(); },
+      onLimpar:function(){ STATE.idTemplate=''; recomecar(); }
+    });
+    comboCliente=criarCombo({
+      inputId:'in-cliente',hiddenId:'hid-cliente',dropdownId:'dd-cliente',
+      getOpcoes:opcoesCliente,
+      onSelecionar:function(id,label){
+        STATE.idCliente=id; STATE.nomeCliente=label; STATE.idOS='';
+        comboOS.limpar();
+        comboOS.habilitar(true,'Todas as OS deste cliente');
+        recomecar();
+      },
+      onLimpar:function(){ STATE.idCliente=''; STATE.idOS=''; comboOS.limpar(); comboOS.habilitar(false,'Escolha o cliente primeiro'); recomecar(); }
+    });
+    comboOS=criarCombo({
+      inputId:'in-os',hiddenId:'hid-os',dropdownId:'dd-os',
+      getOpcoes:opcoesOS,
+      onSelecionar:function(id){ STATE.idOS=id; recomecar(); },
+      onLimpar:function(){ STATE.idOS=''; recomecar(); }
+    });
   }
 
   // ══════════════ AÇÕES ══════════════
 
-  el('sel-servico').addEventListener('change',function(){
-    STATE.idServico=this.value;
-    STATE.idTemplate=''; STATE.nomeCampo='';
-    var sel=el('sel-campo');
-    if(!STATE.idServico){
-      sel.disabled=true;
-      sel.innerHTML='<option value="">Escolha o serviço primeiro</option>';
+  Array.prototype.forEach.call(el('modos').querySelectorAll('button'),function(b){
+    b.addEventListener('click',function(){
+      var modo=b.getAttribute('data-modo');
+      if(modo===STATE.modo)return;
+      STATE.modo=modo;
+      Array.prototype.forEach.call(el('modos').querySelectorAll('button'),function(x){
+        x.classList.toggle('active',x.getAttribute('data-modo')===modo);
+      });
+      el('barra-campo').classList.toggle('hidden',modo!=='campo');
+      el('barra-cliente').classList.toggle('hidden',modo!=='cliente');
       recomecar();
-      return;
-    }
-    recomecar();
-    carregarCampos(STATE.idServico).catch(function(err){
-      console.error('Falha ao carregar os campos:',err);
-      toast('Não foi possível carregar os campos desse serviço.',true);
     });
   });
 
-  el('sel-campo').addEventListener('change',function(){
-    STATE.idTemplate=this.value;
-    var t=STATE.templates.filter(function(x){ return x.IdTemplate===STATE.idTemplate; })[0];
-    STATE.nomeCampo=t?(t.TextoPergunta||t.IdTemplate):'';
-    recomecar();
-  });
+  function baixarPagina(botao){
+    var atual=paginaAtual();
+    if(!atual||!atual.fotos.length)return;
+    zipar(atual.fotos,nomeDoZipDaPagina(),botao);
+  }
+  el('btn-baixar-pagina').addEventListener('click',function(){ baixarPagina(this); });
+  el('btn-baixar-pagina-2').addEventListener('click',function(){ baixarPagina(this); });
 
   el('pg-anterior').addEventListener('click',function(){ if(STATE.indice>0)irParaPagina(STATE.indice-1); });
   el('pg-proxima').addEventListener('click',function(){ irParaPagina(STATE.indice+1); });
-
-  // Baixar a página inteira dispara um clique por link já montado. Sem zip
-  // de propósito: exigiria uma biblioteca a mais só pra isso, e o navegador
-  // dá conta de 20 downloads seguidos.
-  el('btn-baixar-pagina').addEventListener('click',function(){
-    var atual=STATE.paginas[STATE.indice];
-    if(!atual||!atual.fotos.length)return;
-    var links=el('galeria').querySelectorAll('.baixar');
-    Array.prototype.forEach.call(links,function(a,i){
-      setTimeout(function(){ a.click(); },i*220);
-    });
-    toast('Baixando '+links.length+' foto(s). O navegador pode pedir permissão para vários downloads.');
-  });
 
   el('lb-fechar').addEventListener('click',function(){ el('lightbox').classList.remove('active'); el('lb-img').src=''; });
   el('lightbox').addEventListener('click',function(e){ if(e.target===this){ this.classList.remove('active'); el('lb-img').src=''; } });
   document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&el('lightbox').classList.contains('active')){ el('lightbox').classList.remove('active'); el('lb-img').src=''; } });
 
   // ══════════════ INÍCIO ══════════════
-  // Espera o Firebase Auth terminar de restaurar a sessão antes de qualquer
-  // leitura — senão a primeira query chega antes e as rules recusam.
   window.SGFireReady.then(function(user){
     if(!user){ window.location.replace('index.html'); return; }
     db=firebase.firestore();
-    return carregarServicos();
+    montarCombos();
+    comboCampo.habilitar(false,'Escolha o serviço primeiro');
+    comboOS.habilitar(false,'Escolha o cliente primeiro');
+    return Promise.all([carregarServicos(),carregarTemplates(),carregarAgendamentos()]);
   }).catch(function(err){
     console.error('Falha ao iniciar a galeria:',err);
-    toast('Não foi possível carregar os serviços: '+(err.message||err.code),true);
+    toast('Não foi possível carregar os dados: '+(err.message||err.code),true);
   });
 })();
 </script>
