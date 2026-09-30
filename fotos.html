@@ -46,18 +46,30 @@ svg{display:block;}
 .campo label{font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;}
 .espaco{flex:1;}
 
-/* combo com digitação — mesma ideia do SGCombo do painel (js/sg-auth.js),
-   copiado aqui porque esta página é standalone */
-.combo-wrap{position:relative;}
-.combo-wrap input{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:#fbfdfb;color:var(--ink);}
-.combo-wrap input:focus{outline:none;border-color:var(--accent);}
-.combo-wrap input:disabled{opacity:.55;background:#f4f7f4;}
-.combo-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;max-height:280px;overflow-y:auto;background:#fff;border:1px solid var(--line);border-radius:9px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:60;}
-.combo-item{padding:9px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid #f1f6f1;}
-.combo-item:last-child{border-bottom:none;}
-.combo-item:hover{background:var(--accent-soft);color:var(--accent-deep);}
-.combo-item .sub{display:block;font-size:11px;color:var(--ink-faint);margin-top:1px;}
-.combo-empty{padding:11px 12px;font-size:12.5px;color:var(--ink-faint);}
+/* Filtro de marcar vários. A busca por digitação é a mesma ideia do
+   SGCombo do painel (js/sg-auth.js), copiada aqui porque esta página é
+   standalone; o que muda é que cada linha tem caixa de marcar e a seleção
+   só é aplicada quando o menu fecha — senão marcar cinco serviços dispararia
+   cinco buscas, e cada busca traz imagem de verdade. */
+.multi{position:relative;}
+.multi-botao{width:100%;display:flex;align-items:center;gap:8px;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:#fbfdfb;color:var(--ink);font-size:13px;text-align:left;cursor:pointer;}
+.multi-botao:focus{outline:none;border-color:var(--accent);}
+.multi-botao:disabled{opacity:.55;cursor:not-allowed;}
+.multi-botao .multi-resumo{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.multi-botao .multi-resumo.sem-selecao{color:var(--ink-faint);}
+.multi-botao svg{width:15px;height:15px;flex:none;color:var(--ink-faint);}
+.multi-menu{position:absolute;top:calc(100% + 4px);left:0;right:0;min-width:280px;background:#fff;border:1px solid var(--line);border-radius:9px;box-shadow:0 8px 24px rgba(0,0,0,.14);z-index:60;overflow:hidden;}
+.multi-busca{width:100%;border:none;border-bottom:1px solid var(--line);padding:10px 12px;font-size:13px;background:#fbfdfb;}
+.multi-busca:focus{outline:none;background:#fff;}
+.multi-lista{max-height:260px;overflow-y:auto;}
+.multi-item{display:flex;align-items:flex-start;gap:9px;padding:9px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid #f1f6f1;}
+.multi-item:last-child{border-bottom:none;}
+.multi-item:hover{background:var(--accent-soft);}
+.multi-item input{margin-top:2px;flex:none;accent-color:var(--accent-deep);width:15px;height:15px;cursor:pointer;}
+.multi-item .txt{flex:1;line-height:1.35;}
+.multi-item .sub{display:block;font-size:11px;color:var(--ink-faint);margin-top:1px;}
+.multi-todos{font-weight:700;color:var(--sidebar-bg);background:#f7fbf3;border-bottom:1px solid var(--line);}
+.multi-vazio{padding:12px;font-size:12.5px;color:var(--ink-faint);}
 
 .btn{font-size:12.5px;border-radius:8px;padding:9px 14px;cursor:pointer;border:1.5px solid var(--line);background:#fff;color:var(--ink);font-weight:700;}
 .btn:hover:not(:disabled){background:var(--bg);}
@@ -128,19 +140,17 @@ svg{display:block;}
 
 <div class="barra" id="barra-campo">
   <div class="campo">
-    <label for="in-servico">Serviço</label>
-    <div class="combo-wrap">
-      <input type="text" id="in-servico" placeholder="Digite ou escolha…" autocomplete="off">
-      <input type="hidden" id="hid-servico">
-      <div class="combo-dropdown hidden" id="dd-servico"></div>
+    <label>Serviços</label>
+    <div class="multi" id="ms-servico">
+      <button type="button" class="multi-botao"><span class="multi-resumo sem-selecao"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+      <div class="multi-menu hidden"></div>
     </div>
   </div>
   <div class="campo">
-    <label for="in-campo">Campo de foto</label>
-    <div class="combo-wrap">
-      <input type="text" id="in-campo" placeholder="Escolha o serviço primeiro" autocomplete="off" disabled>
-      <input type="hidden" id="hid-campo">
-      <div class="combo-dropdown hidden" id="dd-campo"></div>
+    <label>Campos de foto</label>
+    <div class="multi" id="ms-campo">
+      <button type="button" class="multi-botao"><span class="multi-resumo sem-selecao"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+      <div class="multi-menu hidden"></div>
     </div>
   </div>
   <div class="espaco"></div>
@@ -149,19 +159,17 @@ svg{display:block;}
 
 <div class="barra hidden" id="barra-cliente">
   <div class="campo">
-    <label for="in-cliente">Cliente</label>
-    <div class="combo-wrap">
-      <input type="text" id="in-cliente" placeholder="Digite o nome do cliente…" autocomplete="off">
-      <input type="hidden" id="hid-cliente">
-      <div class="combo-dropdown hidden" id="dd-cliente"></div>
+    <label>Clientes</label>
+    <div class="multi" id="ms-cliente">
+      <button type="button" class="multi-botao"><span class="multi-resumo sem-selecao"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+      <div class="multi-menu hidden"></div>
     </div>
   </div>
   <div class="campo">
-    <label for="in-os">Ordem de serviço</label>
-    <div class="combo-wrap">
-      <input type="text" id="in-os" placeholder="Escolha o cliente primeiro" autocomplete="off" disabled>
-      <input type="hidden" id="hid-os">
-      <div class="combo-dropdown hidden" id="dd-os"></div>
+    <label>Ordens de serviço</label>
+    <div class="multi" id="ms-os">
+      <button type="button" class="multi-botao"><span class="multi-resumo sem-selecao"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+      <div class="multi-menu hidden"></div>
     </div>
   </div>
   <div class="espaco"></div>
@@ -243,13 +251,14 @@ svg{display:block;}
     modo:'campo',                 // 'campo' | 'cliente'
     servicos:[], servicosPorId:{},
     templates:[], templatesPorId:{},   // checklist inteiro, de todos os serviços
-    idServico:'', idTemplate:'', nomeCampo:'',
-    idCliente:'', nomeCliente:'', idOS:'',
+    idsServico:[], idsTemplate:[],      // vazio = nada escolhido ainda
+    idsCliente:[], idsOS:[],
     agendamentos:[],              // { id, idCliente, cliente, idServico, quando, dataTexto }
     agsPorId:{},
     clientesDoCadastro:{},        // fallback de nome, buscado em lotes
-    ordemAtual:[],                // OS candidatas, já ordenadas da mais nova pra mais velha
-    posicao:0,                    // até onde já varremos `ordemAtual`
+    candidatos:[],                // o que ainda pode virar foto, já na ordem certa
+    posicao:0,                    // até onde já varremos `candidatos`
+    sobra:[],                     // fotos já baixadas que não couberam na página
     paginas:[], indice:-1, fim:false, carregando:false
   };
 
@@ -284,41 +293,137 @@ svg{display:block;}
     return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
   }
 
-  // ══════════════ COMBO COM DIGITAÇÃO ══════════════
-  // Cópia enxuta do SGCombo (js/sg-auth.js). Esta página é standalone e não
-  // carrega aquele arquivo, mesma postura do resto do projeto.
-  function criarCombo(cfg){
-    var input=el(cfg.inputId), hidden=el(cfg.hiddenId), dd=el(cfg.dropdownId);
-    function render(filtro){
-      var termo=String(filtro||'').trim().toLowerCase();
-      var todas=cfg.getOpcoes()||[];
+  // ══════════════ FILTRO DE MARCAR VÁRIOS ══════════════
+  // Cada filtro é um menu com caixas de marcar, busca por digitação e um
+  // "Selecionar todos". A seleção é aplicada quando o menu FECHA, não a cada
+  // clique: cada aplicação dispara busca, e busca aqui traz imagem de verdade.
+  function criarMulti(cfg){
+    var raiz=el(cfg.id);
+    var botao=raiz.querySelector('.multi-botao');
+    var menu=raiz.querySelector('.multi-menu');
+    var selecionados=[], aberto=false, mudouDesdeQueAbriu=false, filtro='';
+
+    function opcoes(){ return cfg.getOpcoes()||[]; }
+    function resumo(){
+      var alvo=botao.querySelector('.multi-resumo');
+      var todas=opcoes();
+      var texto;
+      if(!selecionados.length)texto=cfg.rotuloVazio||'Nada selecionado';
+      else if(todas.length&&selecionados.length===todas.length)texto='Todos ('+todas.length+')';
+      else if(selecionados.length===1){
+        var unica=todas.filter(function(o){ return o.id===selecionados[0]; })[0];
+        texto=unica?unica.label:'1 selecionado';
+      }else texto=selecionados.length+' '+(cfg.plural||'selecionados');
+      alvo.textContent=texto;
+      alvo.classList.toggle('sem-selecao',!selecionados.length);
+    }
+    function desenhar(){
+      var termo=filtro.trim().toLowerCase();
+      var todas=opcoes();
       var lista=todas.filter(function(o){
         return !termo||String(o.label||'').toLowerCase().indexOf(termo)!==-1
                      ||String(o.sub||'').toLowerCase().indexOf(termo)!==-1;
-      }).slice(0,80);
-      dd.innerHTML=lista.length
-        ? lista.map(function(o){
-            return '<div class="combo-item" data-id="'+esc(o.id)+'" data-label="'+esc(o.label)+'">'+
-              esc(o.label)+(o.sub?'<span class="sub">'+esc(o.sub)+'</span>':'')+'</div>';
-          }).join('')
-        : '<div class="combo-empty">Nenhuma opção encontrada.</div>';
-      dd.classList.remove('hidden');
-      Array.prototype.forEach.call(dd.querySelectorAll('.combo-item'),function(item){
-        item.addEventListener('mousedown',function(e){
-          e.preventDefault();
-          hidden.value=item.getAttribute('data-id');
-          input.value=item.getAttribute('data-label');
-          dd.classList.add('hidden');
-          if(cfg.onSelecionar)cfg.onSelecionar(hidden.value,input.value);
+      });
+      var html='<input type="text" class="multi-busca" placeholder="'+esc(cfg.placeholderBusca||'Filtrar…')+'" value="'+esc(filtro)+'">';
+      if(!todas.length){
+        html+='<div class="multi-vazio">'+esc(cfg.rotuloSemOpcoes||'Nada para escolher aqui.')+'</div>';
+      }else if(!lista.length){
+        html+='<div class="multi-vazio">Nenhuma opção encontrada.</div>';
+      }else{
+        html+='<label class="multi-item multi-todos"><input type="checkbox" data-todos="1"><span class="txt">'+
+              (termo?(lista.length===1?'Selecionar o filtrado':'Selecionar os '+lista.length+' filtrados'):'Selecionar todos')+'</span></label>';
+        html+='<div class="multi-lista">'+lista.map(function(o){
+          return '<label class="multi-item"><input type="checkbox" data-id="'+esc(o.id)+'"'+
+            (selecionados.indexOf(o.id)!==-1?' checked':'')+'><span class="txt">'+esc(o.label)+
+            (o.sub?'<span class="sub">'+esc(o.sub)+'</span>':'')+'</span></label>';
+        }).join('')+'</div>';
+      }
+      menu.innerHTML=html;
+
+      var busca=menu.querySelector('.multi-busca');
+      if(busca){
+        busca.addEventListener('input',function(){ filtro=this.value; desenhar(); menu.querySelector('.multi-busca').focus(); });
+        busca.addEventListener('keydown',function(e){ if(e.key==='Escape'){ e.stopPropagation(); fechar(); } });
+      }
+      var todosBox=menu.querySelector('input[data-todos]');
+      // Marcar um item NÃO redesenha a lista: com o menu inteiro sendo
+      // recriado, a rolagem voltava ao topo e marcar cinco seguidos virava
+      // uma caça ao item. Só o resumo e o "selecionar todos" são atualizados.
+      function sincronizarTodos(){
+        if(!todosBox)return;
+        var marcados=lista.filter(function(o){ return selecionados.indexOf(o.id)!==-1; }).length;
+        todosBox.checked=lista.length>0&&marcados===lista.length;
+        todosBox.indeterminate=marcados>0&&marcados<lista.length;
+      }
+      Array.prototype.forEach.call(menu.querySelectorAll('input[data-id]'),function(c){
+        c.addEventListener('change',function(){
+          var id=c.getAttribute('data-id');
+          var i=selecionados.indexOf(id);
+          if(c.checked&&i===-1)selecionados.push(id);
+          if(!c.checked&&i!==-1)selecionados.splice(i,1);
+          mudouDesdeQueAbriu=true;
+          resumo(); sincronizarTodos();
         });
       });
+      if(todosBox){
+        sincronizarTodos();
+        todosBox.addEventListener('change',function(){
+          var ligar=todosBox.checked;
+          lista.forEach(function(o){
+            var i=selecionados.indexOf(o.id);
+            if(ligar&&i===-1)selecionados.push(o.id);
+            if(!ligar&&i!==-1)selecionados.splice(i,1);
+          });
+          mudouDesdeQueAbriu=true;
+          resumo();
+          // Aqui a lista inteira muda de estado, então as caixas precisam
+          // refletir isso — mas sem recriar o menu.
+          Array.prototype.forEach.call(menu.querySelectorAll('input[data-id]'),function(c){
+            c.checked=selecionados.indexOf(c.getAttribute('data-id'))!==-1;
+          });
+          todosBox.indeterminate=false;
+        });
+      }
     }
-    input.addEventListener('input',function(){ hidden.value=''; render(input.value); if(cfg.onLimpar)cfg.onLimpar(); });
-    input.addEventListener('focus',function(){ render(input.value); });
-    input.addEventListener('blur',function(){ setTimeout(function(){ dd.classList.add('hidden'); },150); });
+    function abrir(){
+      if(botao.disabled)return;
+      aberto=true; mudouDesdeQueAbriu=false; filtro='';
+      desenhar();
+      menu.classList.remove('hidden');
+      var b=menu.querySelector('.multi-busca'); if(b)b.focus();
+    }
+    function fechar(){
+      if(!aberto)return;
+      aberto=false;
+      menu.classList.add('hidden');
+      if(mudouDesdeQueAbriu&&cfg.onAplicar)cfg.onAplicar(selecionados.slice());
+      mudouDesdeQueAbriu=false;
+    }
+    botao.addEventListener('click',function(e){ e.stopPropagation(); if(aberto)fechar(); else abrir(); });
+    menu.addEventListener('click',function(e){ e.stopPropagation(); });
+    document.addEventListener('click',fechar);
+    document.addEventListener('keydown',function(e){ if(e.key==='Escape')fechar(); });
+
+    resumo();
     return {
-      limpar:function(){ hidden.value=''; input.value=''; dd.classList.add('hidden'); },
-      habilitar:function(liga,placeholder){ input.disabled=!liga; if(placeholder)input.placeholder=placeholder; }
+      valores:function(){ return selecionados.slice(); },
+      definir:function(ids){ selecionados=(ids||[]).slice(); resumo(); },
+      // Tira da seleção o que deixou de existir (ex.: campos de um serviço
+      // que foi desmarcado). Devolve true se algo saiu.
+      podar:function(){
+        var validos={}; opcoes().forEach(function(o){ validos[o.id]=true; });
+        var antes=selecionados.length;
+        selecionados=selecionados.filter(function(id){ return validos[id]; });
+        resumo();
+        return selecionados.length!==antes;
+      },
+      habilitar:function(liga,rotulo){
+        botao.disabled=!liga;
+        if(!liga){ selecionados=[]; menu.classList.add('hidden'); aberto=false; }
+        if(rotulo)cfg.rotuloVazio=rotulo;
+        resumo();
+      },
+      atualizarResumo:resumo
     };
   }
 
@@ -394,22 +499,27 @@ svg{display:block;}
     return (a&&a.cliente)||('OS '+String(idAg||'').slice(0,8));
   }
 
-  // ══════════════ OPÇÕES DOS COMBOS ══════════════
+  // ══════════════ OPÇÕES DOS FILTROS ══════════════
+
+  function ehCampoDeFoto(t){ return String(t.TipoInput||'').trim().toLowerCase()==='foto'; }
 
   function opcoesServico(){
     return STATE.servicos.map(function(s){ return {id:s.IdServico,label:s['Nome Servico']||s.IdServico}; });
   }
-  // Só os campos de FOTO do serviço escolhido: campo de texto nunca teve
-  // imagem pra mostrar e só poluía a lista.
+  // Os campos de foto dos serviços marcados, sem repetir. Campo de texto nunca
+  // teve imagem pra mostrar. Quando mais de um serviço está marcado, o nome do
+  // serviço entra embaixo — dois serviços costumam ter "Foto do medidor" com
+  // textos iguais e não daria pra saber qual é qual.
   function opcoesCampo(){
+    var varios=STATE.idsServico.length>1;
     return STATE.templates.filter(function(t){
-      return t.IdServico===STATE.idServico&&String(t.TipoInput||'').trim().toLowerCase()==='foto';
-    }).sort(function(a,b){ return (Number(a.Ordem)||0)-(Number(b.Ordem)||0); })
-      .map(function(t){ return {id:t.IdTemplate,label:t.TextoPergunta||t.IdTemplate}; });
-  }
-  function temCampoDeFoto(idServico){
-    return STATE.templates.some(function(t){
-      return t.IdServico===idServico&&String(t.TipoInput||'').trim().toLowerCase()==='foto';
+      return ehCampoDeFoto(t)&&STATE.idsServico.indexOf(t.IdServico)!==-1;
+    }).sort(function(a,b){
+      var s=String(STATE.servicosPorId[a.IdServico]||'').localeCompare(String(STATE.servicosPorId[b.IdServico]||''),'pt-BR');
+      return s||((Number(a.Ordem)||0)-(Number(b.Ordem)||0));
+    }).map(function(t){
+      return {id:t.IdTemplate,label:t.TextoPergunta||t.IdTemplate,
+              sub:varios?(STATE.servicosPorId[t.IdServico]||''):''};
     });
   }
   // Só clientes que têm agendamento — quem não tem OS não tem foto.
@@ -426,13 +536,14 @@ svg{display:block;}
     }).sort(function(a,b){ return a.label.localeCompare(b.label,'pt-BR'); });
   }
   function opcoesOS(){
-    if(!STATE.idCliente)return [];
-    return STATE.agendamentos.filter(function(a){ return a.idCliente===STATE.idCliente; })
+    if(!STATE.idsCliente.length)return [];
+    var variosClientes=STATE.idsCliente.length>1;
+    return STATE.agendamentos.filter(function(a){ return STATE.idsCliente.indexOf(a.idCliente)!==-1; })
       .sort(function(a,b){ return b.quando-a.quando; })
       .map(function(a){
         return {id:a.id,
           label:(STATE.servicosPorId[a.idServico]||'Serviço')+(a.dataTexto?(' · '+a.dataTexto):''),
-          sub:'OS '+a.id.slice(0,8)};
+          sub:variosClientes?(a.cliente||('OS '+a.id.slice(0,8))):('OS '+a.id.slice(0,8))};
       });
   }
 
@@ -452,67 +563,111 @@ svg{display:block;}
   // A ordem é decidida aqui, em memória, pelas datas já normalizadas — e as
   // respostas são buscadas pelo id do documento ({OS}_{campo}), que é exato
   // e não depende da ordem interna do Firestore.
-  function prepararOrdem(){
-    var lista;
+  //
+  // No modo "por campo" um candidato é o par OS + campo, porque a mesma OS
+  // pode ter foto em vários campos marcados. No modo "por cliente" o candidato
+  // é a OS inteira, já que ali se quer tudo que ela tiver.
+  function prepararCandidatos(){
+    var oss;
     if(STATE.modo==='campo'){
-      lista=STATE.agendamentos.filter(function(a){ return a.idServico===STATE.idServico; });
+      oss=STATE.agendamentos.filter(function(a){ return STATE.idsServico.indexOf(a.idServico)!==-1; });
     }else{
-      lista=STATE.agendamentos.filter(function(a){ return a.idCliente===STATE.idCliente; });
-      if(STATE.idOS)lista=lista.filter(function(a){ return a.id===STATE.idOS; });
+      oss=STATE.agendamentos.filter(function(a){ return STATE.idsCliente.indexOf(a.idCliente)!==-1; });
+      if(STATE.idsOS.length)oss=oss.filter(function(a){ return STATE.idsOS.indexOf(a.id)!==-1; });
     }
-    STATE.ordemAtual=lista.sort(function(a,b){ return b.quando-a.quando; });
+    oss.sort(function(a,b){ return b.quando-a.quando; });
+
+    if(STATE.modo==='cliente'){
+      STATE.candidatos=oss;
+    }else{
+      // Dentro de uma OS, os campos saem na ordem do checklist.
+      var campos=STATE.idsTemplate.slice().sort(function(x,y){
+        var a=STATE.templatesPorId[x]||{}, b=STATE.templatesPorId[y]||{};
+        return (Number(a.Ordem)||0)-(Number(b.Ordem)||0);
+      });
+      var pares=[];
+      oss.forEach(function(a){
+        campos.forEach(function(idT){
+          // Só faz sentido sondar o campo que pertence ao serviço daquela OS.
+          var t=STATE.templatesPorId[idT];
+          if(t&&t.IdServico&&t.IdServico!==a.idServico)return;
+          pares.push({os:a,idTemplate:idT});
+        });
+      });
+      STATE.candidatos=pares;
+    }
     STATE.posicao=0;
+    STATE.sobra=[];
   }
 
   function temFoto(v){ return !!v&&!!String(v.RespostaFoto||'').trim(); }
 
-  // Modo "por campo": uma OS tem no máximo uma resposta daquele campo, então
-  // dá pra ir direto no documento por id, sem varrer a coleção.
-  function buscarPaginaPorCampo(){
-    var achadas=[];
+  // Modo "por campo": cada candidato é um documento certo, buscado por id.
+  function buscarPaginaPorCampo(achadas){
     function rodada(){
-      if(achadas.length>=POR_PAGINA||STATE.posicao>=STATE.ordemAtual.length){
-        return Promise.resolve({fotos:achadas,fim:STATE.posicao>=STATE.ordemAtual.length});
+      if(achadas.length>=POR_PAGINA||STATE.posicao>=STATE.candidatos.length){
+        return Promise.resolve({fotos:achadas,fim:STATE.posicao>=STATE.candidatos.length});
       }
       // Sonda exatamente o que falta, nunca mais: cada acerto traz a imagem
       // junto, então pedir de sobra é banda baixada pra ser descartada.
       var falta=POR_PAGINA-achadas.length;
-      var lote=STATE.ordemAtual.slice(STATE.posicao,STATE.posicao+falta);
+      var lote=STATE.candidatos.slice(STATE.posicao,STATE.posicao+falta);
       STATE.posicao+=lote.length;
-      return Promise.all(lote.map(function(a){
-        return db.collection('agendamentos_respostas').doc(a.id+'_'+STATE.idTemplate).get()
-          .then(function(d){ return d.exists?Object.assign({},d.data(),{IdAgendamento:a.id}):null; })
+      return Promise.all(lote.map(function(c){
+        return db.collection('agendamentos_respostas').doc(c.os.id+'_'+c.idTemplate).get()
+          .then(function(d){ return d.exists?Object.assign({},d.data(),{IdAgendamento:c.os.id}):null; })
           .catch(function(){ return null; });
       })).then(function(res){
-        res.forEach(function(v){ if(temFoto(v)&&achadas.length<POR_PAGINA)achadas.push(v); });
+        res.forEach(function(v){ if(temFoto(v))achadas.push(v); });
         return rodada();
       });
     }
     return rodada();
   }
 
-  // Modo "por cliente": traz todas as respostas das OS dele e fica com as que
-  // têm foto. `in` aceita 30 ids por vez.
-  function buscarPaginaPorCliente(){
-    var achadas=[];
+  // Modo "por cliente": traz todas as respostas das OS e fica com as que têm
+  // foto. `in` aceita 30 ids por vez, mas o lote aqui é pequeno de propósito —
+  // uma OS pode ter dez fotos, e pedir trinta de uma vez baixaria dezenas de
+  // imagens que não caberiam na página. O que sobrar de um lote fica guardado
+  // pra próxima página em vez de ser jogado fora.
+  function buscarPaginaPorCliente(achadas){
     function rodada(){
-      if(achadas.length>=POR_PAGINA||STATE.posicao>=STATE.ordemAtual.length){
-        return Promise.resolve({fotos:achadas,fim:STATE.posicao>=STATE.ordemAtual.length});
-      }
-      var lote=STATE.ordemAtual.slice(STATE.posicao,STATE.posicao+30);
+      if(achadas.length>=POR_PAGINA)return Promise.resolve({fotos:achadas,fim:false});
+      if(STATE.posicao>=STATE.candidatos.length)return Promise.resolve({fotos:achadas,fim:true});
+      var lote=STATE.candidatos.slice(STATE.posicao,STATE.posicao+5);
       STATE.posicao+=lote.length;
       var ids=lote.map(function(a){ return a.id; });
       return db.collection('agendamentos_respostas').where('IdAgendamento','in',ids).get().then(function(snap){
         var doLote=[];
         snap.forEach(function(d){ var v=d.data()||{}; if(temFoto(v))doLote.push(v); });
-        // Dentro do lote, a ordem volta a ser a das OS (mais nova primeiro).
+        // Dentro do lote, volta pra ordem das OS (mais nova primeiro) e, dentro
+        // da OS, pela ordem do checklist.
         var pos={}; lote.forEach(function(a,i){ pos[a.id]=i; });
-        doLote.sort(function(x,y){ return (pos[x.IdAgendamento]||0)-(pos[y.IdAgendamento]||0); });
-        doLote.forEach(function(v){ if(achadas.length<POR_PAGINA)achadas.push(v); });
+        doLote.sort(function(x,y){
+          var d=(pos[x.IdAgendamento]||0)-(pos[y.IdAgendamento]||0);
+          if(d)return d;
+          var a=STATE.templatesPorId[x.IdTemplate]||{}, b=STATE.templatesPorId[y.IdTemplate]||{};
+          return (Number(a.Ordem)||0)-(Number(b.Ordem)||0);
+        });
+        doLote.forEach(function(v){ achadas.push(v); });
         return rodada();
       });
     }
     return rodada();
+  }
+
+  // Monta uma página aproveitando o que sobrou da anterior. Nada que já foi
+  // baixado é descartado.
+  function buscarPagina(){
+    var achadas=STATE.sobra.splice(0,POR_PAGINA);
+    if(achadas.length>=POR_PAGINA){
+      return Promise.resolve({fotos:achadas,fim:STATE.posicao>=STATE.candidatos.length&&!STATE.sobra.length});
+    }
+    var busca=STATE.modo==='campo'?buscarPaginaPorCampo:buscarPaginaPorCliente;
+    return busca(achadas).then(function(r){
+      if(r.fotos.length>POR_PAGINA)STATE.sobra=r.fotos.splice(POR_PAGINA);
+      return {fotos:r.fotos,fim:r.fim&&!STATE.sobra.length};
+    });
   }
 
   // ══════════════ NOMES DE ARQUIVO ══════════════
@@ -521,8 +676,9 @@ svg{display:block;}
     return String(txt||'').normalize('NFD').replace(/[̀-ͯ]/g,'')
       .replace(/[\/\\:*?"<>|]+/g,'-').replace(/\s+/g,' ').trim();
   }
+  // Sai sempre do template: com vários campos marcados, a mesma página mistura
+  // "Foto do medidor" com "Foto do telhado", e um rótulo fixo mentiria.
   function tituloDoCampo(foto){
-    if(STATE.modo==='campo')return STATE.nomeCampo;
     if(foto.ExtraNome)return foto.ExtraNome;
     var t=STATE.templatesPorId[foto.IdTemplate];
     return (t&&t.TextoPergunta)||foto.IdTemplate||'Campo';
@@ -541,10 +697,19 @@ svg{display:block;}
     if(t==='jpeg')return '.jpg';
     return '.'+t.replace(/[^a-z0-9]/g,'');
   }
+  // Com seleção múltipla o nome não cabe mais um item por filtro: quando há
+  // mais de um marcado, o zip leva a contagem em vez da lista inteira.
+  function resumoDeSelecao(ids, nomeDe, singular, plural){
+    if(!ids.length)return '';
+    if(ids.length===1)return nomeDe(ids[0])||singular;
+    return ids.length+' '+plural;
+  }
   function nomeDoZipDaPagina(){
     var partes=STATE.modo==='campo'
-      ? [STATE.servicosPorId[STATE.idServico]||'Servico', STATE.nomeCampo]
-      : [STATE.nomeCliente||'Cliente', STATE.idOS?('OS '+STATE.idOS.slice(0,8)):''];
+      ? [resumoDeSelecao(STATE.idsServico,function(id){ return STATE.servicosPorId[id]; },'Servico','servicos'),
+         resumoDeSelecao(STATE.idsTemplate,function(id){ var t=STATE.templatesPorId[id]; return t&&t.TextoPergunta; },'Campo','campos')]
+      : [resumoDeSelecao(STATE.idsCliente,function(id){ var a=STATE.agendamentos.filter(function(x){return x.idCliente===id;})[0]; return a&&a.cliente; },'Cliente','clientes'),
+         STATE.idsOS.length?resumoDeSelecao(STATE.idsOS,function(id){ return 'OS '+id.slice(0,8); },'OS','ordens de servico'):''];
     partes.push('pagina '+(STATE.indice+1));
     return limpar(partes.filter(Boolean).join(' - ')).slice(0,110)+'.zip';
   }
@@ -630,14 +795,16 @@ svg{display:block;}
   }
 
   function prontoParaBuscar(){
-    return STATE.modo==='campo' ? !!(STATE.idServico&&STATE.idTemplate) : !!STATE.idCliente;
+    return STATE.modo==='campo'
+      ? !!(STATE.idsServico.length&&STATE.idsTemplate.length)
+      : !!STATE.idsCliente.length;
   }
 
   function render(){
     if(!prontoParaBuscar()){
       mostrarVazio(STATE.modo==='campo'
-        ? 'Escolha um serviço e um campo de foto para ver as imagens.'
-        : 'Escolha um cliente para ver todas as fotos das ordens de serviço dele.');
+        ? (STATE.idsServico.length?'Marque pelo menos um campo de foto.':'Marque um ou mais serviços para começar.')
+        : 'Marque um ou mais clientes para ver as fotos das ordens de serviço deles.');
       return;
     }
     if(STATE.carregando){ mostrarVazio('Carregando as fotos…'); return; }
@@ -722,8 +889,7 @@ svg{display:block;}
     if(i<STATE.paginas.length){ STATE.indice=i; render(); return; }
     if(STATE.fim)return;
     STATE.carregando=true; render();
-    var busca=STATE.modo==='campo'?buscarPaginaPorCampo:buscarPaginaPorCliente;
-    busca().then(function(r){
+    buscarPagina().then(function(r){
       STATE.fim=r.fim;
       if(r.fotos.length){
         STATE.paginas.push({fotos:r.fotos});
@@ -744,50 +910,54 @@ svg{display:block;}
   function recomecar(){
     STATE.paginas=[]; STATE.indice=-1; STATE.fim=false;
     if(!prontoParaBuscar()){ render(); return; }
-    prepararOrdem();
+    prepararCandidatos();
     irParaPagina(0);
   }
 
   // ══════════════ COMBOS ══════════════
 
-  var comboServico,comboCampo,comboCliente,comboOS;
+  var filtroServico,filtroCampo,filtroCliente,filtroOS;
 
-  function montarCombos(){
-    comboServico=criarCombo({
-      inputId:'in-servico',hiddenId:'hid-servico',dropdownId:'dd-servico',
-      getOpcoes:opcoesServico,
-      onSelecionar:function(id){
-        STATE.idServico=id; STATE.idTemplate=''; STATE.nomeCampo='';
-        comboCampo.limpar();
+  function montarFiltros(){
+    filtroServico=criarMulti({
+      id:'ms-servico', getOpcoes:opcoesServico,
+      rotuloVazio:'Nenhum serviço', plural:'serviços', placeholderBusca:'Filtrar serviços…',
+      onAplicar:function(ids){
+        STATE.idsServico=ids;
+        // Campo que era de um serviço agora desmarcado sai junto, senão a
+        // galeria ficaria filtrando por algo que não está mais na tela.
+        filtroCampo.podar();
+        filtroCampo.habilitar(!!ids.length, ids.length?'Nenhum campo':'Marque um serviço antes');
+        STATE.idsTemplate=filtroCampo.valores();
         recomecar();
-        if(temCampoDeFoto(id))comboCampo.habilitar(true,'Digite ou escolha…');
-        else comboCampo.habilitar(false,'Esse serviço não tem campo de foto');
-      },
-      onLimpar:function(){ STATE.idServico=''; STATE.idTemplate=''; comboCampo.limpar(); comboCampo.habilitar(false,'Escolha o serviço primeiro'); recomecar(); }
+      }
     });
-    comboCampo=criarCombo({
-      inputId:'in-campo',hiddenId:'hid-campo',dropdownId:'dd-campo',
-      getOpcoes:opcoesCampo,
-      onSelecionar:function(id,label){ STATE.idTemplate=id; STATE.nomeCampo=label; recomecar(); },
-      onLimpar:function(){ STATE.idTemplate=''; recomecar(); }
+    filtroCampo=criarMulti({
+      id:'ms-campo', getOpcoes:opcoesCampo,
+      rotuloVazio:'Marque um serviço antes', plural:'campos', placeholderBusca:'Filtrar campos…',
+      rotuloSemOpcoes:'Os serviços marcados não têm campo de foto.',
+      onAplicar:function(ids){ STATE.idsTemplate=ids; recomecar(); }
     });
-    comboCliente=criarCombo({
-      inputId:'in-cliente',hiddenId:'hid-cliente',dropdownId:'dd-cliente',
-      getOpcoes:opcoesCliente,
-      onSelecionar:function(id,label){
-        STATE.idCliente=id; STATE.nomeCliente=label; STATE.idOS='';
-        comboOS.limpar();
-        comboOS.habilitar(true,'Todas as OS deste cliente');
+    filtroCliente=criarMulti({
+      id:'ms-cliente', getOpcoes:opcoesCliente,
+      rotuloVazio:'Nenhum cliente', plural:'clientes', placeholderBusca:'Filtrar clientes…',
+      onAplicar:function(ids){
+        STATE.idsCliente=ids;
+        filtroOS.podar();
+        filtroOS.habilitar(!!ids.length, ids.length?'Todas as OS':'Marque um cliente antes');
+        STATE.idsOS=filtroOS.valores();
         recomecar();
-      },
-      onLimpar:function(){ STATE.idCliente=''; STATE.idOS=''; comboOS.limpar(); comboOS.habilitar(false,'Escolha o cliente primeiro'); recomecar(); }
+      }
     });
-    comboOS=criarCombo({
-      inputId:'in-os',hiddenId:'hid-os',dropdownId:'dd-os',
-      getOpcoes:opcoesOS,
-      onSelecionar:function(id){ STATE.idOS=id; recomecar(); },
-      onLimpar:function(){ STATE.idOS=''; recomecar(); }
+    filtroOS=criarMulti({
+      id:'ms-os', getOpcoes:opcoesOS,
+      // Sem nenhuma OS marcada, valem todas as do cliente — é o caso comum
+      // ("quero tudo dele") e evita obrigar a marcar item por item.
+      rotuloVazio:'Todas as OS', plural:'ordens de serviço', placeholderBusca:'Filtrar ordens…',
+      onAplicar:function(ids){ STATE.idsOS=ids; recomecar(); }
     });
+    filtroCampo.habilitar(false,'Marque um serviço antes');
+    filtroOS.habilitar(false,'Marque um cliente antes');
   }
 
   // ══════════════ AÇÕES ══════════════
@@ -825,9 +995,7 @@ svg{display:block;}
   window.SGFireReady.then(function(user){
     if(!user){ window.location.replace('index.html'); return; }
     db=firebase.firestore();
-    montarCombos();
-    comboCampo.habilitar(false,'Escolha o serviço primeiro');
-    comboOS.habilitar(false,'Escolha o cliente primeiro');
+    montarFiltros();
     return Promise.all([carregarServicos(),carregarTemplates(),carregarAgendamentos()]);
   }).catch(function(err){
     console.error('Falha ao iniciar a galeria:',err);
