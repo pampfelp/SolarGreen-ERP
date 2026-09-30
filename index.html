@@ -1081,17 +1081,26 @@
   </header>
 
   <div class="kpis" id="cl-kpiRow">
-    <div class="kpi"><div class="tag">Total</div><div class="num" id="cl-kpiTotal">0</div><div class="sub">clientes cadastrados</div><div class="bar"></div></div>
+    <div class="kpi"><div class="tag">Total</div><div class="num" id="cl-kpiTotal">0</div><div class="sub" id="cl-kpiTotalSub">clientes cadastrados</div><div class="bar"></div></div>
     <div class="kpi"><div class="tag">Lead</div><div class="num" id="cl-kpiLead">0</div><div class="sub">ainda não fechou</div><div class="bar" style="background:var(--warn);"></div></div>
     <div class="kpi"><div class="tag">Cliente</div><div class="num" id="cl-kpiCliente">0</div><div class="sub">negócio fechado</div><div class="bar" style="background:var(--accent);"></div></div>
     <div class="kpi"><div class="tag">Inativo</div><div class="num" id="cl-kpiInativo">0</div><div class="sub">sem operação ativa</div><div class="bar" style="background:var(--debit);"></div></div>
+  </div>
+
+  <div class="filters">
+    <div class="field"><label>Status</label><select id="cl-selStatus"><option value="__all__">Todos os status</option></select></div>
+    <div class="field"><label>Origem</label><select id="cl-selOrigem"><option value="__all__">Todas as origens</option></select></div>
+    <div class="field"><label>Vendedor</label><select id="cl-selVendedor"><option value="__all__">Todos os vendedores</option></select></div>
+    <div class="field"><label>Tipo de pessoa</label><select id="cl-selTipo"><option value="__all__">Física e jurídica</option></select></div>
+    <div class="spacer"></div>
+    <button class="reset-btn" id="cl-resetFiltros">Limpar filtros</button>
   </div>
 
   <div class="section-head">
     <h2>Clientes <span id="cl-tableTitle">cadastrados</span></h2>
     <div class="hint" id="cl-tableHint"></div>
     <div class="spacer"></div>
-    <input type="text" id="cl-buscaFiltro" placeholder="Buscar nome, telefone, e-mail, vendedor, status…" style="max-width:280px;font-size:13px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;margin-right:8px;">
+    <input type="text" id="cl-buscaFiltro" placeholder="Buscar nome, telefone, e-mail, vendedor, origem, status…" style="max-width:280px;font-size:13px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;margin-right:8px;">
     <button class="connect-btn" id="cl-novoBtn">+ Novo cliente</button>
   </div>
   <div class="table-wrap">
@@ -1102,6 +1111,7 @@
         <th class="sortable" data-sort="telefone">Telefone<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
         <th class="sortable" data-sort="email">E-mail<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
         <th class="sortable" data-sort="vendedor">Vendedor<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        <th class="sortable" data-sort="origem">Origem<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
         <th class="sortable" data-sort="status">Status<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
       </tr></thead>
       <tbody id="cl-tbody"></tbody>
@@ -1954,7 +1964,7 @@
 <script src="js/vendas.js?v=20260929b"></script>
 <script src="js/funil.js?v=20260928b"></script>
 <script src="js/agendamentos.js?v=20260924a"></script>
-<script src="js/clientes.js?v=20260901a"></script>
+<script src="js/clientes.js?v=20260930a"></script>
 <script src="js/relatorios.js?v=20260829f"></script>
 <script src="js/custos-venda.js?v=20260903a"></script>
 <script src="js/custo-recorrente.js?v=20260829f"></script>
