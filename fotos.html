@@ -54,7 +54,7 @@ svg{display:block;}
 .multi{position:relative;}
 .multi-botao{width:100%;display:flex;align-items:center;gap:8px;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:#fbfdfb;color:var(--ink);font-size:13px;text-align:left;cursor:pointer;}
 .multi-botao:focus{outline:none;border-color:var(--accent);}
-.multi-botao:disabled{opacity:.55;cursor:not-allowed;}
+.multi-botao.travado{opacity:.55;cursor:not-allowed;}
 .multi-botao .multi-resumo{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .multi-botao .multi-resumo.sem-selecao{color:var(--ink-faint);}
 .multi-botao svg{width:15px;height:15px;flex:none;color:var(--ink-faint);}
@@ -297,11 +297,21 @@ svg{display:block;}
   // Cada filtro é um menu com caixas de marcar, busca por digitação e um
   // "Selecionar todos". A seleção é aplicada quando o menu FECHA, não a cada
   // clique: cada aplicação dispara busca, e busca aqui traz imagem de verdade.
+  //
+  // Só um menu fica aberto por vez. Com dois abertos, dava pra mexer no
+  // filtro de campos enquanto o de serviços ainda não tinha sido aplicado —
+  // e aí os campos listados eram os do serviço ANTERIOR.
+  var menusAbertos=[];
+  function fecharOutrosMenus(menosEste){
+    menusAbertos.slice().forEach(function(m){ if(m!==menosEste)m.fechar(); });
+  }
+
   function criarMulti(cfg){
     var raiz=el(cfg.id);
     var botao=raiz.querySelector('.multi-botao');
     var menu=raiz.querySelector('.multi-menu');
-    var selecionados=[], aberto=false, mudouDesdeQueAbriu=false, filtro='';
+    var selecionados=[], aberto=false, mudouDesdeQueAbriu=false;
+    var campoBusca=null, areaLista=null, todosBox=null, listaVisivel=[];
 
     function opcoes(){ return cfg.getOpcoes()||[]; }
     function resumo(){
@@ -317,45 +327,75 @@ svg{display:block;}
       alvo.textContent=texto;
       alvo.classList.toggle('sem-selecao',!selecionados.length);
     }
-    function desenhar(){
-      var termo=filtro.trim().toLowerCase();
+
+    // A estrutura do menu (busca + cabeçalho + área da lista) é montada UMA
+    // vez por abertura. O campo de busca nunca é recriado enquanto se digita:
+    // recriá-lo devolvia o cursor pra posição zero, e cada letra nova entrava
+    // antes da anterior — digitar "abc" saía "cba".
+    function montar(){
+      menu.innerHTML=
+        '<input type="text" class="multi-busca" placeholder="'+esc(cfg.placeholderBusca||'Filtrar…')+'">'+
+        '<label class="multi-item multi-todos hidden"><input type="checkbox" data-todos="1"><span class="txt"></span></label>'+
+        '<div class="multi-lista"></div>';
+      campoBusca=menu.querySelector('.multi-busca');
+      areaLista=menu.querySelector('.multi-lista');
+      todosBox=menu.querySelector('input[data-todos]');
+
+      campoBusca.addEventListener('input',function(){ desenharLista(); });
+      campoBusca.addEventListener('keydown',function(e){ if(e.key==='Escape'){ e.stopPropagation(); fechar(); } });
+
+      todosBox.addEventListener('change',function(){
+        var ligar=todosBox.checked;
+        listaVisivel.forEach(function(o){
+          var i=selecionados.indexOf(o.id);
+          if(ligar&&i===-1)selecionados.push(o.id);
+          if(!ligar&&i!==-1)selecionados.splice(i,1);
+        });
+        mudouDesdeQueAbriu=true;
+        resumo();
+        Array.prototype.forEach.call(areaLista.querySelectorAll('input[data-id]'),function(c){
+          c.checked=selecionados.indexOf(c.getAttribute('data-id'))!==-1;
+        });
+        todosBox.indeterminate=false;
+      });
+    }
+
+    function sincronizarTodos(){
+      var marcados=listaVisivel.filter(function(o){ return selecionados.indexOf(o.id)!==-1; }).length;
+      todosBox.checked=listaVisivel.length>0&&marcados===listaVisivel.length;
+      todosBox.indeterminate=marcados>0&&marcados<listaVisivel.length;
+    }
+
+    // Só a lista é redesenhada ao filtrar. Marcar uma caixa não redesenha
+    // nada: com o menu sendo recriado, a rolagem voltava ao topo e marcar
+    // vários seguidos virava caça ao item.
+    function desenharLista(){
+      var termo=(campoBusca.value||'').trim().toLowerCase();
       var todas=opcoes();
-      var lista=todas.filter(function(o){
+      listaVisivel=todas.filter(function(o){
         return !termo||String(o.label||'').toLowerCase().indexOf(termo)!==-1
                      ||String(o.sub||'').toLowerCase().indexOf(termo)!==-1;
       });
-      var html='<input type="text" class="multi-busca" placeholder="'+esc(cfg.placeholderBusca||'Filtrar…')+'" value="'+esc(filtro)+'">';
+      var rotuloTodos=menu.querySelector('.multi-todos');
       if(!todas.length){
-        html+='<div class="multi-vazio">'+esc(cfg.rotuloSemOpcoes||'Nada para escolher aqui.')+'</div>';
-      }else if(!lista.length){
-        html+='<div class="multi-vazio">Nenhuma opção encontrada.</div>';
-      }else{
-        html+='<label class="multi-item multi-todos"><input type="checkbox" data-todos="1"><span class="txt">'+
-              (termo?(lista.length===1?'Selecionar o filtrado':'Selecionar os '+lista.length+' filtrados'):'Selecionar todos')+'</span></label>';
-        html+='<div class="multi-lista">'+lista.map(function(o){
-          return '<label class="multi-item"><input type="checkbox" data-id="'+esc(o.id)+'"'+
-            (selecionados.indexOf(o.id)!==-1?' checked':'')+'><span class="txt">'+esc(o.label)+
-            (o.sub?'<span class="sub">'+esc(o.sub)+'</span>':'')+'</span></label>';
-        }).join('')+'</div>';
+        rotuloTodos.classList.add('hidden');
+        areaLista.innerHTML='<div class="multi-vazio">'+esc(cfg.rotuloSemOpcoes||'Nada para escolher aqui.')+'</div>';
+        return;
       }
-      menu.innerHTML=html;
-
-      var busca=menu.querySelector('.multi-busca');
-      if(busca){
-        busca.addEventListener('input',function(){ filtro=this.value; desenhar(); menu.querySelector('.multi-busca').focus(); });
-        busca.addEventListener('keydown',function(e){ if(e.key==='Escape'){ e.stopPropagation(); fechar(); } });
+      if(!listaVisivel.length){
+        rotuloTodos.classList.add('hidden');
+        areaLista.innerHTML='<div class="multi-vazio">Nenhuma opção encontrada.</div>';
+        return;
       }
-      var todosBox=menu.querySelector('input[data-todos]');
-      // Marcar um item NÃO redesenha a lista: com o menu inteiro sendo
-      // recriado, a rolagem voltava ao topo e marcar cinco seguidos virava
-      // uma caça ao item. Só o resumo e o "selecionar todos" são atualizados.
-      function sincronizarTodos(){
-        if(!todosBox)return;
-        var marcados=lista.filter(function(o){ return selecionados.indexOf(o.id)!==-1; }).length;
-        todosBox.checked=lista.length>0&&marcados===lista.length;
-        todosBox.indeterminate=marcados>0&&marcados<lista.length;
-      }
-      Array.prototype.forEach.call(menu.querySelectorAll('input[data-id]'),function(c){
+      rotuloTodos.classList.remove('hidden');
+      rotuloTodos.querySelector('.txt').textContent=
+        termo?(listaVisivel.length===1?'Selecionar o filtrado':'Selecionar os '+listaVisivel.length+' filtrados')
+             :'Selecionar todos';
+      areaLista.innerHTML=listaVisivel.map(function(o){
+        return '<label class="multi-item"><input type="checkbox" data-id="'+esc(o.id)+'"'+
+          (selecionados.indexOf(o.id)!==-1?' checked':'')+'><span class="txt">'+esc(o.label)+'</span></label>';
+      }).join('');
+      Array.prototype.forEach.call(areaLista.querySelectorAll('input[data-id]'),function(c){
         c.addEventListener('change',function(){
           var id=c.getAttribute('data-id');
           var i=selecionados.indexOf(id);
@@ -365,66 +405,67 @@ svg{display:block;}
           resumo(); sincronizarTodos();
         });
       });
-      if(todosBox){
-        sincronizarTodos();
-        todosBox.addEventListener('change',function(){
-          var ligar=todosBox.checked;
-          lista.forEach(function(o){
-            var i=selecionados.indexOf(o.id);
-            if(ligar&&i===-1)selecionados.push(o.id);
-            if(!ligar&&i!==-1)selecionados.splice(i,1);
-          });
-          mudouDesdeQueAbriu=true;
-          resumo();
-          // Aqui a lista inteira muda de estado, então as caixas precisam
-          // refletir isso — mas sem recriar o menu.
-          Array.prototype.forEach.call(menu.querySelectorAll('input[data-id]'),function(c){
-            c.checked=selecionados.indexOf(c.getAttribute('data-id'))!==-1;
-          });
-          todosBox.indeterminate=false;
-        });
-      }
+      sincronizarTodos();
     }
+
     function abrir(){
-      if(botao.disabled)return;
-      aberto=true; mudouDesdeQueAbriu=false; filtro='';
-      desenhar();
+      if(botao.classList.contains('travado'))return;
+      aberto=true; mudouDesdeQueAbriu=false;
+      montar();
+      desenharLista();
       menu.classList.remove('hidden');
-      var b=menu.querySelector('.multi-busca'); if(b)b.focus();
+      menusAbertos.push(instancia);
+      campoBusca.focus();
     }
     function fechar(){
       if(!aberto)return;
       aberto=false;
       menu.classList.add('hidden');
+      var i=menusAbertos.indexOf(instancia);
+      if(i!==-1)menusAbertos.splice(i,1);
       if(mudouDesdeQueAbriu&&cfg.onAplicar)cfg.onAplicar(selecionados.slice());
       mudouDesdeQueAbriu=false;
     }
-    botao.addEventListener('click',function(e){ e.stopPropagation(); if(aberto)fechar(); else abrir(); });
+
+    botao.addEventListener('click',function(e){
+      e.stopPropagation();
+      if(aberto){ fechar(); return; }
+      // Fecha o outro menu PRIMEIRO, e é esse fechamento que aplica a seleção
+      // dele. Importa quando este botão ainda está desabilitado: clicar em
+      // "campos" com o menu de "serviços" aberto não fazia nada, porque o
+      // clique era ignorado antes de os serviços serem aplicados.
+      fecharOutrosMenus(instancia);
+      abrir();
+    });
     menu.addEventListener('click',function(e){ e.stopPropagation(); });
     document.addEventListener('click',fechar);
     document.addEventListener('keydown',function(e){ if(e.key==='Escape')fechar(); });
 
-    resumo();
-    return {
+    var instancia={
+      fechar:fechar,
       valores:function(){ return selecionados.slice(); },
       definir:function(ids){ selecionados=(ids||[]).slice(); resumo(); },
       // Tira da seleção o que deixou de existir (ex.: campos de um serviço
-      // que foi desmarcado). Devolve true se algo saiu.
+      // que foi desmarcado).
       podar:function(){
         var validos={}; opcoes().forEach(function(o){ validos[o.id]=true; });
-        var antes=selecionados.length;
         selecionados=selecionados.filter(function(id){ return validos[id]; });
         resumo();
-        return selecionados.length!==antes;
       },
       habilitar:function(liga,rotulo){
-        botao.disabled=!liga;
+        // Classe, não o atributo `disabled`: botão desabilitado de verdade não
+        // dispara clique nenhum, e era nesse clique que o menu vizinho tinha
+        // que fechar e aplicar o que estava pendente.
+        botao.classList.toggle('travado',!liga);
+        botao.setAttribute('aria-disabled',liga?'false':'true');
         if(!liga){ selecionados=[]; menu.classList.add('hidden'); aberto=false; }
         if(rotulo)cfg.rotuloVazio=rotulo;
         resumo();
       },
       atualizarResumo:resumo
     };
+    resumo();
+    return instancia;
   }
 
   // ══════════════ CARGA BASE ══════════════
@@ -506,10 +547,10 @@ svg{display:block;}
   function opcoesServico(){
     return STATE.servicos.map(function(s){ return {id:s.IdServico,label:s['Nome Servico']||s.IdServico}; });
   }
-  // Os campos de foto dos serviços marcados, sem repetir. Campo de texto nunca
-  // teve imagem pra mostrar. Quando mais de um serviço está marcado, o nome do
-  // serviço entra embaixo — dois serviços costumam ter "Foto do medidor" com
-  // textos iguais e não daria pra saber qual é qual.
+  // Os campos de foto dos serviços marcados. Campo de texto nunca teve imagem
+  // pra mostrar. Com mais de um serviço marcado, o nome do serviço entra na
+  // MESMA linha, entre parênteses: dois serviços costumam ter campos com
+  // texto igual ("Foto do medidor") e não daria pra saber qual é qual.
   function opcoesCampo(){
     var varios=STATE.idsServico.length>1;
     return STATE.templates.filter(function(t){
@@ -518,8 +559,9 @@ svg{display:block;}
       var s=String(STATE.servicosPorId[a.IdServico]||'').localeCompare(String(STATE.servicosPorId[b.IdServico]||''),'pt-BR');
       return s||((Number(a.Ordem)||0)-(Number(b.Ordem)||0));
     }).map(function(t){
-      return {id:t.IdTemplate,label:t.TextoPergunta||t.IdTemplate,
-              sub:varios?(STATE.servicosPorId[t.IdServico]||''):''};
+      var nome=t.TextoPergunta||t.IdTemplate;
+      var servico=STATE.servicosPorId[t.IdServico]||'';
+      return {id:t.IdTemplate, label:(varios&&servico)?(nome+' ('+servico+')'):nome};
     });
   }
   // Só clientes que têm agendamento — quem não tem OS não tem foto.
