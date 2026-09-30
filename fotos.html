@@ -656,7 +656,7 @@ svg{display:block;}
         '<div class="info"><span class="cliente">'+esc(titulo)+'</span><span class="meta">'+esc(meta)+'</span></div>'+
         '<div class="acoes"><button type="button" class="baixar" data-i="'+i+'">'+
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'+
-          'Baixar (.zip)</button></div>'+
+          'Baixar</button></div>'+
       '</div>';
     }).join('');
 
@@ -696,11 +696,14 @@ svg{display:block;}
       });
     });
 
+    // Uma foto só desce como imagem mesmo. O zip fica para o lote, onde
+    // poupa vinte cliques de "salvar" seguidos.
     Array.prototype.forEach.call(galeria.querySelectorAll('.baixar'),function(b){
       b.addEventListener('click',function(){
         var f=atual.fotos[Number(b.getAttribute('data-i'))];
-        var base=nomeDaFoto(f);
-        zipar([f],base.slice(0,base.lastIndexOf('.'))+'.zip',b);
+        var a=document.createElement('a');
+        a.href=f.RespostaFoto; a.download=nomeDaFoto(f);
+        document.body.appendChild(a); a.click(); a.remove();
       });
     });
 
