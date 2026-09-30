@@ -14,6 +14,11 @@
   var editandoId=null;
   var paginaAtual=1, ITENS_POR_PAGINA=10;
   var buscaFiltro='';
+  // Filtros da barra (2026-09-30). '__all__' = sem filtro. O valor '__vazio__'
+  // alcança os registros com o campo em branco — sem ele, uma fatia grande do
+  // cadastro ficaria fora de qualquer filtro e invisível pra quem filtra.
+  var filtros={status:'__all__',origem:'__all__',vendedor:'__all__',tipo:'__all__'};
+  var SEM_VALOR='__vazio__';
   var sortState={col:'nome',dir:'asc'};
   var APP_VERSION='2026-07-16-1';
 
@@ -76,6 +81,7 @@
       if(col==='telefone'){va=a.Telefone||'';vb=b.Telefone||'';return mult*va.localeCompare(vb,'pt-BR');}
       if(col==='email'){va=a.Email||'';vb=b.Email||'';return mult*va.localeCompare(vb,'pt-BR');}
       if(col==='vendedor'){va=nomeVendedor(a['Vendedor Responsavel']);vb=nomeVendedor(b['Vendedor Responsavel']);return mult*va.localeCompare(vb,'pt-BR');}
+      if(col==='origem'){va=a.Origem||'';vb=b.Origem||'';return mult*va.localeCompare(vb,'pt-BR');}
       if(col==='status'){va=a['Status Cliente']||'';vb=b['Status Cliente']||'';return mult*va.localeCompare(vb,'pt-BR');}
       return 0;
     });
@@ -102,29 +108,93 @@
   function textoBuscavelCliente(c){
     return normalizaBuscaCl([
       c['Nome Razao Social']||c.Nome, c['Tipo Pessoa'], c.Telefone, c.Email,
-      nomeVendedor(c['Vendedor Responsavel']), c['Status Cliente']
+      nomeVendedor(c['Vendedor Responsavel']), c.Origem, c['Status Cliente']
     ].join(' | '));
   }
 
-  // KPIs sempre sobre a lista COMPLETA (nunca sobre o resultado da busca) —
-  // assim continuam respondendo "quanto no total, por status" mesmo enquanto
-  // a pessoa usa a busca pra achar um cliente específico embaixo.
-  function renderKpisClientes(){
+  // KPIs nunca contam o resultado da BUSCA: buscar é procurar um cliente
+  // específico, e o total geral tem que continuar visível enquanto isso.
+  // Já um FILTRO é um recorte de análise ("quanto veio de tráfego pago?"),
+  // então desde 2026-09-30 os KPIs contam a lista filtrada e o subtítulo do
+  // total avisa quando está sobre um recorte.
+  function renderKpisClientes(lista){
     var porStatus={Lead:0,Cliente:0,Inativo:0};
-    clientes.forEach(function(c){
+    lista.forEach(function(c){
       var s=(c['Status Cliente']||'').trim();
       if(porStatus[s]!==undefined)porStatus[s]++;
     });
-    document.getElementById('cl-kpiTotal').textContent=clientes.length;
+    document.getElementById('cl-kpiTotal').textContent=lista.length;
     document.getElementById('cl-kpiLead').textContent=porStatus.Lead;
     document.getElementById('cl-kpiCliente').textContent=porStatus.Cliente;
     document.getElementById('cl-kpiInativo').textContent=porStatus.Inativo;
+    var sub=document.getElementById('cl-kpiTotalSub');
+    if(sub)sub.textContent=temFiltroAtivo()?'no filtro, de '+clientes.length:'clientes cadastrados';
+  }
+
+  function temFiltroAtivo(){
+    return Object.keys(filtros).some(function(k){ return filtros[k]!=='__all__'; });
+  }
+
+  // Aplica só os filtros da barra — a busca entra depois, em render().
+  function aplicarFiltrosCl(lista){
+    return lista.filter(function(c){
+      var origem=(c.Origem||'').trim();
+      var status=(c['Status Cliente']||'').trim();
+      var vend=(c['Vendedor Responsavel']||'').trim();
+      var tipo=(c['Tipo Pessoa']||'').trim();
+      if(filtros.status!=='__all__'&&(filtros.status===SEM_VALOR?status!=='':status!==filtros.status))return false;
+      if(filtros.origem!=='__all__'&&(filtros.origem===SEM_VALOR?origem!=='':origem!==filtros.origem))return false;
+      if(filtros.vendedor!=='__all__'&&(filtros.vendedor===SEM_VALOR?vend!=='':vend!==filtros.vendedor))return false;
+      if(filtros.tipo!=='__all__'&&(filtros.tipo===SEM_VALOR?tipo!=='':tipo!==filtros.tipo))return false;
+      return true;
+    });
+  }
+
+  // Monta as opções a partir do que existe no cadastro, e não de uma lista
+  // fixa — origem é campo livre no modal, então inventar a lista aqui deixaria
+  // valores reais de fora. Mantém o que já estava escolhido se ainda existir.
+  function popularFiltrosCl(){
+    function preencher(id, valores, rotuloTodos, rotuloVazio, chave, rotuloDe){
+      var sel=document.getElementById(id);
+      if(!sel)return;
+      var atual=filtros[chave];
+      var html='<option value="__all__">'+escapeHtml(rotuloTodos)+'</option>';
+      valores.forEach(function(v){
+        html+='<option value="'+escapeHtml(v)+'">'+escapeHtml(rotuloDe?rotuloDe(v):v)+'</option>';
+      });
+      if(rotuloVazio)html+='<option value="'+SEM_VALOR+'">'+escapeHtml(rotuloVazio)+'</option>';
+      sel.innerHTML=html;
+      var existe=atual==='__all__'||atual===SEM_VALOR||valores.indexOf(atual)!==-1;
+      sel.value=existe?atual:'__all__';
+      filtros[chave]=sel.value;
+    }
+    function distintos(fn,rotuloDe){
+      var vistos={};
+      clientes.forEach(function(c){ var v=(fn(c)||'').trim(); if(v)vistos[v]=true; });
+      return Object.keys(vistos).sort(function(a,b){
+        var ra=rotuloDe?rotuloDe(a):a, rb=rotuloDe?rotuloDe(b):b;
+        return String(ra).localeCompare(String(rb),'pt-BR');
+      });
+    }
+    function temVazio(fn){ return clientes.some(function(c){ return !(fn(c)||'').trim(); }); }
+
+    var fStatus=function(c){return c['Status Cliente'];};
+    var fOrigem=function(c){return c.Origem;};
+    var fVend=function(c){return c['Vendedor Responsavel'];};
+    var fTipo=function(c){return c['Tipo Pessoa'];};
+
+    preencher('cl-selStatus',distintos(fStatus),'Todos os status',temVazio(fStatus)?'(sem status)':'','status');
+    preencher('cl-selOrigem',distintos(fOrigem),'Todas as origens',temVazio(fOrigem)?'(sem origem)':'','origem');
+    preencher('cl-selVendedor',distintos(fVend,nomeVendedor),'Todos os vendedores',temVazio(fVend)?'(sem vendedor)':'','vendedor',nomeVendedor);
+    preencher('cl-selTipo',distintos(fTipo),'Física e jurídica',temVazio(fTipo)?'(sem tipo)':'','tipo');
   }
 
   function render(){
-    renderKpisClientes();
+    // Os filtros da barra valem pros KPIs e pra tabela; a busca, só pra tabela.
+    var noFiltro=aplicarFiltrosCl(clientes);
+    renderKpisClientes(noFiltro);
     var termo=normalizaBuscaCl(buscaFiltro).trim();
-    var filtrados=clientes.filter(function(c){
+    var filtrados=noFiltro.filter(function(c){
       if(!termo)return true;
       return textoBuscavelCliente(c).indexOf(termo)!==-1;
     });
@@ -141,7 +211,7 @@
 
     var tbody=document.getElementById('cl-tbody');
     if(!pagina.length){
-      tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--ink-faint);padding:30px;">Nenhum cliente encontrado.</td></tr>';
+      tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--ink-faint);padding:30px;">Nenhum cliente encontrado.</td></tr>';
       renderPaginacao(0);
       return;
     }
@@ -154,6 +224,7 @@
         '<td>'+escapeHtml(c.Telefone||'—')+'</td>'+
         '<td style="font-size:12.5px;color:var(--ink-soft);">'+escapeHtml(c.Email||'—')+'</td>'+
         '<td>'+escapeHtml(nomeVendedor(c['Vendedor Responsavel']))+'</td>'+
+        '<td style="font-size:12.5px;color:var(--ink-soft);">'+escapeHtml(c.Origem||'—')+'</td>'+
         '<td><span class="ag-status-tag '+statusClass+'">'+escapeHtml(status||'—')+'</span></td>'+
       '</tr>';
     }).join('');
@@ -518,6 +589,7 @@
     vendedoresMap={};(resp.vendedores||[]).forEach(function(v){if(v.IdVendedor)vendedoresMap[v.IdVendedor]=v;});
     document.getElementById('cl-emptyState').style.display='none';
     document.getElementById('cl-appVersion').textContent='v'+APP_VERSION;
+    popularFiltrosCl();
     render();
   }
 
@@ -551,6 +623,18 @@
     document.getElementById('cm-confirmarDiferente').addEventListener('change',verificarDuplicidadeCliente);
     document.getElementById('clienteModal').addEventListener('click',function(e){ if(e.target.id==='clienteModal')fecharModalCliente(); });
     document.getElementById('cl-buscaFiltro').addEventListener('input',function(){ buscaFiltro=this.value; paginaAtual=1; render(); });
+    [['cl-selStatus','status'],['cl-selOrigem','origem'],['cl-selVendedor','vendedor'],['cl-selTipo','tipo']].forEach(function(par){
+      var el=document.getElementById(par[0]);
+      if(el)el.addEventListener('change',function(){ filtros[par[1]]=this.value; paginaAtual=1; render(); });
+    });
+    document.getElementById('cl-resetFiltros').addEventListener('click',function(){
+      Object.keys(filtros).forEach(function(k){ filtros[k]='__all__'; });
+      buscaFiltro='';
+      document.getElementById('cl-buscaFiltro').value='';
+      paginaAtual=1;
+      popularFiltrosCl();
+      render();
+    });
     document.querySelectorAll('#view-clientes th.sortable').forEach(function(th){
       th.addEventListener('click',function(){
         var col=th.getAttribute('data-sort');
