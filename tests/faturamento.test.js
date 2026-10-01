@@ -14,7 +14,7 @@ function elemento(id){
   elementos[id]=e;return e;
 }
 const listas={
-  vendedores:[{IdVendedor:'a',Tipo:'Vendedor',Status:'Ativo'},{IdVendedor:'b',Tipo:'Vendedor',Status:'Ativo'},{IdVendedor:'c',Tipo:'CEO',Status:'Ativo'}],
+  vendedores:[{IdVendedor:'a',Nome:'Ana Lima',Tipo:'Vendedor',Status:'Ativo',FotoPerfil:'data:image/jpeg;base64,AAAA'},{IdVendedor:'b',Nome:'Bruno Costa',Tipo:'Vendedor',Status:'Ativo'},{IdVendedor:'c',Nome:'CEO',Tipo:'CEO',Status:'Ativo'}],
   metas:[{IdMeta:'m',Ano:2026,Mes:10,Valor:3000}],
   metas_individuais:[{IdMetaIndividual:'mi',IdVendedor:'a',Ano:2026,Mes:10,ValorMeta:2000}],
   vendas:[
@@ -106,5 +106,26 @@ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../js/faturamento.js'),'
   assert.equal(elemento('fat-tooltip').hidden,false);
   assert.equal(elemento('fat-tooltip-sales').textContent,'Vendas no dia: R$ 0,00');
   assert.match(elemento('fat-tooltip-delta').textContent,/Superávit:/);
+  elemento('fat-tab-ranking').listeners.click();
+  assert.equal(elemento('fat-ranking-card').hidden,false);
+  assert.match(elemento('fat-ranking-podium').innerHTML,/Bruno Costa/);
+  assert.match(elemento('fat-ranking-podium').innerHTML,/R\$ 2\.900,00/);
+  assert.match(elemento('fat-ranking-podium').innerHTML,/<img src="data:image\/jpeg;base64,AAAA"/);
+  assert.match(elemento('fat-ranking-podium').innerHTML,/data:image\/jpeg;base64,AAAA/);
+  elemento('fat-ranking-podium').listeners.click({target:{closest:()=>({getAttribute:()=> 'b'})}});
+  assert.equal(elemento('fat-seller').value,'b');
+  assert.equal(elemento('fat-value').textContent,'R$ 2.900,00');
+  elemento('fat-ranking-evolucao').listeners.click();
+  assert.match(elemento('fat-ranking-race').innerHTML,/fat-race-reference/);
+  assert.match(elemento('fat-ranking-race').innerHTML,/fat-race-line/);
+  assert.match(elemento('fat-ranking-race').innerHTML,/fat-race-avatar/);
+  assert.equal(elemento('fat-ranking-race').hidden,false);
+  elemento('fat-seller').value='__all__';
+  elemento('fat-seller').listeners.change.call(elemento('fat-seller'));
+  elemento('fat-ranking-race').listeners.click({target:{closest:()=>({getAttribute:()=> '2'})},shiftKey:false});
+  assert.equal(elemento('fat-value').textContent,'R$ 400,00');
+  assert.equal(elemento('fat-progress-title').textContent,'Faturado vs. meta proporcional');
+  elemento('fat-tab-faturamento').listeners.click();
+  assert.equal(elemento('fat-chart-card').hidden,false);
   console.log('Faturamento: cálculo, filtros, meta proporcional, tooltip, gráfico e atualização ao vivo OK');
 })().catch(err=>{console.error(err);process.exitCode=1;});

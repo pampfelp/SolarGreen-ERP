@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Prévia local · Foto de colaborador</title>
+<link rel="stylesheet" href="../css/app.css"><style>#view-usuarios{display:block;padding:20px}</style></head><body>
+<div style="padding:20px;font:12px sans-serif">PRÉVIA DE DESENVOLVIMENTO · usuário fictício · sem conexão ao ERP</div>
+<script>
+(async function(){
+  var html=await(await fetch('../index.html')).text(),doc=new DOMParser().parseFromString(html,'text/html');
+  document.body.append(doc.getElementById('view-usuarios'),doc.getElementById('usuarioModal'));
+  window.SGEpoca={criar:function(){var n=0;return {atual:function(){return n;},marcar:function(){n++;}};}};
+  window.SGUtil={meuId:function(){return 'admin';},escapeHtml:function(s){return String(s||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}};
+  window.SGAuth={isAdmin:function(){return true;},apiCall:function(acao,p){if(acao==='listVendedoresAdmin')return Promise.resolve({ok:true,vendedores:[{IdVendedor:'teste',Nome:'Colaborador Exemplo',Email:'exemplo@solargreen.com.br',Tipo:'Vendedor',Status:'Ativo'}]});window.__salvo=p;return Promise.resolve({ok:true});}};
+  window.SGToast={mostrar:function(){}};
+  var script=document.createElement('script');script.src='../js/usuarios.js';script.onload=function(){window.usuariosApp.init();};document.body.appendChild(script);
+})().catch(function(e){document.body.append('Erro: '+e.message);});
+</script></body></html>

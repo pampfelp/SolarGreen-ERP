@@ -267,6 +267,12 @@
   .uform-field label{font-size:11px;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px;}
   .uform-field input,.uform-field select{width:100%;font-family:var(--sans);font-size:13px;border:1px solid var(--line);border-radius:7px;padding:9px 12px;background:#fff;color:var(--ink);}
   .uform-field input:focus,.uform-field select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent);}
+  .u-photo-row{display:flex;align-items:center;gap:14px;}
+  .u-photo-row>div:last-child{min-width:0;flex:1;}
+  .u-photo-preview{width:70px;height:70px;flex:none;border-radius:50%;border:2px solid var(--line);background:var(--bg);display:grid;place-items:center;overflow:hidden;color:var(--ink);font:800 19px var(--sans);}
+  .u-photo-preview img{width:100%;height:100%;object-fit:cover;}
+  .u-photo-field input[type=file]{font-size:11px;padding:7px;}
+  .u-photo-field small{display:block;margin-top:5px;color:var(--ink-soft);font-size:11px;}
   .uform-msg{font-size:12px;border-radius:7px;padding:9px 11px;margin-bottom:14px;}
   .beneficiaria-row{display:flex;gap:6px;margin-bottom:6px;align-items:center;}
   .beneficiaria-row input{flex:1;min-width:0;font-family:var(--sans);font-size:13px;border:1px solid var(--line);border-radius:7px;padding:8px 10px;background:#fff;color:var(--ink);}

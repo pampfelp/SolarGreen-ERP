@@ -6,6 +6,10 @@
 .fat-logo{width:136px;height:auto;display:block;flex:none;}
 .fat-heading-divider{height:30px;width:1px;background:#c8d6cf;flex:none;}
 .fat-heading h1{font-family:var(--sans);font-size:22px;font-weight:500;color:#003122;letter-spacing:-.02em;}
+.fat-tabs{display:flex;align-items:center;gap:22px;}
+.fat-tabs button{border:0;border-bottom:3px solid transparent;background:transparent;padding:9px 2px 8px;color:#496357;font:500 21px var(--sans);cursor:pointer;}
+.fat-tabs button.active{border-bottom-color:#78d800;color:#003122;font-weight:700;}
+.fat-tabs button:focus-visible,.fat-ranking-switch button:focus-visible,.fat-rank-person:focus-visible{outline:2px solid #78d800;outline-offset:3px;}
 .fat-month-field{display:flex;align-items:center;gap:10px;border:1px solid #d4e2d7;border-radius:12px;padding:7px 11px;background:#fff;flex:none;}
 .fat-month-field svg{width:22px;height:22px;color:#65bd00;flex:none;}
 .fat-month-field select{border:0;outline:0;background:transparent;color:#1e1e1e;font:600 15px var(--sans);cursor:pointer;min-width:145px;}
@@ -45,9 +49,39 @@
 .fat-progress-top h2{font:500 15px var(--sans);color:#1e1e1e;}
 .fat-progress-top strong{font:800 21px var(--sans);color:#5fbd00;}
 .fat-progress-track{height:9px;border-radius:99px;background:#e3ece7;overflow:hidden;margin:8px 0;}
-.fat-progress-track span{display:block;width:0;height:100%;border-radius:inherit;background:#70d300;transition:width .85s cubic-bezier(.22,1,.36,1);}
+.fat-progress-track span{display:block;width:0;height:100%;border-radius:inherit;background:#70d300;}
 .fat-progress-bottom{font-size:12px;color:#344c41;}
 .fat-chart-card{margin-top:12px;padding:10px 12px 8px;position:relative;}
+.fat-chart-card[hidden],.fat-ranking-card[hidden],.fat-ranking-podium[hidden],.fat-ranking-race[hidden]{display:none;}
+.fat-ranking-card{margin-top:12px;padding:13px 18px 10px;position:relative;min-height:305px;}
+.fat-ranking-head{display:flex;justify-content:space-between;align-items:center;gap:12px;}
+.fat-ranking-head h2{font:500 17px var(--sans);color:#003122;}
+.fat-ranking-reference{display:flex;align-items:center;gap:7px;margin-left:auto;color:#587064;font-size:11px;}.fat-ranking-reference[hidden]{display:none;}.fat-ranking-reference i{width:24px;border-top:2px dashed #003122;}
+.fat-ranking-switch{display:flex;border:1px solid #d5e4d8;border-radius:99px;padding:2px;background:#fff;}
+.fat-ranking-switch button{border:0;border-radius:99px;background:transparent;color:#003122;font:600 12px var(--sans);padding:7px 15px;cursor:pointer;}
+.fat-ranking-switch button.active{background:#78d800;color:#003122;}
+.fat-ranking-podium{display:flex;justify-content:center;align-items:flex-end;gap:16px;min-height:246px;margin:4px auto 0;max-width:1200px;}
+.fat-rank-person{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;flex:1;max-width:380px;min-width:0;border:0;background:transparent;padding:0;cursor:pointer;color:#003122;font-family:var(--sans);}
+.fat-rank-person:first-child{order:2;}.fat-rank-person:nth-child(2){order:3;}.fat-rank-person:nth-child(3){order:1;}
+.fat-rank-photo{width:100px;height:100px;border:3px solid #9fb5a8;border-radius:50%;background:#e8f1eb;display:grid;place-items:center;overflow:hidden;color:#003122;font:800 30px var(--sans);}
+.fat-rank-photo img{width:100%;height:100%;object-fit:cover;display:block;}
+.fat-rank-person:first-child .fat-rank-photo{width:124px;height:124px;border-color:#78d800;}
+.fat-rank-person:nth-child(2) .fat-rank-photo{border-color:#9ba9a1;}.fat-rank-person:nth-child(3) .fat-rank-photo{border-color:#b88340;}
+.fat-rank-medal{height:25px;color:#bd8b1b;display:grid;place-items:center;}
+.fat-rank-medal svg{width:32px;height:26px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
+.fat-rank-person:nth-child(2) .fat-rank-medal{color:#86958d;}.fat-rank-person:nth-child(3) .fat-rank-medal{color:#a76d35;}
+.fat-rank-place{position:relative;margin-top:-15px;z-index:1;min-width:31px;height:31px;border-radius:50%;background:#78d800;border:2px solid #fff;display:grid;place-items:center;color:#003122;font-weight:800;font-size:14px;}
+.fat-rank-person:nth-child(2) .fat-rank-place{background:#aab7b0;color:#fff;}.fat-rank-person:nth-child(3) .fat-rank-place{background:#bd8a42;color:#fff;}
+.fat-rank-plinth{width:100%;min-height:93px;padding:15px 18px 13px;background:linear-gradient(#f0f8f0,#fff);border-radius:14px 14px 4px 4px;display:flex;flex-direction:column;align-items:center;gap:4px;}
+.fat-rank-person:first-child .fat-rank-plinth{min-height:104px;}.fat-rank-name{font-size:14px;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fat-rank-value{font:800 19px var(--sans);color:#58b900;font-variant-numeric:tabular-nums;}.fat-rank-person:first-child .fat-rank-value{font-size:23px;}
+.fat-rank-track{display:block;width:100%;height:8px;border-radius:99px;background:#e1e9e5;overflow:hidden;margin-top:3px;}.fat-rank-track i{display:block;height:100%;width:0;background:#78d800;border-radius:inherit;}
+.fat-ranking-empty{align-self:center;color:#60756a;font-size:14px;padding:55px 10px;text-align:center;}
+.fat-ranking-race{height:242px;margin-top:8px;overflow-x:auto;}.fat-ranking-race svg{display:block;width:100%;height:100%;min-width:650px;}
+.fat-ranking-race .fat-race-line{fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;}.fat-ranking-race .fat-race-reference{fill:none;stroke:#003122;stroke-width:2;stroke-dasharray:7 7;}
+.fat-ranking-race .fat-race-avatar{stroke:#fff;stroke-width:2;}.fat-ranking-race .fat-race-hit{fill:transparent;cursor:pointer;}.fat-ranking-race text{font:11px var(--sans);fill:#587064;}
+.fat-ranking-race .fat-grid{stroke:#e2ece6;stroke-width:1;stroke-dasharray:3 3;}.fat-ranking-race .fat-selected-band{fill:rgba(120,216,0,.11);}
+.fat-ranking-race .fat-race-hit:focus-visible{fill:rgba(120,216,0,.1);outline:0;}
 .fat-chart{width:100%;min-height:0;position:relative;}
 .fat-chart svg{display:block;width:100%;height:auto;overflow:visible;}
 .fat-chart .fat-hit{fill:transparent;cursor:pointer;}
@@ -76,5 +110,5 @@
 .fat-summary strong{font:800 21px var(--sans);color:#60bd00;margin-right:5px;}
 .fat-summary-divider{height:24px;width:1px;background:#5e766a;}
 @media(max-width:1120px){.fat-hero{grid-template-columns:minmax(0,1fr) 280px;padding:26px;}.fat-latest{padding:14px;}.fat-latest b{font-size:24px;}.fat-value{font-size:clamp(40px,5.4vw,70px);}}
-@media(max-width:760px){.fat-page{padding:22px 16px 42px;}.fat-header{align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:16px;}.fat-heading{gap:14px;}.fat-logo{width:114px;}.fat-heading-divider{height:25px;}.fat-heading h1{font-size:18px;}.fat-month-field{width:100%;}.fat-month-field select{flex:1;}.fat-filters{gap:9px;margin:0 0 14px;}.fat-filters label:first-child{width:100%;}.fat-filters label:first-child select{flex:1;max-width:none;}.fat-filter-hint{width:100%;margin:0;}.fat-hero{display:flex;flex-direction:column;align-items:stretch;gap:20px;padding:22px 18px;min-height:0;}.fat-hero h2{font-size:17px;}.fat-value{font-size:clamp(32px,8vw,58px);letter-spacing:-.075em;}.fat-compare{font-size:14px;min-height:25px;}.fat-compare strong{font-size:18px;}.fat-latest{min-height:0;}.fat-latest strong{font-size:17px;}.fat-progress{padding:17px 16px;}.fat-progress-top h2{font-size:14px;}.fat-progress-top strong{font-size:20px;}.fat-progress-bottom{font-size:11px;align-items:flex-start;}.fat-progress-bottom span:last-child{text-align:right;}.fat-chart-card{padding:10px 8px 12px;}.fat-chart{min-height:200px;overflow-x:auto;}.fat-chart svg{min-width:650px;}.fat-tooltip{left:110px;}.fat-summary{font-size:13px;gap:13px;flex-wrap:wrap;text-align:center;}.fat-summary strong{font-size:19px;}.fat-summary-divider{height:22px;}}
-@media(prefers-reduced-motion:reduce){.fat-progress-track span{transition:none;}.fat-latest.has-sale{animation:none;}.fat-chart .fat-line-actual,.fat-chart .fat-line-expected{animation:none;}}
+@media(max-width:760px){.fat-page{padding:22px 16px 42px;}.fat-header{align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:16px;}.fat-heading{gap:14px;}.fat-logo{width:114px;}.fat-heading-divider{height:25px;}.fat-tabs{gap:12px;}.fat-tabs button{font-size:16px;}.fat-month-field{width:100%;}.fat-month-field select{flex:1;}.fat-filters{gap:9px;margin:0 0 14px;}.fat-filters label:first-child{width:100%;}.fat-filters label:first-child select{flex:1;max-width:none;}.fat-filter-hint{width:100%;margin:0;}.fat-hero{display:flex;flex-direction:column;align-items:stretch;gap:20px;padding:22px 18px;min-height:0;}.fat-hero h2{font-size:17px;}.fat-value{font-size:clamp(32px,8vw,58px);letter-spacing:-.075em;}.fat-compare{font-size:14px;min-height:25px;}.fat-compare strong{font-size:18px;}.fat-latest{min-height:0;}.fat-latest strong{font-size:17px;}.fat-progress{padding:17px 16px;}.fat-progress-top h2{font-size:14px;}.fat-progress-top strong{font-size:20px;}.fat-progress-bottom{font-size:11px;align-items:flex-start;}.fat-progress-bottom span:last-child{text-align:right;}.fat-chart-card{padding:10px 8px 12px;}.fat-chart{min-height:200px;overflow-x:auto;}.fat-chart svg{min-width:650px;}.fat-ranking-card{padding:12px 10px;}.fat-ranking-reference{display:none;}.fat-ranking-podium{gap:5px;min-height:226px;}.fat-rank-photo{width:65px;height:65px;font-size:21px;}.fat-rank-person:first-child .fat-rank-photo{width:84px;height:84px;}.fat-rank-name{font-size:11px;}.fat-rank-value,.fat-rank-person:first-child .fat-rank-value{font-size:12px;}.fat-rank-plinth{padding:13px 4px 9px;min-height:82px;}.fat-ranking-head h2{font-size:14px;}.fat-ranking-switch button{padding:6px 9px;font-size:11px;}.fat-tooltip{left:110px;}.fat-summary{font-size:13px;gap:13px;flex-wrap:wrap;text-align:center;}.fat-summary strong{font-size:19px;}.fat-summary-divider{height:22px;}}
+@media(prefers-reduced-motion:reduce){.fat-progress-track span,.fat-rank-track i{transition:none;}.fat-latest.has-sale{animation:none;}.fat-chart .fat-line-actual,.fat-chart .fat-line-expected{animation:none;}}
