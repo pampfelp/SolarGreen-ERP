@@ -5,6 +5,7 @@
   var vendedoresMap = {};
   var vendedoresTodosMap = {}; // sem filtro por dono — pro dropdown de atribuição
   var clientesMap   = {};
+  var ORIGEM_VAZIA='__vazio__',origensCarregadas=false;
   var servicosMapFunil = {};
   var vendasRecords = []; // só pra alimentar "Taxas de conversão médias" (Vendas)
   var _initialized  = false;
@@ -97,6 +98,7 @@
     return r.atividadeAdm?(nome+' — '+r.atividadeAdm):nome;
   }
   function telefoneClienteFor(id){ if(!id)return''; var c=clientesMap[id]; return c?(c.Telefone||''):''; }
+  function origemClienteFor(id){ var c=clientesMap[id];return(c&&c.Origem||'').trim(); }
 
   /**
    * Preenche clientesMap com os nomes/telefones que já vêm gravados na
@@ -137,6 +139,10 @@
     _clientesAssinados=true;
     window.SGUtil.assinarColecao('clientes',function(lista){
       lista.forEach(function(c){ if(c.IdCliente)clientesMap[c.IdCliente]=c; });
+      origensCarregadas=true;
+      var filtroOrigemAtivo=document.getElementById('f-selOrigem').value!=='__all__';
+      popularOrigemSelect();
+      if(_initialized&&filtroOrigemAtivo)render();
       // Se algum combo/painel de cliente estiver aberto agora, redesenha com a lista cheia.
       if(_renderOpcoesClienteFunil&&document.getElementById('fd-clienteDropdown')&&!document.getElementById('fd-clienteDropdown').classList.contains('hidden')){
         _renderOpcoesClienteFunil((document.getElementById('fd-clienteBusca')||{}).value||'');
@@ -442,7 +448,7 @@
 
   function getFiltered(){
     var from=document.getElementById('f-dateFrom').value,to=document.getElementById('f-dateTo').value;
-    var vend=document.getElementById('f-selVendedor').value,etapa=getEtapaAtiva();
+    var vend=document.getElementById('f-selVendedor').value,origem=document.getElementById('f-selOrigem').value,etapa=getEtapaAtiva();
     var busca=normalizaBuscaFunil((document.getElementById('f-buscaGeral')||{}).value||'').trim();
     var pipe=pipelineCorrente();
     var idPipe=pipe?pipe.IdPipeline:'';
@@ -450,6 +456,7 @@
       if(r.pipeline!==idPipe)return false; // cada aba mostra só os cards do seu pipeline
       if(from&&r.dataProcessoKey<from)return false; if(to&&r.dataProcessoKey>to)return false;
       if(vend!=='__all__'&&r.idVendedor!==vend)return false;
+      if(!origemCombina(r.idCliente,origem))return false;
       if(busca&&textoBuscavelLead(r).indexOf(busca)===-1)return false;
       return true;
     });
@@ -457,12 +464,17 @@
     return{allPeriod:allPeriod,byStage:byStage};
   }
 
+  function origemCombina(idCliente,origem){
+    if(origem==='__all__')return true;
+    var atual=origemClienteFor(idCliente);
+    return origem===ORIGEM_VAZIA?!atual:atual===origem;
+  }
+
   /**
    * "Taxas de conversão médias" dentro do próprio Funil (2026-08-24, pedido
    * do Felipe) — mesmo widget que já existia só em Vendas, agora também
    * aqui, pro vendedor ver Novos Contatos/Conversas/Propostas/Vendas do
-   * PERÍODO/VENDEDOR filtrados nesta tela (f-dateFrom/f-dateTo/
-   * f-selVendedor), sem precisar trocar de tela.
+   * PERÍODO/VENDEDOR/ORIGEM filtrados nesta tela, sem precisar trocar de tela.
    *
    * "Novos Contatos" filtra por r.dateKey (data de CRIAÇÃO do lead) — não
    * por dataProcessoKey (que é o que o filtro dessa tela usa pro Kanban/
@@ -490,12 +502,14 @@
     var from=(document.getElementById('f-dateFrom')||{}).value||'';
     var to=(document.getElementById('f-dateTo')||{}).value||'';
     var vend=(document.getElementById('f-selVendedor')||{}).value||'__all__';
+    var origem=document.getElementById('f-selOrigem').value;
 
     var novosContatos=funilRecords.filter(function(r){
       if(r.pipeline!==idPipe)return false;
       if(from&&r.dateKey<from)return false;
       if(to&&r.dateKey>to)return false;
       if(vend!=='__all__'&&r.idVendedor!==vend)return false;
+      if(!origemCombina(r.idCliente,origem))return false;
       return true;
     });
     var kpis=window.SGUtil.calcularConversasPropostas(novosContatos,from,to,ETAPAS_PROPOSTA_VENDAS);
@@ -510,6 +524,7 @@
     var todosDoVendedor=funilRecords.filter(function(r){
       if(r.pipeline!==idPipe)return false;
       if(vend!=='__all__'&&r.idVendedor!==vend)return false;
+      if(!origemCombina(r.idCliente,origem))return false;
       return true;
     });
     var kpisTotal=window.SGUtil.calcularConversasPropostas(todosDoVendedor,from,to,ETAPAS_PROPOSTA_VENDAS);
@@ -518,6 +533,7 @@
       if(to&&v.dateKey>to)return false;
       if(vend!=='__all__'){ if(v.idVendedor!==vend)return false; }
       else if(vendaEhDeCEO(v))return false; // agregado nunca conta venda do CEO, igual em Vendas
+      if(!origemCombina(v.idCliente,origem))return false;
       return true;
     });
 
@@ -928,10 +944,10 @@
    * mesmo princípio já usado no KPI "Novos leads no funil" do Dashboard,
    * que conta por data de criação, não por etapa atual.
    *
-   * Respeita o período/vendedor ativos no filtro da tela (f-dateFrom/
-   * f-dateTo/f-selVendedor) — filtra QUAIS leads entram no relatório (pela
-   * data de CRIAÇÃO, r.dateKey, nunca pela última movimentação, que é o que
-   * o filtro da tela usa pro Kanban) e por idVendedor. Com o filtro vazio
+   * Respeita o período/vendedor/origem ativos no filtro da tela — filtra
+   * QUAIS leads entram no relatório (pela data de CRIAÇÃO, r.dateKey,
+   * nunca pela última movimentação, que é o que o filtro da tela usa pro
+   * Kanban). Com o filtro vazio
    * (período "Tudo" e vendedor "Todos"), o comportamento é idêntico a antes
    * — a lista inteira. Continua sendo uma FOTO acumulada do recorte, não um
    * fluxo por dia dentro do recorte (mesmo princípio de sempre, só que
@@ -942,10 +958,14 @@
     var from=(document.getElementById('f-dateFrom')||{}).value||'';
     var to=(document.getElementById('f-dateTo')||{}).value||'';
     var vend=(document.getElementById('f-selVendedor')||{}).value||'__all__';
+    var origem=document.getElementById('f-selOrigem').value;
+    var idPipe=(pipelineCorrente()||{}).IdPipeline||'';
     var registros=funilRecords.filter(function(r){
+      if(r.pipeline!==idPipe)return false;
       if(from&&r.dateKey<from)return false;
       if(to&&r.dateKey>to)return false;
       if(vend!=='__all__'&&r.idVendedor!==vend)return false;
+      if(!origemCombina(r.idCliente,origem))return false;
       return true;
     });
     var filtroInfoEl=document.getElementById('f-relatorioFiltroInfo');
@@ -953,6 +973,7 @@
       var partes=[];
       partes.push((from||to)?('Período: '+(from?fmtDateBR(new Date(from+'T00:00:00')):'início')+' a '+(to?fmtDateBR(new Date(to+'T00:00:00')):'hoje')):'Período: tudo');
       partes.push(vend!=='__all__'?('Vendedor: '+nomeFor(vend)):'Vendedor: todos');
+      partes.push(origem!=='__all__'?('Origem: '+(origem===ORIGEM_VAZIA?'(sem origem)':origem)):'Origem: todas');
       filtroInfoEl.textContent=partes.join(' · ');
     }
     var totalCriados=registros.length;
@@ -1827,6 +1848,7 @@
       CEP:cep,Ocupacao:ocupacao,Renda:renda,
       NumeroUnidadeGeradora:numeroUnidadeGeradora,UnidadesBeneficiarias:unidadesBeneficiarias
     };
+    if(origensCarregadas)popularOrigemSelect();
     // Cliente criado aqui só existe no clientesMap PRÓPRIO do funil — Agendamentos/
     // Planos/Vendas/Custos da Venda/Dashboard já carregaram a lista deles antes
     // (cada tela busca uma vez só, sem escutar mudança de outra) e não iam
@@ -2028,6 +2050,11 @@
   }
 
   function render(){
+    if(!origensCarregadas&&document.getElementById('f-selOrigem').value!=='__all__'){
+      document.getElementById('f-tableHint').textContent='Carregando origens dos clientes…';
+      garantirClientesCarregados();
+      return;
+    }
     chartAnchorDay=null;
     var f=refreshKpisAndTable();renderChart(f.allPeriod);
   }
@@ -2079,6 +2106,18 @@
     sel.innerHTML='<option value="__all__">Todos os vendedores</option>';
     list.forEach(function(id){var opt=document.createElement('option');opt.value=id;opt.textContent=nomeFor(id);sel.appendChild(opt);});
     if(list.indexOf(cur)!==-1)sel.value=cur;
+  }
+
+  function popularOrigemSelect(){
+    var sel=document.getElementById('f-selOrigem'),cur=sel.value||'__all__',valores=['Tráfego pago'];
+    Object.keys(clientesMap).forEach(function(id){var origem=origemClienteFor(id);if(origem&&valores.indexOf(origem)===-1)valores.push(origem);});
+    valores.sort(function(a,b){return a.localeCompare(b,'pt-BR');});
+    sel.innerHTML='<option value="__all__">Todas as origens</option>';
+    valores.forEach(function(origem){var opt=document.createElement('option');opt.value=origem;opt.textContent=origem;sel.appendChild(opt);});
+    if(funilRecords.some(function(r){return !origemClienteFor(r.idCliente);})){
+      var sem=document.createElement('option');sem.value=ORIGEM_VAZIA;sem.textContent='(sem origem)';sel.appendChild(sem);
+    }
+    sel.value=[].some.call(sel.options,function(o){return o.value===cur;})?cur:'__all__';
   }
 
   // ← usa dataProcessoKey pra definir o range padrão também
@@ -2141,6 +2180,7 @@
 
     funilRecords=processFunil(fFunil);
     seedClientesDoDenorm(funilRecords);
+    if(origensCarregadas)popularOrigemSelect();
     // Rede de segurança: se muitos leads ainda não têm o nome desnormalizado
     // (o backfill _tools/backfill-nome-cliente.js ainda não rodou), carrega a
     // coleção `clientes` uma vez em vez de mostrar o id em vez do nome. Some
@@ -2463,9 +2503,13 @@
     });
     document.getElementById('f-dateTo').addEventListener('change',render);
     document.getElementById('f-selVendedor').addEventListener('change',render);
+    document.getElementById('f-selOrigem').addEventListener('focus',garantirClientesCarregados);
+    document.getElementById('f-selOrigem').addEventListener('change',function(){
+      if(this.value==='__all__'||origensCarregadas)render();else garantirClientesCarregados();
+    });
     document.getElementById('f-buscaGeral').addEventListener('input',render);
     document.getElementById('f-resetFiltros').addEventListener('click',function(){
-      document.getElementById('f-selVendedor').value='__all__';document.getElementById('f-buscaGeral').value='';setDefaultRange();
+      document.getElementById('f-selVendedor').value='__all__';document.getElementById('f-selOrigem').value='__all__';document.getElementById('f-buscaGeral').value='';setDefaultRange();
       renderStagePills(); // redesenha já com "Todas" ativa (e religa os handlers)
       document.querySelectorAll('.qr-btn[data-frange]').forEach(function(b){b.classList.remove('active');});render();
     });
@@ -2568,6 +2612,7 @@
   function atualizarClienteCache(clienteObj){
     if(!clienteObj||!clienteObj.IdCliente)return;
     clientesMap[clienteObj.IdCliente]=clienteObj;
+    if(origensCarregadas)popularOrigemSelect();
     // se o painel de contato/endereço do lead tiver esse cliente aberto na hora, atualiza na tela também
     var fdCliente=document.getElementById('fd-cliente');
     if(fdCliente&&fdCliente.value===clienteObj.IdCliente&&typeof renderInfoClienteFunil==='function')renderInfoClienteFunil();
