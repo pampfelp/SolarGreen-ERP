@@ -607,6 +607,7 @@
         </div>
       </div>
       <div class="field"><label>Vendedor</label><select id="f-selVendedor"><option value="__all__">Todos os vendedores</option></select></div>
+      <div class="field"><label>Origem</label><select id="f-selOrigem"><option value="__all__">Todas as origens</option><option value="Tráfego pago">Tráfego pago</option></select></div>
       <div class="stage-filter-group">
         <label>Etapa</label>
         <!-- Montado em JS a partir das etapas do pipeline ativo (renderStagePills) -->
@@ -644,8 +645,8 @@
       </div>
     </div>
 
-    <!-- Taxas de conversão médias (mesmo widget de Vendas, filtrado pelo período/vendedor desta tela) -->
-    <div class="section-head"><h2>Taxas de <span>conversão</span> médias</h2><div class="hint">no período/vendedor filtrados acima</div></div>
+    <!-- Taxas de conversão médias (mesmo widget de Vendas, filtrado pelo período/vendedor/origem desta tela) -->
+    <div class="section-head"><h2>Taxas de <span>conversão</span> médias</h2><div class="hint">no período, vendedor e origem filtrados acima</div></div>
     <div class="funnel" id="f-conversaoWidget">
       <div class="funnel-step"><div class="tag">Novos contatos</div><div class="num clicavel" id="f-convContatos">0</div><div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div></div>
       <div class="funnel-step"><div class="tag">Conversas</div><div class="num clicavel" id="f-convConversasTotal">0</div><div class="num-total clicavel" id="f-convConversas">0 no período</div><div class="conv" id="f-convContatoConversa">0%</div><div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div></div>
@@ -1990,7 +1991,7 @@
 <script src="js/faturamento.js?v=20261001g"></script>
 <script src="js/ponto.js?v=20260928b"></script>
 <script src="js/vendas.js?v=20260929b"></script>
-<script src="js/funil.js?v=20260928b"></script>
+<script src="js/funil.js?v=20261001a"></script>
 <script src="js/agendamentos.js?v=20260924a"></script>
 <script src="js/clientes.js?v=20260930a"></script>
 <script src="js/relatorios.js?v=20260829f"></script>
