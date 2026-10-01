@@ -4,7 +4,7 @@
   var dados={vendas:[],metas:[],vendedores:[],metasIndividuais:[]};
   var ID_CLIENTE_APORTE_SOCIOS='da6dbd89'; // mesma exceção da tela Vendas
   var dinheiro=window.SGUtil.fmtMoney, numero=window.SGUtil.parseBRNumber, data=window.SGUtil.parseBRDate, chave=window.SGUtil.dateKey;
-  var animacaoValor=0;
+  var animacaoValor=0, ultimoGrafico=null, resizeGrafico=0;
   function el(id){return document.getElementById(id);}
   function mesKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
   function diaUtil(d){return d.getDay()!==0&&d.getDay()!==6;}
@@ -46,6 +46,7 @@
   }
   function fmtEixo(n){if(n>=1000000)return (n/1000000).toLocaleString('pt-BR',{maximumFractionDigits:1})+' mi';if(n>=1000)return (n/1000).toLocaleString('pt-BR',{maximumFractionDigits:0})+' mil';return Math.round(n).toLocaleString('pt-BR');}
   function desenharGrafico(vendas,ano,mes,meta,limite){
+    ultimoGrafico=[vendas,ano,mes,meta,limite];
     var dias=new Date(ano,mes,0).getDate(),total=0,uteis=0,uteisMes=0,serieReal=[],serieEsperada=[],porDia={};
     vendas.forEach(function(v){var d=v.dt.getDate();porDia[d]=(porDia[d]||0)+v.valor;});
     for(var i=1;i<=dias;i++)if(diaUtil(new Date(ano,mes-1,i)))uteisMes++;
@@ -55,7 +56,10 @@
       serieEsperada.push(uteisMes?meta*uteis/uteisMes:0);
       if(dia<=limite)serieReal.push(total);
     }
-    var max=Math.max(meta,total,1)*1.12,w=1000,h=270,left=65,right=122,top=16,bottom=31,plotW=w-left-right,plotH=h-top-bottom;
+    var area=el('fat-chart'),max=Math.max(meta,total,1)*1.12;
+    var w=Math.max(650,area.clientWidth||1000);
+    var h=window.innerWidth<=760?220:Math.round(Math.max(210,Math.min(260,(window.innerHeight||900)*.27)));
+    var left=65,right=122,top=16,bottom=31,plotW=w-left-right,plotH=h-top-bottom;
     var x=function(i){return left+i*plotW/(dias-1);},y=function(v){return top+plotH-(v/max)*plotH;};
     function pontos(s){return s.map(function(v,i){return x(i).toFixed(1)+','+y(v).toFixed(1);}).join(' ');}
     var svg='<svg viewBox="0 0 '+w+' '+h+'" role="img" aria-label="Faturado em linha verde contínua e esperado em linha verde escura tracejada, dia a dia">';
@@ -67,7 +71,7 @@
       if(ri===dias-1&&Math.abs(rv-meta)<max*.13)ly+=rv>=meta?-16:16;
       svg+='<text class="fat-end-label-actual" x="'+(x(ri)+10)+'" y="'+(ly+4)+'">'+fmtEixo(rv)+'</text>';}
     svg+='<circle class="fat-dot-expected" cx="'+x(dias-1)+'" cy="'+y(serieEsperada[dias-1])+'" r="5"/><text class="fat-end-label-expected" x="'+(x(dias-1)+10)+'" y="'+(y(meta)+4)+'">'+fmtEixo(meta)+'</text></svg>';
-    el('fat-chart').innerHTML=svg;
+    area.innerHTML=svg;
   }
   function render(){
     if(!Object.keys(carregado).every(function(k){return carregado[k];}))return;
@@ -96,6 +100,10 @@
   function init(){
     if(iniciado||!window.SGAuth||!window.SGAuth.isAdmin())return;
     iniciado=true;
+    if(window.addEventListener)window.addEventListener('resize',function(){
+      clearTimeout(resizeGrafico);
+      resizeGrafico=setTimeout(function(){if(ultimoGrafico)desenharGrafico.apply(null,ultimoGrafico);},100);
+    });
     var seletor=el('fat-month'),agora=new Date();seletor.innerHTML='<option value="'+mesKey(agora)+'">'+agora.toLocaleDateString('pt-BR',{month:'long',year:'numeric'})+'</option>';
     seletor.addEventListener('change',render);
     window.SGFireReady.then(function(){
