@@ -129,9 +129,16 @@ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../js/faturamento.js'),'
   elemento('fat-ranking-card').getBoundingClientRect=()=>({left:0,width:1400});
   const alvoCorrida=alvo(4);alvoCorrida.getBoundingClientRect=()=>({left:120,width:30});
   elemento('fat-ranking-race').listeners.mouseover({target:alvoCorrida});
-  assert.match(elemento('fat-ranking-tooltip').innerHTML,/Meta média até o dia: R\$ 159,09/); // (2.000 + 1.500) / 2, proporcional a 2 de 22 dias úteis
+  // Com o Bruno filtrado a tracejada segue a meta DELE (1.500 de rateio, porque
+  // nao tem meta individual), a mesma que a barra de progresso mostra ao lado.
+  assert.match(elemento('fat-ranking-tooltip').innerHTML,/Meta média até o dia: R\$ 136,36/); // 1.500 proporcional a 2 de 22 dias úteis
+  assert.equal(elemento('fat-ranking-reference-label').textContent,'Meta de Bruno Costa');
   elemento('fat-seller').value='__all__';
   elemento('fat-seller').listeners.change.call(elemento('fat-seller'));
+  // Sem filtro, volta a ser a media da equipe: (2.000 + 1.500) / 2 vendedores.
+  elemento('fat-ranking-race').listeners.mouseover({target:alvoCorrida});
+  assert.match(elemento('fat-ranking-tooltip').innerHTML,/Meta média até o dia: R\$ 159,09/);
+  assert.equal(elemento('fat-ranking-reference-label').textContent,'Meta média por vendedor');
   elemento('fat-ranking-race').listeners.click({target:{closest:()=>({getAttribute:()=> '2'})},shiftKey:false});
   assert.equal(elemento('fat-value').textContent,'R$ 400,00');
   assert.equal(elemento('fat-progress-title').textContent,'Faturado vs. meta proporcional');
