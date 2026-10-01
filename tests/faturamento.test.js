@@ -9,6 +9,7 @@ function elemento(id){
   const e={value:'',textContent:'',style:{},options:[],attributes:{},classList:{remove(){},toggle(){}},
     addEventListener(){},setAttribute(k,v){this.attributes[k]=v;},append(...nodes){this.textContent+=nodes.map(n=>n.textContent).join('');}};
   Object.defineProperty(e,'innerHTML',{get(){return this.html||'';},set(s){this.html=s;if(id==='fat-month'){this.options=[...s.matchAll(/value="(\d{4}-\d{2})"/g)].map(m=>({value:m[1]}));this.value=this.options[0]?.value||'';}}});
+  if(id==='fat-chart')e.clientWidth=1400;
   elementos[id]=e;return e;
 }
 const listas={
@@ -25,12 +26,13 @@ const listas={
 };
 const RealDate=Date;
 class TestDate extends RealDate{constructor(...args){super(...(args.length?args:['2026-10-01T12:00:00-03:00']));}static now(){return new RealDate('2026-10-01T12:00:00-03:00').getTime();}}
-const callbacks={};
+const callbacks={},events={};
 const context={
-  Date:TestDate,Math,performance:{now:()=>0},cancelAnimationFrame(){},requestAnimationFrame(){},
+  Date:TestDate,Math,performance:{now:()=>0},cancelAnimationFrame(){},requestAnimationFrame(){},clearTimeout(){},setTimeout:fn=>{fn();return 1;},
   document:{getElementById:elemento,createElement:()=>({textContent:''}),createTextNode:s=>({textContent:s})},
   window:{
     SGAuth:{isAdmin:()=>true},SGFireReady:Promise.resolve(),matchMedia:()=>({matches:true}),
+    innerWidth:1536,innerHeight:864,addEventListener:(nome,fn)=>{events[nome]=fn;},
     SGUtil:{
       fmtMoney:n=>'R$ '+Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}),
       parseBRNumber:n=>Number(n)||0,
@@ -51,6 +53,11 @@ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../js/faturamento.js'),'
   assert.equal(elemento('fat-ticket').textContent,'R$ 1.500,00');
   assert.match(elemento('fat-chart').innerHTML,/fat-line-expected/);
   assert.match(elemento('fat-chart').innerHTML,/fat-line-actual/);
+  assert.match(elemento('fat-chart').innerHTML,/viewBox="0 0 1400 233"/);
+  context.window.innerWidth=390;
+  elemento('fat-chart').clientWidth=326;
+  events.resize();
+  assert.match(elemento('fat-chart').innerHTML,/viewBox="0 0 650 220"/);
   assert.match(elemento('fat-compare').textContent,/\+200,0%/);
   callbacks.vendas([...listas.vendas,{IdVenda:'6',IdCliente:'cliente',IdVendedor:'a',DataVenda:'2026-10-01',Valor:500}]);
   assert.equal(elemento('fat-value').textContent,'R$ 3.500,00');
