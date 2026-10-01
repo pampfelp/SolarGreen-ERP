@@ -497,6 +497,11 @@
     var id=p.idVendedor;
     if(!id) return Promise.resolve({ok:false,erro:'idVendedor é obrigatório.'});
     var doc={IdVendedor:id, Nome:p.nome||'', Email:p.email||'', Telefone:p.telefone||'', Tipo:p.tipo||'', Status:p.status||'Ativo'};
+    if(p.fotoPerfil){
+      if(!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(p.fotoPerfil)||p.fotoPerfil.length>=80000)
+        return Promise.resolve({ok:false,erro:'Foto de perfil inválida ou muito grande.'});
+      doc.FotoPerfil=p.fotoPerfil;
+    }
     return db().collection('vendedores').doc(id).set(doc,{merge:true})
       .then(function(){ return {ok:true,idVendedor:id}; })
       .catch(function(err){ return {ok:false,erro:err.message}; });

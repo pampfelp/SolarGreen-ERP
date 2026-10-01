@@ -6,6 +6,7 @@
   var dinheiro=window.SGUtil.fmtMoney, numero=window.SGUtil.parseBRNumber, data=window.SGUtil.parseBRDate, chave=window.SGUtil.dateKey;
   var animacaoValor=0, valorAnimado=0, percentualAnimado=0, animacaoGrafico=0, ultimoGrafico=null, resizeGrafico=0, primeiraRenderizacao=true;
   var filtro={vendedor:'__all__',de:0,ate:0,ancora:0};
+  var aba='faturamento',visaoRanking='podio',animacaoRanking=0,animacaoCorrida=0,ultimaCorrida=null,geracaoGrafico=0;
   function el(id){return document.getElementById(id);}
   function mesKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
   function diaUtil(d){return d.getDay()!==0&&d.getDay()!==6;}
@@ -72,11 +73,11 @@
       el('fat-progress-fill').style.width=Math.min(Math.max(pct,0),100)+'%';
       el('fat-progress-track').setAttribute('aria-valuenow',String(Math.min(Math.max(Math.round(pct),0),100)));
     }
-    escrever(valor,pctFinal); // dado final permanece visível se o navegador pausar animações
-    if(!animar||window.matchMedia('(prefers-reduced-motion: reduce)').matches||(inicio===valor&&inicioPct===pctFinal))return;
+    if(!animar||window.matchMedia('(prefers-reduced-motion: reduce)').matches||(inicio===valor&&inicioPct===pctFinal)){escrever(valor,pctFinal);return;}
+    escrever(inicio,inicioPct);
     function passo(t){
       if(!t0)t0=t;
-      var p=Math.min((t-t0)/550,1),e=1-Math.pow(1-p,3);
+      var p=Math.min((t-t0)/900,1),e=1-Math.pow(1-p,3);
       escrever(inicio+(valor-inicio)*e,inicioPct+(pctFinal-inicioPct)*e);
       if(p<1)animacaoValor=requestAnimationFrame(passo);else escrever(valor,pctFinal);
     }
@@ -130,15 +131,94 @@
     el('fat-chart-canvas').innerHTML=svg;
     el('fat-tooltip').hidden=true;
     cancelAnimationFrame(animacaoGrafico);
+    var minhaGeracao=++geracaoGrafico;
     if(animar&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
       var janela=el('fat-reveal-window'),inicio=0;
       animacaoGrafico=requestAnimationFrame(function(){
         janela.setAttribute('width','0');
-        function passo(t){if(!inicio)inicio=t;var p=Math.min((t-inicio)/1150,1);janela.setAttribute('width',String(plotW*(1-Math.pow(1-p,2))));if(p<1)animacaoGrafico=requestAnimationFrame(passo);else janela.setAttribute('width',String(plotW));}
+        function passo(t){if(!inicio)inicio=t;var p=Math.min((t-inicio)/2500,1);janela.setAttribute('width',String(plotW*(1-Math.pow(1-p,2))));if(p<1)animacaoGrafico=requestAnimationFrame(passo);else janela.setAttribute('width',String(plotW));}
         animacaoGrafico=requestAnimationFrame(passo);
-        setTimeout(function(){janela.setAttribute('width',String(plotW));},1500);
+        setTimeout(function(){if(minhaGeracao===geracaoGrafico)janela.setAttribute('width',String(plotW));},2800);
       });
     }
+  }
+  function textoSeguro(s){return String(s||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function fotoSegura(uri){return /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(uri||'')&&uri.length<80000?uri:'';}
+  function iniciais(nome){return (nome||'').trim().split(/\s+/).slice(0,2).map(function(p){return p[0]||'';}).join('').toUpperCase()||'SG';}
+  function vendedoresRanking(vendas){
+    var totais={};vendas.forEach(function(v){totais[v.vendedor]=(totais[v.vendedor]||0)+v.valor;});
+    return dados.vendedores.filter(function(v){return v.IdVendedor&&(v.Tipo||'').trim().toLowerCase()==='vendedor'&&
+      (filtro.vendedor==='__all__'||v.IdVendedor===filtro.vendedor)&&((v.Status||'').trim().toLowerCase()==='ativo'||totais[v.IdVendedor]>0);})
+      .map(function(v){return {id:v.IdVendedor,nome:v.Nome||'Sem nome',foto:fotoSegura(v.FotoPerfil),valor:totais[v.IdVendedor]||0};})
+      .sort(function(a,b){return b.valor-a.valor||a.nome.localeCompare(b.nome,'pt-BR');});
+  }
+  function medalha(pos){
+    if(pos===1)return '<svg viewBox="0 0 32 27" aria-hidden="true"><path d="M3 9l5 4 7-9 7 9 6-4-2 14H5L3 9z"/><path d="M7 19h18"/><circle cx="3" cy="8" r="1"/><circle cx="15" cy="4" r="1"/><circle cx="28" cy="8" r="1"/></svg>';
+    if(pos===2)return '<svg viewBox="0 0 32 27" aria-hidden="true"><path d="M3 19c4-9 8-12 13-12s9 3 13 12M5 19h22"/><path d="M9 11l2 3 5-5 5 5 2-3"/><circle cx="16" cy="5" r="1"/></svg>';
+    return '<svg viewBox="0 0 32 27" aria-hidden="true"><path d="M7 7c0 9 4 13 9 13s9-4 9-13"/><circle cx="16" cy="20" r="4"/><path d="M13 20h6"/></svg>';
+  }
+  function desenharPodio(vendedores,animar){
+    var cont=el('fat-ranking-podium'),top=vendedores.slice(0,3),max=top.length?Math.max(top[0].valor,1):1;
+    if(!top.length){cont.innerHTML='<p class="fat-ranking-empty">Nenhum vendedor para o período selecionado.</p>';return;}
+    cont.innerHTML=top.map(function(v,i){var foto=v.foto?'<img src="'+v.foto+'" alt="">':textoSeguro(iniciais(v.nome));
+      return '<button type="button" class="fat-rank-person" data-rank-seller="'+textoSeguro(v.id)+'" aria-label="Filtrar por '+textoSeguro(v.nome)+'">'+
+        '<span class="fat-rank-medal">'+medalha(i+1)+'</span><span class="fat-rank-photo">'+foto+'</span><span class="fat-rank-place">'+(i+1)+'º</span>'+
+        '<span class="fat-rank-plinth"><span class="fat-rank-name">'+textoSeguro(v.nome)+'</span><strong class="fat-rank-value" data-rank-value="'+v.valor+'">'+dinheiro(v.valor)+'</strong><span class="fat-rank-track"><i data-rank-width="'+(v.valor/max*100)+'"></i></span></span></button>';
+    }).join('');
+    if(!cont.querySelectorAll)return;
+    var valores=cont.querySelectorAll('[data-rank-value]'),barras=cont.querySelectorAll('[data-rank-width]');
+    cancelAnimationFrame(animacaoRanking);
+    if(!animar||window.matchMedia('(prefers-reduced-motion: reduce)').matches){barras.forEach(function(b){b.style.width=b.dataset.rankWidth+'%';});return;}
+    valores.forEach(function(v){v.textContent=dinheiro(0);});barras.forEach(function(b){b.style.width='0%';});
+    var inicio=0;
+    function passo(t){if(!inicio)inicio=t;var p=Math.min((t-inicio)/900,1),e=1-Math.pow(1-p,3);
+      valores.forEach(function(v){v.textContent=dinheiro(+v.dataset.rankValue*e);});
+      barras.forEach(function(b){b.style.width=(+b.dataset.rankWidth*e)+'%';});
+      if(p<1)animacaoRanking=requestAnimationFrame(passo);
+    }
+    animacaoRanking=requestAnimationFrame(passo);
+  }
+  function desenharCorrida(vendas,ano,mes,metaBruta,limite,animar){
+    var area=el('fat-ranking-race'),rank=vendedoresRanking(vendas),dias=new Date(ano,mes,0).getDate(),ativos=dados.vendedores.filter(function(v){return (v.Tipo||'').trim().toLowerCase()==='vendedor'&&(v.Status||'').trim().toLowerCase()==='ativo';}).length;
+    var referencia=ativos?metaBruta/ativos:0,uteisMes=0,uteis=0,esperado=[],serie=[],porId={};
+    for(var d=1;d<=dias;d++)if(diaUtil(new Date(ano,mes-1,d)))uteisMes++;
+    for(var dia=1;dia<=dias;dia++){if(diaUtil(new Date(ano,mes-1,dia)))uteis++;esperado.push(uteisMes?referencia*uteis/uteisMes:0);}
+    rank.forEach(function(v){var total=0,pontos=[];for(var d=1;d<=limite;d++){total+=vendas.filter(function(s){return s.vendedor===v.id&&s.dt.getDate()===d;}).reduce(function(s,x){return s+x.valor;},0);pontos.push(total);}serie.push({v:v,pontos:pontos});porId[v.id]=pontos;});
+    var max=Math.max(referencia,1);serie.forEach(function(s){max=Math.max(max,s.pontos[s.pontos.length-1]||0);});max*=1.15;
+    var w=Math.max(650,area.clientWidth||1000),h=238,left=62,right=64,top=14,bottom=30,plotW=w-left-right,plotH=h-top-bottom;
+    var x=function(i){return left+i*plotW/(dias-1);},y=function(n){return top+plotH-n/max*plotH;};
+    var pontos=function(arr){return arr.map(function(n,i){return x(i).toFixed(1)+','+y(n).toFixed(1);}).join(' ');};
+    ultimaCorrida={serie:serie,esperado:esperado,ano:ano,mes:mes,limite:limite};
+    var cores=['#65c600','#248650','#3c8f86','#a37831','#427a9c','#709a35'];
+    var svg='<svg viewBox="0 0 '+w+' '+h+'" role="img" aria-label="Evolução acumulada das vendas por colaborador e meta média individual tracejada">';
+    if(filtro.de){var xi=Math.max(left,x(filtro.de-1)-plotW/(dias-1)/2),xf=Math.min(w-right,x(filtro.ate-1)+plotW/(dias-1)/2);svg+='<rect class="fat-selected-band" x="'+xi+'" y="'+top+'" width="'+(xf-xi)+'" height="'+plotH+'"/>';}
+    for(var g=0;g<=4;g++){var gy=top+g*plotH/4;svg+='<line class="fat-grid" x1="'+left+'" y1="'+gy+'" x2="'+(w-right)+'" y2="'+gy+'"/><text x="'+(left-8)+'" y="'+(gy+4)+'" text-anchor="end">'+fmtEixo(max*(1-g/4))+'</text>';}
+    for(var d=1;d<=dias;d++)if(d===1||d===dias||d%5===0)svg+='<text x="'+x(d-1)+'" y="'+(h-5)+'" text-anchor="middle">'+String(d).padStart(2,'0')+'</text>';
+    svg+='<defs><clipPath id="fat-race-clip"><rect id="fat-race-window" x="'+left+'" y="0" width="'+(plotW+16)+'" height="'+h+'"/></clipPath>';
+    serie.forEach(function(s,i){if(s.v.foto)svg+='<clipPath id="fat-face-'+i+'"><circle cx="'+x(Math.max(limite-1,0))+'" cy="'+y(s.pontos[s.pontos.length-1]||0)+'" r="10"/></clipPath>';});
+    svg+='</defs><g clip-path="url(#fat-race-clip)"><polyline class="fat-race-reference" points="'+pontos(esperado)+'"/>';
+    serie.forEach(function(s,i){if(!s.pontos.length)return;var cx=x(s.pontos.length-1),cy=y(s.pontos[s.pontos.length-1]);
+      svg+='<polyline class="fat-race-line" stroke="'+cores[i%cores.length]+'" points="'+pontos(s.pontos)+'"/>';
+      svg+='<circle class="fat-race-avatar" fill="'+cores[i%cores.length]+'" cx="'+cx+'" cy="'+cy+'" r="11"/>';
+      if(s.v.foto)svg+='<image href="'+s.v.foto+'" x="'+(cx-10)+'" y="'+(cy-10)+'" width="20" height="20" preserveAspectRatio="xMidYMid slice" clip-path="url(#fat-face-'+i+')"/>';
+      else svg+='<text x="'+cx+'" y="'+(cy+3)+'" text-anchor="middle" fill="#fff" style="fill:#fff;font-size:9px;font-weight:800">'+textoSeguro(iniciais(s.v.nome))+'</text>';
+    });svg+='</g>';
+    for(var hit=1;hit<=limite;hit++){var cx=x(hit-1),meio=plotW/(dias-1)/2;svg+='<rect class="fat-race-hit" data-rank-day="'+hit+'" role="button" tabindex="0" aria-label="Dia '+String(hit).padStart(2,'0')+'" x="'+Math.max(left,cx-meio)+'" y="'+top+'" width="'+(Math.min(w-right,cx+meio)-Math.max(left,cx-meio))+'" height="'+plotH+'"/>';}
+    svg+='</svg>';area.innerHTML=svg;
+    cancelAnimationFrame(animacaoCorrida);
+    if(animar&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches){var janela=el('fat-race-window'),inicio=0;
+      janela.setAttribute('width','0');function passo(t){if(!inicio)inicio=t;var p=Math.min((t-inicio)/2500,1);janela.setAttribute('width',String((plotW+16)*(1-Math.pow(1-p,2))));if(p<1)animacaoCorrida=requestAnimationFrame(passo);else janela.setAttribute('width',String(plotW+16));}
+      animacaoCorrida=requestAnimationFrame(passo);
+    }
+  }
+  function atualizarVisao(){
+    el('fat-tab-faturamento').classList.toggle('active',aba==='faturamento');el('fat-tab-ranking').classList.toggle('active',aba==='ranking');
+    el('fat-tab-faturamento').setAttribute('aria-current',aba==='faturamento'?'page':'false');el('fat-tab-ranking').setAttribute('aria-current',aba==='ranking'?'page':'false');
+    el('fat-chart-card').hidden=aba!=='faturamento';el('fat-ranking-card').hidden=aba!=='ranking';
+    el('fat-ranking-podium').hidden=visaoRanking!=='podio';el('fat-ranking-race').hidden=visaoRanking!=='evolucao';
+    el('fat-ranking-reference').hidden=visaoRanking!=='evolucao';
+    ['podio','evolucao'].forEach(function(m){var b=el('fat-ranking-'+m);b.classList.toggle('active',visaoRanking===m);b.setAttribute('aria-pressed',String(visaoRanking===m));});
+    if(aba==='ranking'&&visaoRanking==='podio'&&!filtro.de)el('fat-filter-hint').textContent='Use os filtros de período ou clique num colaborador do pódio';
   }
   function render(forcarAnimacao,doZero){
     if(!Object.keys(carregado).every(function(k){return carregado[k];}))return;
@@ -156,7 +236,7 @@
       meta=diasUteisMes?metaMes*diasUteisFiltro/diasUteisMes:0;
     }
     var animar=!!forcarAnimacao||primeiraRenderizacao||ultimoValor!==total;
-    animarIndicadores(total,meta,animar,!!doZero||primeiraRenderizacao);
+    animarIndicadores(total,meta,animar,!!doZero||primeiraRenderizacao||ultimoValor!==total);
     ultimoValor=total;primeiraRenderizacao=false;
     el('fat-title').textContent=filtro.de?(inicio===fim?'Faturamento no dia':'Faturamento no período'):'Faturamento no mês';
     el('fat-progress-title').textContent=filtro.de?'Faturado vs. meta proporcional':'Faturado vs. meta do mês';
@@ -170,14 +250,20 @@
     if(vendas.length){var ultima=vendas.slice().sort(function(a,b){return b.dia.localeCompare(a.dia);})[0];el('fat-latest-name').textContent=ultima.nome||'Venda registrada';el('fat-latest-value').textContent=dinheiro(ultima.valor);el('fat-latest-date').textContent='Registrada em '+window.SGUtil.fmtDateBR(ultima.dt);}
     else{el('fat-latest-name').textContent='Nenhuma venda';el('fat-latest-value').textContent='—';el('fat-latest-date').textContent='No mês selecionado';}
     el('fat-latest').classList.toggle('has-sale',!!vendas.length);
-    desenharGrafico(vendasMes,ano,mes,metaMes,limite,animar);
+    atualizarVisao();
+    if(aba==='faturamento')desenharGrafico(vendasMes,ano,mes,metaMes,limite,animar);
+    else if(visaoRanking==='podio')desenharPodio(vendedoresRanking(vendas),animar);
+    else{
+      var metaEmpresa=dados.metas.filter(function(m){return +m.Ano===ano&&+m.Mes===mes;})[0];
+      desenharCorrida(vendasMes,ano,mes,metaEmpresa?numero(metaEmpresa.Valor):0,limite,animar);
+    }
     el('fat-status').textContent=metaMes>0?'':'Sem meta efetiva cadastrada para este mês.';
   }
   var ultimoValor=null;
   function selecionarDia(dia,shift){
     if(shift&&filtro.ancora){filtro.de=Math.min(filtro.ancora,dia);filtro.ate=Math.max(filtro.ancora,dia);}
     else{filtro.de=dia;filtro.ate=dia;filtro.ancora=dia;}
-    render(true);
+    render(true,true);
   }
   function alvoDia(e){var alvo=e.target.closest&&e.target.closest('[data-fat-day]');return alvo&&el('fat-chart').contains(alvo)?alvo:null;}
   function mostrarDia(alvo){
@@ -196,28 +282,51 @@
     var guia=el('fat-hover-guide');guia.setAttribute('x1',grafico.x(dia-1));guia.setAttribute('x2',grafico.x(dia-1));guia.setAttribute('visibility','visible');
   }
   function esconderDia(){el('fat-tooltip').hidden=true;var guia=el('fat-hover-guide');if(guia)guia.setAttribute('visibility','hidden');}
+  function alvoDiaCorrida(e){var alvo=e.target.closest&&e.target.closest('[data-rank-day]');return alvo&&el('fat-ranking-race').contains(alvo)?alvo:null;}
+  function mostrarDiaCorrida(alvo){
+    var dia=+alvo.getAttribute('data-rank-day'),corrida=ultimaCorrida;if(!corrida||dia>corrida.limite)return;
+    var html='<strong>Dia '+String(dia).padStart(2,'0')+'/'+String(corrida.mes).padStart(2,'0')+'/'+corrida.ano+'</strong><span>Meta média até o dia: '+dinheiro(corrida.esperado[dia-1])+'</span>';
+    corrida.serie.forEach(function(s){var real=s.pontos[dia-1]||0,delta=real-corrida.esperado[dia-1];html+='<span>'+textoSeguro(s.v.nome)+': '+dinheiro(real)+' · '+(delta>=0?'superávit ':'déficit ')+dinheiro(Math.abs(delta))+'</span>';});
+    var dica=el('fat-ranking-tooltip');dica.innerHTML=html;
+    var caixa=el('fat-ranking-card').getBoundingClientRect(),alvoCaixa=alvo.getBoundingClientRect();
+    dica.style.left=Math.max(125,Math.min(caixa.width-125,alvoCaixa.left+alvoCaixa.width/2-caixa.left))+'px';dica.hidden=false;
+  }
   function init(){
     if(!window.SGAuth||!window.SGAuth.isAdmin())return;
     if(iniciado){render(true,true);return;}
     iniciado=true;
+    el('fat-tab-faturamento').addEventListener('click',function(){aba='faturamento';render(true,true);});
+    el('fat-tab-ranking').addEventListener('click',function(){aba='ranking';render(true,true);});
+    ['podio','evolucao'].forEach(function(m){el('fat-ranking-'+m).addEventListener('click',function(){visaoRanking=m;render(true,true);});});
+    el('fat-ranking-podium').addEventListener('click',function(e){
+      var alvo=e.target.closest&&e.target.closest('[data-rank-seller]');if(!alvo)return;
+      filtro.vendedor=alvo.getAttribute('data-rank-seller');el('fat-seller').value=filtro.vendedor;render(true,true);
+    });
+    var corrida=el('fat-ranking-race');
+    corrida.addEventListener('mouseover',function(e){var alvo=alvoDiaCorrida(e);if(alvo)mostrarDiaCorrida(alvo);});
+    corrida.addEventListener('focusin',function(e){var alvo=alvoDiaCorrida(e);if(alvo)mostrarDiaCorrida(alvo);});
+    corrida.addEventListener('mouseleave',function(){el('fat-ranking-tooltip').hidden=true;});
+    corrida.addEventListener('focusout',function(){el('fat-ranking-tooltip').hidden=true;});
+    corrida.addEventListener('click',function(e){var alvo=alvoDiaCorrida(e);if(alvo)selecionarDia(+alvo.getAttribute('data-rank-day'),e.shiftKey);});
+    corrida.addEventListener('keydown',function(e){var alvo=alvoDiaCorrida(e);if(alvo&&(e.key==='Enter'||e.key===' ')){e.preventDefault();selecionarDia(+alvo.getAttribute('data-rank-day'),e.shiftKey);}});
     if(window.addEventListener)window.addEventListener('resize',function(){
       clearTimeout(resizeGrafico);
-      resizeGrafico=setTimeout(function(){if(ultimoGrafico)desenharGrafico.apply(null,ultimoGrafico.args);},100);
+      resizeGrafico=setTimeout(function(){if(aba==='faturamento'&&ultimoGrafico)desenharGrafico.apply(null,ultimoGrafico.args);else if(aba==='ranking'&&visaoRanking==='evolucao')render(false);},100);
     });
     var seletor=el('fat-month'),agora=new Date();seletor.innerHTML='<option value="'+mesKey(agora)+'">'+agora.toLocaleDateString('pt-BR',{month:'long',year:'numeric'})+'</option>';
     seletor.addEventListener('change',function(){filtro.de=0;filtro.ate=0;filtro.ancora=0;render(true,true);});
-    el('fat-seller').addEventListener('change',function(){filtro.vendedor=this.value;render(true);});
+    el('fat-seller').addEventListener('change',function(){filtro.vendedor=this.value;render(true,true);});
     function mudarDatas(e){
       var mesId=seletor.value,limite=ultimoGrafico?ultimoGrafico.args[4]:new Date(+mesId.slice(0,4),+mesId.slice(5),0).getDate();
       var de=el('fat-date-from').value,ate=el('fat-date-to').value;
       var d=de.slice(0,7)===mesId?+de.slice(8):0,a=ate.slice(0,7)===mesId?+ate.slice(8):0;
       if(d&&a&&d>a){if(e&&e.target&&e.target.id==='fat-date-from')a=d;else d=a;}
       filtro.de=d|| (a?1:0);filtro.ate=a|| (d?limite:0);filtro.ancora=filtro.de;
-      render(true);
+      render(true,true);
     }
     el('fat-date-from').addEventListener('change',mudarDatas);
     el('fat-date-to').addEventListener('change',mudarDatas);
-    el('fat-clear-filter').addEventListener('click',function(){filtro.de=0;filtro.ate=0;filtro.ancora=0;render(true);});
+    el('fat-clear-filter').addEventListener('click',function(){filtro.de=0;filtro.ate=0;filtro.ancora=0;render(true,true);});
     var grafico=el('fat-chart');
     grafico.addEventListener('mouseover',function(e){var alvo=alvoDia(e);if(alvo)mostrarDia(alvo);});
     grafico.addEventListener('focusin',function(e){var alvo=alvoDia(e);if(alvo)mostrarDia(alvo);});
