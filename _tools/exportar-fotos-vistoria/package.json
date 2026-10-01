@@ -1,0 +1,14 @@
+{
+  "name": "exportar-fotos-vistoria",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Script de uso único (rodar localmente) para baixar as fotos do checklist de 'Vistoria de Diagnóstico' do Firestore do SolarGreen-ERP para uma pasta local e/ou para o Google Drive — acervo para o TCC do Felipe.",
+  "main": "exportar-fotos.js",
+  "scripts": {
+    "exportar": "node exportar-fotos.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "google-auth-library": "^11.0.0"
+  }
+}
