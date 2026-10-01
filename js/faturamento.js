@@ -178,9 +178,9 @@
     }
     animacaoRanking=requestAnimationFrame(passo);
   }
-  function desenharCorrida(vendas,ano,mes,metaBruta,limite,animar){
+  function desenharCorrida(vendas,ano,mes,metaEfetiva,limite,animar){
     var area=el('fat-ranking-race'),rank=vendedoresRanking(vendas),dias=new Date(ano,mes,0).getDate(),ativos=dados.vendedores.filter(function(v){return (v.Tipo||'').trim().toLowerCase()==='vendedor'&&(v.Status||'').trim().toLowerCase()==='ativo';}).length;
-    var referencia=ativos?metaBruta/ativos:0,uteisMes=0,uteis=0,esperado=[],serie=[],porId={};
+    var referencia=ativos?metaEfetiva/ativos:0,uteisMes=0,uteis=0,esperado=[],serie=[],porId={};
     for(var d=1;d<=dias;d++)if(diaUtil(new Date(ano,mes-1,d)))uteisMes++;
     for(var dia=1;dia<=dias;dia++){if(diaUtil(new Date(ano,mes-1,dia)))uteis++;esperado.push(uteisMes?referencia*uteis/uteisMes:0);}
     rank.forEach(function(v){var total=0,pontos=[];for(var d=1;d<=limite;d++){total+=vendas.filter(function(s){return s.vendedor===v.id&&s.dt.getDate()===d;}).reduce(function(s,x){return s+x.valor;},0);pontos.push(total);}serie.push({v:v,pontos:pontos});porId[v.id]=pontos;});
@@ -253,10 +253,7 @@
     atualizarVisao();
     if(aba==='faturamento')desenharGrafico(vendasMes,ano,mes,metaMes,limite,animar);
     else if(visaoRanking==='podio')desenharPodio(vendedoresRanking(vendas),animar);
-    else{
-      var metaEmpresa=dados.metas.filter(function(m){return +m.Ano===ano&&+m.Mes===mes;})[0];
-      desenharCorrida(vendasMes,ano,mes,metaEmpresa?numero(metaEmpresa.Valor):0,limite,animar);
-    }
+    else desenharCorrida(vendasMes,ano,mes,metaDoMes(ano,mes,'__all__'),limite,animar);
     el('fat-status').textContent=metaMes>0?'':'Sem meta efetiva cadastrada para este mês.';
   }
   var ultimoValor=null;

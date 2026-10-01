@@ -120,6 +120,10 @@ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../js/faturamento.js'),'
   assert.match(elemento('fat-ranking-race').innerHTML,/fat-race-line/);
   assert.match(elemento('fat-ranking-race').innerHTML,/fat-race-avatar/);
   assert.equal(elemento('fat-ranking-race').hidden,false);
+  elemento('fat-ranking-card').getBoundingClientRect=()=>({left:0,width:1400});
+  const alvoCorrida=alvo(4);alvoCorrida.getBoundingClientRect=()=>({left:120,width:30});
+  elemento('fat-ranking-race').listeners.mouseover({target:alvoCorrida});
+  assert.match(elemento('fat-ranking-tooltip').innerHTML,/Meta média até o dia: R\$ 159,09/); // (2.000 + 1.500) / 2, proporcional a 2 de 22 dias úteis
   elemento('fat-seller').value='__all__';
   elemento('fat-seller').listeners.change.call(elemento('fat-seller'));
   elemento('fat-ranking-race').listeners.click({target:{closest:()=>({getAttribute:()=> '2'})},shiftKey:false});
