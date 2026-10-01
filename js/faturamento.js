@@ -16,10 +16,15 @@
     return dados.vendas.map(function(v){var dt=data(v.DataVenda);return {id:v.IdVenda,cliente:v.IdCliente,vendedor:v.IdVendedor,dt:dt,dia:dt?chave(dt):'',valor:numero(v.Valor),nome:(v.NomeCliente||'').trim()};})
       .filter(function(v){return v.id&&v.dt&&v.cliente!==ID_CLIENTE_APORTE_SOCIOS&&!ceos[v.vendedor];});
   }
+  function vendedoresAtivos(){
+    return dados.vendedores.filter(function(v){
+      return (v.Tipo||'').trim().toLowerCase()==='vendedor'&&(v.Status||'').trim().toLowerCase()==='ativo';
+    });
+  }
   function metaDoMes(ano,mes,idVendedor){
     var registro=dados.metas.filter(function(m){return +m.Ano===ano&&+m.Mes===mes;})[0];
     var bruta=registro?numero(registro.Valor):0;
-    var ativos=dados.vendedores.filter(function(v){return (v.Tipo||'').trim()==='Vendedor'&&(v.Status||'').trim()==='Ativo';});
+    var ativos=vendedoresAtivos();
     var padrao=ativos.length?bruta/ativos.length:0;
     function individual(id){
       var manual=dados.metasIndividuais.filter(function(m){return m.IdVendedor===id&&+m.Ano===ano&&+m.Mes===mes;})[0];
@@ -29,6 +34,14 @@
     return ativos.reduce(function(total,v){
       return total+individual(v.IdVendedor);
     },0);
+  }
+  // A linha tracejada da corrida e o ritmo de UMA pessoa. Com um vendedor
+  // filtrado, e a meta dele; sem filtro, a media da equipe. Antes era sempre a
+  // media, entao quem tinha meta propria corria atras de uma referencia alheia.
+  function metaDaCorrida(ano,mes){
+    if(filtro.vendedor!=='__all__')return metaDoMes(ano,mes,filtro.vendedor);
+    var ativos=vendedoresAtivos().length;
+    return ativos?metaDoMes(ano,mes,'__all__')/ativos:0;
   }
   function preencherVendedores(){
     var seletor=el('fat-seller'),selecionado=filtro.vendedor;
@@ -190,9 +203,14 @@
     }
     animacaoRanking=requestAnimationFrame(passo);
   }
-  function desenharCorrida(vendas,ano,mes,metaEfetiva,limite,animar){
-    var area=el('fat-ranking-race'),rank=vendedoresRanking(vendas),dias=new Date(ano,mes,0).getDate(),ativos=dados.vendedores.filter(function(v){return (v.Tipo||'').trim().toLowerCase()==='vendedor'&&(v.Status||'').trim().toLowerCase()==='ativo';}).length;
-    var referencia=ativos?metaEfetiva/ativos:0,uteisMes=0,uteis=0,esperado=[],serie=[],porId={};
+  function nomeVendedor(id){
+    var v=dados.vendedores.filter(function(x){return x.IdVendedor===id;})[0];
+    return v&&v.Nome?v.Nome:'';
+  }
+  function desenharCorrida(vendas,ano,mes,referencia,limite,animar){
+    var area=el('fat-ranking-race'),rank=vendedoresRanking(vendas),dias=new Date(ano,mes,0).getDate();
+    el('fat-ranking-reference-label').textContent=filtro.vendedor==='__all__'?'Meta média por vendedor':('Meta de '+(nomeVendedor(filtro.vendedor)||'quem está filtrado'));
+    var uteisMes=0,uteis=0,esperado=[],serie=[],porId={};
     for(var d=1;d<=dias;d++)if(diaUtil(new Date(ano,mes-1,d)))uteisMes++;
     for(var dia=1;dia<=dias;dia++){if(diaUtil(new Date(ano,mes-1,dia)))uteis++;esperado.push(uteisMes?referencia*uteis/uteisMes:0);}
     rank.forEach(function(v){var total=0,pontos=[];for(var d=1;d<=limite;d++){total+=vendas.filter(function(s){return s.vendedor===v.id&&s.dt.getDate()===d;}).reduce(function(s,x){return s+x.valor;},0);pontos.push(total);}serie.push({v:v,pontos:pontos});porId[v.id]=pontos;});
@@ -202,7 +220,7 @@
     var pontos=function(arr){return arr.map(function(n,i){return x(i).toFixed(1)+','+y(n).toFixed(1);}).join(' ');};
     ultimaCorrida={serie:serie,esperado:esperado,ano:ano,mes:mes,limite:limite};
     var cores=['#65c600','#248650','#3c8f86','#a37831','#427a9c','#709a35'];
-    var svg='<svg viewBox="0 0 '+w+' '+h+'" role="img" aria-label="Evolução acumulada das vendas por colaborador e meta média individual tracejada">';
+    var svg='<svg viewBox="0 0 '+w+' '+h+'" role="img" aria-label="Evolução acumulada das vendas por colaborador e, tracejada, a meta individual de referência">';
     if(filtro.de){var xi=Math.max(left,x(filtro.de-1)-plotW/(dias-1)/2),xf=Math.min(w-right,x(filtro.ate-1)+plotW/(dias-1)/2);svg+='<rect class="fat-selected-band" x="'+xi+'" y="'+top+'" width="'+(xf-xi)+'" height="'+plotH+'"/>';}
     for(var g=0;g<=4;g++){var gy=top+g*plotH/4;svg+='<line class="fat-grid" x1="'+left+'" y1="'+gy+'" x2="'+(w-right)+'" y2="'+gy+'"/><text x="'+(left-8)+'" y="'+(gy+4)+'" text-anchor="end">'+fmtEixo(max*(1-g/4))+'</text>';}
     for(var d=1;d<=dias;d++)if(d===1||d===dias||d%5===0)svg+='<text x="'+x(d-1)+'" y="'+(h-5)+'" text-anchor="middle">'+String(d).padStart(2,'0')+'</text>';
@@ -265,7 +283,7 @@
     atualizarVisao();
     if(aba==='faturamento')desenharGrafico(vendasMes,ano,mes,metaMes,limite,animar);
     else if(visaoRanking==='podio')desenharPodio(vendedoresRanking(vendas),animar);
-    else desenharCorrida(vendasMes,ano,mes,metaDoMes(ano,mes,'__all__'),limite,animar);
+    else desenharCorrida(vendasMes,ano,mes,metaDaCorrida(ano,mes),limite,animar);
     el('fat-status').textContent=metaMes>0?'':'Sem meta efetiva cadastrada para este mês.';
   }
   var ultimoValor=null;
