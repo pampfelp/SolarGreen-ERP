@@ -1,4 +1,4 @@
-// ════ FATURAMENTO (visão da empresa, somente administrador) ════
+// ════ FATURAMENTO (visão da empresa, para administradores e vendedores) ════
 (function(){
   var iniciado=false, carregado={vendas:false,metas:false,vendedores:false,metasIndividuais:false};
   var dados={vendas:[],metas:[],vendedores:[],metasIndividuais:[]};
@@ -62,12 +62,24 @@
     seletor.innerHTML=opcoes.join('');
     if([].some.call(seletor.options,function(o){return o.value===atual;}))seletor.value=atual;
   }
+  // A meta nasce enorme e encolhe conforme o faturado cresce, para a tela mostrar a disputa.
+  function escalarDisputa(meta,pct){
+    var hero=el('fat-hero'),bloco=el('fat-meta');
+    if(!(meta>0)){bloco.hidden=true;hero.style.setProperty('--fat-escala-valor','1');return;}
+    bloco.hidden=false;
+    el('fat-meta-label').textContent=filtro.de?'Meta proporcional':'Meta';
+    el('fat-meta-value').textContent=dinheiro(meta);
+    var p=Math.min(Math.max(pct,0),100)/100;
+    hero.style.setProperty('--fat-escala-valor',(.45+.55*p).toFixed(3));
+    hero.style.setProperty('--fat-escala-meta',(1-.74*p).toFixed(3));
+  }
   function animarIndicadores(valor,meta,animar,doZero){
     cancelAnimationFrame(animacaoValor);
     var inicio=doZero?0:valorAnimado,inicioPct=doZero?0:percentualAnimado,pctFinal=meta>0?valor/meta*100:0,t0=0;
     function escrever(v,pct){
       valorAnimado=v;percentualAnimado=pct;
       el('fat-value').textContent=dinheiro(v);
+      escalarDisputa(meta,pct);
       el('fat-progress-faturado').textContent=dinheiro(v)+' faturados';
       el('fat-percent').textContent=meta>0?pct.toLocaleString('pt-BR',{maximumFractionDigits:1,minimumFractionDigits:1})+'%':'—';
       el('fat-progress-fill').style.width=Math.min(Math.max(pct,0),100)+'%';
@@ -289,7 +301,7 @@
     dica.style.left=Math.max(125,Math.min(caixa.width-125,alvoCaixa.left+alvoCaixa.width/2-caixa.left))+'px';dica.hidden=false;
   }
   function init(){
-    if(!window.SGAuth||!window.SGAuth.isAdmin())return;
+    if(!window.SGAuth||!window.SGAuth.podeVerFaturamento())return;
     if(iniciado){render(true,true);return;}
     iniciado=true;
     el('fat-tab-faturamento').addEventListener('click',function(){aba='faturamento';render(true,true);});

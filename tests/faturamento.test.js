@@ -6,7 +6,7 @@ const vm=require('node:vm');
 const elementos={};
 function elemento(id){
   if(elementos[id])return elementos[id];
-  const e={value:'',textContent:'',style:{},options:[],attributes:{},listeners:{},classList:{remove(){},toggle(){}},
+  const e={value:'',textContent:'',style:{setProperty(k,v){this[k]=v;}},options:[],attributes:{},listeners:{},classList:{remove(){},toggle(){}},
     addEventListener(k,fn){this.listeners[k]=fn;},contains(){return true;},appendChild(node){this.options.push(node);},
     setAttribute(k,v){this.attributes[k]=v;},append(...nodes){this.textContent+=nodes.map(n=>n.textContent).join('');}};
   Object.defineProperty(e,'innerHTML',{get(){return this.html||'';},set(s){this.html=s;if(id==='fat-month'){this.options=[...s.matchAll(/value="(\d{4}-\d{2})"/g)].map(m=>({value:m[1]}));this.value=this.options[0]?.value||'';}if(id==='fat-seller'){this.options=[{value:'__all__'}];this.value='__all__';}}});
@@ -33,7 +33,7 @@ const context={
   Date:TestDate,Math,performance:{now:()=>0},cancelAnimationFrame(){},requestAnimationFrame(){},clearTimeout(){},setTimeout:fn=>{fn();return 1;},
   document:{getElementById:elemento,createElement:()=>({textContent:''}),createTextNode:s=>({textContent:s})},
   window:{
-    SGAuth:{isAdmin:()=>true},SGFireReady:Promise.resolve(),matchMedia:()=>({matches:true}),
+    SGAuth:{isAdmin:()=>true,podeVerFaturamento:()=>true},SGFireReady:Promise.resolve(),matchMedia:()=>({matches:true}),
     innerWidth:1536,innerHeight:864,addEventListener:(nome,fn)=>{events[nome]=fn;},
     SGUtil:{
       fmtMoney:n=>'R$ '+Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}),
@@ -51,6 +51,10 @@ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../js/faturamento.js'),'
   await Promise.resolve();
   assert.equal(elemento('fat-value').textContent,'R$ 3.000,00');
   assert.equal(elemento('fat-percent').textContent,'85,7%'); // meta efetiva: 2.000 + 1.500
+  assert.equal(elemento('fat-meta-value').textContent,'R$ 3.500,00'); // meta grande embaixo do faturado
+  assert.equal(elemento('fat-meta').hidden,false);
+  assert.equal(elemento('fat-hero').style['--fat-escala-valor'],'0.921'); // 85,7% faturado: numero quase no tamanho cheio
+  assert.equal(elemento('fat-hero').style['--fat-escala-meta'],'0.366'); // e meta ja encolhida
   assert.equal(elemento('fat-sales-count').textContent,'2'); // CEO e aporte excluídos
   assert.equal(elemento('fat-ticket').textContent,'R$ 1.500,00');
   assert.match(elemento('fat-chart-canvas').innerHTML,/fat-line-expected/);
@@ -81,6 +85,8 @@ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../js/faturamento.js'),'
   assert.equal(elemento('fat-date-from').value,'2026-10-02');
   assert.equal(elemento('fat-date-to').value,'2026-10-02');
   assert.match(elemento('fat-progress-meta').textContent,/Meta proporcional R\$ 90,91/);
+  assert.equal(elemento('fat-meta-label').textContent,'Meta proporcional'); // hero acompanha a barra no filtro de periodo
+  assert.equal(elemento('fat-meta-value').textContent,'R$ 90,91');
   elemento('fat-chart').listeners.click({target:alvo(1),shiftKey:false});
   elemento('fat-chart').listeners.click({target:alvo(3),shiftKey:true});
   assert.equal(elemento('fat-value').textContent,'R$ 1.900,00');

@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/app.css?v=20261001d">
-<link rel="stylesheet" href="css/faturamento.css?v=20261001d">
+<link rel="stylesheet" href="css/faturamento.css?v=20261001e">
 </head>
 <body>
 
@@ -255,8 +255,8 @@
       <span id="fat-filter-hint" class="fat-filter-hint">Clique num dia do gráfico · Shift+clique seleciona um intervalo</span>
     </div>
     <div id="fat-status" class="fat-status" role="status" aria-live="polite">Carregando vendas e metas…</div>
-    <section class="fat-hero fat-card" aria-labelledby="fat-title">
-      <div class="fat-hero-main"><h2 id="fat-title">Faturamento no mês</h2><div id="fat-value" class="fat-value" aria-live="off">R$ 0,00</div><div id="fat-compare" class="fat-compare"></div></div>
+    <section class="fat-hero fat-card" id="fat-hero" aria-labelledby="fat-title">
+      <div class="fat-hero-main"><h2 id="fat-title">Faturamento no mês</h2><div id="fat-value" class="fat-value" aria-live="off">R$ 0,00</div><div id="fat-compare" class="fat-compare"></div><div id="fat-meta" class="fat-meta" hidden><span id="fat-meta-label" class="fat-meta-label">Meta</span><span id="fat-meta-value" class="fat-meta-value">R$ 0,00</span></div></div>
       <div class="fat-latest" id="fat-latest"><span class="fat-latest-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2l2.2 11h11.6l2-8H6"/><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg></span><div><span class="fat-latest-kicker">Venda recente</span><strong id="fat-latest-name">Aguardando vendas</strong><b id="fat-latest-value">—</b><span id="fat-latest-date">No mês selecionado</span></div></div>
     </section>
     <section class="fat-progress fat-card" aria-labelledby="fat-progress-title"><div class="fat-progress-top"><h2 id="fat-progress-title">Faturado vs. meta do mês</h2><strong id="fat-percent">—</strong></div><div class="fat-progress-track" role="progressbar" aria-label="Percentual da meta" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="fat-progress-track"><span id="fat-progress-fill"></span></div><div class="fat-progress-bottom"><span id="fat-progress-faturado">R$ 0,00 faturados</span><span id="fat-progress-meta">Meta não cadastrada</span></div></section>
@@ -1985,9 +1985,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="js/firebase-init.js?v=20260928b"></script>
 <script src="js/firestore-router.js?v=20261001d"></script>
-<script src="js/sg-auth.js?v=20260929b"></script>
+<script src="js/sg-auth.js?v=20261001a"></script>
 <script src="js/dashboard.js?v=20260903a"></script>
-<script src="js/faturamento.js?v=20261001e"></script>
+<script src="js/faturamento.js?v=20261001f"></script>
 <script src="js/ponto.js?v=20260928b"></script>
 <script src="js/vendas.js?v=20260929b"></script>
 <script src="js/funil.js?v=20260928b"></script>
@@ -2004,7 +2004,7 @@
 <script src="js/leads-site.js?v=20260929b"></script>
 <script src="js/usuarios.js?v=20261001d"></script>
 <script src="js/permissoes.js?v=20260829f"></script>
-<script src="js/controller.js?v=20261001a"></script>
+<script src="js/controller.js?v=20261001b"></script>
 
 <div id="sg-install-banner">
   <span class="sg-ib-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>

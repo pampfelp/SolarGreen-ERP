@@ -125,6 +125,17 @@
     return SG_ADMIN_ROLES.indexOf(t)!==-1;
   }
 
+  // Faturamento deixou de ser só do admin em 2026-10-01: o vendedor também vê
+  // a tela, porque a disputa entre faturado e meta só serve de estímulo se
+  // quem vende acompanha. Continua sendo leitura da empresa inteira.
+  var SG_FATURAMENTO_ROLES=['vendedor'];
+  function podeVerFaturamento(){
+    var s=window.SG_SESSION;
+    if(!s) return false;
+    if(isAdmin()) return true;
+    return SG_FATURAMENTO_ROLES.indexOf((s.tipo||'').trim().toLowerCase())!==-1;
+  }
+
   // Filtra uma lista de objetos vindos da API pelo IdVendedor/Funcionario do usuário logado,
   // a menos que ele seja Admin. Usado pelas telas de Ponto/Vendas/Funil.
   function filterByOwner(list,field){
@@ -134,7 +145,7 @@
     return (list||[]).filter(function(o){ return String(o[field])===meId; });
   }
 
-  window.SGAuth={ getSession:getSession, isAdmin:isAdmin, filterByOwner:filterByOwner, apiCall:authCall };
+  window.SGAuth={ getSession:getSession, isAdmin:isAdmin, podeVerFaturamento:podeVerFaturamento, filterByOwner:filterByOwner, apiCall:authCall };
 
   // Cache local por aba: guarda a última resposta boa de cada tela no
   // localStorage, pra trocar de aba mostrar os dados na hora (sem "Conectando…")
@@ -1055,7 +1066,7 @@
     var navMetas=document.getElementById('nav-metas');
     if(navMetas&&isAdmin()) navMetas.style.display='';
     var navFaturamento=document.getElementById('nav-faturamento');
-    if(navFaturamento&&isAdmin()) navFaturamento.style.display='';
+    if(navFaturamento&&podeVerFaturamento()) navFaturamento.style.display='';
     var navCustoRecorrente=document.getElementById('nav-custorecorrente');
     if(navCustoRecorrente&&isAdmin()) navCustoRecorrente.style.display='';
     var navLeadsSite=document.getElementById('nav-leadssite');
