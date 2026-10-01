@@ -1054,6 +1054,8 @@
     if(navPermissoes&&isAdmin()) navPermissoes.style.display='';
     var navMetas=document.getElementById('nav-metas');
     if(navMetas&&isAdmin()) navMetas.style.display='';
+    var navFaturamento=document.getElementById('nav-faturamento');
+    if(navFaturamento&&isAdmin()) navFaturamento.style.display='';
     var navCustoRecorrente=document.getElementById('nav-custorecorrente');
     if(navCustoRecorrente&&isAdmin()) navCustoRecorrente.style.display='';
     var navLeadsSite=document.getElementById('nav-leadssite');

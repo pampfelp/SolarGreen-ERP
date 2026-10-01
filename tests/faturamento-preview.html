@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prévia local · Faturamento Solar Green</title>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/app.css"><link rel="stylesheet" href="../css/faturamento.css">
+<style>body{display:block}#view-faturamento{display:block}.preview-note{background:#003122;color:#fff;text-align:center;padding:8px 12px;font:12px Inter,sans-serif}</style>
+</head><body><div class="preview-note">PRÉVIA DE DESENVOLVIMENTO · valores fictícios · sem conexão ao ERP</div>
+<script>
+(async function(){
+  var html=await(await fetch('../index.html')).text(),doc=new DOMParser().parseFromString(html,'text/html');
+  document.body.appendChild(doc.getElementById('view-faturamento'));
+  document.querySelector('.fat-logo').src='../assets/logo-cor.svg';
+  var hoje=new Date(),ano=hoje.getFullYear(),mes=hoje.getMonth()+1,dias=new Date(ano,mes,0).getDate(),ate=Math.min(hoje.getDate(),dias);
+  var vendas=[];for(var d=1;d<=ate;d++){if(d%3===0||d===ate)vendas.push({IdVenda:'preview-'+d,IdCliente:'cliente',IdVendedor:'v1',DataVenda:ano+'-'+String(mes).padStart(2,'0')+'-'+String(d).padStart(2,'0'),Valor:11000+(d%4)*2700,NomeCliente:'Cliente de exemplo'});}
+  var dados={vendas:vendas,metas:[{IdMeta:'m',Ano:ano,Mes:mes,Valor:310000}],vendedores:[{IdVendedor:'v1',Tipo:'Vendedor',Status:'Ativo'}],metas_individuais:[]};
+  window.SGAuth={isAdmin:function(){return true;}};window.SGFireReady=Promise.resolve();
+  window.SGUtil={fmtMoney:function(n){return 'R$ '+Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});},parseBRNumber:function(n){return Number(n)||0;},parseBRDate:function(s){var p=String(s).split('-');return new Date(+p[0],+p[1]-1,+p[2]);},dateKey:function(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');},fmtDateBR:function(d){return d.toLocaleDateString('pt-BR');},assinarColecao:function(nome,fn){fn(dados[nome]);}};
+  var script=document.createElement('script');script.src='../js/faturamento.js';script.onload=function(){window.faturamentoApp.init();};document.body.appendChild(script);
+})().catch(function(err){document.body.append('Erro na prévia: '+err.message);});
+</script></body></html>
