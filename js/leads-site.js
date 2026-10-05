@@ -238,7 +238,14 @@
     if(!_funilTela)return;
     var etapas=etapasOrdenadas(pipelineDoSite());
     var comprou=0,nao=0;
-    _funilSite.forEach(function(l){ if(l.ConversaoSite==='comprou')comprou++; else if(l.ConversaoSite==='nao_comprou')nao++; });
+    // O resultado vem da etapa onde o lead está (Ganho / Perdido). Lead movido
+    // pro Perdido pelo Funil comum não grava ConversaoSite, e contava como
+    // "em andamento". ConversaoSite só vale quando a etapa não decide.
+    _funilSite.forEach(function(l){
+      var papel=papelDe(etapas,l.Etapa);
+      if(papel==='ganho'||(papel!=='perdido'&&l.ConversaoSite==='comprou'))comprou++;
+      else if(papel==='perdido'||l.ConversaoSite==='nao_comprou')nao++;
+    });
     var total=_funilSite.length;
     el('fs-kpiTotal').textContent=total;
     el('fs-kpiAndamento').textContent=total-comprou-nao;
