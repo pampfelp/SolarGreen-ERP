@@ -75,7 +75,11 @@
   function sortCustosRows(lista){
     var col=sortState.col,dir=sortState.dir,mult=dir==='asc'?1:-1;
     lista.sort(function(a,b){
-      if(col==='data'){var da=parseBRDate(a.Data),db=parseBRDate(b.Data);return mult*((da?da.getTime():0)-(db?db.getTime():0));}
+      if(col==='data'){
+        var da=parseBRDate(a.Data),db=parseBRDate(b.Data),dif=(da?da.getTime():0)-(db?db.getTime():0);
+        // mesmo dia: desempata pela hora em que o custo entrou no sistema
+        return dif?mult*dif:mult*String(a.CriadoEm||'').localeCompare(String(b.CriadoEm||''));
+      }
       if(col==='descricao'){return mult*String(a.Descricao||'').localeCompare(String(b.Descricao||''),'pt-BR');}
       if(col==='venda'){return mult*labelDaVenda(a.IdVenda).localeCompare(labelDaVenda(b.IdVenda),'pt-BR');}
       if(col==='valor'){var va=(String(a.Valor||'0').indexOf(',')!==-1?parseFloat(String(a.Valor||'0').replace(/\./g,'').replace(',','.')):parseFloat(a.Valor))||0,vb=(String(b.Valor||'0').indexOf(',')!==-1?parseFloat(String(b.Valor||'0').replace(/\./g,'').replace(',','.')):parseFloat(b.Valor))||0;return mult*(va-vb);}
@@ -246,7 +250,7 @@
     var registroAnteriorCopia=!ehNovo?Object.assign({},custos.filter(function(x){return String(x.IdCusto)===String(idAlvo);})[0]):null;
     var dataBR=dataVal.split('-').reverse().join('/');
 
-    var registroNovo={IdCusto:idAlvo,IdVenda:idVenda,Descricao:descricao,Valor:valor,Status:status,Data:dataBR};
+    var registroNovo={IdCusto:idAlvo,IdVenda:idVenda,Descricao:descricao,Valor:valor,Status:status,Data:dataBR,CriadoEm:ehNovo?new Date().toISOString():(registroAnteriorCopia&&registroAnteriorCopia.CriadoEm)};
     var indice=custos.findIndex(function(x){return String(x.IdCusto)===String(idAlvo);});
     if(indice===-1)custos.push(registroNovo);
     else custos[indice]=registroNovo;
