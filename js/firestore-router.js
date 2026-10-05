@@ -763,7 +763,13 @@
   function salvarCustoVenda(p){
     var id=p.idCusto||(window.SGId?window.SGId.gerar():String(Date.now()));
     var doc={IdCusto:id,IdVenda:p.idVenda||'',Descricao:p.descricao||'',Valor:paraNumero(p.valor),Status:p.status||'',Data:isoParaBR(p.data)};
-    return db().collection('custos_venda').doc(id).set(doc,{merge:true})
+    // CriadoEm (ISO, só na criação): desempata custos do mesmo dia na tela
+    // Custos da Venda, do lançado mais tarde pro mais cedo. Custo antigo não tem.
+    var ref=db().collection('custos_venda').doc(id);
+    return ref.get().then(function(snap){
+      if(!snap.exists)doc.CriadoEm=new Date().toISOString();
+      return ref.set(doc,{merge:true});
+    })
       .then(function(){ return {ok:true,idCusto:id}; })
       .catch(function(err){ return {ok:false,erro:err.message}; });
   }
