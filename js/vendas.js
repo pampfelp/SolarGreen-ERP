@@ -4,10 +4,14 @@
 
   var _epoca=window.SGEpoca.criar();
   var vendedoresMap={},sortState={col:'faturado',dir:'desc'},vendedoresAtivosVenda=[],vendasRecords=[],metasRecords=[],funilRecords=[],custosVendaRecords=[],servicosMap={};
-  var clientesMap={};
+  var clientesMap={},origensCarregadasVendas=false,ORIGEM_VAZIA_VENDAS='__vazio__';
   // Cliente cadastrado via "+ Cadastrar cliente" no Funil, na mesma sessão —
   // sem isso, essa tela só enxergaria ele depois de recarregar a página.
-  document.addEventListener('sg:cliente-criado',function(e){ if(e.detail&&e.detail.IdCliente)clientesMap[e.detail.IdCliente]=e.detail; });
+  document.addEventListener('sg:cliente-criado',function(e){
+    if(!e.detail||!e.detail.IdCliente)return;
+    clientesMap[e.detail.IdCliente]=e.detail;
+    if(origensCarregadasVendas){popularOrigemSelectVendas();render();}
+  });
   var vendedoresTodosMapVendas={};
   var metasIndividuaisMap={}; // 'idVendedor|ano|mes' -> valor da sobreposição
   var vendaAtual=null;
@@ -70,12 +74,36 @@
       clientesMap[r.idCliente]={IdCliente:r.idCliente,'Nome Razao Social':r.nomeCliente,Telefone:r.telefoneCliente||'',_parcial:true};
     });
   }
+  function origemClienteVenda(id){return String((clientesMap[id]||{}).Origem||'').trim();}
+  function origemCombinaVenda(id,origem){
+    if(origem==='__all__')return true;
+    var cadastrada=origemClienteVenda(id);
+    return origem===ORIGEM_VAZIA_VENDAS?!cadastrada:cadastrada===origem;
+  }
+  function popularOrigemSelectVendas(){
+    var sel=document.getElementById('v-selOrigem'),cur=sel.value||'__all__',valores=['Tráfego pago'];
+    Object.keys(clientesMap).forEach(function(id){
+      var origem=origemClienteVenda(id);
+      if(origem&&valores.indexOf(origem)===-1)valores.push(origem);
+    });
+    valores.sort(function(a,b){return a.localeCompare(b,'pt-BR');});
+    sel.innerHTML='<option value="__all__">Todas as origens</option>';
+    valores.forEach(function(origem){var opt=document.createElement('option');opt.value=origem;opt.textContent=origem;sel.appendChild(opt);});
+    if(vendasRecords.some(function(v){return !origemClienteVenda(v.idCliente);})||funilRecords.some(function(f){return !origemClienteVenda(f.idCliente);})){
+      var sem=document.createElement('option');sem.value=ORIGEM_VAZIA_VENDAS;sem.textContent='(sem origem)';sel.appendChild(sem);
+    }
+    sel.value=[].some.call(sel.options,function(o){return o.value===cur;})?cur:'__all__';
+  }
   var _clientesAssinadosVendas=false;
   function garantirClientesCarregadosVendas(){
     if(_clientesAssinadosVendas)return;
     _clientesAssinadosVendas=true;
     window.SGUtil.assinarColecao('clientes',function(lista){
       lista.forEach(function(c){ if(c.IdCliente)clientesMap[c.IdCliente]=c; });
+      origensCarregadasVendas=true;
+      var origemAtiva=document.getElementById('v-selOrigem').value!=='__all__';
+      popularOrigemSelectVendas();
+      if(origemAtiva)render();
       var busca=document.getElementById('vm-clienteBusca');
       if(busca&&document.activeElement===busca)busca.dispatchEvent(new Event('focus'));
     });
@@ -204,15 +232,15 @@
 
   function getFiltered(){
     var from=document.getElementById('v-dateFrom').value,to=document.getElementById('v-dateTo').value;
-    var vendedor=document.getElementById('selVendedor').value,servico=document.getElementById('selServico').value;
-    function passaFiltro(v){if(from&&v.dateKey<from)return false;if(to&&v.dateKey>to)return false;if(vendedor!=='__all__'&&v.idVendedor!==vendedor)return false;if(servico!=='__all__'&&v.idServico!==servico)return false;return true;}
+    var vendedor=document.getElementById('selVendedor').value,servico=document.getElementById('selServico').value,origem=document.getElementById('v-selOrigem').value;
+    function passaFiltro(v){if(from&&v.dateKey<from)return false;if(to&&v.dateKey>to)return false;if(vendedor!=='__all__'&&v.idVendedor!==vendedor)return false;if(servico!=='__all__'&&v.idServico!==servico)return false;if(!origemCombinaVenda(v.idCliente,origem))return false;return true;}
     var vendasTodas=vendasRecords.filter(passaFiltro); // pra tabela de vendas individuais (mostra tudo, inclusive aporte de sócios)
     var vendas=vendasRecordsFaturamento.filter(passaFiltro); // pra faturamento/meta/ticket médio (sem aporte de sócios)
     // "Novos Contatos" conta por lead criado no período (nunca por movimentação —
     // ver segundo-cerebro/padroes/funil-crm.md), então filtra só por dateKey de
     // criação + vendedor, sem filtro de serviço (funil não tem "serviço" definido
     // logo na criação do lead, em geral).
-    var funilNovosContatos=funilRecords.filter(function(f){if(from&&f.dateKey<from)return false;if(to&&f.dateKey>to)return false;if(vendedor!=='__all__'&&f.idVendedor!==vendedor)return false;return true;});
+    var funilNovosContatos=funilRecords.filter(function(f){if(from&&f.dateKey<from)return false;if(to&&f.dateKey>to)return false;if(vendedor!=='__all__'&&f.idVendedor!==vendedor)return false;if(!origemCombinaVenda(f.idCliente,origem))return false;return true;});
     var vendaIds={};vendasTodas.forEach(function(v){vendaIds[v.idVenda]=true;});
     // Custos de OPERAÇÃO pertencem a uma venda — então seguem o vendedor/serviço/data
     // DESSA venda (cada serviço/vendedor carrega o custo do que ele mesmo gerou).
@@ -229,10 +257,19 @@
       if(c.dateKey){if(from&&c.dateKey<from)return false;if(to&&c.dateKey>to)return false;}
       return true;
     });
-    return{vendas:vendas,vendasTodas:vendasTodas,funilNovosContatos:funilNovosContatos,custos:custosOperacao,custosEscritorio:custosEscritorio,from:from,to:to,vendedor:vendedor};
+    return{vendas:vendas,vendasTodas:vendasTodas,funilNovosContatos:funilNovosContatos,custos:custosOperacao,custosEscritorio:custosEscritorio,from:from,to:to,vendedor:vendedor,origem:origem};
   }
 
   function render(){
+    var origemSelecionada=document.getElementById('v-selOrigem').value;
+    var origemHint=document.getElementById('v-origemHint');
+    if(origemSelecionada!=='__all__'&&!origensCarregadasVendas){
+      origemHint.textContent='Carregando a origem dos clientes para aplicar o filtro…';
+      origemHint.style.display='block';
+      garantirClientesCarregadosVendas();
+      return;
+    }
+    origemHint.style.display='none';
     var ctx=computeMetaContext(),filtered=getFiltered(),vs=document.getElementById('selVendedor').value;
     // Meta "selecionada": se um vendedor específico está no filtro, é a meta
     // efetiva DELE (sobreposição manual se existir); senão é a soma de todas
@@ -248,7 +285,7 @@
     document.getElementById('metaIndividualSub').textContent=vs==='__all__'?('÷ '+ctx.nVendedoresAtivos+' vendedor(es) ativo(s) — soma pode passar da meta bruta se houver metas manuais'):(metaOverrideDoVendedor(vs,ctx.ano,ctx.mes)?'meta manual definida pra essa pessoa':'fatia padrão (empresa ÷ ativos)');
     document.getElementById('metaDiaria').textContent=fmtMoney(metaDiariaSelecionada);document.getElementById('metaDiariaSub').textContent='meta '+(vs==='__all__'?'da empresa':'individual')+' ÷ '+ctx.diasUteisRestantes+' dia(s) útil(eis) restante(s)';
     document.getElementById('metaAteHoje').textContent=fmtMoney(metaAteHojeSelecionada);document.getElementById('metaAteHojeSub').textContent=ctx.diasUteisDecorridos+' dia(s) útil(eis) decorrido(s)';
-    document.getElementById('metaHint').textContent=vs==='__all__'?'soma das metas de '+ctx.nVendedoresAtivos+' vendedor(es) ativo(s), manuais quando existirem':'cota individual de '+nomeFor(vs);
+    document.getElementById('metaHint').textContent=(vs==='__all__'?'soma das metas de '+ctx.nVendedoresAtivos+' vendedor(es) ativo(s), manuais quando existirem':'cota individual de '+nomeFor(vs))+(filtered.origem==='__all__'?'':' · meta não segmentada por origem');
     // Indicadores agregados da empresa ("Todos os vendedores") não contam
     // vendas nem custos do CEO — mas só nessa visão agregada: se alguém
     // filtrar especificamente pelo CEO no seletor, os números dele aparecem
@@ -264,7 +301,8 @@
     document.getElementById('progressPct').textContent=pct.toFixed(1).replace('.',',')+' %';
     document.getElementById('progressFaturado').textContent=fmtMoney(fat)+' faturado';
     document.getElementById('progressFaltante').textContent=fmtMoney(Math.max(ma-fat,0))+' faltam';
-    var nV=vendasKPI.length,tm=nV>0?fat/nV:0,tmH=vendasRecordsFaturamento.length>0?vendasRecordsFaturamento.reduce(function(s,v){return s+v.valor;},0)/vendasRecordsFaturamento.length:0;
+    var historicoOrigem=vendasRecordsFaturamento.filter(function(v){return origemCombinaVenda(v.idCliente,filtered.origem);});
+    var nV=vendasKPI.length,tm=nV>0?fat/nV:0,tmH=historicoOrigem.length>0?historicoOrigem.reduce(function(s,v){return s+v.valor;},0)/historicoOrigem.length:0;
     var ticket=tm>0?tm:tmH,ticketProj=tm<=0&&tmH>0;
     var mr=Math.max(ma-fat,0),vn=ticket>0?Math.ceil(mr/ticket):(mr>0?null:0);
     var vnt=ticket>0?Math.ceil(ma/ticket):(ma>0?null:0);
@@ -274,13 +312,15 @@
     document.getElementById('kpiVendasFeitas').textContent=nV;
     document.getElementById('kpiVendasNecessarias').textContent=vn===null?'—':vn;document.getElementById('kpiVendasNecessariasSub').textContent=vn===null?'sem ticket médio':(vn===0?'meta atingida':'restantes');
     document.getElementById('kpiCustosVenda').textContent=fmtMoney(cv);document.getElementById('kpiCustosVendaSub').textContent=custosKPI.length+' lançamento(s) pago(s)';
-    document.getElementById('kpiCustosEscritorio').textContent=fmtMoney(ce);
+    var ceRateado=custoEscritorioProporcional(ce,fat);
+    document.getElementById('kpiCustosEscritorioLbl').textContent=filtered.origem==='__all__'?'Escritório':'Escritório (rateado)';
+    document.getElementById('kpiCustosEscritorio').textContent=fmtMoney(filtered.origem==='__all__'?ce:ceRateado);
     var aporte=filtered.vendasTodas.filter(function(v){return v.idCliente===ID_CLIENTE_APORTE_SOCIOS;}).reduce(function(s,v){return s+v.valor;},0);
     document.getElementById('kpiAporteSocios').textContent=fmtMoney(aporte);
     var lucroOperacional=fat-cv;
     document.getElementById('kpiLucroOperacional').textContent=fmtMoney(lucroOperacional);
     document.getElementById('kpiLucroOperacionalSub').textContent=fmtMoney(fat)+' faturado − '+fmtMoney(cv)+' de custos';
-    var saldoPeriodo=fat+aporte-cv-custoEscritorioProporcional(ce,fat);
+    var saldoPeriodo=fat+aporte-cv-ceRateado;
     document.getElementById('kpiSaldoPeriodo').textContent=fmtMoney(saldoPeriodo);
     // Base: vendedores ativos (para a meta ficar sempre visível), mais qualquer
     // vendedor (ativo ou não) que tenha vendas no período filtrado — assim
@@ -295,7 +335,7 @@
     var ids=Object.keys(idsSet);
     var linhas=ids.map(function(id){
       var vv=filtered.vendas.filter(function(v){return v.idVendedor===id;}),fv=vv.reduce(function(s,v){return s+v.valor;},0),nv=vv.length;
-      var tvp=nv>0?fv/nv:0,tvh=vendasRecordsFaturamento.filter(function(v){return v.idVendedor===id;});
+      var tvp=nv>0?fv/nv:0,tvh=historicoOrigem.filter(function(v){return v.idVendedor===id;});
       var th=tvh.length>0?tvh.reduce(function(s,v){return s+v.valor;},0)/tvh.length:tmH;
       var tv=tvp>0?tvp:th,tvE=tvp<=0&&tv>0;
       var ativo=isVendedorAtivo(vendedoresMap[id]||{});
@@ -350,7 +390,7 @@
     // conta conversa/proposta de QUALQUER lead do vendedor filtrado, sem
     // restringir aos criados no período. Só informativo — a % continua
     // vindo do número restrito (kpisFunilVendas) acima.
-    var todosDoVendedorVendas=funilRecords.filter(function(f){return filtered.vendedor==='__all__'||f.idVendedor===filtered.vendedor;});
+    var todosDoVendedorVendas=funilRecords.filter(function(f){return (filtered.vendedor==='__all__'||f.idVendedor===filtered.vendedor)&&origemCombinaVenda(f.idCliente,filtered.origem);});
     var kpisFunilVendasTotal=window.SGUtil.calcularConversasPropostas(todosDoVendedorVendas,filtered.from,filtered.to,ETAPAS_PROPOSTA_VENDAS);
     // mesma exclusão do CEO que já vale pra Faturado/Ticket/Vendas feitas
     // (vendasKPI acima) — sem isso a Taxa de conversão "Vendas" contava
@@ -369,13 +409,14 @@
     // selecionado não tem dado suficiente pra calcular uma taxa — mesma lógica
     // de antes, só que a fonte agora é o funil inteiro em vez do histórico de
     // relatórios manuais.
-    var hc=funilRecords.length;
-    var kpisFunilHist=window.SGUtil.calcularConversasPropostas(funilRecords,null,null,ETAPAS_PROPOSTA_VENDAS);
+    var funilHistoricoOrigem=funilRecords.filter(function(f){return origemCombinaVenda(f.idCliente,filtered.origem);});
+    var hc=funilHistoricoOrigem.length;
+    var kpisFunilHist=window.SGUtil.calcularConversasPropostas(funilHistoricoOrigem,null,null,ETAPAS_PROPOSTA_VENDAS);
     var hcv=kpisFunilHist.conversas;
     var hp=kpisFunilHist.propostas;
     // esse fallback é sempre agregado (não filtra por vendedor), então segue
     // a mesma regra de vendasKPI: nunca conta venda do CEO aqui.
-    var hvr=vendasRecordsFaturamento.filter(function(v){return !vendaEhDeCEO(v);}).length;
+    var hvr=historicoOrigem.filter(function(v){return !vendaEhDeCEO(v);}).length;
     var tvpp=tp>0?tvr/tp:null,tpc=tcv>0?tp/tcv:null,tcc=tc>0?tcv/tc:null;
     var tvph=hp>0?hvr/hp:null,tpch=hcv>0?hp/hcv:null,tcch=hc>0?hcv/hc:null;
     var tax1=tvpp!==null?tvpp:tvph,tax2=tpc!==null?tpc:tpch,tax3=tcc!==null?tcc:tcch;
@@ -983,6 +1024,7 @@
     (resp.clientes||[]).forEach(function(c){if(c.IdCliente)clientesMap[c.IdCliente]=c;});
     vendasRecords=processVendas(vVendas);metasRecords=processMetas(resp.metas||[]);funilRecords=processFunilVendas(vFunil);custosVendaRecords=processCustosVenda(resp.custosVenda||[]);servicosMap=processServicos(resp.servicos||[]);
     seedClientesDoDenormVendas(vendasRecords);
+    if(origensCarregadasVendas)popularOrigemSelectVendas();
     // Rede de segurança pré-backfill (ver funil.js): se muita venda ainda não
     // tem NomeCliente, carrega `clientes` uma vez em vez de mostrar o id.
     var semNomeV=vendasRecords.filter(function(v){return v.idCliente&&!clientesMap[v.idCliente];}).length;
@@ -1037,8 +1079,10 @@
 
   (function autoConnect(){if(!window.SG_SESSION)return;if(getApiUrl()&&getApiKey())fetchFromApi();})();
   document.getElementById('v-dateFrom').addEventListener('change',render);document.getElementById('v-dateTo').addEventListener('change',render);document.getElementById('selVendedor').addEventListener('change',render);document.getElementById('selServico').addEventListener('change',render);
+  document.getElementById('v-selOrigem').addEventListener('focus',garantirClientesCarregadosVendas);
+  document.getElementById('v-selOrigem').addEventListener('change',function(){vPaginaAtual=1;render();});
   document.getElementById('v-buscaGeral').addEventListener('input',function(){ vPaginaAtual=1; render(); });
-  document.getElementById('v-resetFiltros').addEventListener('click',function(){document.getElementById('selVendedor').value='__all__';document.getElementById('selServico').value='__all__';document.getElementById('v-buscaGeral').value='';setDefaultDateRange();document.querySelectorAll('.qr-btn[data-range]').forEach(function(b){b.classList.remove('active');});render();});
+  document.getElementById('v-resetFiltros').addEventListener('click',function(){document.getElementById('selVendedor').value='__all__';document.getElementById('selServico').value='__all__';document.getElementById('v-selOrigem').value='__all__';document.getElementById('v-buscaGeral').value='';vPaginaAtual=1;setDefaultDateRange();document.querySelectorAll('.qr-btn[data-range]').forEach(function(b){b.classList.remove('active');});render();});
   /**
    * "Tudo" (2026-08-31, pedido do Felipe): igual ao mesmo atalho já
    * existente no Funil/Agendamentos — cobre do dia mais antigo ao mais
