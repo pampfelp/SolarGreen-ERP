@@ -1435,6 +1435,21 @@ var CONTRACT_TYPES=[
     compose:composeManutencao
   },
   {
+    id:'homologacao', title:'Homologação de Usina Solar', tag:'Pontual',
+    sub:'Homologação junto à concessionária de usina já instalada e nunca homologada: comissionamento, projeto, ART, parecer de acesso e vistoria final.',
+    fields:[
+      {key:'cenario',label:'Cenário',type:'select',options:['Usina existente, nunca homologada','Usina de outro integrador, nunca homologada'],default:'Usina existente, nunca homologada',rebuild:true},
+      {key:'integradorAnterior',label:'Empresa que instalou (opcional)',type:'text',default:'',showIf:function(v){return v.cenario==='Usina de outro integrador, nunca homologada';}},
+      {key:'potenciaKwp',label:'Potência do sistema (kWp)',type:'number',default:''},
+      {key:'unidadeConsumidora',label:'Nº da unidade consumidora',type:'text',default:''},
+      {key:'valorTotal',label:'Valor total da homologação (R$)',type:'number',min:300,default:1200},
+      {key:'formaPagamento',label:'Forma de pagamento',type:'select',options:['Pix ou Boleto','Cartão de crédito','Transferência/TED'],default:'Pix ou Boleto'},
+      {key:'momentoSaldo',label:'Segunda metade do valor é paga',type:'text',default:'na aprovação do parecer de acesso'},
+      {key:'dataContrato',label:'Data do contrato',type:'date',default:dateKey(new Date())}
+    ],
+    compose:composeHomologacao
+  },
+  {
     id:'recibo', title:'Recibo de Pagamento', tag:'Avulso',
     sub:'Recibo de quitação de valores recebidos por serviços prestados (limpeza, vistoria, taxa, etc).',
     fields:[
@@ -1694,6 +1709,78 @@ function composeManutencao(v,c){
   '<div style="page-break-before:always;padding-top:24px;">'+
     '<p style="margin-top:24px;">'+escH(c.cidade)+' – PA, '+isoToBR(v.dataContrato)+'.</p>'+
     '<div class="cp-sign">'+blocoAssinaturaContratante(c.nome)+blocoAssinaturaContratada(v.dataContrato)+'</div>'+
+  '</div>'
+  );
+}
+
+// Homologação (2026-10-07): o texto foi aprovado pelo Felipe no chat, cláusula
+// por cláusula. A vistoria de comissionamento vale R$ 300 fixos, e o restante
+// do valor se divide igualmente entre as três etapas seguintes; essa divisão
+// só aparece na cláusula de desistência. A última etapa absorve os centavos
+// que sobram da divisão, pra soma bater sempre com o valor total.
+function composeHomologacao(v,c){
+  var valor=parseFloat(v.valorTotal)||0;
+  if(valor<300) return '<p class="empty-inline">O valor da homologação não pode ser menor que R$ 300,00.</p>';
+  var resto=valor-300;
+  var etapa=Math.floor(resto/3*100)/100;
+  var ultima=Math.round((resto-etapa*2)*100)/100;
+  var metade=Math.floor(valor/2*100)/100;
+  var outraMetade=Math.round((valor-metade)*100)/100;
+  var cenarioTxt=v.cenario==='Usina de outro integrador, nunca homologada'?
+    ('1.2. O sistema foi instalado por terceiro'+(v.integradorAnterior?(', a empresa '+escH(v.integradorAnterior)):'')+', que não concluiu a sua homologação junto à CONCESSIONÁRIA. A CONTRATADA não responde pela instalação executada por esse terceiro, pelos equipamentos fornecidos por ele nem pelas garantias oferecidas por ele.')
+    :'1.2. O sistema já está instalado na unidade consumidora e nunca foi homologado junto à CONCESSIONÁRIA.';
+
+  return(
+  '<h2>Contrato de Prestação de Serviços de Homologação de Sistema Fotovoltaico</h2>'+
+  '<div class="cp-parties">'+
+    '<p><strong>CONTRATANTE:</strong> '+escH(c.nome)+', CPF/CNPJ '+escH(c.cpf)+', residente e domiciliado(a) em '+escH(c.endereco)+', doravante denominado(a) <strong>CONTRATANTE</strong>.</p>'+
+    '<p><strong>CONTRATADA:</strong> '+escH(CONTRATADA.nome)+', CNPJ '+escH(CONTRATADA.cnpj)+', com sede em '+escH(CONTRATADA.enderecoFull)+', doravante denominada <strong>CONTRATADA</strong>.</p>'+
+  '</div>'+
+  '<div class="cp-clause-title">CLÁUSULA PRIMEIRA – DO OBJETO</div>'+
+  '<p>1.1. O presente contrato tem por objeto a prestação de serviços de homologação do sistema de geração de energia solar fotovoltaica de <strong>'+escH(v.potenciaKwp||'—')+' kWp</strong> instalado na unidade consumidora nº <strong>'+escH(v.unidadeConsumidora||'—')+'</strong>, localizada em '+escH(c.endereco)+', junto à concessionária de distribuição de energia elétrica responsável por essa unidade, doravante denominada <strong>CONCESSIONÁRIA</strong>, para adesão ao Sistema de Compensação de Energia Elétrica previsto na Lei nº 14.300/2022.</p>'+
+  '<p>'+cenarioTxt+'</p>'+
+  '<p>1.3. O responsável técnico pelo serviço é o engenheiro eletricista Felipe Eduardo Pamplona de Sousa Nascimento, em nome de quem será emitida a Anotação de Responsabilidade Técnica (ART).</p>'+
+  '<div class="cp-clause-title">CLÁUSULA SEGUNDA – DA DOCUMENTAÇÃO DO CONTRATANTE</div>'+
+  '<p>2.1. Para o início do serviço, o CONTRATANTE entrega à CONTRATADA:</p>'+
+  '<p>a) conta de energia recente da unidade consumidora;<br>b) RG ou CNH, e CPF;<br>c) procuração assinada que autorize a CONTRATADA a representá-lo perante a CONCESSIONÁRIA;<br>d) fotos dos equipamentos instalados e do padrão de entrada.</p>'+
+  '<div class="cp-clause-title">CLÁUSULA TERCEIRA – DAS ETAPAS DO SERVIÇO</div>'+
+  '<p>3.1. <em>Vistoria de comissionamento.</em> A CONTRATADA vistoria o sistema instalado e o padrão de entrada para verificar se a instalação está de acordo com as normas técnicas e se há algo que impeça a homologação.</p>'+
+  '<p>3.2. <em>Correções.</em> Quando a vistoria de comissionamento identificar algum problema:</p>'+
+  '<p>a) correções simples, como reconectar um cabo desconectado, são feitas pela CONTRATADA sem custo adicional;<br>b) correções que exijam material ou mão de obra são orçadas à parte e só são executadas após aprovação do orçamento pelo CONTRATANTE. Sem essa aprovação, o processo não segue para a etapa seguinte.</p>'+
+  '<p>3.3. <em>Projeto elétrico, ART e protocolo.</em> Com a documentação da Cláusula Segunda completa e a instalação aprovada na vistoria de comissionamento, a CONTRATADA elabora o projeto elétrico, emite a ART e solicita o protocolo à CONCESSIONÁRIA em até 96 (noventa e seis) horas úteis. A CONCESSIONÁRIA tem até 48 (quarenta e oito) horas para emitir o protocolo.</p>'+
+  '<p>3.4. <em>Parecer de acesso.</em> Com o protocolo emitido, a CONTRATADA solicita o parecer de acesso. Pelas normas da ANEEL, a CONCESSIONÁRIA tem até 15 (quinze) dias para responder quando não há necessidade de obra na rede de distribuição, e até 45 (quarenta e cinco) dias quando há. O parecer reprovado por falha no envio é corrigido e reenviado pela CONTRATADA sem custo adicional.</p>'+
+  '<p>3.5. <em>Vistoria final.</em> Com o parecer de acesso aprovado, a CONTRATADA solicita a vistoria final da CONCESSIONÁRIA, que tem até 14 (quatorze) dias para realizá-la. Aprovada a vistoria, a homologação está concluída.</p>'+
+  '<div class="cp-clause-title">CLÁUSULA QUARTA – DA OBRA NA REDE DE DISTRIBUIÇÃO</div>'+
+  '<p>4.1. Se o parecer de acesso indicar necessidade de obra na rede de distribuição, o CONTRATANTE decide se participa da obra, arcando com a participação financeira que a CONCESSIONÁRIA eventualmente cobrar, ou se cancela a solicitação.</p>'+
+  '<p>4.2. A obra é executada pela CONCESSIONÁRIA no prazo que ela definir conforme o tipo de obra, que pode ir de 30 (trinta) a 365 (trezentos e sessenta e cinco) dias. O custo e o prazo da obra não geram ônus nem responsabilidade para a CONTRATADA.</p>'+
+  '<div class="cp-clause-title">CLÁUSULA QUINTA – DA REPROVAÇÃO NA VISTORIA FINAL</div>'+
+  '<p>5.1. Se a CONCESSIONÁRIA reprovar a vistoria final por motivo técnico, inclusive por avaliação diferente da feita na vistoria de comissionamento, e a correção exigir material ou mão de obra, o orçamento será repassado ao CONTRATANTE. Após o pagamento, a CONTRATADA executa a correção e solicita nova vistoria.</p>'+
+  '<p>5.2. Somente a primeira reprovação técnica da vistoria final pode gerar orçamento ao CONTRATANTE. As reprovações técnicas seguintes são corrigidas pela CONTRATADA sem nenhum custo ao CONTRATANTE, inclusive de material e mão de obra.</p>'+
+  '<div class="cp-clause-title">CLÁUSULA SEXTA – DAS OBRIGAÇÕES DO CONTRATANTE</div>'+
+  '<p>6.1. Garantir o acesso da CONTRATADA ao local na data da vistoria de comissionamento e o acesso da CONCESSIONÁRIA no dia da vistoria final. A CONTRATADA não acompanha a vistoria final, porque a data e o horário são definidos pela CONCESSIONÁRIA.</p>'+
+  '<p>6.2. Providenciar a placa de advertência exigida pela CONCESSIONÁRIA junto ao padrão de entrada, que não faz parte do fornecimento da CONTRATADA.</p>'+
+  '<p>6.3. Efetuar o pagamento nas condições da Cláusula Oitava.</p>'+
+  '<div class="cp-clause-title">CLÁUSULA SÉTIMA – DOS PRAZOS DA CONCESSIONÁRIA E DAS EXCLUSÕES</div>'+
+  '<p>7.1. Os prazos de emissão do protocolo, do parecer de acesso, da obra na rede e da vistoria final pertencem à CONCESSIONÁRIA e não dependem da CONTRATADA. O atraso da CONCESSIONÁRIA não caracteriza descumprimento deste contrato pela CONTRATADA.</p>'+
+  '<p>7.2. Ressalvado o item 5.2, não estão incluídos neste contrato: correções orçadas conforme os itens 3.2 e 5.1, adequação do padrão de entrada, fornecimento de materiais e equipamentos, placa de advertência e obras na rede de distribuição.</p>'+
+  '<div class="cp-clause-title">CLÁUSULA OITAVA – DO PREÇO E PAGAMENTO</div>'+
+  '<p>8.1. Pelos serviços descritos neste contrato, o CONTRATANTE pagará à CONTRATADA o valor total de <strong>'+fmtMoney(valor)+'</strong>, via '+escH(v.formaPagamento)+', sendo 50% ('+fmtMoney(metade)+') no fechamento deste contrato e 50% ('+fmtMoney(outraMetade)+') '+escH(v.momentoSaldo||'—')+'.</p>'+
+  '<p>8.2. Os orçamentos de correção previstos nos itens 3.2 e 5.1 são cobrados à parte.</p>'+
+  '<div class="cp-clause-title">CLÁUSULA NONA – DA DESISTÊNCIA</div>'+
+  '<p>9.1. O CONTRATANTE pode desistir do serviço a qualquer tempo, mediante comunicação por escrito à CONTRATADA.</p>'+
+  '<p>9.2. Na desistência, fica com a CONTRATADA, sem devolução, o valor das etapas já concluídas:</p>'+
+  '<p>a) vistoria de comissionamento: '+fmtMoney(300)+';<br>b) projeto elétrico, ART e protocolo: '+fmtMoney(etapa)+';<br>c) parecer de acesso: '+fmtMoney(etapa)+';<br>d) vistoria final: '+fmtMoney(ultima)+'.</p>'+
+  '<p>9.3. O valor pago além do valor das etapas concluídas é devolvido ao CONTRATANTE. Se o valor das etapas concluídas for maior que o valor pago, o CONTRATANTE paga a diferença à CONTRATADA a título de multa contratual.</p>'+
+  '<div class="cp-clause-title">CLÁUSULA DÉCIMA – DA VIGÊNCIA</div>'+
+  '<p>10.1. O presente contrato vigora a partir da sua assinatura e se encerra com a aprovação da vistoria final pela CONCESSIONÁRIA.</p>'+
+  '<div class="cp-clause-title">CLÁUSULA DÉCIMA PRIMEIRA – DO FORO</div>'+
+  '<p>11.1. Fica eleito o foro da comarca de '+escH(c.cidade)+'/PA para dirimir quaisquer dúvidas oriundas deste contrato.</p>'+
+  // page-break-before:always — mesmo motivo do composeMonitoramento acima.
+  // Mesma disposição dele (CONTRATADA à esquerda), pra POSICOES_ASSINATURA_
+  // do Code.gs poder reaproveitar as posições medidas pro monitoramento.
+  '<div style="page-break-before:always;padding-top:24px;">'+
+    '<p style="margin-top:24px;">'+escH(c.cidade)+'/PA, '+isoToBR(v.dataContrato)+'.</p>'+
+    '<div class="cp-sign">'+blocoAssinaturaContratada(v.dataContrato)+blocoAssinaturaContratante(c.nome)+'</div>'+
   '</div>'
   );
 }
