@@ -3152,6 +3152,13 @@ var POSICOES_ASSINATURA_ = {
   manutencao: {
     empresa: { assinatura: { x: '61.7', y: '10' }, assinaturaTodas: { x: '52.5', y: '93' } },
     cliente: { assinatura: { x: '3', y: '10' }, assinaturaTodas: { x: '7', y: '93' } }
+  },
+  // Homologação (2026-10-07): mesma disposição do monitoramento no HTML
+  // (CONTRATADA à esquerda, página de assinatura sempre nova), então as
+  // mesmas posições. Conferir no primeiro envio real.
+  homologacao: {
+    empresa: { assinatura: { x: '3', y: '10' }, assinaturaTodas: { x: '7', y: '93' } },
+    cliente: { assinatura: { x: '61.7', y: '10' }, assinaturaTodas: { x: '52.5', y: '93' } }
   }
 };
 
@@ -3592,7 +3599,7 @@ function getOrCreatePastaContratosProposta_() {
   return DriveApp.createFolder(nomePasta);
 }
 
-var TIPOS_CONTRATO_ASSINAVEIS_ = { monitoramento: true, manutencao: true, recibo: true, procuracao: true };
+var TIPOS_CONTRATO_ASSINAVEIS_ = { monitoramento: true, manutencao: true, recibo: true, procuracao: true, homologacao: true };
 
 /**
  * action: enviarContratoParaAssinatura — body { idCliente, clienteNome,
