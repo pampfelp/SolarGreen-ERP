@@ -68,7 +68,7 @@ service cloud.firestore {
         && request.resource.data.medidas is map
         && request.resource.data.medidas.keys().hasOnly([
           'modules', 'watts', 'inverter', 'floors', 'ac', 'dc', 'ground',
-          'roof', 'connection', 'sun', 'point', 'conduit'
+          'roof', 'connection', 'inverterOutput', 'sun', 'point', 'conduit'
         ])
         && request.resource.data.itens is list
         && request.resource.data.itens.size() > 0
