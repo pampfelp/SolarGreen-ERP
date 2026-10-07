@@ -478,14 +478,14 @@
     var verificarStatusOSBtn=document.getElementById('ad-verificarStatusOSBtn');
     if(verificarStatusOSBtn){
       verificarStatusOSBtn.addEventListener('click',function(){
-        verificarStatusOSBtn.disabled=true; var textoOriginal=verificarStatusOSBtn.textContent; verificarStatusOSBtn.textContent='Verificando…';
+        verificarStatusOSBtn.disabled=true; var textoOriginal=verificarStatusOSBtn.innerHTML; verificarStatusOSBtn.textContent='Verificando…';
         var clienteOS=clientesMap[a.IdCliente]||{};
         // Cai sozinha no Apps Script antigo (mesma lógica de gerarPdfOS/
         // enviarOSParaAssinatura) — manda o que o Firestore já tem
         // guardado (AutentiqueDocId, e-mail do cliente) em vez de deixar o
         // servidor procurar numa planilha que não é mais a fonte de dado.
         apiCall('verificarStatusOS',{autentiqueDocId:a.AutentiqueDocId||'',clienteEmail:clienteOS.Email||''}).then(function(resp){
-          verificarStatusOSBtn.disabled=false; verificarStatusOSBtn.textContent=textoOriginal;
+          verificarStatusOSBtn.disabled=false; verificarStatusOSBtn.innerHTML=textoOriginal;
           if(!resp||!resp.ok){ showAgToast((resp&&resp.erro)||'Não foi possível verificar o status.',true); return; }
           a.StatusAssinaturaOS=resp.status;
           var statusEl=document.getElementById('ad-osStatusValor');
@@ -494,7 +494,7 @@
           if(resp.refused)showAgToast(resp.status+' — copie o link e mande manualmente por WhatsApp.',true);
           else showAgToast('Status atualizado: '+resp.status);
         }).catch(function(err){
-          verificarStatusOSBtn.disabled=false; verificarStatusOSBtn.textContent=textoOriginal;
+          verificarStatusOSBtn.disabled=false; verificarStatusOSBtn.innerHTML=textoOriginal;
           showAgToast('Erro de conexão: '+err.message,true);
         });
       });
@@ -718,11 +718,11 @@
     if(!agendamentoAtual)return;
     var a=agendamentoAtual;
     var btn=document.getElementById('ad-pdfBtn');
-    btn.disabled=true; var textoOriginal=btn.textContent; btn.textContent='Carregando respostas…';
+    btn.disabled=true; var textoOriginal=btn.innerHTML; btn.textContent='Carregando respostas…';
     // garantirClienteCarregadoAg junto: a OS impressa mostra endereço do
     // cliente, que só vem no doc completo (a lista tem só o nome).
     Promise.all([garantirRespostas(a.IdAgendamento),garantirClienteCarregadoAg(a.IdCliente)]).then(function(){
-      btn.disabled=false; btn.textContent=textoOriginal;
+      btn.disabled=false; btn.innerHTML=textoOriginal;
       var htmlDoc=montarHtmlOS(a);
       var win=window.open('','_blank');
       win.document.write(htmlDoc);
@@ -794,7 +794,7 @@
           abrirModalOSEnviada(cliente.Email,resp2.link||'');
         });
       }).catch(function(err){
-        btn.disabled=false; btn.textContent=textoOriginal;
+        btn.disabled=false; btn.innerHTML=textoOriginal;
         showAgToast('Erro de conexão: '+err.message,true);
       });
     });
