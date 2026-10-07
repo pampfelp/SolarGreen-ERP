@@ -48,6 +48,40 @@ service cloud.firestore {
     match /templates/{id} {
       allow read, write: if isSignedIn();
     }
+    // Lista de material: mesmo login do ERP; fotos não são persistidas aqui.
+    match /listas_material/{id} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'clienteId', 'idAgendamento', 'medidas', 'itens', 'aviso',
+          'leituraIA', 'autorUid', 'atualizadoEm'
+        ])
+        && request.resource.data.keys().hasAll([
+          'clienteId', 'idAgendamento', 'medidas', 'itens',
+          'autorUid', 'atualizadoEm'
+        ])
+        && request.resource.data.clienteId is string
+        && request.resource.data.clienteId.size() > 0
+        && request.resource.data.clienteId.size() <= 100
+        && request.resource.data.idAgendamento is string
+        && request.resource.data.idAgendamento.size() <= 100
+        && request.resource.data.medidas is map
+        && request.resource.data.medidas.keys().hasOnly([
+          'modules', 'watts', 'inverter', 'floors', 'ac', 'dc', 'ground',
+          'roof', 'connection', 'sun', 'point', 'conduit'
+        ])
+        && request.resource.data.itens is list
+        && request.resource.data.itens.size() > 0
+        && request.resource.data.itens.size() <= 150
+        && request.resource.data.autorUid == request.auth.uid
+        && request.resource.data.atualizadoEm == request.time
+        && (!('aviso' in request.resource.data) ||
+          (request.resource.data.aviso is string && request.resource.data.aviso.size() <= 2000))
+        && (!('leituraIA' in request.resource.data) ||
+          (request.resource.data.leituraIA is string && request.resource.data.leituraIA.size() <= 2000))
+        && exists(/databases/$(database)/documents/clientes/$(request.resource.data.clienteId));
+      allow delete: if false;
+    }
     match /produtos_modulos/{id} {
       allow read, write: if isSignedIn();
     }
