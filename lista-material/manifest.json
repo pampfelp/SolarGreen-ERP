@@ -1,0 +1,15 @@
+{
+  "name": "Lista de Material Solar Green",
+  "short_name": "Lista Material",
+  "description": "Lista de material de instalação fotovoltaica conectada ao ERP Solar Green.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "lang": "pt-BR",
+  "background_color": "#06241a",
+  "theme_color": "#06241a",
+  "icons": [
+    {"src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ]
+}

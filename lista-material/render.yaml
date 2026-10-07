@@ -1,0 +1,20 @@
+﻿services:
+  - type: web
+    name: lista-material-api
+    runtime: python
+    plan: free
+    rootDir: lista-material/backend
+    buildCommand: "true"
+    startCommand: "python server.py"
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ORIGIN
+        value: https://pampfelp.github.io
+      - key: FIREBASE_API_KEY
+        value: AIzaSyC50rNjz7cd_1_aWDBMuz84QqOFwPRV1aE
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false

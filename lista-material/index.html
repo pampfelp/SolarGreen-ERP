@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#06241a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="Lista de material de instalação solar conectada ao ERP Solar Green.">
+  <title>Lista de material | Solar Green</title>
+  <link rel="manifest" href="./manifest.json?v=20261006d">
+  <link rel="icon" href="./favicon-32.png?v=20261006d" sizes="32x32">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=20261006d">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css?v=20261006d">
+  <script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script type="module" src="./app.js?v=20261007c"></script>
+</head>
+<body>
+<svg class="symbols" aria-hidden="true">
+  <symbol id="check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></symbol>
+  <symbol id="file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></symbol>
+  <symbol id="save" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13"/><polyline points="7 3 7 8 15 8"/></symbol>
+  <symbol id="user" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+  <symbol id="cam" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></symbol>
+  <symbol id="zap" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+  <symbol id="eye" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="trash" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+  <symbol id="plus" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+  <symbol id="alert" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+  <symbol id="down" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></symbol>
+  <symbol id="up" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></symbol>
+  <symbol id="arrow" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></symbol>
+</svg>
+
+<div id="auth-screen" class="auth-screen" hidden>
+  <form id="login-form" class="auth-card">
+    <img src="./logo.svg?v=20261006d" alt="Solar Green">
+    <p class="eyebrow">Ferramenta técnica</p>
+    <h1>Lista de material</h1>
+    <p>Entre com o mesmo e-mail e senha usados no ERP Solar Green.</p>
+    <label for="login-email">E-mail</label><input id="login-email" type="email" autocomplete="username" required>
+    <label for="login-password">Senha</label><input id="login-password" type="password" autocomplete="current-password" required>
+    <button class="btn g" type="submit">Entrar</button>
+    <div id="login-error" role="alert"></div>
+  </form>
+</div>
+
+<div id="app-shell" hidden>
+  <header class="top">
+    <div class="bar">
+      <img src="./logo.svg?v=20261006d" alt="Solar Green">
+      <div class="acts">
+        <button id="client-button" class="cli" type="button"><svg class="i"><use href="#user"/></svg><span id="client-label">Selecionar cliente ou OS</span></button>
+        <button id="save-button" class="btn o" type="button" aria-label="Salvar no cliente"><svg class="i"><use href="#save"/></svg><span class="btn-label">Salvar no cliente</span></button>
+        <button class="btn g export-button" type="button" aria-label="Exportar PDF"><svg class="i"><use href="#file"/></svg><span class="btn-label">Exportar PDF</span></button>
+        <button id="logout-button" class="logout" type="button">Sair</button>
+      </div>
+    </div>
+    <button id="client-button-mobile" class="cli cli-mobile" type="button"><svg class="i"><use href="#user"/></svg><span id="client-label-mobile">Selecionar cliente ou OS</span></button>
+    <div class="hero">
+      <div><div class="eyebrow">Ferramenta técnica</div><h1>Lista de material</h1><p>Coloque as medidas da vistoria, jogue as fotos, e a lista sai pronta pra editar.</p></div>
+      <div class="nums">
+        <div class="num"><b id="stat-kwp">—</b><span>kWp</span></div>
+        <div class="num"><b id="stat-items">0</b><span>itens</span></div>
+        <div class="num"><b id="stat-ac">—</b><span>cabo CA</span></div>
+        <div class="num"><b id="stat-dc">—</b><span>cabo CC</span></div>
+      </div>
+    </div>
+  </header>
+  <nav class="tabs" aria-label="Etapas">
+    <button class="on" type="button" data-tab="measures">Medidas</button>
+    <button type="button" data-tab="photos">Fotos<em id="tab-photo-count">0</em></button>
+    <button type="button" data-tab="list">Lista<em id="tab-item-count">0</em></button>
+  </nav>
+  <main class="wrap">
+    <div class="left-column">
+      <section class="card" id="measures-panel">
+        <div class="ch"><div class="step">1</div><h2>Medidas essenciais</h2><span class="sub">da vistoria</span></div>
+        <form id="measure-form">
+          <div class="grid2">
+            <div class="f"><label for="modules">Módulos *</label><div class="inp"><input id="modules" type="number" min="1" step="1" required><em>un</em></div></div>
+            <div class="f"><label for="watts">Potência do módulo *</label><div class="inp"><input id="watts" type="number" min="1" step="1" required><em>W</em></div></div>
+            <div class="f"><label for="inverter">Inversor *</label><div class="inp"><input id="inverter" type="number" min="0.1" step="0.1" required><em>kW</em></div></div>
+            <div class="f"><label for="floors">Andares</label><div class="inp"><input id="floors" type="number" min="1" step="1" value="1"><em>pav.</em></div></div>
+            <div class="f full"><label>Rede no padrão (127/220 V)</label><div class="seg" data-field="connection"><button type="button" data-value="Mono 127 V">Mono 127 V</button><button type="button" class="on" data-value="Bifásico 220 V">Bifásica</button><button type="button" data-value="Trifásico">Trifásica</button></div></div>
+            <div class="f full"><label for="inverter-output">Saída CA do inversor</label><div class="inp"><select id="inverter-output"><option value="Mono 220 V">Monofásico 220 V (entre fases)</option><option value="Mono 127 V">Monofásico 127 V (fase-neutro)</option><option value="Trifásico 220 V">Trifásico 220 V</option></select><svg class="i"><use href="#down"/></svg></div></div>
+            <div class="f full"><label for="roof">Telhado</label><div class="inp"><select id="roof"><option>Fibrocimento sobre madeira</option><option>Fibrocimento sobre metal</option><option>Telha cerâmica</option><option>Telha metálica</option><option>Laje</option><option>A conferir</option></select><svg class="i"><use href="#down"/></svg></div></div>
+            <div class="f"><label for="ac">Até o ponto de conexão *</label><div class="inp"><input id="ac" type="number" min="0.1" step="0.1" required><em>m</em></div></div>
+            <div class="f"><label for="dc">Percurso CC *</label><div class="inp"><input id="dc" type="number" min="0.1" step="0.1" required><em>m</em></div></div>
+            <div class="f"><label for="ground">Cabo de aterramento</label><div class="inp"><input id="ground" type="number" min="0" step="0.1"><em>m</em></div></div>
+            <div class="f"><label>Trecho no sol</label><div class="seg" data-field="sun"><button type="button" data-value="Sim">Sim</button><button type="button" class="on" data-value="Não">Não</button></div></div>
+            <div class="f full"><label>Ponto de conexão</label><div class="seg" data-field="point"><button type="button" class="on" data-value="Padrão de entrada">Padrão de entrada</button><button type="button" data-value="Quadro geral">Quadro geral</button></div></div>
+            <div class="f full"><label>Eletroduto</label><div class="seg" data-field="conduit"><button type="button" class="on" data-value="Aparente">Aparente</button><button type="button" data-value="Embutido">Embutido</button><button type="button" data-value="Forro">Forro</button></div></div>
+          </div>
+          <button class="btn g gen" type="submit"><svg class="i"><use href="#zap"/></svg>Gerar lista base</button>
+        </form>
+      </section>
+      <section class="card" id="photos-panel">
+        <div class="ch"><div class="step">2</div><h2>Fotos da instalação</h2><span id="photo-count" class="sub">0 fotos</span></div>
+        <button id="photo-drop" class="drop" type="button"><svg class="i"><use href="#cam"/></svg><div>Arraste as fotos aqui ou toque para escolher</div></button>
+        <input id="photo-input" type="file" accept="image/*" multiple hidden>
+        <div id="thumbs" class="thumbs"><button class="add" type="button" aria-label="Adicionar foto"><svg class="i"><use href="#plus"/></svg></button></div>
+        <button id="ai-button" class="btn b ai" type="button"><svg class="i" style="color:var(--accent)"><use href="#eye"/></svg>Ler fotos com IA</button>
+        <div id="cascade" class="cascade" aria-live="polite"><span class="c wait">Gemini</span><svg class="i arr"><use href="#arrow"/></svg><span class="c wait">GPT</span><svg class="i arr"><use href="#arrow"/></svg><span class="c wait">Claude</span></div>
+        <div id="ai-read" class="read"><b>O que a IA leu:</b> adicione fotos e toque em “Ler fotos com IA”.</div>
+      </section>
+    </div>
+    <section class="card list-card" id="list-panel">
+      <div class="lh"><h2>Lista de material</h2><span id="list-total" class="tot">0 itens · 6 grupos</span></div>
+      <div class="legend"><span><span class="tag r">Regra</span> da medida</span><span><span class="tag ia">IA</span> da foto</span><span><span class="tag e">Editado</span> por você</span></div>
+      <div class="alert"><svg class="i"><use href="#alert"/></svg><div id="warning">Confira as especificações e as quantidades antes de comprar.</div></div>
+      <div id="material-list"></div>
+      <div class="foot"><span>Sugestão técnica, confira antes de comprar.</span><span id="last-edit">Ainda não salva</span></div>
+    </section>
+  </main>
+  <button class="btn g fab export-button" type="button"><svg class="i"><use href="#file"/></svg>Exportar PDF</button>
+  <div id="status" class="status" role="status" aria-live="polite"></div>
+</div>
+
+<dialog id="client-dialog" class="client-dialog">
+  <div class="dialog-head"><h2>Cliente ou ordem de serviço</h2><button id="close-dialog" type="button" aria-label="Fechar">×</button></div>
+  <p>Digite o ID do cliente ou da OS. A busca lê só o registro escolhido no ERP.</p>
+  <form id="client-search-form"><input id="client-search" type="text" autocomplete="off" placeholder="ID do cliente ou da OS" required><button class="btn g" type="submit">Buscar</button></form>
+  <div id="client-results"></div>
+</dialog>
+<aside id="install-banner" class="install-banner" hidden><span id="install-text">Instale o app para abrir pela tela inicial.</span><button id="install-button" type="button">Instalar</button><button id="install-dismiss" type="button" aria-label="Dispensar">×</button></aside>
+<article id="print-sheet" aria-hidden="true"></article>
+</body>
+</html>
