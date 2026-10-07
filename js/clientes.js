@@ -106,8 +106,10 @@
 
   function normalizaBuscaCl(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
   function textoBuscavelCliente(c){
+    // Telefone entra 2x (mesmo padrão do funil): formatado e só com os dígitos,
+    // pra "9639" ou "91996390085" acharem "(91) 9639-4308" e "5591996390085".
     return normalizaBuscaCl([
-      c['Nome Razao Social']||c.Nome, c['Tipo Pessoa'], c.Telefone, c.Email,
+      c['Nome Razao Social']||c.Nome, c['Tipo Pessoa'], c.Telefone, String(c.Telefone||'').replace(/\D/g,''), c.Email,
       nomeVendedor(c['Vendedor Responsavel']), c.Origem, c['Status Cliente']
     ].join(' | '));
   }
@@ -194,8 +196,12 @@
     var noFiltro=aplicarFiltrosCl(clientes);
     renderKpisClientes(noFiltro);
     var termo=normalizaBuscaCl(buscaFiltro).trim();
+    // Busca só com telefone (dígitos e máscara): compara só os dígitos, assim
+    // "(91) 9639-4308" acha o número salvo como "5591996390085" e vice-versa.
+    var termoDig=/^[\d\s()+.\-]+$/.test(termo)?termo.replace(/\D/g,''):'';
     var filtrados=noFiltro.filter(function(c){
       if(!termo)return true;
+      if(termoDig&&String(c.Telefone||'').replace(/\D/g,'').indexOf(termoDig)!==-1)return true;
       return textoBuscavelCliente(c).indexOf(termo)!==-1;
     });
     sortClientesRows(filtrados);
