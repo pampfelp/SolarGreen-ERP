@@ -13,6 +13,10 @@
     if(origensCarregadasVendas){popularOrigemSelectVendas();render();}
   });
   var vendedoresTodosMapVendas={};
+  // Ativos da EMPRESA inteira, antes do filtro por dono: é a base do rateio da
+  // meta. vendedoresAtivosVenda passa pelo filterByOwner, e pro vendedor
+  // logado vira só ele, o que fazia a fatia padrão virar a meta inteira.
+  var vendedoresAtivosEmpresa=[];
   var metasIndividuaisMap={}; // 'idVendedor|ano|mes' -> valor da sobreposição
   var vendaAtual=null;
   var custoEditandoId=null;
@@ -172,7 +176,7 @@
   function computeMetaContext(){
     var toStr=document.getElementById('v-dateTo').value,refDate=toStr?parseISODate(toStr):new Date();
     var ano=refDate.getFullYear(),mes=refDate.getMonth()+1;
-    var metaEmpresaBruta=getMetaDoMes(ano,mes),nVA=vendedoresAtivosVenda.length||1;
+    var metaEmpresaBruta=getMetaDoMes(ano,mes),nVA=vendedoresAtivosEmpresa.length||1;
     var metaIndPadrao=nVA>0?metaEmpresaBruta/nVA:0;
 
     // Meta efetiva de cada vendedor ativo: usa a sobreposição manual quando
@@ -181,7 +185,7 @@
     // efetivas — mesmo que ultrapasse o valor bruto cadastrado na aba Metas,
     // porque é isso que reflete o que foi combinado pessoa a pessoa.
     var somaMetasEfetivas=0;
-    vendedoresAtivosVenda.forEach(function(id){
+    vendedoresAtivosEmpresa.forEach(function(id){
       var over=metaOverrideDoVendedor(id,ano,mes);
       somaMetasEfetivas+=over?over.valor:metaIndPadrao;
     });
@@ -271,6 +275,9 @@
     }
     origemHint.style.display='none';
     var ctx=computeMetaContext(),filtered=getFiltered(),vs=document.getElementById('selVendedor').value;
+    // Quem não é admin só tem os próprios dados nesta tela; "todos" pra ele é
+    // ele mesmo, então a meta usada é a dele e não a soma da equipe.
+    if(vs==='__all__'&&window.SGAuth&&!window.SGAuth.isAdmin()&&window.SG_SESSION)vs=String(window.SG_SESSION.idVendedor);
     // Meta "selecionada": se um vendedor específico está no filtro, é a meta
     // efetiva DELE (sobreposição manual se existir); senão é a soma de todas
     // as metas efetivas de todo mundo — que pode passar do valor bruto
@@ -442,7 +449,7 @@
     var pR=projetarFunil(vn);renderForecast('fcRestante',pR,'fcRestanteSub',vn===0?'meta atingida':'considerando '+vn+' venda(s) restante(s)');
     function div(p,d){if(d<=0)return{leads:null,conversas:null,propostas:null,vendas:null};function f(v){return v===null?null:(v===0?0:Math.ceil(v/d));}return{leads:f(p.leads),conversas:f(p.conversas),propostas:f(p.propostas),vendas:f(p.vendas)};}
     function renderSimples(prefix,p){document.getElementById(prefix+'Leads').textContent=p.leads===null?'—':p.leads;document.getElementById(prefix+'Conversas').textContent=p.conversas===null?'—':p.conversas;document.getElementById(prefix+'Propostas').textContent=p.propostas===null?'—':p.propostas;document.getElementById(prefix+'Vendas').textContent=p.vendas===null?'—':p.vendas;}
-    var na=ctx.nVendedoresAtivos||1;
+    var na=vs==='__all__'?(ctx.nVendedoresAtivos||1):1; // meta de uma pessoa só não se divide entre a equipe
     renderSimples('fcTotalVendedor',div(pT,na));renderSimples('fcRestanteVendedor',div(pR,na));
     document.getElementById('fcTotalVendedorSub').textContent='÷ '+na+' vendedor(es)';document.getElementById('fcRestanteVendedorSub').textContent='÷ '+na+' vendedor(es)';
     document.getElementById('fcPorVendedorHint').textContent='meta total e restante ÷ '+na+' vendedor(es) ativo(s)'+(taxP?' · taxas projetadas':'');
@@ -1013,7 +1020,7 @@
     var vVendas=window.SGAuth?window.SGAuth.filterByOwner(resp.vendas||[],'IdVendedor'):(resp.vendas||[]);
     var vFunil=window.SGAuth?window.SGAuth.filterByOwner(resp.funil||[],'IdVendedor'):(resp.funil||[]);
     processVendedores(vVendedores);
-    vendedoresTodosMapVendas={};(resp.vendedores||[]).forEach(function(v){if(v.IdVendedor)vendedoresTodosMapVendas[v.IdVendedor]=v;});
+    vendedoresTodosMapVendas={};vendedoresAtivosEmpresa=[];(resp.vendedores||[]).forEach(function(v){if(!v.IdVendedor)return;vendedoresTodosMapVendas[v.IdVendedor]=v;if(isVendedorAtivo(v))vendedoresAtivosEmpresa.push(v.IdVendedor);});
     metasIndividuaisMap={};(resp.metasIndividuais||[]).forEach(function(m){
       if(!m.IdVendedor)return;
       var chave=m.IdVendedor+'|'+parseInt(m.Ano,10)+'|'+parseInt(m.Mes,10);
