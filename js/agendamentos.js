@@ -439,6 +439,9 @@
     html+='<div class="ad-section"><h4>Respostas do técnico</h4><div id="ad-respostas">'+
       (respostasCarregadasPara[idAgendamento]?renderRespostasHtml(a):'<div style="font-size:12.5px;color:var(--ink-faint);padding:6px 0;">Carregando respostas…</div>')+
     '</div></div>';
+    html+='<div class="ad-section"><h4>Lista de material</h4>'+
+      '<a class="connect-btn" href="https://pampfelp.github.io/lista-material/?agendamentoId='+encodeURIComponent(String(a.IdAgendamento))+
+      '" target="_blank" rel="noopener" style="display:inline-flex;text-decoration:none;padding:10px 14px;">Abrir lista desta OS</a></div>';
 
     if(a.LinkAssinaturaOS){
       html+='<div class="ad-section"><h4>Assinatura digital da OS</h4>'+
