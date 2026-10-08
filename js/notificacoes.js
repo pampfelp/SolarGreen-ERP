@@ -14,7 +14,7 @@
   // Chave pública do certificado Web Push (Firebase > Configurações do
   // projeto > Cloud Messaging > Certificados push da Web). Vazia, o push fica
   // desligado e o sininho e o popup continuam funcionando.
-  var VAPID_KEY='';
+  var VAPID_KEY='BHzWwgAWuJDgNd5AfwMthRlqu2vmylHO6IRGaO5V0j7sg4GQ4u2GlTnYmFyDpizSIijXalO_xs4ioi40p1O5uEk';
 
   var DURACAO_POPUP_MS=15000;
   var MAX_POPUPS=5;
