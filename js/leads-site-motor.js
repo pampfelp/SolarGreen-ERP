@@ -12,6 +12,10 @@
 (function(raiz){
   var LIMITE_PROCESSANDO_MS=2*60*1000;   // "processando" há mais que isso = quem reivindicou caiu no meio
   var JANELA_DUPLICADO_MS=24*60*60*1000;
+  // Desde 2026-10-08 o vendedor da vez é sorteado no Apps Script (avisarLeadSite),
+  // que já manda o push pro celular dele. O navegador espera esse sorteio; se o
+  // servidor não responder nesse prazo, sorteia aqui mesmo, como antes.
+  var ESPERA_SORTEIO_MS=60*1000;
 
   // Serviço escolhido no formulário do site -> serviço do catálogo do ERP,
   // por nome. Sem correspondência, o lead entra sem serviço (o vendedor define).
@@ -111,7 +115,8 @@
     // Vendedor da vez: próximo, por IdVendedor, depois do último sorteado.
     // Sem vendedor ativo, o lead não pode ficar sem dono nem sumir: cai em
     // quem estiver com o ERP aberto e a observação avisa.
-    function escolherVendedor(vendedores){
+    function escolherVendedor(vendedores,lead){
+      if(lead&&lead.idVendedorSorteado)return Promise.resolve({idVendedor:String(lead.idVendedorSorteado),semAtivo:false});
       var ativos=(vendedores||[]).filter(deps.ehVendedorAtivo).sort(function(a,b){
         return String(a.IdVendedor).localeCompare(String(b.IdVendedor));
       });
@@ -156,7 +161,7 @@
         var fim8=deps.fim8(lead.whatsapp);
         var existente=null;
         if(fim8)clientes.forEach(function(c){ if(!existente&&deps.fim8(c.Telefone)===fim8)existente=c; });
-        return escolherVendedor(vendedores).then(function(esc){
+        return escolherVendedor(vendedores,lead).then(function(esc){
           var idCliente=existente?String(existente.IdCliente):lead.idClienteNovo;
           // Cliente que já existia vai pro vendedor da vez (decisão de 2026-09-29), mas o
           // lead leva uma marca com o nome de quem já cuidava dele.
@@ -189,30 +194,66 @@
       });
     }
 
+    // Depois de promover, marcar suspeito ou dar erro, pede ao Apps Script o
+    // push correspondente. Ele mesmo confere se o aviso já saiu, então chamar
+    // a mais não repete notificação.
+    function avisar(id){
+      if(!deps.avisar)return;
+      try{ deps.avisar(id); }catch(e){ if(deps.log)deps.log('Aviso do lead '+id+' não saiu:',e); }
+    }
+
     function tratar(lead,lista){
       var suspeito=lead.suspeito===true&&lead.status==='novo';
       return reivindicar(lead.id,suspeito).then(function(reivindicado){
-        if(!reivindicado)return null;
+        if(!reivindicado){ if(suspeito)avisar(lead.id); return null; }
         return promover(reivindicado,lista).catch(function(err){
           return atualizar(lead.id,{status:'erro',erroPromocao:String((err&&err.message)||err).slice(0,300)}).catch(function(e2){
             if(deps.log)deps.log('Não consegui nem registrar o erro do lead '+lead.id,e2);
           });
-        });
+        }).then(function(){ avisar(lead.id); });
       });
+    }
+
+    // Lead novo sem sorteio do servidor ainda: espera até ESPERA_SORTEIO_MS
+    // contados da criação. Suspeito não passa por sorteio, então não espera.
+    function aguardandoSorteio(l,agora){
+      return l.status==='novo'&&l.suspeito!==true&&!l.idVendedorSorteado&&l.criadoEmMs&&(agora-l.criadoEmMs)<ESPERA_SORTEIO_MS;
     }
 
     function pendentes(lista){
       var agora=deps.agora();
       return lista.filter(function(l){
-        if(l.status==='novo')return true;
+        if(l.status==='novo')return !aguardandoSorteio(l,agora);
         return l.status==='processando'&&(agora-(l.processandoEm||0))>LIMITE_PROCESSANDO_MS;
       }).sort(function(a,b){ return (a.criadoEmMs||0)-(b.criadoEmMs||0); });
     }
 
+    // Quanto falta pro primeiro lead em espera ficar liberado (null se nenhum).
+    function proximaEspera(lista){
+      var agora=deps.agora(), menor=null;
+      lista.forEach(function(l){
+        if(!aguardandoSorteio(l,agora))return;
+        var falta=ESPERA_SORTEIO_MS-(agora-l.criadoEmMs);
+        if(menor===null||falta<menor)menor=falta;
+      });
+      return menor;
+    }
+
     // Chamado a cada atualização da coleção. Serial de propósito: o rodízio e a
     // conferência de duplicado dependem de um lead terminar antes do próximo.
+    // O motor só roda quando a coleção muda. Lead esperando sorteio que nunca
+    // veio não muda nada, então agenda uma passada pro fim da espera.
+    var timerEspera=null;
+    function agendarEspera(lista){
+      var falta=proximaEspera(lista);
+      if(falta===null||!deps.agendar)return;
+      if(timerEspera)deps.cancelar(timerEspera);
+      timerEspera=deps.agendar(function(){ timerEspera=null; processar(ultimaLista); },falta+1000);
+    }
+
     function processar(lista){
       ultimaLista=lista;
+      agendarEspera(lista);
       if(emAndamento){ refazer=true; return Promise.resolve(); }
       var fila=pendentes(lista);
       if(!fila.length)return Promise.resolve();
@@ -225,11 +266,11 @@
       });
     }
 
-    return {processar:processar,escolherVendedor:escolherVendedor,atualizar:atualizar,pendentes:pendentes};
+    return {processar:processar,escolherVendedor:escolherVendedor,atualizar:atualizar,pendentes:pendentes,proximaEspera:proximaEspera};
   }
 
   var api={criar:criar,mapearServico:mapearServico,escolherPipeline:escolherPipeline,montarObservacoes:montarObservacoes,
-    LIMITE_PROCESSANDO_MS:LIMITE_PROCESSANDO_MS};
+    LIMITE_PROCESSANDO_MS:LIMITE_PROCESSANDO_MS,ESPERA_SORTEIO_MS:ESPERA_SORTEIO_MS};
   raiz.SGLeadsSiteMotor=api;
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
 })(typeof window!=='undefined'?window:globalThis);

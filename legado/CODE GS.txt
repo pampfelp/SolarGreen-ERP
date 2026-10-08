@@ -74,6 +74,11 @@ function handleRequest(e) {
       try { body = JSON.parse(e.postData.contents); } catch (err) { body = {}; }
     }
 
+    // Aviso de lead do site (2026-10-08): o site chama sem a chave da API, que
+    // não deve ir pro código público dele. A ação só age sobre um contato que
+    // já existe em leads_site e não repete aviso, então chamar à toa não faz nada.
+    if ((params.action || body.action) === 'avisarLeadSite') return jsonOutput(actionAvisarLeadSite(body));
+
     var chave = params.chave || body.chave || '';
     if (chave !== CONFIG.CHAVE_SECRETA) {
       return jsonOutput({ ok: false, erro: 'Chave inválida.' });
@@ -3911,4 +3916,313 @@ function actionExcluirInversor(body) {
     if (String(values[i][colIdx['IdInversor'] - 1]) === String(idInversor)) { sheet.deleteRow(i + 1); return { ok: true }; }
   }
   return { ok: false, erro: 'Inversor não encontrado.' };
+}
+
+// =====================================================================
+//  NOTIFICAÇÃO DE LEAD DO SITE (2026-10-08)
+// =====================================================================
+// O site grava o contato em leads_site e chama "avisarLeadSite". Aqui o
+// vendedor da vez é sorteado (mesma regra e mesmo documento de rodízio que o
+// ERP usa em js/leads-site-motor.js) e sai o push pro celular/computador do
+// vendedor e da gestão, mesmo com o ERP fechado. Quem cria o cliente e o lead
+// no Funil continua sendo o ERP, com o vendedor que foi sorteado aqui.
+//
+// O ERP também chama esta ação depois de promover, marcar suspeito ou dar
+// erro. Cada aviso sai uma vez só (campos avisoLeadEm e avisoAtencaoEm).
+//
+// Precisa de uma Script Property:
+//   FIREBASE_SERVICE_ACCOUNT = o conteúdo inteiro do .json da conta de serviço
+//                              do Firebase (solargreen-21313-firebase-adminsdk-...)
+// Depois de configurar, rode "conferirNotificacoes" pelo editor pra ver se a
+// conta de serviço entra no Firestore e quantos aparelhos estão cadastrados.
+
+// Regra de vendedor no rodízio: igual a isVendedorAtivo em js/vendas.js.
+function ehVendedorAtivoFs_(v) {
+  return String(v.Tipo || '').trim() === 'Vendedor' && String(v.Status || '').trim() === 'Ativo';
+}
+function ehGestaoAtivaFs_(v) {
+  return ADMIN_ROLES.indexOf(String(v.Tipo || '').trim().toLowerCase()) !== -1 && String(v.Status || '').trim() === 'Ativo';
+}
+
+function actionAvisarLeadSite(body) {
+  var id = String(body.id || '');
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return { ok: false, erro: 'id inválido' };
+  var cfg = fbConfig_();
+  if (!cfg) return { ok: false, erro: 'FIREBASE_SERVICE_ACCOUNT não configurada' };
+  // Teto de chamadas por minuto: o site manda uma por contato, o ERP uma por
+  // promoção. Muito acima disso é alguém chamando em loop pra gastar a cota.
+  var cache = CacheService.getScriptCache();
+  var minuto = 'sg_aviso_' + Math.floor(Date.now() / 60000);
+  var feitas = Number(cache.get(minuto) || 0);
+  if (feitas >= 40) return { ok: false, erro: 'muitas chamadas, tente em um minuto' };
+  cache.put(minuto, String(feitas + 1), 120);
+  // Um aviso por vez: o rodízio depende de um sorteio terminar antes do próximo.
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(25000)) return { ok: false, erro: 'servidor ocupado' };
+  try {
+    for (var tentativa = 0; tentativa < 3; tentativa++) {
+      var r = avisarLeadSiteUmaVez_(cfg, id);
+      if (r !== 'repetir') return r;
+    }
+    return { ok: false, erro: 'o contato mudou durante o sorteio três vezes seguidas' };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function avisarLeadSiteUmaVez_(cfg, id) {
+  var doc = fsGet_(cfg, 'leads_site/' + id);
+  if (!doc) return { ok: false, erro: 'contato não encontrado' };
+  var l = doc.dados;
+  var agora = Date.now();
+  // Nada a avisar: sai antes de ler a lista de vendedores. A ação é pública,
+  // e cada leitura conta na cota diária do Firestore.
+  var atencao = (l.suspeito === true && (l.status === 'novo' || l.status === 'suspeito')) || l.status === 'erro';
+  var ehLead = l.status === 'novo' || l.status === 'processando' || l.status === 'promovido';
+  if (atencao ? l.avisoAtencaoEm : (!ehLead || l.avisoLeadEm)) return { ok: true, acao: (atencao || ehLead) ? 'já avisado' : 'nada a avisar' };
+  var vendedores = vendedoresFs_(cfg);
+  var nomes = {}, gestao = [];
+  vendedores.forEach(function (v) {
+    nomes[String(v.IdVendedor)] = v.Nome || '';
+    if (ehGestaoAtivaFs_(v)) gestao.push(String(v.IdVendedor));
+  });
+  var resumo = [l.nome || 'Sem nome', l.servico, l.cidade || l.calcCidade].filter(Boolean).join(' · ');
+
+  // Suspeito ou erro: só a gestão resolve, aviso vai só pra ela.
+  var suspeito = l.suspeito === true && (l.status === 'novo' || l.status === 'suspeito');
+  if (suspeito || l.status === 'erro') {
+    if (l.avisoAtencaoEm) return { ok: true, acao: 'já avisado' };
+    var tipo = l.status === 'erro' ? 'erro' : 'suspeito';
+    enviarPush_(cfg, gestao, {
+      titulo: tipo === 'erro' ? 'Contato do site não virou lead' : 'Contato suspeito no site',
+      corpo: resumo + ' · confira em Leads do site',
+      url: 'index.html?tela=leadssite&notif=' + id + ':' + tipo,
+      tag: 'lead-' + id, notifId: id + ':' + tipo
+    });
+    fsCommit_(cfg, [fsUpdate_(cfg, 'leads_site/' + id, { avisoAtencaoEm: agora })]);
+    return { ok: true, acao: tipo };
+  }
+
+  // Sorteio do vendedor da vez.
+  if (l.status === 'novo' && !l.idVendedorSorteado) {
+    var ativos = vendedores.filter(ehVendedorAtivoFs_).sort(function (a, b) {
+      return String(a.IdVendedor).localeCompare(String(b.IdVendedor));
+    });
+    // Sem vendedor ativo, o ERP atribui a quem estiver com ele aberto e chama
+    // de novo depois de promover; aí o aviso sai pelo caminho de baixo.
+    if (!ativos.length) return { ok: true, acao: 'sem vendedor ativo' };
+    var rod = fsGet_(cfg, 'config/rodizio_site');
+    var ultimo = rod ? String(rod.dados.ultimoIdVendedor || '') : '';
+    var idx = -1;
+    ativos.forEach(function (v, i) { if (String(v.IdVendedor) === ultimo) idx = i; });
+    var prox = String(ativos[(idx + 1) % ativos.length].IdVendedor);
+    var idOp = l.idOportunidade || Utilities.getUuid().replace(/-/g, '').substring(0, 8);
+    // Se o ERP mexeu no contato ou no rodízio entre a leitura e aqui, o commit
+    // é recusado e a função roda de novo com o dado novo.
+    var ok = fsCommit_(cfg, [
+      fsUpdate_(cfg, 'leads_site/' + id, { idVendedorSorteado: prox, sorteadoEm: agora, idOportunidade: idOp }, { updateTime: doc.updateTime }),
+      fsUpdate_(cfg, 'config/rodizio_site', { ultimoIdVendedor: prox, atualizadoEm: agora }, rod ? { updateTime: rod.updateTime } : { exists: false })
+    ]);
+    if (!ok) return 'repetir';
+    l.idVendedorSorteado = prox;
+    l.idOportunidade = idOp;
+  }
+
+  // Aviso do lead: vendedor da vez e gestão.
+  var vendedor = l.status === 'promovido' ? String(l.idVendedor || '') : String(l.idVendedorSorteado || '');
+  if (!vendedor || (l.status !== 'promovido' && l.status !== 'novo' && l.status !== 'processando')) return { ok: true, acao: 'nada a avisar' };
+  if (l.avisoLeadEm) return { ok: true, acao: 'já avisado' };
+  var url = 'index.html?lead=' + (l.idOportunidade || '') + '&notif=' + id + ':lead';
+  enviarPush_(cfg, [vendedor], { titulo: 'Novo lead do site pra você', corpo: resumo, url: url, tag: 'lead-' + id, notifId: id + ':lead' });
+  enviarPush_(cfg, gestao.filter(function (g) { return g !== vendedor; }), {
+    titulo: 'Novo lead do site', corpo: resumo + ' · para ' + (nomes[vendedor] || 'vendedor da vez'),
+    url: url, tag: 'lead-' + id, notifId: id + ':lead'
+  });
+  fsCommit_(cfg, [fsUpdate_(cfg, 'leads_site/' + id, { avisoLeadEm: agora })]);
+  return { ok: true, acao: 'lead', vendedor: vendedor };
+}
+
+// Lista de vendedores guardada por 1 minuto: vários contatos seguidos não
+// releem a coleção a cada um.
+function vendedoresFs_(cfg) {
+  var cache = CacheService.getScriptCache();
+  var guardado = cache.get('sg_vendedores_fs');
+  if (guardado) return JSON.parse(guardado);
+  var lista = fsListar_(cfg, 'vendedores').map(function (v) {
+    return { IdVendedor: v.IdVendedor, Nome: v.Nome, Tipo: v.Tipo, Status: v.Status };
+  });
+  cache.put('sg_vendedores_fs', JSON.stringify(lista), 60);
+  return lista;
+}
+
+// Manda pelo Firebase Cloud Messaging pra todos os aparelhos das pessoas da
+// lista. Aparelho que o Firebase diz que não existe mais sai de push_tokens.
+function enviarPush_(cfg, idsVendedores, msg) {
+  if (!idsVendedores.length) return 0;
+  var aparelhos = fsListar_(cfg, 'push_tokens').filter(function (t) {
+    return idsVendedores.indexOf(String(t.idVendedor)) !== -1 && t.token;
+  });
+  if (!aparelhos.length) return 0;
+  var tok = fbAccessToken_(cfg);
+  var pedidos = aparelhos.map(function (t) {
+    return {
+      url: 'https://fcm.googleapis.com/v1/projects/' + cfg.projeto + '/messages:send',
+      method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+      headers: { Authorization: 'Bearer ' + tok },
+      payload: JSON.stringify({ message: {
+        token: t.token,
+        data: { titulo: msg.titulo, corpo: msg.corpo, url: msg.url, tag: msg.tag, notifId: msg.notifId },
+        webpush: { headers: { Urgency: 'high', TTL: '86400' } }
+      } })
+    };
+  });
+  var enviados = 0;
+  UrlFetchApp.fetchAll(pedidos).forEach(function (resp, i) {
+    var cod = resp.getResponseCode();
+    if (cod === 200) { enviados++; return; }
+    var texto = resp.getContentText();
+    if (cod === 404 || texto.indexOf('UNREGISTERED') !== -1) {
+      fsApagar_(cfg, 'push_tokens/' + aparelhos[i]._id);
+    } else {
+      console.error('Push recusado (' + cod + '): ' + texto.slice(0, 300));
+    }
+  });
+  return enviados;
+}
+
+// ── Firestore por REST, com a conta de serviço ─────────────────────────
+
+function fbConfig_() {
+  var bruto = PropertiesService.getScriptProperties().getProperty('FIREBASE_SERVICE_ACCOUNT');
+  if (!bruto) return null;
+  var sa = JSON.parse(bruto);
+  return {
+    projeto: sa.project_id, email: sa.client_email, chave: sa.private_key,
+    base: 'https://firestore.googleapis.com/v1/projects/' + sa.project_id + '/databases/(default)/documents'
+  };
+}
+
+function fbAccessToken_(cfg) {
+  var cache = CacheService.getScriptCache();
+  var guardado = cache.get('sg_fb_token');
+  if (guardado) return guardado;
+  var agora = Math.floor(Date.now() / 1000);
+  function b64(x) { return Utilities.base64EncodeWebSafe(x).replace(/=+$/, ''); }
+  var cab = b64(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  var corpo = b64(JSON.stringify({
+    iss: cfg.email, aud: 'https://oauth2.googleapis.com/token', iat: agora, exp: agora + 3600,
+    scope: 'https://www.googleapis.com/auth/datastore https://www.googleapis.com/auth/firebase.messaging'
+  }));
+  var assinatura = b64(Utilities.computeRsaSha256Signature(cab + '.' + corpo, cfg.chave));
+  var resp = UrlFetchApp.fetch('https://oauth2.googleapis.com/token', {
+    method: 'post', muteHttpExceptions: true,
+    payload: { grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: cab + '.' + corpo + '.' + assinatura }
+  });
+  if (resp.getResponseCode() !== 200) throw new Error('Google recusou a conta de serviço: ' + resp.getContentText().slice(0, 200));
+  var token = JSON.parse(resp.getContentText()).access_token;
+  cache.put('sg_fb_token', token, 3000);
+  return token;
+}
+
+function fsPedir_(cfg, metodo, url, corpo) {
+  var opcoes = { method: metodo, muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + fbAccessToken_(cfg) } };
+  if (corpo) { opcoes.contentType = 'application/json'; opcoes.payload = JSON.stringify(corpo); }
+  return UrlFetchApp.fetch(url, opcoes);
+}
+
+function fsLerValor_(v) {
+  if (v.hasOwnProperty('stringValue')) return v.stringValue;
+  if (v.hasOwnProperty('integerValue')) return Number(v.integerValue);
+  if (v.hasOwnProperty('doubleValue')) return v.doubleValue;
+  if (v.hasOwnProperty('booleanValue')) return v.booleanValue;
+  if (v.hasOwnProperty('timestampValue')) return Date.parse(v.timestampValue);
+  if (v.hasOwnProperty('mapValue')) return fsLerCampos_(v.mapValue.fields || {});
+  if (v.hasOwnProperty('arrayValue')) return (v.arrayValue.values || []).map(fsLerValor_);
+  return null;
+}
+function fsLerCampos_(campos) {
+  var out = {};
+  Object.keys(campos).forEach(function (k) { out[k] = fsLerValor_(campos[k]); });
+  return out;
+}
+function fsValor_(v) {
+  if (typeof v === 'boolean') return { booleanValue: v };
+  if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
+  return { stringValue: String(v) };
+}
+
+function fsGet_(cfg, caminho) {
+  var resp = fsPedir_(cfg, 'get', cfg.base + '/' + caminho);
+  if (resp.getResponseCode() === 404) return null;
+  if (resp.getResponseCode() !== 200) throw new Error('Firestore recusou a leitura de ' + caminho + ': ' + resp.getContentText().slice(0, 200));
+  var d = JSON.parse(resp.getContentText());
+  return { dados: fsLerCampos_(d.fields || {}), updateTime: d.updateTime };
+}
+
+function fsListar_(cfg, colecao) {
+  var lista = [], pagina = '';
+  do {
+    var resp = fsPedir_(cfg, 'get', cfg.base + '/' + colecao + '?pageSize=300' + (pagina ? '&pageToken=' + encodeURIComponent(pagina) : ''));
+    if (resp.getResponseCode() !== 200) throw new Error('Firestore recusou a lista de ' + colecao + ': ' + resp.getContentText().slice(0, 200));
+    var d = JSON.parse(resp.getContentText());
+    (d.documents || []).forEach(function (doc) {
+      var item = fsLerCampos_(doc.fields || {});
+      item._id = doc.name.split('/').pop();
+      lista.push(item);
+    });
+    pagina = d.nextPageToken || '';
+  } while (pagina);
+  return lista;
+}
+
+// Escrita que só mexe nos campos informados. `condicao` é a pré-condição do
+// Firestore ({updateTime} ou {exists:false}); sem ela, grava de qualquer jeito.
+function fsUpdate_(cfg, caminho, campos, condicao) {
+  var fields = {};
+  Object.keys(campos).forEach(function (k) { fields[k] = fsValor_(campos[k]); });
+  var w = {
+    update: { name: cfg.base.replace('https://firestore.googleapis.com/v1/', '') + '/' + caminho, fields: fields },
+    updateMask: { fieldPaths: Object.keys(campos) }
+  };
+  if (condicao) w.currentDocument = condicao;
+  return w;
+}
+
+// Devolve false quando uma pré-condição falhou (alguém mexeu antes).
+function fsCommit_(cfg, writes) {
+  var resp = fsPedir_(cfg, 'post', cfg.base + ':commit', { writes: writes });
+  var cod = resp.getResponseCode();
+  if (cod === 200) return true;
+  var texto = resp.getContentText();
+  if (texto.indexOf('FAILED_PRECONDITION') !== -1 || texto.indexOf('ABORTED') !== -1 || cod === 409) return false;
+  throw new Error('Firestore recusou a gravação: ' + texto.slice(0, 300));
+}
+
+function fsApagar_(cfg, caminho) {
+  fsPedir_(cfg, 'delete', cfg.base + '/' + caminho);
+}
+
+// Rode pelo editor depois de colar a conta de serviço nas Script Properties.
+function conferirNotificacoes() {
+  var cfg = fbConfig_();
+  if (!cfg) { Logger.log('Falta a Script Property FIREBASE_SERVICE_ACCOUNT.'); return; }
+  fbAccessToken_(cfg);
+  var vendedores = fsListar_(cfg, 'vendedores');
+  var aparelhos = fsListar_(cfg, 'push_tokens');
+  Logger.log('Conta de serviço OK (' + cfg.email + ').');
+  Logger.log('Vendedores no rodízio: ' + vendedores.filter(ehVendedorAtivoFs_).map(function (v) { return v.Nome; }).join(', '));
+  Logger.log('Gestão que recebe tudo: ' + vendedores.filter(ehGestaoAtivaFs_).map(function (v) { return v.Nome; }).join(', '));
+  Logger.log('Aparelhos com notificação ligada: ' + aparelhos.length);
+  // Envio de teste que o Firebase só valida, não entrega. Token falso de
+  // propósito: a resposta certa é "token inválido"; permissão negada quer dizer
+  // que falta o papel de envio na conta de serviço.
+  var resp = UrlFetchApp.fetch('https://fcm.googleapis.com/v1/projects/' + cfg.projeto + '/messages:send', {
+    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+    headers: { Authorization: 'Bearer ' + fbAccessToken_(cfg) },
+    payload: JSON.stringify({ validate_only: true, message: { token: 'token-de-teste', data: { teste: '1' } } })
+  });
+  var texto = resp.getContentText();
+  if (texto.indexOf('PERMISSION_DENIED') !== -1) Logger.log('Envio de push: BLOQUEADO. Falta o papel "Firebase Cloud Messaging API Admin" na conta de serviço, ou a API do Cloud Messaging (V1) está desativada.');
+  else if (resp.getResponseCode() === 400) Logger.log('Envio de push: liberado.');
+  else Logger.log('Envio de push: resposta inesperada (' + resp.getResponseCode() + '): ' + texto.slice(0, 300));
 }

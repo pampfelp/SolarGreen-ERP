@@ -2621,7 +2621,21 @@
     if(_initialized)render();
   }
 
-  window.funilApp={init:init,atualizarClienteCache:atualizarClienteCache};
+  // Abre um lead pela notificação (2026-10-08). O lead do site pode estar
+  // sendo promovido naquele segundo, então espera ele chegar na lista por até
+  // 20 s antes de desistir.
+  function abrirLead(idOportunidade){
+    init();
+    var fim=Date.now()+20000;
+    (function tentar(){
+      var achou=funilRecords.some(function(x){return String(x.id)===String(idOportunidade);});
+      if(achou){ abrirVisualizacaoLead(idOportunidade); return; }
+      if(Date.now()<fim){ setTimeout(tentar,400); return; }
+      if(window.SGToast)window.SGToast.mostrar('Esse lead ainda não apareceu no Funil. Confira em alguns segundos.',true);
+    })();
+  }
+
+  window.funilApp={init:init,atualizarClienteCache:atualizarClienteCache,abrirLead:abrirLead};
 
 })();
 

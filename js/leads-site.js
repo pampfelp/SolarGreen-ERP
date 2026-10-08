@@ -5,7 +5,7 @@
 // vez que alguém abrir o ERP, sem depender de um administrador estar online.
 // A tela, o KPI e a tarifa da calculadora são só do administrador.
 (function(){
-  var _iniciado=false, _telaConstruida=false, _lista=[], _motor=null, _detalheId=null;
+  var _iniciado=false, _recebeu=false, _telaConstruida=false, _lista=[], _motor=null, _detalheId=null;
   var _ultima={}, _esperando={};   // coleções auxiliares (clientes, vendedores...) já recebidas
 
   function db(){ return firebase.firestore(); }
@@ -49,9 +49,25 @@
       obterPipelines:function(){ return obterLista('funil_pipelines'); },
       salvarCliente:function(p){ return chamar('salvarCliente',p); },
       salvarFunil:function(p){ return chamar('salvarFunil',p); },
+      agendar:function(fn,ms){ return setTimeout(fn,ms); },
+      cancelar:function(t){ clearTimeout(t); },
+      avisar:avisarServidor,
       log:function(){ console.error.apply(console,arguments); }
     });
   }
+
+  // Pede ao Apps Script o push do lead (sorteio, vendedor e gestão). Direto no
+  // fetch e não pelo apiCall: essa ação não exige sessão, e uma resposta de
+  // sessão inválida do apiCall deslogaria a pessoa por causa de um aviso.
+  function avisarServidor(id){
+    if(!window.SGAuth||!window.SGAuth.apiUrl)return;
+    fetch(window.SGAuth.apiUrl(),{method:'POST',keepalive:true,body:JSON.stringify({action:'avisarLeadSite',id:String(id)})})
+      .catch(function(err){ console.warn('Aviso do lead do site não chegou ao servidor:',err); });
+  }
+
+  // Outros módulos (notificações) recebem a mesma lista sem abrir outra escuta.
+  var _ouvintes=[];
+  function aoAtualizar(fn){ _ouvintes.push(fn); if(_recebeu)fn(_lista); }
 
   var ROTULO={novo:'Aguardando',processando:'Aguardando',promovido:'Promovido',duplicado:'Duplicado',suspeito:'Suspeito',erro:'Erro',descartado:'Descartado'};
   function pill(status){
@@ -346,11 +362,13 @@
     _motor=criarMotor();
     window.SGUtil.assinarColecao('leads_site',function(lista){
       _lista=lista.map(normalizar);
+      _recebeu=true;
+      _ouvintes.forEach(function(fn){ try{ fn(_lista); }catch(err){ console.error('Leads do site (ouvinte):',err); } });
       if(_telaConstruida)render();
       try{ _motor.processar(_lista); }catch(err){ console.error('Leads do site:',err); }
     });
     if(window.SGAuth&&window.SGAuth.isAdmin()){ construirTela(); construirFunilSite(); }
   }
 
-  window.leadsSiteApp={init:init};
+  window.leadsSiteApp={init:init,aoAtualizar:aoAtualizar};
 })();

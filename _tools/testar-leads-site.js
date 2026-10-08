@@ -93,6 +93,15 @@ async function testarRegras() {
   ok(await metodo('GET', 'config_publica/site') === 200, 'público lê a tarifa');
   ok(await metodo('PATCH', 'config_publica/site?updateMask.fieldPaths=tarifa', { corpo: { fields: { tarifa: { doubleValue: 9 } } } }) === 403, 'público não altera a tarifa');
   ok(await metodo('GET', 'config/rodizio_site') === 403, 'público não lê `config` (só `config_publica`)');
+  console.log('-- notificações (2026-10-08)');
+  const aparelho = { fields: { token: { stringValue: 'tok-1' }, idVendedor: { stringValue: 'V1' }, aparelho: { stringValue: 'teste' }, atualizadoEm: { integerValue: '1' } } };
+  ok(await metodo('PATCH', 'push_tokens/h1', { corpo: aparelho }) === 403, 'público não cadastra aparelho de push');
+  ok(await metodo('PATCH', 'push_tokens/h1', { comoLogado: true, corpo: aparelho }) === 200, 'equipe logada cadastra o próprio aparelho');
+  ok(await metodo('PATCH', 'push_tokens/h2', { comoLogado: true, corpo: { fields: { ...aparelho.fields, admin: { booleanValue: true } } } }) === 403, 'aparelho com campo fora do previsto é recusado');
+  ok(await metodo('GET', 'push_tokens/h1', { comoLogado: true }) === 403 && await metodo('GET', 'push_tokens', { comoLogado: true }) === 403, 'ninguém logado lê ou lista os aparelhos (só o Apps Script)');
+  ok(await metodo('DELETE', 'push_tokens/h1', { comoLogado: true }) === 200, 'equipe logada apaga o aparelho ao sair');
+  ok(await metodo('PATCH', 'notificacoes_lidas/V1', { comoLogado: true, corpo: { fields: { lidas: { mapValue: { fields: { 'x:lead': { integerValue: '1' } } } } } } }) === 200, 'equipe logada grava o que já leu');
+  ok(await metodo('GET', 'notificacoes_lidas/V1') === 403, 'público não lê as notificações lidas');
 }
 
 async function testarMotor() {
@@ -128,8 +137,11 @@ async function testarMotor() {
   async function listaDoNavegador() {
     return (await db.collection('leads_site').get()).docs.map(d => { const x = d.data(); x.criadoEmMs = x.criadoEm && x.criadoEm.toMillis ? x.criadoEm.toMillis() : (x.criadoEmMs || 0); return x; });
   }
+  // Sem horário informado, o lead nasce há 2 min: já passou da espera pelo
+  // sorteio do Apps Script, então o navegador sorteia sozinho (caso que estes
+  // testes cobrem). A espera em si tem teste próprio (11).
   async function semear(id, extra = {}, criadoEmMs) {
-    await db.collection('leads_site').doc(id).set({ ...leadValido(id), criadoEm: Timestamp.fromMillis(criadoEmMs || Date.now()), ...extra });
+    await db.collection('leads_site').doc(id).set({ ...leadValido(id), criadoEm: Timestamp.fromMillis(criadoEmMs || Date.now() - 2 * 60 * 1000), ...extra });
   }
   const get = async (c, id) => (await db.collection(c).doc(id).get()).data();
   const ativos = async () => { await db.collection('vendedores').doc('V1').set({ IdVendedor: 'V1', Tipo: 'Vendedor', Status: 'Ativo' }); await db.collection('vendedores').doc('V2').set({ IdVendedor: 'V2', Tipo: 'Vendedor', Status: 'Ativo' }); await db.collection('vendedores').doc('V3').set({ IdVendedor: 'V3', Tipo: 'Vendedor', Status: 'Inativo' }); await db.collection('vendedores').doc('T1').set({ IdVendedor: 'T1', Tipo: 'Técnico', Status: 'Ativo' }); };
@@ -269,7 +281,147 @@ async function testarMotor() {
   await semear('o1', { whatsapp: '91985550006', whatsappFim8: '85550006' }, 1000);
   await mo.processar(await listaDoNavegador());
   ok((await get('leads_site', 'o1')).idVendedor === 'V1' && (await get('leads_site', 'o2')).idVendedor === 'V2', 'o lead que chegou primeiro é o primeiro do rodízio');
+  // 11) lead recém-chegado espera o sorteio do Apps Script
+  await limpar(); await ativos(); await db.collection('funil_pipelines').doc('P1').set({ IdPipeline: 'P1', Nome: 'Comercial', Etapas: [{ Nome: 'Novo Lead' }] });
+  const agendados = [], avisados = [];
+  const { motor: mw } = novoMotor({ deps: { agendar: (fn, ms) => { agendados.push(ms); return 1; }, cancelar: () => {}, avisar: id => avisados.push(id) } });
+  await semear('w1', { whatsapp: '91985550008', whatsappFim8: '85550008' }, Date.now() - 10 * 1000);
+  await mw.processar(await listaDoNavegador());
+  ok((await get('leads_site', 'w1')).status === 'novo' && (await lista('funil')).length === 0, 'lead de 10 s sem sorteio do servidor não é promovido pelo navegador');
+  ok(agendados.length === 1 && agendados[0] > 45000 && agendados[0] <= 61000, 'e o motor agenda nova passada pro fim da espera (' + agendados[0] + ' ms)');
+  await semear('w2', { whatsapp: '91985550009', whatsappFim8: '85550009', suspeito: true }, Date.now());
+  await mw.processar(await listaDoNavegador());
+  ok((await get('leads_site', 'w2')).status === 'suspeito' && avisados.includes('w2'), 'suspeito não espera sorteio: é separado na hora e o servidor é avisado');
+
+  // 12) com sorteio do servidor, o navegador usa o vendedor e o id sorteados
+  await db.collection('config').doc('rodizio_site').set({ ultimoIdVendedor: 'V1', atualizadoEm: 1 });
+  await db.collection('leads_site').doc('w1').update({ idVendedorSorteado: 'V1', idOportunidade: 'OPSRV' });
+  await mw.processar(await listaDoNavegador());
+  const w1 = await get('leads_site', 'w1');
+  ok(w1.status === 'promovido' && w1.idVendedor === 'V1' && (await get('funil', 'OPSRV')).IdVendedor === 'V1', 'lead sorteado no servidor vira lead no Funil com o vendedor e o id do sorteio');
+  ok((await get('config', 'rodizio_site')).ultimoIdVendedor === 'V1', 'e o navegador não gira o rodízio de novo');
+  ok(avisados.includes('w1'), 'depois de promover, o servidor é avisado');
+
+  await testarAppsScript(db, novoMotor, listaDoNavegador, semear, get, lista, limpar, ativos);
 }
+
+// 13) O código do Apps Script (legado/CODE GS.txt) rodando de verdade contra o
+// emulador. Os serviços do Google são trocados por equivalentes locais: o
+// Firestore REST vai pro emulador, o login da conta de serviço devolve o token
+// de administrador do emulador e o envio de push só é anotado.
+function carregarAppsScript(pushes) {
+  const vm = require('vm');
+  const crypto = require('crypto');
+  const { execFileSync } = require('child_process');
+  const { privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const sa = { project_id: PROJETO, client_email: 'teste@demo.iam', private_key: privateKey.export({ type: 'pkcs8', format: 'pem' }) };
+  const resposta = (cod, texto) => ({ getResponseCode: () => cod, getContentText: () => texto });
+  function pedir(url, op = {}) {
+    if (url.startsWith('https://oauth2.googleapis.com/token')) {
+      if (!/^[\w-]+\.[\w-]+\.[\w-]+$/.test(op.payload.assertion)) return resposta(400, 'jwt malformado');
+      return resposta(200, JSON.stringify({ access_token: 'owner' }));
+    }
+    if (url.startsWith('https://fcm.googleapis.com/')) {
+      const m = JSON.parse(op.payload).message;
+      pushes.push(m);
+      return m.token === 'tok-morto' ? resposta(404, '{"error":{"status":"NOT_FOUND","details":[{"errorCode":"UNREGISTERED"}]}}') : resposta(200, '{}');
+    }
+    const local = url.replace('https://firestore.googleapis.com', 'http://' + HOST + ':' + PORTA);
+    const args = ['-s', '-X', (op.method || 'get').toUpperCase(), '-H', 'Authorization: Bearer owner', '-w', '\n%{http_code}'];
+    if (op.payload) args.push('-H', 'Content-Type: application/json', '--data-binary', '@-');
+    const saida = execFileSync('curl', [...args, local], { input: op.payload || '', encoding: 'utf8' });
+    const i = saida.lastIndexOf('\n');
+    return resposta(Number(saida.slice(i + 1)), saida.slice(0, i));
+  }
+  const cache = {};
+  const ctx = vm.createContext({
+    console, JSON, Date, Math, Number, String, Object, Array, encodeURIComponent,
+    UrlFetchApp: { fetch: pedir, fetchAll: lista => lista.map(p => pedir(p.url, p)) },
+    Utilities: {
+      getUuid: () => crypto.randomUUID(),
+      base64EncodeWebSafe: x => { const b = Buffer.from(typeof x === 'string' ? x : Uint8Array.from(x, n => n & 255)).toString('base64url'); return b + '='.repeat((4 - b.length % 4) % 4); },
+      computeRsaSha256Signature: (txt, chave) => Array.from(crypto.sign('sha256', Buffer.from(txt), chave), n => (n > 127 ? n - 256 : n)),
+    },
+    CacheService: { getScriptCache: () => ({ get: k => cache[k] || null, put: (k, v) => { cache[k] = v; }, remove: k => { delete cache[k]; } }) },
+    LockService: { getScriptLock: () => ({ tryLock: () => true, releaseLock: () => {} }) },
+    PropertiesService: { getScriptProperties: () => ({ getProperty: k => k === 'FIREBASE_SERVICE_ACCOUNT' ? JSON.stringify(sa) : null }) },
+    Logger: { log: () => {} },
+  });
+  vm.runInContext(fs.readFileSync(path.join(RAIZ, 'legado', 'CODE GS.txt'), 'utf8'), ctx);
+  return ctx;
+}
+
+async function testarAppsScript(db, novoMotor, listaDoNavegador, semear, get, lista, limpar, ativos) {
+  console.log('\n== Apps Script: sorteio e push (avisarLeadSite) ==');
+  const pushes = [];
+  const gs = carregarAppsScript(pushes);
+  const avisar = id => JSON.parse(JSON.stringify(gs.actionAvisarLeadSite({ id })));
+  const para = tok => pushes.filter(p => p.token === tok);
+
+  await limpar(); await ativos(); await db.collection('funil_pipelines').doc('P1').set({ IdPipeline: 'P1', Nome: 'Comercial', Etapas: [{ Nome: 'Novo Lead' }] });
+  for (const c of ['push_tokens']) { const s = await db.collection(c).get(); for (const d of s.docs) await d.ref.delete(); }
+  await db.collection('vendedores').doc('V1').set({ IdVendedor: 'V1', Nome: 'Vera', Tipo: 'Vendedor', Status: 'Ativo' });
+  await db.collection('vendedores').doc('G1').set({ IdVendedor: 'G1', Nome: 'Felipe', Tipo: 'CEO', Status: 'Ativo' });
+  await db.collection('vendedores').doc('G2').set({ IdVendedor: 'G2', Nome: 'Ex-gerente', Tipo: 'Gerente', Status: 'Inativo' });
+  for (const [id, dono, tok] of [['a', 'V1', 'tok-v1'], ['b', 'V2', 'tok-v2'], ['c', 'G1', 'tok-g1'], ['d', 'G1', 'tok-morto'], ['e', 'G2', 'tok-g2']]) {
+    await db.collection('push_tokens').doc(id).set({ token: tok, idVendedor: dono, aparelho: 'teste', atualizadoEm: 1 });
+  }
+
+  ok(avisar('../x').ok === false && avisar('naoexiste').ok === false, 'id inválido ou contato inexistente não faz nada');
+
+  await semear('g1', { nome: 'Maria', cidade: 'Belém' }, Date.now());
+  const r1 = avisar('g1');
+  const g1 = await get('leads_site', 'g1');
+  ok(r1.ok && r1.vendedor === 'V1' && g1.idVendedorSorteado === 'V1' && /^[0-9a-f]{8}$/.test(g1.idOportunidade) && g1.avisoLeadEm > 0, 'contato novo: sorteia V1, reserva o id do lead e marca o aviso (' + JSON.stringify(r1) + ')');
+  ok(((await get('config', 'rodizio_site')) || {}).ultimoIdVendedor === 'V1', 'o rodízio anda no mesmo documento que o ERP usa');
+  ok(para('tok-v1').length === 1 && para('tok-v1')[0].data.titulo === 'Novo lead do site pra você' && para('tok-v1')[0].data.url === 'index.html?lead=' + g1.idOportunidade + '&notif=g1:lead', 'vendedor da vez recebe o push com o link do lead');
+  ok(para('tok-g1').length === 1 && /para Vera/.test(para('tok-g1')[0].data.corpo), 'gestão recebe o push dizendo pra quem foi');
+  ok(para('tok-v2').length === 0 && para('tok-g2').length === 0, 'o outro vendedor e a gestão inativa não recebem');
+  ok(!(await get('push_tokens', 'd')) && !!(await get('push_tokens', 'c')), 'aparelho que o Firebase diz não existir mais sai da lista; o que funciona fica');
+  const total1 = pushes.length;
+  ok(avisar('g1').acao === 'já avisado' && pushes.length === total1, 'chamar de novo não repete o push nem o sorteio');
+
+  const { motor: mg } = novoMotor({ deps: { avisar: id => avisar(id) } });
+  await mg.processar(await listaDoNavegador());
+  const g1b = await get('leads_site', 'g1');
+  ok(g1b.status === 'promovido' && ((await get('funil', g1.idOportunidade)) || {}).IdVendedor === 'V1', 'o ERP promove na hora com o vendedor e o id sorteados no servidor');
+  ok(pushes.length === total1, 'e o aviso depois da promoção não manda outro push');
+
+  await semear('g2', { nome: 'João', whatsapp: '91985550010', whatsappFim8: '85550010' }, Date.now());
+  ok(avisar('g2').vendedor === 'V2', 'o contato seguinte vai pro próximo da vez (V2)');
+
+  await semear('g3', { nome: 'Robô', suspeito: true, whatsapp: '91985550011', whatsappFim8: '85550011' }, Date.now());
+  const antes3 = pushes.length;
+  ok(avisar('g3').acao === 'suspeito' && !(await get('leads_site', 'g3')).idVendedorSorteado, 'suspeito não entra no sorteio');
+  const novos3 = pushes.slice(antes3);
+  ok(novos3.length === 1 && novos3[0].token === 'tok-g1' && novos3[0].data.notifId === 'g3:suspeito', 'suspeito avisa só a gestão');
+
+  // ERP promoveu sozinho (servidor fora do ar na hora): o aviso sai depois.
+  await semear('g4', { nome: 'Carla', status: 'promovido', idVendedor: 'V2', idOportunidade: 'OP4', whatsapp: '91985550012', whatsappFim8: '85550012' });
+  const antes4 = pushes.length;
+  ok(avisar('g4').acao === 'lead' && pushes.slice(antes4).map(p => p.token).sort().join() === 'tok-g1,tok-v2', 'lead promovido pelo navegador sem aviso: avisa o vendedor dele e a gestão');
+
+  await semear('g5', { nome: 'Davi', status: 'erro', erroPromocao: 'falhou', whatsapp: '91985550013', whatsappFim8: '85550013' });
+  const antes5 = pushes.length;
+  ok(avisar('g5').acao === 'erro' && pushes.slice(antes5).map(p => p.token).join() === 'tok-g1', 'erro na promoção avisa só a gestão');
+
+  await semear('g6', { nome: 'Eva', status: 'duplicado', whatsapp: '91985550014', whatsappFim8: '85550014' });
+  const antes6 = pushes.length;
+  avisar('g6');
+  ok(pushes.length === antes6, 'duplicado não gera aviso');
+
+  const gs3 = carregarAppsScript([]);
+  const respostas = [];
+  for (let i = 0; i < 42; i++) respostas.push(gs3.actionAvisarLeadSite({ id: 'naoexiste' }).erro);
+  ok(respostas[39] === 'contato não encontrado' && /muitas chamadas/.test(respostas[40]), 'chamada em loop é cortada depois de 40 por minuto');
+
+  await db.collection('vendedores').doc('V1').update({ Status: 'Inativo' });
+  await db.collection('vendedores').doc('V2').update({ Status: 'Inativo' });
+  await semear('g7', { nome: 'Fábio', whatsapp: '91985550015', whatsappFim8: '85550015' }, Date.now());
+  const gs2 = carregarAppsScript(pushes);   // cache novo: a lista de vendedores fica guardada 1 min
+  ok(JSON.parse(JSON.stringify(gs2.actionAvisarLeadSite({ id: 'g7' }))).acao === 'sem vendedor ativo' && !(await get('leads_site', 'g7')).idVendedorSorteado, 'sem vendedor ativo, não sorteia (o navegador cobre depois da espera)');
+}
+
 
 (async () => {
   if (!fs.existsSync(JAR)) { console.log('Emulador não encontrado em ' + JAR); process.exit(2); }
