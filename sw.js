@@ -4,7 +4,7 @@
 // alguma resiliência offline — NÃO cacheia chamadas de API (POST pro Apps
 // Script), só o "casco" estático (html/css/js/ícones), pra nunca servir
 // dado de planilha desatualizado escondido em cache.
-const CACHE_NAME = 'sg-shell-v3';
+const CACHE_NAME = 'sg-shell-v4';
 
 self.addEventListener('install', function (event) {
   self.skipWaiting();
@@ -42,6 +42,55 @@ self.addEventListener('fetch', function (event) {
       return resp;
     }).catch(function () {
       return caches.match(req).then(function (cached) { return cached || Response.error(); });
+    })
+  );
+});
+
+// ── Push de lead do site (2026-10-08) ──
+// O Apps Script (avisarLeadSite) manda pelo Firebase Cloud Messaging uma
+// mensagem só de dados: titulo, corpo, url, tag e notifId. Quem desenha a
+// notificação é este arquivo, sem o SDK do Firebase aqui dentro.
+self.addEventListener('push', function (event) {
+  var d = {};
+  try {
+    var j = event.data ? event.data.json() : {};
+    d = j.data || j.notification || j;
+  } catch (e) { d = {}; }
+  var opcoes = {
+    body: d.corpo || d.body || '',
+    icon: 'icons/icon-192-admin.png',
+    badge: 'icons/icon-192-admin.png',
+    tag: d.tag || undefined,
+    data: { url: d.url || 'index.html', notifId: d.notifId || '' }
+  };
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (janelas) {
+      // Com o ERP aberto e na frente, o popup da própria tela já avisa. No
+      // iPhone mostra sempre: lá push sem notificação pode cancelar a inscrição.
+      var naFrente = janelas.some(function (c) { return c.visibilityState === 'visible' && c.focused; });
+      var ios = /iPhone|iPad|iPod/.test(self.navigator.userAgent);
+      if (naFrente && !ios) return;
+      return self.registration.showNotification(d.titulo || d.title || 'Solar Green', opcoes);
+    })
+  );
+});
+
+self.addEventListener('notificationclick', function (event) {
+  event.notification.close();
+  var dados = event.notification.data || {};
+  var alvo = new URL(dados.url || 'index.html', self.registration.scope).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (janelas) {
+      // Reaproveita o ERP já aberto (não o Ponto nem o app do técnico).
+      var erp = janelas.filter(function (c) {
+        var caminho = new URL(c.url).pathname;
+        return /\/$/.test(caminho) || /\/index\.html$/.test(caminho);
+      })[0];
+      if (erp) {
+        erp.postMessage({ tipo: 'sg-notif-abrir', url: alvo });
+        return erp.focus();
+      }
+      return self.clients.openWindow(alvo);
     })
   );
 });

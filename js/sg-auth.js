@@ -145,7 +145,7 @@
     return (list||[]).filter(function(o){ return String(o[field])===meId; });
   }
 
-  window.SGAuth={ getSession:getSession, isAdmin:isAdmin, podeVerFaturamento:podeVerFaturamento, filterByOwner:filterByOwner, apiCall:authCall };
+  window.SGAuth={ getSession:getSession, isAdmin:isAdmin, podeVerFaturamento:podeVerFaturamento, filterByOwner:filterByOwner, apiCall:authCall, apiUrl:apiUrl };
 
   // Cache local por aba: guarda a última resposta boa de cada tela no
   // localStorage, pra trocar de aba mostrar os dados na hora (sem "Conectando…")
@@ -1056,8 +1056,12 @@
     paintUserChip();
     var logoutBtn=document.getElementById('sg-logout-btn');
     if(logoutBtn)logoutBtn.addEventListener('click',function(){
-      clearSession();
-      location.reload();
+      // Antes de sair, desliga o push deste aparelho pra quem está saindo.
+      var esquecer=window.SGNotificacoes?window.SGNotificacoes.esquecerAparelho():Promise.resolve();
+      esquecer.then(function(){
+        clearSession();
+        location.reload();
+      });
     });
     var navUsuarios=document.getElementById('nav-usuarios');
     if(navUsuarios&&isAdmin()) navUsuarios.style.display='';
@@ -1074,6 +1078,7 @@
     var navFunilSite=document.getElementById('nav-funilsite');
     if(navFunilSite&&isAdmin()) navFunilSite.style.display='';
     if(window.SGPermissoes)window.SGPermissoes.carregar();
+    if(window.SGNotificacoes)window.SGNotificacoes.init();
     aquecerAbasEmSegundoPlano();
   }
 

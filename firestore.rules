@@ -201,6 +201,23 @@ service cloud.firestore {
       allow write: if isSignedIn();
     }
 
+    // Notificações de lead do site (2026-10-08, js/notificacoes.js).
+    // Lidas: um documento por pessoa, mesma regra "só logado" do piloto.
+    match /notificacoes_lidas/{id} {
+      allow read, write: if isSignedIn();
+    }
+    // Endereço de push de cada aparelho. O navegador só grava e apaga o do
+    // próprio aparelho; quem lê a lista é o Apps Script (conta de serviço,
+    // fora destas regras), então ninguém logado consegue listar os aparelhos.
+    match /push_tokens/{id} {
+      allow read: if false;
+      allow create, update: if isSignedIn()
+        && request.resource.data.keys().hasOnly(['token', 'idVendedor', 'aparelho', 'atualizadoEm'])
+        && request.resource.data.token is string && request.resource.data.token.size() <= 4096
+        && request.resource.data.idVendedor is string && request.resource.data.idVendedor.size() <= 100;
+      allow delete: if isSignedIn();
+    }
+
     // Tudo o que não faz parte desse piloto fica fechado por padrão.
     match /{document=**} {
       allow read, write: if false;

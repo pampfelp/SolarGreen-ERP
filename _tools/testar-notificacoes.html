@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Teste local das notificações</title>
+<link rel="stylesheet" href="../css/app.css">
+</head>
+<body>
+<!-- Página de teste local (2026-10-08). Carrega o CSS e o js/notificacoes.js de
+     verdade em cima da casca real do index.html (barra, menu e cabeçalho do
+     Funil), com sessão, banco e leads falsos. Nada vai pro Firestore.
+     ?vendedor = entra como vendedor V1; sem nada, entra como CEO. -->
+<script>
+  var ehVendedor=/vendedor/.test(location.search);
+  window.SG_SESSION=ehVendedor?{idVendedor:'V1',nome:'Leonardo',tipo:'Vendedor'}:{idVendedor:'G1',nome:'Felipe',tipo:'CEO'};
+  window.SGAuth={isAdmin:function(){ return !ehVendedor; },apiUrl:function(){ return ''; }};
+  window.SGUtil={
+    escapeHtml:function(s){ var d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; },
+    assinarColecao:function(n,cb){ if(n==='vendedores')cb([{IdVendedor:'V1',Nome:'Leonardo Lins'},{IdVendedor:'V2',Nome:'Marcilene Rodrigues'}]); }
+  };
+  window.SGFireReady=Promise.resolve();
+  window.SGToast={mostrar:function(t){ console.log('toast:',t); }};
+  window.SGControllerSwitchTo=function(n){ window.__tela=n; };
+  window.funilApp={abrirLead:function(id){ window.__lead=id; }};
+  window.__gravacoes=[];
+  var lidas={};
+  window.firebase={firestore:function(){ return {collection:function(c){ return {doc:function(id){ return {
+    onSnapshot:function(cb){ cb({exists:true,data:function(){ return {lidas:lidas}; }}); },
+    set:function(o){ window.__gravacoes.push({colecao:c,id:id,dados:o}); Object.assign(lidas,o.lidas||{}); return Promise.resolve(); },
+    delete:function(){ return Promise.resolve(); }
+  }; }}; }}; }};
+  var agora=Date.now(), ouvintes=[];
+  window.__leads=[
+    {id:'L1',status:'promovido',nome:'Maria das Graças',servico:'Limpeza e manutenção',cidade:'Belém',idVendedor:'V1',idOportunidade:'op000001',criadoEmMs:agora-3*60000},
+    {id:'L2',status:'promovido',nome:'João Batista',servico:'Monitoramento',cidade:'Ananindeua',idVendedor:'V2',idOportunidade:'op000002',criadoEmMs:agora-50*60000},
+    {id:'L3',status:'suspeito',nome:'asdasd',servico:'Expansão da usina',criadoEmMs:agora-2*3600000},
+    {id:'L4',status:'promovido',nome:'Carla Souza',servico:'Regularização na Equatorial',cidade:'Marituba',idVendedor:'V1',idOportunidade:'op000004',criadoEmMs:agora-3*86400000}
+  ];
+  window.leadsSiteApp={init:function(){},aoAtualizar:function(fn){ ouvintes.push(fn); fn(window.__leads); }};
+  window.__chegar=function(l){ window.__leads=window.__leads.concat([l]); ouvintes.forEach(function(f){ f(window.__leads); }); };
+</script>
+<script src="../js/notificacoes.js"></script>
+<script>
+  fetch('../index.html').then(function(r){ return r.text(); }).then(function(html){
+    var doc=new DOMParser().parseFromString(html,'text/html');
+    ['#view-funil','aside.sidebar','.mobile-topbar'].forEach(function(sel){
+      var n=doc.querySelector(sel); if(n)document.body.insertBefore(document.importNode(n,true),document.body.firstChild);
+    });
+    var f=document.getElementById('view-funil'); f.classList.add('active');
+    document.getElementById('f-lastUpdate').textContent='Atualizado 14:32';
+    var mc=document.getElementById('f-mainContent'); if(mc)mc.style.display='block';
+    window.SGNotificacoes.init();
+  });
+</script>
+</body>
+</html>
