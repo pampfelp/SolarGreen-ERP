@@ -638,9 +638,18 @@
      * quem chamou poder mostrar EXATAMENTE quais leads/clientes formam
      * aquele número (ver SGListaModal). Não quebra quem só usava
      * `.conversas`/`.propostas` (campos novos, não removeu nenhum antigo).
+     *
+     * Ajustado em 2026-10-13 (pedido do Felipe): dar "Perdido" no cliente
+     * também NÃO é conversa — é só o lead sendo encerrado no funil, sem
+     * interação nova. Entra em ETAPAS_SEM_CONVERSA_ junto com as outras duas.
+     * `etapasPerdido` (opcional) traz os nomes das etapas com Papel 'perdido'
+     * do pipeline em uso (Funil passa; Vendas/Dashboard não têm o pipeline à
+     * mão e ficam com o nome padrão 'Perdido'). Lead que teve conversa de
+     * verdade no mesmo dia (outra transição ou atividade) continua contando
+     * 1 conversa — o que sai é só a conversa criada pelo "Perdido" sozinho.
      */
-    calcularConversasPropostas:function(leads,from,to,etapasProposta){
-      var ETAPAS_SEM_CONVERSA_=['Novo Lead','Tentativa de Contato'];
+    calcularConversasPropostas:function(leads,from,to,etapasProposta,etapasPerdido){
+      var ETAPAS_SEM_CONVERSA_=['Novo Lead','Tentativa de Contato','Perdido'].concat(etapasPerdido||[]);
       // Atividade de Conversa no WhatsApp/Ligação (2026-08-27, ver
       // funil.js:registrarAtividadeFunil) também é uma conversa de verdade
       // acontecendo, mesmo sem o lead mudar de etapa — achado real

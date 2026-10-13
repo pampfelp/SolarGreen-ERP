@@ -379,7 +379,7 @@
      *   já filtrado por dateKey de criação + vendedor acima em getFiltered).
      * - Conversas: no máximo 1 por LEAD por DIA (não por transição — ver
      *   SGUtil.calcularConversasPropostas), contando qualquer transição
-     *   EXCETO "Tentativa de Contato".
+     *   EXCETO "Tentativa de Contato" e "Perdido".
      * - Propostas: no máximo 1 por LEAD por DIA cujo destino foi Negociação/
      *   Serviço Agendado/Ganho (equivalente a "proposta apresentada").
      * IMPORTANTE — mesma COORTE de "Novos Contatos", não "todo mundo que se
