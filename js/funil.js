@@ -499,6 +499,10 @@
     var ETAPAS_PROPOSTA_VENDAS=(pipe&&pipe.Etapas||[])
       .filter(function(e){ return e.Papel==='proposta'||e.Papel==='ganho'; })
       .map(function(e){ return e.Nome; });
+    // Etapas "perdido" do pipeline: mover o lead pra lá não conta como conversa.
+    var ETAPAS_PERDIDO=(pipe&&pipe.Etapas||[])
+      .filter(function(e){ return e.Papel==='perdido'; })
+      .map(function(e){ return e.Nome; });
     var from=(document.getElementById('f-dateFrom')||{}).value||'';
     var to=(document.getElementById('f-dateTo')||{}).value||'';
     var vend=(document.getElementById('f-selVendedor')||{}).value||'__all__';
@@ -512,7 +516,7 @@
       if(!origemCombina(r.idCliente,origem))return false;
       return true;
     });
-    var kpis=window.SGUtil.calcularConversasPropostas(novosContatos,from,to,ETAPAS_PROPOSTA_VENDAS);
+    var kpis=window.SGUtil.calcularConversasPropostas(novosContatos,from,to,ETAPAS_PROPOSTA_VENDAS,ETAPAS_PERDIDO);
     // "Total" (2026-08-25, pedido do Felipe): mesma conta, só que sem
     // restringir aos leads CRIADOS no período — qualquer lead (de qualquer
     // data de criação) que teve uma conversa/proposta de verdade dentro do
@@ -527,7 +531,7 @@
       if(!origemCombina(r.idCliente,origem))return false;
       return true;
     });
-    var kpisTotal=window.SGUtil.calcularConversasPropostas(todosDoVendedor,from,to,ETAPAS_PROPOSTA_VENDAS);
+    var kpisTotal=window.SGUtil.calcularConversasPropostas(todosDoVendedor,from,to,ETAPAS_PROPOSTA_VENDAS,ETAPAS_PERDIDO);
     var vendasNoPeriodo=vendasRecords.filter(function(v){
       if(from&&v.dateKey<from)return false;
       if(to&&v.dateKey>to)return false;
