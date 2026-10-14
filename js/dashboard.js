@@ -338,12 +338,18 @@
     document.getElementById('db-prodServicos').innerHTML=D.htmlTipos(pr,nomeServico);
     document.getElementById('db-prodMotivos').innerHTML=D.htmlMotivos(D.agruparMotivos(f.leads.filter(function(l){return l.etapa==='Perdido';}).map(function(l){return l.motivo;})));
   }
-  /** Abre Custos da Venda já filtrada por categoria ('__sem__' = a revisar; vazio = só abre). */
+  /** Abre Custos da Venda no mesmo recorte da DRE: período do dashboard, só custos Pagos e a categoria clicada
+   *  ('__sem__' = a revisar; vazio = todas). Sem isso a lista abria com os filtros próprios dela (período e status) e
+   *  parecia não bater com a barra que foi clicada. */
   function abrirCustosComCategoria(valor){
     if(!window.SGControllerSwitchTo)return;
     window.SGControllerSwitchTo('custosvenda');
-    var sel=document.getElementById('cv-selCategoria');
-    if(sel&&valor){ sel.value=valor; sel.dispatchEvent(new Event('change')); }
+    function por(id,v,evento){ var e=document.getElementById(id); if(!e)return; e.value=v; e.dispatchEvent(new Event(evento)); }
+    por('cv-dateFrom',document.getElementById('db-dateFrom').value,'change');
+    por('cv-dateTo',document.getElementById('db-dateTo').value,'change');
+    por('cv-selStatus','Pago','change');
+    por('cv-buscaGeral','','input');
+    por('cv-selCategoria',valor||'__all__','change');
   }
 
   function aplicarDados(vendasResp,funilResp){
