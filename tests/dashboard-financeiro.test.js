@@ -89,6 +89,9 @@ function montar({admin}){
   // Clicar numa categoria abre Custos da Venda já filtrado
   cliqueCategorias({target:{closest:s=>s==='.dd-bar[data-cat]'?{getAttribute:()=>'folha'}:null}});
   assert.deepEqual(A.nav,['custosvenda']); assert.equal(A.el('cv-selCategoria').value,'folha');
+  // ...no mesmo recorte da DRE: período do dashboard e só os pagos
+  assert.equal(A.el('cv-dateFrom').value,A.el('db-dateFrom').value); assert.equal(A.el('cv-dateTo').value,A.el('db-dateTo').value);
+  assert.equal(A.el('cv-selStatus').value,'Pago');
   // "A revisar" leva o valor que o filtro de Custos da Venda entende
   cliqueCategorias({target:{closest:s=>s==='.dd-bar[data-cat]'?{getAttribute:()=>'__sem__'}:null}});
   assert.equal(A.el('cv-selCategoria').value,'__sem__');
@@ -104,6 +107,22 @@ function montar({admin}){
   // Clique no tipo de serviço filtra o dashboard por ele
   A.el('db-prodServicos').handlers.click[0]({target:{closest:s=>s==='.dd-bar[data-servico]'?{getAttribute:()=>'s1'}:null}});
   assert.equal(A.el('db-selServico').value,'s1');
+
+  // ── Filtros do topo: período, vendedor e serviço mexem nos blocos novos
+  const mudar=(id,valor)=>{A.el(id).value=valor;(A.el(id).handlers.change||[]).forEach(f=>f());};
+  mudar('db-dateFrom','2026-11-01'); mudar('db-dateTo','2026-11-30');                 // período sem nada
+  assert.ok(A.el('db-dre').innerHTML.includes('Nenhum dado no período'),'DRE deve esvaziar com período vazio');
+  assert.ok(A.el('db-catBars').innerHTML.includes('Nenhum custo'),'categorias devem esvaziar');
+  assert.ok(A.el('db-prodTecnicos').innerHTML.includes('Sem agendamentos'),'produção deve esvaziar');
+  mudar('db-dateFrom','2026-10-01'); mudar('db-dateTo','2026-10-31');                 // volta
+  assert.ok(A.el('db-dre').innerHTML.includes('R$ 640,00'),'DRE volta com o período certo');
+  mudar('db-selVendedor','v-inexistente');                                            // vendedor sem venda
+  assert.ok(A.el('db-dre').innerHTML.includes('Nenhum dado'),'DRE esvazia com vendedor sem vendas');
+  mudar('db-selVendedor','__all__');
+  mudar('db-selServico','s-inexistente');                                             // serviço sem venda
+  assert.ok(A.el('db-dre').innerHTML.includes('Nenhum dado')||A.el('db-dre').innerHTML.includes('R$ 360,00'),'DRE reage ao serviço');
+  mudar('db-selServico','__all__');
+  assert.ok(A.el('db-dre').innerHTML.includes('R$ 640,00'));
 
   // ── Quem não é administrador não recebe DRE, categorias nem custo fixo; produção continua
   const U=montar({admin:false});
