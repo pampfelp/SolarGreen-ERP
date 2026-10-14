@@ -7,6 +7,8 @@
   // sem isso, essa tela só enxergaria ele depois de recarregar a página.
   document.addEventListener('sg:cliente-criado',function(e){ if(e.detail&&e.detail.IdCliente)clientesMap[e.detail.IdCliente]=e.detail; });
   var editandoId=null;
+  var categoriaSugerida='',categoriaTocada=false; // sugestão da DRE (js/dre-categorias.js) e se a pessoa já mexeu no campo
+  var categoriaOrigemSugerida='regra',jevTimerCv=null; // 'regra' ou 'jev' (js/dre-jev.js): de onde veio a sugestão
   var ID_CLIENTE_APORTE_SOCIOS='da6dbd89'; // Cliente Teste 1 — gaveta de custo de escritório, não é venda real
   var paginaAtual=1, ITENS_POR_PAGINA=10;
   var sortState={col:'data',dir:'desc'};
@@ -62,7 +64,7 @@
   function textoBuscavelCusto(c){
     var v=vendaPorId(c.IdVenda);
     return normalizaBuscaCv([
-      c.Descricao, c.Status, c.Data,
+      c.Descricao, c.Status, c.Data, window.SGDre.rotuloDe(c.Categoria),
       v?nomeCliente(v.IdCliente):'', v?nomeServico(v.IdServico):'',
       // Valor (2026-09-01, pedido do Felipe): busca tanto o formatado
       // ("R$ 39,87") quanto o número cru, pra "39,87", "39.87" ou só "39"
@@ -82,6 +84,7 @@
       }
       if(col==='descricao'){return mult*String(a.Descricao||'').localeCompare(String(b.Descricao||''),'pt-BR');}
       if(col==='venda'){return mult*labelDaVenda(a.IdVenda).localeCompare(labelDaVenda(b.IdVenda),'pt-BR');}
+      if(col==='categoria'){return mult*window.SGDre.rotuloDe(a.Categoria).localeCompare(window.SGDre.rotuloDe(b.Categoria),'pt-BR');}
       if(col==='valor'){var va=(String(a.Valor||'0').indexOf(',')!==-1?parseFloat(String(a.Valor||'0').replace(/\./g,'').replace(',','.')):parseFloat(a.Valor))||0,vb=(String(b.Valor||'0').indexOf(',')!==-1?parseFloat(String(b.Valor||'0').replace(/\./g,'').replace(',','.')):parseFloat(b.Valor))||0;return mult*(va-vb);}
       if(col==='status'){return mult*String(a.Status||'').localeCompare(String(b.Status||''),'pt-BR');}
       return 0;
@@ -96,6 +99,14 @@
     });
   }
 
+  /** Filtro de categoria: '__all__' | '__sem__' (a revisar) | ID da categoria. */
+  function passaCategoriaCv(c){
+    var f=document.getElementById('cv-selCategoria').value;
+    if(!f||f==='__all__')return true;
+    if(f==='__sem__')return !c.Categoria;
+    return c.Categoria===f;
+  }
+
   /** Igual getFiltered, mas SEM aplicar o filtro de status — usada pros KPIs
    *  clicáveis mostrarem o total de verdade (senão clicar num deles zerava
    *  o outro, o que não faz sentido pra um filtro). */
@@ -105,6 +116,7 @@
     return custos.filter(function(c){
       var dt=parseBRDate(c.Data),dk=dt?dateKeyFromDate(dt):null;
       if(from&&dk&&dk<from)return false; if(to&&dk&&dk>to)return false;
+      if(!passaCategoriaCv(c))return false;
       if(busca&&textoBuscavelCusto(c).indexOf(busca)===-1)return false;
       return true;
     });
@@ -118,6 +130,7 @@
       var dt=parseBRDate(c.Data),dk=dt?dateKeyFromDate(dt):null;
       if(from&&dk&&dk<from)return false; if(to&&dk&&dk>to)return false;
       if(status!=='__all__'&&(c.Status||'').trim().toLowerCase()!==status.toLowerCase())return false;
+      if(!passaCategoriaCv(c))return false;
       if(busca&&textoBuscavelCusto(c).indexOf(busca)===-1)return false;
       return true;
     });
@@ -155,7 +168,7 @@
 
     var tbody=document.getElementById('cv-tbody');
     if(!pagina.length){
-      tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--ink-faint);padding:30px;">Nenhum custo encontrado.</td></tr>';
+      tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--ink-faint);padding:30px;">Nenhum custo encontrado.</td></tr>';
       renderPaginacao(0);
       return;
     }
@@ -166,6 +179,7 @@
         '<td>'+fmtDateBRcv(dt)+'</td>'+
         '<td style="max-width:280px;font-size:11.5px;color:var(--ink-soft);">'+escapeHtml((c.Descricao||'').slice(0,120))+((c.Descricao||'').length>120?'…':'')+'</td>'+
         '<td>'+escapeHtml(labelDaVenda(c.IdVenda))+'</td>'+
+        '<td style="font-size:11.5px;">'+(c.Categoria?escapeHtml(window.SGDre.rotuloDe(c.Categoria)):'<span class="ag-status-tag agendado">A revisar</span>')+'</td>'+
         '<td class="num">'+fmtMoney(c.Valor)+'</td>'+
         '<td><span class="ag-status-tag '+(pago2?'concluido':'agendado')+'">'+escapeHtml(c.Status||'—')+'</span></td>'+
         '<td class="u-row-actions"></td>'+
@@ -191,6 +205,7 @@
     var html='<div class="ad-section">'+
       '<span class="ag-status-tag '+(pago2?'concluido':'agendado')+'">'+escapeHtml(c.Status||'—')+'</span>'+
       '<div class="ad-row" style="margin-top:10px;"><span class="dl">Venda</span><span class="dv">'+escapeHtml(labelDaVenda(c.IdVenda))+'</span></div>'+
+      '<div class="ad-row"><span class="dl">Categoria</span><span class="dv">'+escapeHtml(window.SGDre.rotuloDe(c.Categoria))+'</span></div>'+
       '<div class="ad-row"><span class="dl">Valor</span><span class="dv">'+fmtMoney(c.Valor)+'</span></div>'+
       '<div class="ad-row"><span class="dl">Data</span><span class="dv">'+fmtDateBRcv(dt)+'</span></div>'+
     '</div>'+
@@ -204,18 +219,57 @@
     });
   }
 
+  /** <option>s agrupadas pelo grupo da DRE. comVazio=true põe "Selecione…" no topo (formulário). */
+  function opcoesCategoriaHtml(comVazio){
+    return (comVazio?'<option value="">Selecione…</option>':'')+window.SGDre.GRUPOS.map(function(g){
+      var itens=window.SGDre.CATEGORIAS.filter(function(c){return c.grupo===g.id;});
+      if(!itens.length)return '';
+      return '<optgroup label="'+escapeHtml(g.nome)+'">'+itens.map(function(c){return '<option value="'+escapeHtml(c.id)+'">'+escapeHtml(c.nome)+'</option>';}).join('')+'</optgroup>';
+    }).join('');
+  }
+  function ctxVendaCv(){
+    var v=vendaPorId(document.getElementById('cv-idVenda').value);
+    return v?{ehEscritorio:ehVendaEscritorio(v)}:undefined;
+  }
+  /** Sugere a categoria pela descrição e pela venda, enquanto a pessoa não mexeu no campo. */
+  function sugerirCategoriaCv(){
+    if(categoriaTocada)return;
+    var s=window.SGDre.sugerir(document.getElementById('cv-descricao').value,ctxVendaCv());
+    categoriaSugerida=s.categoria; categoriaOrigemSugerida='regra';
+    document.getElementById('cv-categoria').value=s.categoria;
+    var dica=s.categoria?(s.origem==='venda'?'Sugerida porque o custo está numa venda de cliente. Confira.':'Sugerida pela descrição. Confira.'):'';
+    document.getElementById('cv-categoriaDica').textContent=[dica,s.aviso].filter(Boolean).join(' ');
+    pedirJevCv(!s.categoria&&!s.aviso);
+  }
+  /** Regra sem resposta: pergunta ao Jev (depois de 700 ms sem digitar) e só preenche se o campo continua vazio e intocado. */
+  function pedirJevCv(deveChamar){
+    clearTimeout(jevTimerCv);
+    if(!deveChamar||!window.SGDreJev)return;
+    var desc=document.getElementById('cv-descricao').value, ctx=ctxVendaCv();
+    jevTimerCv=setTimeout(function(){
+      window.SGDreJev.pedir(desc,ctx).then(function(j){
+        if(!j.categoria||categoriaTocada)return;
+        if(document.getElementById('cv-descricao').value!==desc||document.getElementById('cv-categoria').value)return;
+        categoriaSugerida=j.categoria; categoriaOrigemSugerida='jev';
+        document.getElementById('cv-categoria').value=j.categoria;
+        document.getElementById('cv-categoriaDica').textContent='Sugerida pelo Jev ('+Math.round(j.confianca*100)+'%). Confira.';
+      });
+    },700);
+  }
+
   function abrirModal(idCusto){
     var c=idCusto?custos.filter(function(x){return String(x.IdCusto)===String(idCusto);})[0]:null;
     editandoId=idCusto||null;
     document.getElementById('cvModalTitle').textContent=c?'Editar custo':'Novo custo';
     var descricaoEditadaManualmente=!!c; // editando um já existente, não mexe na descrição sozinho
+    categoriaTocada=!!(c&&c.Categoria); categoriaSugerida='';
     window.SGCombo.criar({
       inputId:'cv-idVendaBusca', hiddenId:'cv-idVenda', dropdownId:'cv-idVendaDropdown',
       getOpcoes:opcoesVendaCv,
       valorInicial:c&&c.IdVenda?{id:c.IdVenda,label:labelDaVenda(c.IdVenda)}:null,
       onSelecionar:function(idVendaSelecionada){
-        if(descricaoEditadaManualmente)return;
-        document.getElementById('cv-descricao').value=gerarDescricaoAutomaticaCv(idVendaSelecionada,document.getElementById('cv-valor').value);
+        if(!descricaoEditadaManualmente)document.getElementById('cv-descricao').value=gerarDescricaoAutomaticaCv(idVendaSelecionada,document.getElementById('cv-valor').value);
+        sugerirCategoriaCv();
       }
     });
     document.getElementById('cv-descricao').value=c?(c.Descricao||''):'';
@@ -225,11 +279,16 @@
     document.getElementById('cv-status').value=c?(c.Status||'Aguardando Pagamento'):'Aguardando Pagamento';
     document.getElementById('cv-excluirBtn').style.display=c?'block':'none';
     document.getElementById('cv-modalMsg').textContent='';
-    document.getElementById('cv-descricao').oninput=function(){ descricaoEditadaManualmente=true; };
+    document.getElementById('cv-descricao').oninput=function(){ descricaoEditadaManualmente=true; sugerirCategoriaCv(); };
     document.getElementById('cv-valor').oninput=function(){
       if(descricaoEditadaManualmente)return;
       document.getElementById('cv-descricao').value=gerarDescricaoAutomaticaCv(document.getElementById('cv-idVenda').value,document.getElementById('cv-valor').value);
+      sugerirCategoriaCv();
     };
+    document.getElementById('cv-categoria').value=c?(c.Categoria||''):'';
+    document.getElementById('cv-categoriaDica').textContent='';
+    document.getElementById('cv-categoria').onchange=function(){ categoriaTocada=true; document.getElementById('cv-categoriaDica').textContent=''; };
+    sugerirCategoriaCv(); // custo antigo sem categoria já abre com a sugestão; o que tem categoria não é tocado
     document.getElementById('custoVendaDetalhe').classList.add('active');
   }
   function fecharModal(){ document.getElementById('custoVendaDetalhe').classList.remove('active'); editandoId=null; }
@@ -244,13 +303,19 @@
     if(!idVenda){ msgEl.className='uform-msg error'; msgEl.textContent='Selecione a venda vinculada.'; return; }
     if(!valor){ msgEl.className='uform-msg error'; msgEl.textContent='Informe o valor.'; return; }
     if(!dataVal){ msgEl.className='uform-msg error'; msgEl.textContent='Escolha a data.'; return; }
+    var categoria=document.getElementById('cv-categoria').value;
+    if(!categoria){ msgEl.className='uform-msg error'; msgEl.textContent='Escolha a categoria do custo.'; return; }
 
     var ehNovo=!editandoId;
     var idAlvo=editandoId||window.SGId.gerar();
     var registroAnteriorCopia=!ehNovo?Object.assign({},custos.filter(function(x){return String(x.IdCusto)===String(idAlvo);})[0]):null;
     var dataBR=dataVal.split('-').reverse().join('/');
+    // De onde veio a categoria: mantém a origem se não mudou; senão 'regra' (aceitou a sugestão) ou 'manual'.
+    var categoriaOrigem=(registroAnteriorCopia&&registroAnteriorCopia.Categoria===categoria)
+      ?(registroAnteriorCopia.CategoriaOrigem||'manual')
+      :((categoria===categoriaSugerida)?categoriaOrigemSugerida:'manual');
 
-    var registroNovo={IdCusto:idAlvo,IdVenda:idVenda,Descricao:descricao,Valor:valor,Status:status,Data:dataBR,CriadoEm:ehNovo?new Date().toISOString():(registroAnteriorCopia&&registroAnteriorCopia.CriadoEm)};
+    var registroNovo={IdCusto:idAlvo,IdVenda:idVenda,Descricao:descricao,Valor:valor,Status:status,Data:dataBR,Categoria:categoria,CategoriaOrigem:categoriaOrigem,CriadoEm:ehNovo?new Date().toISOString():(registroAnteriorCopia&&registroAnteriorCopia.CriadoEm)};
     var indice=custos.findIndex(function(x){return String(x.IdCusto)===String(idAlvo);});
     if(indice===-1)custos.push(registroNovo);
     else custos[indice]=registroNovo;
@@ -260,7 +325,7 @@
     render();
     (window.SGToast?window.SGToast.mostrar:function(t){})(ehNovo?'Custo criado.':'Custo atualizado.');
 
-    apiCall('salvarCustoVenda',{idCusto:idAlvo,idVenda:idVenda,descricao:descricao,valor:valor,status:status,data:dataVal}).then(function(resp){
+    apiCall('salvarCustoVenda',{idCusto:idAlvo,idVenda:idVenda,descricao:descricao,valor:valor,status:status,data:dataVal,categoria:categoria,categoriaOrigem:categoriaOrigem}).then(function(resp){
       if(!resp||!resp.ok){
         if(ehNovo)custos=custos.filter(function(x){return String(x.IdCusto)!==String(idAlvo);});
         else{ var idx=custos.findIndex(function(x){return String(x.IdCusto)===String(idAlvo);}); if(idx!==-1&&registroAnteriorCopia)custos[idx]=registroAnteriorCopia; }
@@ -353,6 +418,9 @@
     if(!window.SG_SESSION)return;
     _initialized=true;
     document.getElementById('cv-novoBtn').addEventListener('click',function(){ abrirModal(null); });
+    document.getElementById('cv-categoria').innerHTML=opcoesCategoriaHtml(true);
+    document.getElementById('cv-selCategoria').innerHTML='<option value="__all__">Todas</option><option value="__sem__">A revisar (sem categoria)</option>'+opcoesCategoriaHtml(false);
+    document.getElementById('cv-selCategoria').addEventListener('change',function(){ paginaAtual=1; render(); });
     document.getElementById('cv-fecharBtn').addEventListener('click',fecharModal);
     document.getElementById('cv-salvarBtn').addEventListener('click',salvar);
     document.getElementById('cv-excluirBtn').addEventListener('click',excluir);
@@ -380,7 +448,7 @@
     });
     document.getElementById('cv-resetFiltros').addEventListener('click',function(){
       document.getElementById('cv-dateFrom').value='';document.getElementById('cv-dateTo').value='';
-      document.getElementById('cv-selStatus').value='__all__';document.getElementById('cv-buscaGeral').value='';
+      document.getElementById('cv-selStatus').value='__all__';document.getElementById('cv-selCategoria').value='__all__';document.getElementById('cv-buscaGeral').value='';
       document.querySelectorAll('.qr-btn[data-cvrange]').forEach(function(b){b.classList.remove('active');});
       paginaAtual=1; render();
     });
@@ -388,7 +456,7 @@
       th.addEventListener('click',function(){
         var col=th.getAttribute('data-sort');
         if(sortState.col===col){sortState.dir=sortState.dir==='asc'?'desc':'asc';}
-        else{sortState.col=col;sortState.dir=(col==='descricao'||col==='venda'||col==='status')?'asc':'desc';}
+        else{sortState.col=col;sortState.dir=(col==='descricao'||col==='venda'||col==='categoria'||col==='status')?'asc':'desc';}
         render();
       });
     });

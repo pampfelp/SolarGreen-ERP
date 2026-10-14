@@ -31,3 +31,6 @@ Ponto Eletronico*.html
 Thumbs.db
 desktop.ini
 *.swp
+
+# Saida do backfill de categorias dos custos: tem nome de funcionario e valores
+_tools/saida-categoria-custos/
