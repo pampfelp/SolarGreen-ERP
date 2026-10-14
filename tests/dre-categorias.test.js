@@ -42,12 +42,28 @@ const casos=[
 for(const [desc,esperado] of casos)assert.equal(cat(desc),esperado,desc);
 
 // O que a regra NÃO deve adivinhar: devolve '' (= a revisar).
-for(const desc of ['Pix Felipe Vieira Dias','Pix ivanete Gomes Barros','Emanuelli Mendes do Rosário','Ponta de prova','Acerto Pix','Adiantamento Felipe Morais','Adiantamento Felipe',''])
+for(const desc of ['Emanuelli Mendes do Rosário','Material extra',''])
   assert.equal(cat(desc),'',desc);
 
-// "Felipe Pamplona" (sócio) e "Felipe Morais" (vendedor) não podem se confundir.
+// Decisões do Felipe em 2026-10-14 sobre os lançamentos que a primeira regra deixou para revisar.
+for(const [desc,esperado] of [
+  ['Acerto Pix','taxas_bancarias'],['Acerto no Pix','taxas_bancarias'],   // tarifa do banco pelo pix crédito
+  ['Pix Felipe Vieira Dias','utilidades'],                                // pix para pessoa = mesma categoria da compra de escritório
+  ['Desconhecido','perdas'],['Nu Bank 81,45','perdas'],['Estorno cartão de crédito cliente marco antonio','perdas'],
+  ['Ponta de prova','execucao_servico'],                                  // ferramenta do multímetro
+  ['Emprestei para Benedito','emprestimos'],
+  ['Devolução Juliana Cruz Rodrigues','utilidades'],                      // ressarcimento a colaboradora (categoria assumida, falta ele confirmar)
+  ['Google IA','software'],['Claude IA','software'],['Créditos Claude Code','software'],['Sistema Orbi Monitoramento + Chat','software'],
+  ['Plano Telefone Celular','software'],['Pagamento plano telefone','software'],
+  ['Panificadora','utilidades'],['Adiantamento Leonardo Lins','folha'],['Recisão Eduardo Jorge','folha'],
+  ['Consultoria Contabil','servicos_profissionais'],
+  ['Retirada Felipe Pamplona até 17 julho','retirada_socios'],
+  ['Pix transporte (Abono) 50 Leo + 20 Douglas','beneficios']
+])assert.equal(cat(desc),esperado,desc);
+
+// "Felipe Pamplona" (sócio) continua retirada; qualquer outro adiantamento é folha.
 assert.equal(cat('Adiantamento Felipe Pamplona'),'retirada_socios');
-assert.equal(cat('Adiantamento Felipe Morais'),'');
+assert.equal(cat('Adiantamento Felipe Morais'),'folha');
 
 // Descrição gerada pelo sistema para a venda do escritório não diz a natureza.
 assert.equal(cat('Referente a custo de escritório (despesa geral da empresa) em 10/08/2026. Valor: R$50',{ehEscritorio:true}),'');
