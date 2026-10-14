@@ -63,7 +63,7 @@
   // (minúsculo, sem acento).
   var REGRAS=[
     ['retirada_socios',/retirada (de )?socio|pro.?labore|(retirada|adiantamento|fisioterapia) felipe pamplona/],
-    ['folha',/salario|encargo|rescisao|recisao|adiantamento|decimo terceiro|\bferias\b|\bfgts\b|\binss\b/],
+    ['folha',/salario|\bfolha\b|encargo|rescisao|recisao|adiantamento|decimo terceiro|\bferias\b|\bfgts\b|\binss\b/],
     ['comissoes',/comiss/],
     ['beneficios',/vale.?(transporte|refeicao|alimentacao)|abono|almoco|lanche|pizza|suco|refeic|confraterniz/],
     ['limpeza',/diarista|faxin/],

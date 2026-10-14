@@ -21,6 +21,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/app.css?v=20261008a">
 <link rel="stylesheet" href="css/faturamento.css?v=20261001e">
+<link rel="stylesheet" href="css/dashboard-dre.css?v=20261014a">
 </head>
 <body>
 
@@ -321,23 +322,23 @@
   <div class="section-head" style="margin-top:24px;"><h2>Funil de <span>conversão</span></h2><div class="hint">números lançados em Relatórios, no período filtrado</div></div>
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;" id="db-funilConversao"></div>
 
-  <div class="section-head" style="margin-top:24px;"><h2>DRE <span>de caixa</span></h2><div class="hint">custos com status Pago, no período filtrado · retirada de sócio fica abaixo do resultado</div></div>
-  <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px;" id="db-dre"></div>
+  <div class="section-head dd-admin" style="margin-top:24px;"><h2>DRE <span>de caixa</span></h2><div class="hint">custos com status Pago, no período filtrado · retirada de sócio fica abaixo do resultado</div></div>
+  <div class="dd-admin" style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px;" id="db-dre"></div>
 
-  <div class="section-head" style="margin-top:24px;"><h2>Gasto por <span>categoria</span></h2><div class="hint">clique numa categoria para ver os lançamentos em Custos da Venda</div></div>
-  <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px;" id="db-categorias">
+  <div class="section-head dd-admin" style="margin-top:24px;"><h2>Gasto por <span>categoria</span></h2><div class="hint">clique numa categoria para ver os lançamentos em Custos da Venda</div></div>
+  <div class="dd-admin" style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px;" id="db-categorias">
     <div id="db-catChips"></div>
     <div id="db-catBars"></div>
     <div id="db-catNota"></div>
   </div>
 
-  <div class="section-head" style="margin-top:24px;"><h2>Custo fixo <span>mensal comprometido</span></h2><div class="hint">soma dos Custos Recorrentes ativos</div></div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+  <div class="section-head dd-admin" style="margin-top:24px;"><h2>Custo fixo <span>mensal comprometido</span></h2><div class="hint">soma dos Custos Recorrentes ativos</div></div>
+  <div class="dd-admin" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
     <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px;" id="db-fixoBars"></div>
     <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px;" id="db-fixoTotal"></div>
   </div>
 
-  <div class="section-head" style="margin-top:24px;"><h2>Produção de <span>serviços e comercial</span></h2><div class="hint">agendamentos e vendas no período filtrado</div></div>
+  <div class="section-head" style="margin-top:24px;"><h2>Produção de <span>serviços e comercial</span></h2><div class="hint">agendamentos no período e serviço filtrados · motivos de perda no filtro completo</div></div>
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;">
     <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px;" id="db-prodTecnicos"></div>
     <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px;" id="db-prodServicos"></div>
@@ -2014,11 +2015,12 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script>
 <script src="js/firebase-init.js?v=20260928b"></script>
-<script src="js/dre-categorias.js?v=20261014a"></script>
+<script src="js/dre-categorias.js?v=20261014b"></script>
 <script src="js/dre-jev.js?v=20261013a"></script>
+<script src="js/dre-dashboard.js?v=20261014a"></script>
 <script src="js/firestore-router.js?v=20261013b"></script>
 <script src="js/sg-auth.js?v=20261013a"></script>
-<script src="js/dashboard.js?v=20260903a"></script>
+<script src="js/dashboard.js?v=20261014a"></script>
 <script src="js/faturamento.js?v=20261001g"></script>
 <script src="js/ponto.js?v=20260928b"></script>
 <script src="js/vendas.js?v=20261013c"></script>
