@@ -77,7 +77,7 @@ assert.equal(chamadas[0].payload.categoriaOrigem,'manual');
 T.definir([],vendas); base();
 T.abrirModal(null);
 escolherVenda('v-esc'); preencher('10');
-el('cv-descricao').value='Pix Felipe Vieira Dias'; el('cv-descricao').oninput();
+el('cv-descricao').value='Emanuelli Mendes do Rosário'; el('cv-descricao').oninput();
 assert.equal(el('cv-categoria').value,'');
 T.salvar();
 assert.equal(chamadas.length,0);

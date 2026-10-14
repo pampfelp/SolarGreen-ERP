@@ -42,6 +42,7 @@
     {id:'software',nome:'Software, sistemas e telefonia',grupo:'administrativo'},
     {id:'transporte',nome:'Transporte e deslocamento',grupo:'administrativo'},
     {id:'impostos_taxas',nome:'Impostos e taxas',grupo:'administrativo'},
+    {id:'servicos_profissionais',nome:'Serviços profissionais (contabilidade e consultoria)',grupo:'administrativo'},
     {id:'taxas_bancarias',nome:'Tarifas bancárias e taxas de cartão',grupo:'financeiro'},
     {id:'emprestimos',nome:'Parcelas de empréstimo',grupo:'financeiro'},
     {id:'perdas',nome:'Prejuízo e inadimplência',grupo:'perdas'},
@@ -51,7 +52,7 @@
   // Categorias que, mesmo lançadas numa venda de cliente, podem ser do próprio
   // serviço (corrida até o cliente, almoço da equipe no dia). As outras, se
   // aparecerem numa venda de cliente, geram aviso pra conferir.
-  var PODE_SER_DO_SERVICO=['transporte','beneficios'];
+  var PODE_SER_DO_SERVICO=['transporte','beneficios','execucao_servico'];
 
   // Descrições geradas pelo próprio sistema (gerarDescricaoAutomaticaCv e a
   // do painel da venda). Dizem a natureza do lançamento, não o assunto.
@@ -61,20 +62,23 @@
   // Ordem importa: a primeira que casar vence. Texto já normalizado
   // (minúsculo, sem acento).
   var REGRAS=[
-    ['retirada_socios',/retirada (de )?socio|pro.?labore|(adiantamento|fisioterapia) felipe pamplona/],
-    ['folha',/salario|encargo|rescisao|decimo terceiro|\bferias\b|\bfgts\b|\binss\b/],
+    ['retirada_socios',/retirada (de )?socio|pro.?labore|(retirada|adiantamento|fisioterapia) felipe pamplona/],
+    ['folha',/salario|encargo|rescisao|recisao|adiantamento|decimo terceiro|\bferias\b|\bfgts\b|\binss\b/],
     ['comissoes',/comiss/],
-    ['beneficios',/vale.?(transporte|refeicao|alimentacao)|almoco|lanche|pizza|suco|refeic|confraterniz/],
+    ['beneficios',/vale.?(transporte|refeicao|alimentacao)|abono|almoco|lanche|pizza|suco|refeic|confraterniz/],
     ['limpeza',/diarista|faxin/],
     ['aluguel',/aluguel/],
-    ['emprestimos',/emprestimo|financiamento/],
-    ['taxas_bancarias',/taxa (de )?cartao|tarifa|maquininha|\biof\b/],
+    ['emprestimos',/emprestimo|financiamento|emprestei/],
+    ['taxas_bancarias',/taxa (de )?cartao|tarifa|maquininha|\biof\b|acerto (no )?pix/],
     ['impostos_taxas',/taxa cnpj|\bdas\b|simples nacional|imposto|\biss(qn)?\b|alvara|iptu/],
-    ['software',/sistema (monitoramento|mensagem|casamento)|app monitoramento|plataforma|wavoip|mensalidade ia|chip|software|hospedagem|dominio/],
+    ['servicos_profissionais',/consultoria|contabil|contador/],
+    ['software',/sistema (monitoramento|mensagem|casamento)|app monitoramento|plataforma|wavoip|mensalidade ia|\bia\b|claude|orbi|telefone|celular|chip|software|hospedagem|dominio/],
+    ['execucao_servico',/ponta de prova|multimetro|ferramenta/],
     ['marketing',/anuncio|investimento em leads|prospec|facebook|meta ads|google ads|trafego/],
     ['transporte',/corrida|\buber\b|\b99\b|passagem|desloca|combustivel|gasolina|pedagio|estacionamento/],
     ['utilidades',/conta de (energia|internet|agua)|pagamento internet|energia ref|\bagua\b|material (de )?escritorio|compras? (do mes|escritorio|mateus)|papel higienico|galao|\bcafe\b/],
-    ['perdas',/prejuizo|inadimpl|calote/]
+    ['perdas',/prejuizo|inadimpl|calote|estorno|^desconhecido|^nu ?bank/],
+    ['utilidades',/panificadora|padaria|^devolucao |^pix [a-z]/]
   ];
 
   function norm(s){

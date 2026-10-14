@@ -6,8 +6,8 @@ const c=(id,IdVenda,Descricao,extra)=>({id,data:Object.assign({IdVenda,Descricao
 const plano=planejar([
   c('a','v-esc','Salário Débora'),
   c('b','v1','Referente aos custos de operação do serviço de Vistoria no cliente X em 10/08/2026. Valor: R$150'),
-  c('c','v-esc','Pix Felipe Vieira Dias'),
-  c('d','v1','Aluguel Sala'),                       // despesa geral numa venda de cliente: aviso
+  c('c','v-esc','Emanuelli Mendes do Rosário'),
+  c('d','v1','Aluguel Sala'),                      // despesa geral numa venda de cliente: aviso
   c('e','v-esc','Aluguel Sala',{Categoria:'aluguel',CategoriaOrigem:'manual'}), // já categorizado: pula
   c('f','venda-que-sumiu','Uber'),
   c('g','venda-que-sumiu','Material extra'),
@@ -29,7 +29,7 @@ assert.equal(plano.itens.find(i=>i.id==='e'),undefined);
 const gravados=new Set(plano.itens.filter(i=>i.acao==='gravar').map(i=>i.id));
 const segunda=planejar([
   c('a','v-esc','Salário Débora',{Categoria:'folha',CategoriaOrigem:'backfill'}),
-  c('c','v-esc','Pix Felipe Vieira Dias'),
+  c('c','v-esc','Emanuelli Mendes do Rosário'),
 ],vendas);
 assert.equal(segunda.itens.filter(i=>i.acao==='gravar').length,0);
 assert.ok(gravados.has('a'));
