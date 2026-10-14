@@ -95,6 +95,7 @@ function handleRequest(e) {
     if (action === 'excluirVenda')    return jsonOutput(actionExcluirVenda(body));
     if (action === 'salvarCustoVenda')  return jsonOutput(actionSalvarCustoVenda(body));
     if (action === 'excluirCustoVenda') return jsonOutput(actionExcluirCustoVenda(body));
+    if (action === 'sugerirCategoriaJev') return jsonOutput(actionSugerirCategoriaJev(body));
     if (action === 'getPlanosData')   return jsonOutput(getPlanosData());
     if (action === 'getCustosVendaData')   return jsonOutput(getCustosVendaData());
     if (action === 'getCustoRecorrenteData')   return jsonOutput(getCustoRecorrenteData());
@@ -638,6 +639,49 @@ function actionSalvarCustoVenda(body) {
 /**
  * action: excluirCustoVenda — body { idCusto }
  */
+/**
+ * Sugestão de categoria da DRE pelo Jev (TypeSafe), 2026-10-13.
+ * O front monta o pedido (js/dre-categorias.js, montarPedidoJev) e este código
+ * só repassa, com a chave da TypeSafe nas Propriedades do script
+ * (TYPESAFE_API_KEY, nunca no código nem no front: crença 13). Não dá para
+ * checar administrador aqui (o front não manda solicitanteId ao Apps Script,
+ * ver sg-auth.js), então a única barreira é a CHAVE_SECRETA do dispatcher, que
+ * está no JS público. Por isso os limites para não virar proxy aberto de LLM:
+ * modelo fixo, uma pergunta só, texto e pedido com tamanho máximo.
+ * A descrição do custo (que pode ter nome de funcionário) vai para a TypeSafe.
+ */
+function actionSugerirCategoriaJev(body) {
+  var chaveJev = PropertiesService.getScriptProperties().getProperty('TYPESAFE_API_KEY');
+  if (!chaveJev) return { ok: false, erro: 'Jev não configurado.' };
+  var pedido = body.pedido;
+  if (!pedido || typeof pedido.state !== 'object' || !pedido.questions) {
+    return { ok: false, erro: 'Pedido inválido.' };
+  }
+  var nomes = Object.keys(pedido.questions);
+  if (nomes.length !== 1 || nomes[0] !== 'categoria' || pedido.questions.categoria.type !== 'choice') {
+    return { ok: false, erro: 'Pedido inválido.' };
+  }
+  var payload = { model: 'jev-latest', state: pedido.state, questions: pedido.questions };
+  var texto = JSON.stringify(payload);
+  if (texto.length > 6000 || String(pedido.state.descricao || '').length > 300) {
+    return { ok: false, erro: 'Pedido grande demais.' };
+  }
+  var resp = UrlFetchApp.fetch('https://api.typesafe.ai/v1/systemone', {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { Authorization: 'Bearer ' + chaveJev },
+    payload: texto,
+    muteHttpExceptions: true
+  });
+  var codigo = resp.getResponseCode();
+  if (codigo !== 200) return { ok: false, erro: 'Jev respondeu ' + codigo + '.' };
+  try {
+    return { ok: true, resposta: JSON.parse(resp.getContentText()) };
+  } catch (err) {
+    return { ok: false, erro: 'Resposta do Jev ilegível.' };
+  }
+}
+
 function actionExcluirCustoVenda(body) {
   if (!isSolicitanteAdmin(body.solicitanteId)) {
     return { ok: false, erro: 'Acesso restrito a administradores.' };

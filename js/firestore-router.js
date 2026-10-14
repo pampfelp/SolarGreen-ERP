@@ -763,6 +763,14 @@
   function salvarCustoVenda(p){
     var id=p.idCusto||(window.SGId?window.SGId.gerar():String(Date.now()));
     var doc={IdCusto:id,IdVenda:p.idVenda||'',Descricao:p.descricao||'',Valor:paraNumero(p.valor),Status:p.status||'',Data:isoParaBR(p.data)};
+    // Categoria da DRE (2026-10-13, ver js/dre-categorias.js): grava o ID da
+    // categoria, nunca o nome. Só entra no doc quando vem no payload, então
+    // quem ainda não manda categoria não apaga a que já existe (merge).
+    if(p.categoria){
+      if(!window.SGDre||!window.SGDre.ehCategoriaValida(p.categoria))return Promise.resolve({ok:false,erro:'Categoria inválida.'});
+      doc.Categoria=p.categoria;
+      doc.CategoriaOrigem=(p.categoriaOrigem==='regra'||p.categoriaOrigem==='backfill'||p.categoriaOrigem==='jev')?p.categoriaOrigem:'manual';
+    }
     // CriadoEm (ISO, só na criação): desempata custos do mesmo dia na tela
     // Custos da Venda, do lançado mais tarde pro mais cedo. Custo antigo não tem.
     var ref=db().collection('custos_venda').doc(id);

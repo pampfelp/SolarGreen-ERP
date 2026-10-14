@@ -25,6 +25,8 @@
   var DEFAULT_API_URL='https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA34xrlLTVUUNhKBIlguJT3ectH7Yus-VW1n41GcCclc5q_Yj0Di2O7g/exec';
   var DEFAULT_API_KEY='1234';
   var ID_CLIENTE_APORTE_SOCIOS='da6dbd89'; // Cliente Teste 1 — aporte de sócios, não conta como faturamento/meta
+  var categoriaOrigemSugeridaVc='regra',jevTimerVc=null; // 'regra' ou 'jev' (js/dre-jev.js)
+  var categoriaSugeridaVc='',categoriaTocadaVc=false; // categoria da DRE no formulário de custo do painel (js/dre-categorias.js)
   var vendasRecordsFaturamento=[];
   var vendasEscritorioIds={}; // idVenda -> true, pra qualquer venda "gaveta" do Cliente Teste 1 (custo de escritório lançado nela)
   var APP_VERSION='2026-07-16-1';
@@ -136,7 +138,7 @@
     });
     return out;
   }
-  function processCustosVenda(list){var out=[];list.forEach(function(o){if(!o.IdCusto)return;var dt=parseBRDate(o.Data);out.push({id:o.IdCusto,idVenda:o.IdVenda,descricao:(o.Descricao||'').trim(),status:(o.Status||'').trim(),dt:dt,dateKey:dt?dateKey(dt):null,valor:parseBRNumber(o.Valor)});});return out;}
+  function processCustosVenda(list){var out=[];list.forEach(function(o){if(!o.IdCusto)return;var dt=parseBRDate(o.Data);out.push({id:o.IdCusto,idVenda:o.IdVenda,descricao:(o.Descricao||'').trim(),status:(o.Status||'').trim(),dt:dt,dateKey:dt?dateKey(dt):null,valor:parseBRNumber(o.Valor),categoria:o.Categoria||'',categoriaOrigem:o.CategoriaOrigem||''});});return out;}
   function processServicos(list){var map={};list.forEach(function(o){if(!o.IdServico)return;map[o.IdServico]=o['Nome Servico']||o.IdServico;});return map;}
 
   function sortVendedorRows(rows){
@@ -798,6 +800,40 @@
     return '<div class="ad-row" style="border:none;padding-bottom:10px;"><span class="dl">Total de custos</span><span class="dv">'+fmtMoney(total)+'</span></div>'+itensHtml;
   }
 
+  function opcoesCategoriaVc(){
+    return '<option value="">Selecione…</option>'+window.SGDre.GRUPOS.map(function(g){
+      var itens=window.SGDre.CATEGORIAS.filter(function(c){return c.grupo===g.id;});
+      if(!itens.length)return '';
+      return '<optgroup label="'+escapeHtml(g.nome)+'">'+itens.map(function(c){return '<option value="'+escapeHtml(c.id)+'">'+escapeHtml(c.nome)+'</option>';}).join('')+'</optgroup>';
+    }).join('');
+  }
+  /** Sugere a categoria pela descrição e pelo tipo da venda, enquanto a pessoa não mexeu no campo. */
+  function sugerirCategoriaVc(v){
+    if(categoriaTocadaVc)return;
+    var s=window.SGDre.sugerir(document.getElementById('vc-descricao').value,{ehEscritorio:v.idCliente===ID_CLIENTE_APORTE_SOCIOS});
+    categoriaSugeridaVc=s.categoria; categoriaOrigemSugeridaVc='regra';
+    document.getElementById('vc-categoria').value=s.categoria;
+    var dica=s.categoria?(s.origem==='venda'?'Sugerida porque o custo está numa venda de cliente. Confira.':'Sugerida pela descrição. Confira.'):'';
+    document.getElementById('vc-categoriaDica').textContent=[dica,s.aviso].filter(Boolean).join(' ');
+    pedirJevVc(v,!s.categoria&&!s.aviso);
+  }
+  /** Regra sem resposta: pergunta ao Jev (depois de 700 ms sem digitar) e só preenche se o campo continua vazio e intocado. */
+  function pedirJevVc(v,deveChamar){
+    clearTimeout(jevTimerVc);
+    if(!deveChamar||!window.SGDreJev)return;
+    var desc=document.getElementById('vc-descricao').value, ctx={ehEscritorio:v.idCliente===ID_CLIENTE_APORTE_SOCIOS};
+    jevTimerVc=setTimeout(function(){
+      window.SGDreJev.pedir(desc,ctx).then(function(j){
+        if(!j.categoria||categoriaTocadaVc)return;
+        var campo=document.getElementById('vc-categoria'), descAtual=document.getElementById('vc-descricao');
+        if(!campo||!descAtual||descAtual.value!==desc||campo.value)return;
+        categoriaSugeridaVc=j.categoria; categoriaOrigemSugeridaVc='jev';
+        campo.value=j.categoria;
+        document.getElementById('vc-categoriaDica').textContent='Sugerida pelo Jev ('+Math.round(j.confianca*100)+'%). Confira.';
+      });
+    },700);
+  }
+
   function abrirPainelVenda(idVenda){
     var v=vendasRecords.filter(function(x){return String(x.idVenda)===String(idVenda);})[0];
     if(!v)return;
@@ -816,6 +852,7 @@
       '<button type="button" class="connect-btn" id="vd-addCustoToggle" style="width:100%;margin-top:10px;">+ Adicionar custo</button>'+
       '<div id="vd-custoForm" class="hidden" style="margin-top:12px;">'+
         '<div class="uform-field"><label>Descrição</label><textarea id="vc-descricao" rows="3" placeholder="Ex: Combustível, material, comissão…"></textarea></div>'+
+        '<div class="uform-field"><label>Categoria (DRE)</label><select id="vc-categoria"></select><div id="vc-categoriaDica" style="font-size:11.5px;color:var(--ink-faint);margin-top:4px;"></div></div>'+
         '<div class="uform-field"><label>Valor</label><input type="number" id="vc-valor" step="0.01" min="0"></div>'+
         '<div class="uform-field"><label>Status</label><select id="vc-status"><option value="Pago">Pago</option><option value="Aguardando Pagamento">Aguardando Pagamento</option></select></div>'+
         '<div class="uform-field"><label>Data</label><input type="date" id="vc-data"></div>'+
@@ -827,13 +864,16 @@
       '</div>'+
     '</div>';
     document.getElementById('vd-body').innerHTML=html;
+    document.getElementById('vc-categoria').innerHTML=opcoesCategoriaVc();
+    document.getElementById('vc-categoria').addEventListener('change',function(){ categoriaTocadaVc=true; document.getElementById('vc-categoriaDica').textContent=''; });
     custoEditandoId=null;
     document.getElementById('vc-data').value=dateKey(new Date());
     var descricaoEditadaManualmente=false;
-    document.getElementById('vc-descricao').addEventListener('input',function(){ descricaoEditadaManualmente=true; });
+    document.getElementById('vc-descricao').addEventListener('input',function(){ descricaoEditadaManualmente=true; sugerirCategoriaVc(v); });
     document.getElementById('vc-valor').addEventListener('input',function(){
       if(descricaoEditadaManualmente)return;
       document.getElementById('vc-descricao').value=gerarDescricaoAutomaticaCusto(v,document.getElementById('vc-valor').value);
+      sugerirCategoriaVc(v);
     });
 
     document.getElementById('vd-addCustoToggle').addEventListener('click',function(){
@@ -864,6 +904,10 @@
     document.getElementById('vc-valor').value=c?c.valor:'';
     document.getElementById('vc-status').value=c?(c.status||'Aguardando Pagamento'):'Aguardando Pagamento';
     document.getElementById('vc-data').value=c?c.dateKey:dateKey(new Date());
+    categoriaTocadaVc=!!(c&&c.categoria); categoriaSugeridaVc='';
+    document.getElementById('vc-categoria').value=c?(c.categoria||''):'';
+    document.getElementById('vc-categoriaDica').textContent='';
+    sugerirCategoriaVc(v); // custo sem categoria já abre com a sugestão; o que tem categoria não é tocado
     document.getElementById('vc-excluirBtn').style.display=c?'block':'none';
     document.getElementById('vc-cancelarBtn').style.display='block';
     document.getElementById('vd-custoForm').classList.remove('hidden');
@@ -902,12 +946,18 @@
     var status=document.getElementById('vc-status').value;
     var dataStr=document.getElementById('vc-data').value;
     if(!valor){ return; }
+    var categoria=document.getElementById('vc-categoria').value;
+    if(!categoria){ window.SGToast.mostrar('Escolha a categoria do custo.',true); return; }
 
     var ehNovo=!custoEditandoId;
     var idCusto=custoEditandoId||window.SGId.gerar();
     var registroAnteriorCopia=!ehNovo?Object.assign({},custosVendaRecords.filter(function(c){return String(c.id)===String(idCusto);})[0]):null;
 
-    var registroNovo={id:idCusto,idVenda:idVenda,descricao:descricao,status:status,dt:parseBRDate(dataStr.split('-').reverse().join('/')),dateKey:dataStr,valor:parseFloat(valor)||0};
+    // De onde veio a categoria: mantém a origem se não mudou; senão 'regra' (aceitou a sugestão) ou 'manual'.
+    var categoriaOrigem=(registroAnteriorCopia&&registroAnteriorCopia.categoria===categoria)
+      ?(registroAnteriorCopia.categoriaOrigem||'manual')
+      :((categoria===categoriaSugeridaVc)?categoriaOrigemSugeridaVc:'manual');
+    var registroNovo={id:idCusto,idVenda:idVenda,descricao:descricao,status:status,dt:parseBRDate(dataStr.split('-').reverse().join('/')),dateKey:dataStr,valor:parseFloat(valor)||0,categoria:categoria,categoriaOrigem:categoriaOrigem};
     var indice=custosVendaRecords.findIndex(function(c){return String(c.id)===String(idCusto);});
     if(indice===-1)custosVendaRecords.push(registroNovo);
     else custosVendaRecords[indice]=registroNovo;
@@ -922,7 +972,8 @@
 
     apiCall('salvarCustoVenda',{
       idCusto:idCusto, idVenda:idVenda, descricao:descricao,
-      valor:valor, status:status, data:dataStr
+      valor:valor, status:status, data:dataStr,
+      categoria:categoria, categoriaOrigem:categoriaOrigem
     }).then(function(resp){
       if(!resp||!resp.ok){
         if(ehNovo)custosVendaRecords=custosVendaRecords.filter(function(c){return String(c.id)!==String(idCusto);});
@@ -1044,7 +1095,10 @@
     // escritório, não só uma canônica — sem isso, custo lançado numa
     // venda-gaveta diferente contava como custo de venda real.
     vendasEscritorioIds={};vendasRecords.forEach(function(v){if(v.idCliente===ID_CLIENTE_APORTE_SOCIOS)vendasEscritorioIds[v.idVenda]=true;});
-    populateSelects();setDefaultDateRange();
+    // Período padrão só na 1ª carga: cada snapshot (inclusive o disparado ao
+    // salvar um custo) passa por aqui e zerava o filtro de datas do usuário.
+    populateSelects();
+    if(!document.getElementById('v-dateFrom').value||!document.getElementById('v-dateTo').value)setDefaultDateRange();
     document.getElementById('v-emptyState').style.display='none';document.getElementById('v-mainContent').style.display='block';render();
     setSyncPill('ok','Sincronizado');
   }
