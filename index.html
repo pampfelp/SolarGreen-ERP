@@ -321,6 +321,29 @@
   <div class="section-head" style="margin-top:24px;"><h2>Funil de <span>conversão</span></h2><div class="hint">números lançados em Relatórios, no período filtrado</div></div>
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;" id="db-funilConversao"></div>
 
+  <div class="section-head" style="margin-top:24px;"><h2>DRE <span>de caixa</span></h2><div class="hint">custos com status Pago, no período filtrado · retirada de sócio fica abaixo do resultado</div></div>
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px;" id="db-dre"></div>
+
+  <div class="section-head" style="margin-top:24px;"><h2>Gasto por <span>categoria</span></h2><div class="hint">clique numa categoria para ver os lançamentos em Custos da Venda</div></div>
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px;" id="db-categorias">
+    <div id="db-catChips"></div>
+    <div id="db-catBars"></div>
+    <div id="db-catNota"></div>
+  </div>
+
+  <div class="section-head" style="margin-top:24px;"><h2>Custo fixo <span>mensal comprometido</span></h2><div class="hint">soma dos Custos Recorrentes ativos</div></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px;" id="db-fixoBars"></div>
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px;" id="db-fixoTotal"></div>
+  </div>
+
+  <div class="section-head" style="margin-top:24px;"><h2>Produção de <span>serviços e comercial</span></h2><div class="hint">agendamentos e vendas no período filtrado</div></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;">
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px;" id="db-prodTecnicos"></div>
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px;" id="db-prodServicos"></div>
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px;" id="db-prodMotivos"></div>
+  </div>
+
   <div class="empty" id="db-emptyState" style="display:none;">
     <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
     <p>Carregando o dashboard…</p>
