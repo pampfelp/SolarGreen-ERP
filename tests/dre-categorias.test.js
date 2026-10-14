@@ -57,6 +57,7 @@ for(const [desc,esperado] of [
   ['Plano Telefone Celular','software'],['Pagamento plano telefone','software'],
   ['Panificadora','utilidades'],['Adiantamento Leonardo Lins','folha'],['Recisão Eduardo Jorge','folha'],
   ['Consultoria Contabil','servicos_profissionais'],
+  ['Folha da equipe','folha'],                                              // categoria de texto livre dos Custos Recorrentes
   ['Retirada Felipe Pamplona até 17 julho','retirada_socios'],
   ['Pix transporte (Abono) 50 Leo + 20 Douglas','beneficios']
 ])assert.equal(cat(desc),esperado,desc);

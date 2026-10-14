@@ -11,6 +11,7 @@
   var vendasEscritorioIds={}; // idVenda -> true, pra qualquer venda "gaveta" do Cliente Teste 1 (custo de escritório lançado nela)
   var APP_VERSION='2026-07-16-1';
   var chartAnchorDay=null;
+  var agendamentosRaw=[],recorrentesRaw=[],catGrupoSel='',ultimosCustosDre=[]; // blocos financeiros (js/dre-dashboard.js)
 
   function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
   function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
@@ -25,8 +26,8 @@
   function nomeServico(id){ var s=servicosMap[id]; return s?(s['Nome Servico']||id):'—'; }
 
   function processVendas(list){var out=[];list.forEach(function(o){if(!o.IdVenda)return;var dt=parseBRDate(o.DataVenda);if(!dt)return;out.push({idVenda:o.IdVenda,idCliente:o.IdCliente,idServico:o.IdServico,idVendedor:o.IdVendedor,dt:dt,dateKey:dateKey(dt),valor:parseBRNumber(o.Valor)});});return out;}
-  function processCustosVenda(list){var out=[];list.forEach(function(o){if(!o.IdCusto)return;var dt=parseBRDate(o.Data);out.push({idCusto:o.IdCusto,idVenda:o.IdVenda,status:String(o.Status||''),dt:dt,dateKey:dt?dateKey(dt):null,valor:parseBRNumber(o.Valor)});});return out;}
-  function processFunil(list){var out=[];list.forEach(function(o){var id=o.IdOportunidade||o.IdFunil;if(!id)return;var dt=parseBRDate(o.DataCriacao||o['Data Criacao']||'');out.push({id:id,idCliente:o.IdCliente,idVendedor:o.IdVendedor,idServico:o.IdServico,etapa:o.Etapa,dt:dt,dateKey:dt?dateKey(dt):null,transicoes:o.Transicoes||[],atividades:o.Atividades||[]});});return out;}
+  function processCustosVenda(list){var out=[];list.forEach(function(o){if(!o.IdCusto)return;var dt=parseBRDate(o.Data);out.push({idCusto:o.IdCusto,idVenda:o.IdVenda,status:String(o.Status||''),dt:dt,dateKey:dt?dateKey(dt):null,valor:parseBRNumber(o.Valor),categoria:o.Categoria||''});});return out;}
+  function processFunil(list){var out=[];list.forEach(function(o){var id=o.IdOportunidade||o.IdFunil;if(!id)return;var dt=parseBRDate(o.DataCriacao||o['Data Criacao']||'');out.push({id:id,idCliente:o.IdCliente,idVendedor:o.IdVendedor,idServico:o.IdServico,etapa:o.Etapa,motivo:o.MotivoPerda||'',dt:dt,dateKey:dt?dateKey(dt):null,transicoes:o.Transicoes||[],atividades:o.Atividades||[]});});return out;}
   var ETAPAS_PROPOSTA_VENDAS=['Negociação','Serviço Agendado','Ganho'];
 
   function getFiltered(){
@@ -287,8 +288,62 @@
     renderHBars('db-barServicos',porServico,nomeServico,'db-selServico');
     renderFunilConversao({contatos:novosLeads,conversas:kpisFunil.conversas,propostas:propostasTotal,vendas:vendasRelTotal});
     renderInsight(f,faturamento,custosTotais,lucro,ticketMedio,conversao,novosLeads);
+    renderFinanceiro(f,faturamento,custosEscTotal,custosEscProporcional);
 
     document.getElementById('db-lastUpdate').textContent='Atualizado em '+new Date().toLocaleDateString('pt-BR')+' às '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  }
+
+  // ── Blocos financeiros: DRE de caixa, gasto por categoria, custo fixo e produção.
+  // Cálculo e HTML em js/dre-dashboard.js; aqui só os dados do filtro e o DOM.
+  // DRE, categorias e custo fixo (pró-labore, retiradas) só aparecem para administrador.
+  function ehAdminDash(){ return !!(window.SGAuth&&window.SGAuth.isAdmin&&window.SGAuth.isAdmin()); }
+
+  function renderFinanceiro(f,faturamento,custosEscTotal,custosEscProporcional){
+    var D=window.SGDreDash; if(!D)return;
+    // O custo de escritório entra rateado pela mesma fatia do KPI "Custos totais": a soma das categorias fecha com ele.
+    var fator=custosEscTotal>0?custosEscProporcional/custosEscTotal:0;
+    var custos=f.custosOp.map(function(c){return {valor:c.valor,categoria:c.categoria};})
+      .concat(f.custosEsc.map(function(c){return {valor:c.valor*fator,categoria:c.categoria};}));
+    if(ehAdminDash()){
+      document.getElementById('db-dre').innerHTML=D.htmlDre(D.calcularDre(faturamento,custos),f.vendasFat.length);
+      ultimosCustosDre=custos;
+      renderCategorias();
+    }
+    renderProducao(f);
+  }
+  function renderCategorias(){
+    var D=window.SGDreDash, h=D.htmlCategorias(D.agruparPorCategoria(ultimosCustosDre,catGrupoSel),catGrupoSel);
+    document.getElementById('db-catChips').innerHTML=h.chips;
+    document.getElementById('db-catBars').innerHTML=h.barras;
+    document.getElementById('db-catNota').innerHTML=h.nota+'<div><button type="button" class="dd-link" id="db-catAbrir">Abrir Custos da Venda'+(catGrupoSel==='__sem__'?' só com os lançamentos a revisar':'')+'</button></div>';
+  }
+  function renderFixo(){
+    var D=window.SGDreDash; if(!D||!ehAdminDash())return;
+    var h=D.htmlFixo(D.calcularFixo(recorrentesRaw.map(function(c){return {descricao:c.Descricao,categoria:c.Categoria,valor:parseBRNumber(c.Valor),status:c.Status};})));
+    document.getElementById('db-fixoBars').innerHTML=h.barras;
+    document.getElementById('db-fixoTotal').innerHTML=h.total;
+  }
+  function renderProducao(f){
+    var D=window.SGDreDash; if(!D)return;
+    var servico=document.getElementById('db-selServico').value;
+    var ags=agendamentosRaw.filter(function(a){
+      var dt=parseBRDate(a['Data Inicio']); if(!dt)return false;
+      var dk=dateKey(dt);
+      if(f.from&&dk<f.from)return false; if(f.to&&dk>f.to)return false;
+      if(servico!=='__all__'&&a.IdServico!==servico)return false;
+      return true;
+    }).map(function(a){return {tecnico:a.TecnicoResponsavel,servico:a.IdServico,status:a['Status Agendamento']};});
+    var pr=D.calcularProducao(ags);
+    document.getElementById('db-prodTecnicos').innerHTML=D.htmlTecnicos(pr,nomeVendedor);
+    document.getElementById('db-prodServicos').innerHTML=D.htmlTipos(pr,nomeServico);
+    document.getElementById('db-prodMotivos').innerHTML=D.htmlMotivos(D.agruparMotivos(f.leads.filter(function(l){return l.etapa==='Perdido';}).map(function(l){return l.motivo;})));
+  }
+  /** Abre Custos da Venda já filtrada por categoria ('__sem__' = a revisar; vazio = só abre). */
+  function abrirCustosComCategoria(valor){
+    if(!window.SGControllerSwitchTo)return;
+    window.SGControllerSwitchTo('custosvenda');
+    var sel=document.getElementById('cv-selCategoria');
+    if(sel&&valor){ sel.value=valor; sel.dispatchEvent(new Event('change')); }
   }
 
   function aplicarDados(vendasResp,funilResp){
@@ -336,6 +391,11 @@
       window.SGUtil.assinarColecao('servicos',function(lista){ dadosBrutosDash.vendas.servicos=lista; recombinarDadosDash(); });
       window.SGUtil.assinarColecao('vendas',function(lista){ dadosBrutosDash.vendas.vendas=lista; recombinarDadosDash(); });
       window.SGUtil.assinarColecao('custos_venda',function(lista){ dadosBrutosDash.vendas.custosVenda=lista; recombinarDadosDash(); });
+      // Produção de serviços (2026-10-14): mesma escuta que a tela Agendamentos usa, então se ela já carregou nesta
+      // sessão não custa leitura nova. Fica fora do SGCache de propósito (só o que o dashboard já guardava).
+      window.SGUtil.assinarColecao('agendamentos',function(lista){ agendamentosRaw=lista; if(_initialized)render(); });
+      // Custo fixo: uns 20 docs, lidos uma vez por abertura do dashboard. Só administrador vê.
+      if(ehAdminDash())apiCall('getCustoRecorrenteData',{}).then(function(resp){ if(resp&&resp.ok){ recorrentesRaw=resp.custos||[]; renderFixo(); } });
       // Funil pela janela de tempo (item 2, 2026-09-03) — mesma fatia que o
       // Funil escuta, pra os dois compartilharem UM listener em vez do
       // Dashboard reabrir a coleção inteira e anular a economia. Só vale
@@ -375,6 +435,24 @@
       document.querySelector('#view-dashboard .qr-btn[data-dbrange="all"]').classList.add('active');
       setRangeTudo();
       render();
+    });
+    if(!ehAdminDash())document.querySelectorAll('#view-dashboard .dd-admin').forEach(function(n){ n.style.display='none'; });
+    document.getElementById('db-categorias').addEventListener('click',function(e){
+      var chip=e.target.closest('.dd-chip');
+      if(chip){ catGrupoSel=chip.getAttribute('data-grupo')||''; renderCategorias(); return; }
+      var bar=e.target.closest('.dd-bar[data-cat]');
+      if(bar){ abrirCustosComCategoria(bar.getAttribute('data-cat')); return; }
+      if(e.target.closest('#db-catAbrir'))abrirCustosComCategoria(catGrupoSel==='__sem__'?'__sem__':'');
+    });
+    document.getElementById('db-prodServicos').addEventListener('click',function(e){
+      var bar=e.target.closest('.dd-bar[data-servico]'); if(!bar)return;
+      var id=bar.getAttribute('data-servico'); if(!id)return;
+      var sel=document.getElementById('db-selServico'); sel.value=(sel.value===id)?'__all__':id; render();
+    });
+    ['db-categorias','db-prodServicos'].forEach(function(id){
+      document.getElementById(id).addEventListener('keydown',function(e){
+        if((e.key==='Enter'||e.key===' ')&&e.target.classList&&e.target.classList.contains('click')){ e.preventDefault(); e.target.click(); }
+      });
     });
     carregar();
   }
