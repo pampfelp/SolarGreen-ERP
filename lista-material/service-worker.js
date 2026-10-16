@@ -1,7 +1,7 @@
-const CACHE = 'lista-material-shell-v7';
+const CACHE = 'lista-material-shell-v8';
 const SHELL = [
-  './', './index.html', './style.css?v=20261006d', './app.js?v=20261007c',
-  './rules.js?v=20261007c', './manifest.json?v=20261006d',
+  './', './index.html', './style.css?v=20261016a', './app.js?v=20261016a',
+  './rules.js?v=20261016a', './manifest.json?v=20261006d',
   './logo.svg?v=20261006d', './icon-192.png', './icon-512.png'
 ];
 self.addEventListener('install', event => {

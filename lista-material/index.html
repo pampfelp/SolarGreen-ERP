@@ -14,11 +14,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./style.css?v=20261006d">
+  <link rel="stylesheet" href="./style.css?v=20261016a">
   <script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-  <script type="module" src="./app.js?v=20261007c"></script>
+  <script type="module" src="./app.js?v=20261016a"></script>
 </head>
 <body>
 <svg class="symbols" aria-hidden="true">
@@ -90,10 +90,17 @@
             <div class="f full"><label>Rede no padrão (127/220 V)</label><div class="seg" data-field="connection"><button type="button" data-value="Mono 127 V">Mono 127 V</button><button type="button" class="on" data-value="Bifásico 220 V">Bifásica</button><button type="button" data-value="Trifásico">Trifásica</button></div></div>
             <div class="f full"><label for="inverter-output">Saída CA do inversor</label><div class="inp"><select id="inverter-output"><option value="Mono 220 V">Monofásico 220 V (entre fases)</option><option value="Mono 127 V">Monofásico 127 V (fase-neutro)</option><option value="Trifásico 220 V">Trifásico 220 V</option></select><svg class="i"><use href="#down"/></svg></div></div>
             <div class="f full"><label for="roof">Telhado</label><div class="inp"><select id="roof"><option>Fibrocimento sobre madeira</option><option>Fibrocimento sobre metal</option><option>Telha cerâmica</option><option>Telha metálica</option><option>Laje</option><option>A conferir</option></select><svg class="i"><use href="#down"/></svg></div></div>
-            <div class="f"><label for="ac">Até o ponto de conexão *</label><div class="inp"><input id="ac" type="number" min="0.1" step="0.1" required><em>m</em></div></div>
-            <div class="f"><label for="dc">Percurso CC *</label><div class="inp"><input id="dc" type="number" min="0.1" step="0.1" required><em>m</em></div></div>
-            <div class="f"><label for="ground">Cabo de aterramento</label><div class="inp"><input id="ground" type="number" min="0" step="0.1"><em>m</em></div></div>
-            <div class="f"><label>Trecho no sol</label><div class="seg" data-field="sun"><button type="button" data-value="Sim">Sim</button><button type="button" class="on" data-value="Não">Não</button></div></div>
+            <div class="f full"><div class="trecho-head"><span>Percurso CA até o ponto de conexão *</span><small id="ac-vistoria"></small></div><div class="grid3">
+              <div class="f"><label for="acIn">Interna</label><div class="inp"><input id="acIn" type="number" min="0" step="0.1"><em>m</em></div></div>
+              <div class="f"><label for="acOut">Externa</label><div class="inp"><input id="acOut" type="number" min="0" step="0.1"><em>m</em></div></div>
+              <div class="f"><label for="acFlex">Corrugado</label><div class="inp"><input id="acFlex" type="number" min="0" step="0.1"><em>m</em></div></div>
+            </div></div>
+            <div class="f full"><div class="trecho-head"><span>Percurso CC até o inversor *</span><small id="dc-vistoria"></small></div><div class="grid3">
+              <div class="f"><label for="dcIn">Interna</label><div class="inp"><input id="dcIn" type="number" min="0" step="0.1"><em>m</em></div></div>
+              <div class="f"><label for="dcOut">Externa</label><div class="inp"><input id="dcOut" type="number" min="0" step="0.1"><em>m</em></div></div>
+              <div class="f"><label for="dcRoof">Telhado</label><div class="inp"><input id="dcRoof" type="number" min="0" step="0.1"><em>m</em></div></div>
+            </div><p class="hint">Interna: eletroduto branco e abraçadeira plástica. Externa: eletroduto preto e abraçadeira com cunha. Corrugado e telhado: eletroduto corrugado.</p></div>
+            <div class="f"><label for="ground">Inversor até a haste</label><div class="inp"><input id="ground" type="number" min="0" step="0.1"><em>m</em></div></div>
             <div class="f full"><label>Ponto de conexão</label><div class="seg" data-field="point"><button type="button" class="on" data-value="Padrão de entrada">Padrão de entrada</button><button type="button" data-value="Quadro geral">Quadro geral</button></div></div>
             <div class="f full"><label>Eletroduto</label><div class="seg" data-field="conduit"><button type="button" class="on" data-value="Aparente">Aparente</button><button type="button" data-value="Embutido">Embutido</button><button type="button" data-value="Forro">Forro</button></div></div>
           </div>
@@ -124,8 +131,8 @@
 
 <dialog id="client-dialog" class="client-dialog">
   <div class="dialog-head"><h2>Cliente ou ordem de serviço</h2><button id="close-dialog" type="button" aria-label="Fechar">×</button></div>
-  <p>Digite o ID do cliente ou da OS. A busca lê só o registro escolhido no ERP.</p>
-  <form id="client-search-form"><input id="client-search" type="text" autocomplete="off" placeholder="ID do cliente ou da OS" required><button class="btn g" type="submit">Buscar</button></form>
+  <p>Escolha a OS da lista ou digite parte do nome do cliente. Para lista sem OS, digite o ID do cliente e toque em Buscar.</p>
+  <form id="client-search-form"><input id="client-search" type="text" autocomplete="off" placeholder="Nome do cliente ou nº da OS" required><button class="btn g" type="submit">Buscar</button></form>
   <div id="client-results"></div>
 </dialog>
 <aside id="install-banner" class="install-banner" hidden><span id="install-text">Instale o app para abrir pela tela inicial.</span><button id="install-button" type="button">Instalar</button><button id="install-dismiss" type="button" aria-label="Dispensar">×</button></aside>

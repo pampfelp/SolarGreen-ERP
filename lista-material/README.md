@@ -21,10 +21,23 @@ O cálculo produz **sugestões de compra**, não projeto elétrico. Estrutura se
 - O disjuntor mostrado é uma estimativa do circuito do inversor. Corrente máxima de saída, proteção exigida pelo fabricante, agrupamento, temperatura real e exposição ao sol precisam ser conferidos no projeto. Para o **padrão de entrada**, a [NT.00001.EQTL, tabela 2](https://pi.equatorialenergia.com.br/wp-content/uploads/2025/12/NT.00001.EQTL-09-Fornecimento-de-Energia-Eletrica-em-Baixa-Tensao.pdf) usa a carga instalada total da unidade: em 127/220 V bifásico até 10 kW, indica 50 A e fase de 10 mm²; de 10,1 a 12 kW, 63 A e fase de 10 mm². O app não conhece a carga total da unidade e não dimensiona o disjuntor geral.
 - A ligação dos bornes CA (L/N ou L1/L2) depende do modelo e deve seguir o manual do fabricante; a indicação de dois condutores energizados no circuito 220 V não define essa pinagem.
 
+### Percursos por trecho
+
+- CA: área interna, área externa e corrugado. CC: área interna, área externa e telhado (todo em corrugado). O cabo é a soma dos trechos, com 10% de reserva.
+- Interna: eletroduto PVC rígido branco, curva e luva brancas, abraçadeira plástica tipo D. Externa: eletroduto preto resistente a UV, curva e luva pretas, abraçadeira tipo D com cunha (a NT.00001.EQTL pede cunha no eletroduto aparente). Corrugado: eletroduto corrugado flexível preto, também com abraçadeira de cunha.
+- Por trecho rígido: barras de 3 m com 10% de reserva, uma curva a cada 4 m mais uma, uma luva por barra, uma abraçadeira por metro e uma por curva.
+- Listas salvas antes da divisão e respostas da vistoria só têm o total; ele aparece como "total informado" ao lado do título do trecho, e a lista antiga ganha aviso para redistribuir e gerar de novo.
+
+### Aterramento do inversor
+
+- Haste de aço cobreado 5/8" (16 mm) x 1,5 m e conector tipo cunha, como na NT.00001.EQTL (aterramento, item f). Haste individual do inversor por decisão da Solar Green (2026-10-16); a NBR 5410 pede equipotencialização principal, por isso o item traz o aviso de conferir a interligação com o terra do padrão.
+- Cabo de terra e PE do circuito CA pela NBR 5410, tabela 58: igual à fase até 16 mm², 16 mm² de 16 a 35 mm², metade acima. Como a fase sai da potência do inversor, o terra acompanha.
+- Eletroduto do cabo de terra: 1/2" até 10 mm², 1" de 10 a 35 mm² (NT.00001, item e).
+
 ## Integração
 
 - Firebase: projeto `solargreen-21313`.
-- Leituras restritas ao cliente e OS selecionados, mais respostas e templates do serviço da OS.
+- Ao abrir a escolha de cliente/OS, lê a coleção `agendamentos` e a de `servicos` uma vez por sessão, para listar as OS com nome, serviço, data e status e filtrar pelo nome sem diferença de maiúscula ou acento. Depois da escolha, lê só o cliente, as respostas e os templates do serviço da OS.
 - Escrita na coleção `listas_material`, ID `<clienteId>__<idAgendamento>` ou `<clienteId>__avulsa`.
 - As regras de `listas_material` ficam em `firestore.rules` do repositório SolarGreen-ERP (este mesmo, na raiz).
 - O painel de detalhe da OS abre este app com `?agendamentoId=<id>`.
