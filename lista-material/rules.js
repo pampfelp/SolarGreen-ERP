@@ -77,10 +77,27 @@ export function generateMaterials(m) {
 
   const conductorNames = active === 1 ? ['fase (preto)', 'neutro (azul)'] : active === 2 ? ['fase (preto)', 'fase (vermelho)'] : ['fase L1', 'fase L2', 'fase L3'];
   conductorNames.forEach(name => add('Parte CA', acLength, 'm', `Cabo flexível de cobre PVC 70 °C ${acSection} mm², ${name}`, 'Comprimento de percurso com subida, descida e reserva.'));
+  // O PE do inversor não acompanha a CA até o padrão: vai do inversor direto à haste (grupo Aterramento).
   const pe = peSection(acSection);
-  add('Parte CA', acLength, 'm', `Cabo flexível de cobre PVC 70 °C ${pe} mm², PE (verde)`, pe === acSection ? '' : `NBR 5410, tabela 58: PE de ${pe} mm² para fase de ${acSection} mm².`);
   // Trecho interno: eletroduto branco e abraçadeira plástica. Externo: preto e abraçadeira tipo D com cunha
   // (a NT.00001.EQTL pede cunha no eletroduto aparente). Corrugado também fixado com cunha.
+  // Na área interna todos os eletrodutos (CA e CC) têm o mesmo diâmetro, o maior dos dois; nunca menor.
+  const SIZES = ['1/2"', '3/4"', '1"', '1 1/4"', '1 1/2"', '2"'];
+  const inside = SIZES[Math.max(SIZES.indexOf(conduit), SIZES.indexOf('3/4"'))];
+  const bigger = (a, b) => SIZES.indexOf(a) >= SIZES.indexOf(b) ? a : b;
+  // Um condulete em cada ponta do circuito e um em cada troca de trecho; redução onde o diâmetro muda.
+  const fittings = (group, parts, ends) => {
+    const used = parts.filter(part => part.metres > 0);
+    const count = {};
+    used.forEach((part, i) => {
+      const next = used[i + 1];
+      const size = next ? bigger(part.size, next.size) : part.size;
+      if (i === 0) count[part.size] = (count[part.size] || 0) + 1;
+      count[size] = (count[size] || 0) + 1;
+      if (next && next.size !== part.size) add(group, 1, 'un', `Redução de eletroduto ${part.size} para ${next.size}`, `Na passagem do trecho ${part.name} para o ${next.name}.`);
+    });
+    Object.entries(count).forEach(([size, n]) => add(group, n, 'un', `Condulete ${size} com tampa`, `Nas pontas (${ends}) e em cada troca de trecho.`));
+  };
   const rigid = (group, metres, size, inside) => {
     if (!(metres > 0)) return 0;
     const bars = Math.ceil(metres * 1.1 / 3);
@@ -97,13 +114,13 @@ export function generateMaterials(m) {
     add(group, Math.ceil(metres * 1.1), 'm', `Eletroduto corrugado flexível preto ${size}`, note);
     return Math.ceil(metres);
   };
-  rigid('Parte CA', acIn, conduit, true);
+  rigid('Parte CA', acIn, inside, true);
   const acWedges = rigid('Parte CA', acOut, conduit, false) + flexible('Parte CA', acFlex, conduit, `Área externa: ${acFlex} m em corrugado.`);
   if (acWedges) add('Parte CA', acWedges, 'un', `Abraçadeira tipo D com cunha ${conduit}, com parafuso e bucha`, 'Trechos externos e corrugado: uma por metro e uma por curva.');
-  add('Parte CA', ac > 15 ? 3 : 2, 'un', `Caixa de passagem de sobrepor ${conduit}`);
+  fittings('Parte CA', [{metres: acIn, size: inside, name: 'interno'}, {metres: acOut, size: conduit, name: 'externo'}, {metres: acFlex, size: conduit, name: 'corrugado'}], 'saída do inversor e ponto de conexão');
   add('Parte CA', 4, 'pares', `Bucha e arruela ${conduit}`);
   add('Parte CA', 1, 'un', 'Prensa-cabo ou adaptador para a caixa do ponto de conexão', 'Confirmar furo disponível.');
-  add('Parte CA', (active + 1) * 2 + 2, 'un', `Terminal tubular pré-isolado ${acSection} mm²`);
+  add('Parte CA', active * 2 + 2, 'un', `Terminal tubular pré-isolado ${acSection} mm²`);
   add('Parte CA', 1, 'm', 'Espiral protetor de cabo');
 
   const poles = active === 3 ? 'tripolar' : active === 2 ? 'bipolar' : 'monopolar';
@@ -112,23 +129,24 @@ export function generateMaterials(m) {
   add('Proteção', 1, 'un', 'Quadro DIN de sobrepor com porta, 6 módulos', 'Confirmar grau de proteção conforme local.');
   add('Proteção', active, 'un', 'DPS classe II, 275 V, 20 kA / 40 kA', 'Uc e coordenação devem ser conferidos no projeto.');
   add('Proteção', 1, 'un', 'Barra de terra para o quadro');
-  add('Proteção', 2, 'm', 'Cabo 6 mm² verde para DPS e barra', 'Ligação curta e reta.');
+  add('Proteção', 2, 'm', 'Cabo 6 mm² verde, do DPS até a barra de terra do quadro', 'Fica dentro do quadro, ligação curta e reta. A barra vai à haste pelo cabo do grupo Aterramento.');
 
   // Haste e conector como na NT.00001.EQTL (aterramento, itens e e f); cabo pela tabela 58 da NBR 5410.
   add('Aterramento', 1, 'un', 'Haste de aterramento de aço cobreado 5/8" (16 mm) x 1,5 m', 'Haste individual do inversor. A NBR 5410 pede equipotencialização principal: conferir a interligação com o terra do padrão.');
   add('Aterramento', 1, 'un', 'Conector tipo cunha para haste 5/8"', 'Sem solda, protegido contra corrosão e acessível à inspeção.');
-  add('Aterramento', ground || 'medir', 'm', `Cabo flexível de cobre ${pe} mm² verde, inversor até a haste`, `Mesma seção do PE do circuito CA (fase ${acSection} mm²).`);
+  add('Aterramento', ground || 'medir', 'm', `Cabo flexível de cobre ${pe} mm² verde, do inversor até a haste`, `É o PE do inversor: sai do borne de terra e da barra do quadro e desce à haste. Seção pela NBR 5410, tabela 58, a partir da fase CA de ${acSection} mm².`);
   add('Aterramento', ground ? Math.ceil(ground / 3) : 1, 'barras', `Eletroduto PVC rígido ${pe <= 10 ? '1/2"' : '1"'} para o cabo de terra, barra de 3 m`, 'NT.00001: 1/2" até 10 mm², 1" de 10 a 35 mm², onde o cabo pode sofrer dano mecânico.');
   add('Aterramento', 4, 'un', `Terminal olhal ${pe} mm² e parafuso M6`);
-  add('Aterramento', 'medir', 'm', 'Cabo 6 mm² verde, aterramento da estrutura');
+  add('Aterramento', 'medir', 'm', 'Cabo 6 mm² verde, equipotencialização da estrutura dos módulos', 'Outro cabo: liga perfis e molduras no telhado ao aterramento do inversor. Medir do arranjo até a descida.');
   add('Aterramento', 'conforme layout', 'un', 'Terminal de aterramento da estrutura com arruela dentada');
 
   add('Parte CC', dcLength, 'm', 'Cabo solar 6 mm², vermelho');
   add('Parte CC', dcLength, 'm', 'Cabo solar 6 mm², preto');
   add('Parte CC', 3, 'pares', 'Conector MC4 fêmea e macho', 'String e conectores compatíveis com o inversor.');
-  rigid('Parte CC', dcIn, '3/4"', true);
+  rigid('Parte CC', dcIn, inside, true);
   const dcWedges = rigid('Parte CC', dcOut, '3/4"', false) + flexible('Parte CC', dcRoof, '3/4"', `Telhado: ${dcRoof} m em corrugado.`);
   if (dcWedges) add('Parte CC', dcWedges, 'un', 'Abraçadeira tipo D com cunha 3/4", com parafuso e bucha', 'Trecho externo e corrugado do telhado: uma por metro e uma por curva.');
+  fittings('Parte CC', [{metres: dcIn, size: inside, name: 'interno'}, {metres: dcOut, size: '3/4"', name: 'externo'}, {metres: dcRoof, size: '3/4"', name: 'telhado'}], 'entrada do inversor e fim do eletroduto no telhado');
   add('Parte CC', Math.ceil(modules * 5.5), 'un', 'Abraçadeira de nylon com proteção UV');
   add('Parte CC', 1, 'm', 'Espiral protetor de cabo');
 

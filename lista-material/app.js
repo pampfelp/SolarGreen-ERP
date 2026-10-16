@@ -1,4 +1,4 @@
-import {GROUPS, generateMaterials} from './rules.js?v=20261016a';
+import {GROUPS, generateMaterials} from './rules.js?v=20261016b';
 
 const config = {
   projectId: 'solargreen-21313',
@@ -11,7 +11,7 @@ const config = {
 const API_URL = '';
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
-const state = {user: null, vendor: null, client: null, appointment: null, items: [], photos: [], aiText: '', warning: '', stats: null, listId: null, savedAt: null};
+const state = {user: null, vendor: null, client: null, appointment: null, items: [], opened: {}, photos: [], aiText: '', warning: '', stats: null, listId: null, savedAt: null};
 let db;
 let statusTimer;
 let installPrompt;
@@ -88,9 +88,11 @@ function renderItems() {
   GROUPS.forEach(group => {
     const groupItems = state.items.filter(item => item.group === group);
     const section = el('div', 'sec');
-    if (group !== 'Parte CA' && group !== 'Proteção') section.classList.add('coll');
-    if (group === 'Parte CA') section.classList.add('compact-mobile');
-    if (group === 'Proteção') section.classList.add('mobile-coll');
+    // Redesenhar a lista (adicionar ou excluir item) mantém aberto ou fechado o que a pessoa escolheu.
+    const opened = state.opened[group];
+    if (opened === false || (opened === undefined && group !== 'Parte CA' && group !== 'Proteção')) section.classList.add('coll');
+    if (opened === undefined && group === 'Parte CA') section.classList.add('compact-mobile');
+    if (opened === undefined && group === 'Proteção') section.classList.add('mobile-coll');
     if (group === 'Proteção') section.classList.add('protection');
     const head = el('button', 'sh');
     head.type = 'button';
@@ -101,15 +103,18 @@ function renderItems() {
     head.addEventListener('click', () => {
       if (matchMedia('(max-width:700px)').matches && section.classList.contains('compact-mobile')) {
         section.classList.remove('compact-mobile');
+        state.opened[group] = true;
         return;
       }
       if (matchMedia('(max-width:700px)').matches && section.classList.contains('mobile-coll')) {
         section.classList.remove('mobile-coll');
         head.setAttribute('aria-expanded', 'true');
         head.querySelector('use').setAttribute('href', '#up');
+        state.opened[group] = true;
         return;
       }
       section.classList.toggle('coll');
+      state.opened[group] = !section.classList.contains('coll');
       head.setAttribute('aria-expanded', !section.classList.contains('coll'));
       head.querySelector('use').setAttribute('href', section.classList.contains('coll') ? '#down' : '#up');
     });
@@ -117,6 +122,7 @@ function renderItems() {
     const rows = el('div', 'rows');
     groupItems.forEach(item => {
       const row = el('div', 'row');
+      row.dataset.id = item.id;
       const check = el('button', 'chk' + (item.checked ? ' is-checked' : ''));
       check.type = 'button';
       check.setAttribute('aria-label', item.checked ? 'Desmarcar item' : 'Marcar item');
@@ -171,10 +177,11 @@ function renderItems() {
     add.type = 'button';
     add.append(icon('plus'), el('span', '', 'Adicionar item'));
     add.addEventListener('click', () => {
-      state.items.push({id: crypto.randomUUID(), group, quantity: '1', unit: 'un', description: 'Novo item', note: '', source: 'Editado', checked: true});
-      section.classList.remove('coll');
+      const id = crypto.randomUUID();
+      state.items.push({id, group, quantity: '1', unit: 'un', description: 'Novo item', note: '', source: 'Editado', checked: true});
+      state.opened[group] = true;
       renderItems();
-      const input = [...$('#material-list').querySelectorAll('.row .d')].at(-1);
+      const input = $('#material-list').querySelector(`.row[data-id="${id}"] .d`);
       input?.focus(); input?.select();
     });
     section.append(add);
@@ -185,7 +192,7 @@ function renderItems() {
 function markEdited(item) {
   item.source = 'Editado';
   state.savedAt = null;
-  const row = [...$$('.row')].find(r => r.querySelector('.d')?.value === item.description);
+  const row = $('#material-list').querySelector(`.row[data-id="${item.id}"]`);
   if (row) row.querySelectorAll('.tag').forEach(tag => { tag.className = tag.classList.contains('mobile-tag') ? 'mobile-tag tag e' : 'tag e'; tag.textContent = 'Editado'; });
   updateStats();
 }
@@ -193,6 +200,7 @@ function generate() {
   const result = generateMaterials(measureValues());
   if (state.items.length && !confirm('Gerar outra lista substitui a edição atual. Continuar?')) return;
   state.items = result.items;
+  state.opened = {};
   state.warning = result.warning;
   state.savedAt = null;
   renderItems();

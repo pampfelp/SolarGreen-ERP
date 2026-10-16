@@ -74,6 +74,16 @@ window.firebase.firestore.FieldValue={serverTimestamp:()=>new Date()};
       await page.locator('[data-field="connection"] [data-value="Bifásico 220 V"]').click();
       await page.locator('.gen').click();
     }
+    // Adicionar e excluir item não pode fechar o grupo nem jogar o foco para outro grupo.
+    const groundSection = page.locator('.sec', {has: page.locator('h3', {hasText: 'Aterramento'})});
+    await groundSection.locator('.sh').click();
+    await groundSection.locator('.addi').click();
+    if (await groundSection.evaluate(node => node.classList.contains('coll'))) throw new Error('Group closed after adding item');
+    const focused = await page.evaluate(() => document.activeElement?.closest('.sec')?.querySelector('h3')?.textContent);
+    if (focused !== 'Aterramento' || await page.evaluate(() => document.activeElement.value) !== 'Novo item') throw new Error('New item was not focused in its group: ' + focused);
+    await groundSection.locator('.row').last().locator('.del').click();
+    if (await groundSection.evaluate(node => node.classList.contains('coll'))) throw new Error('Group closed after removing item');
+    if (await page.locator('.row').count() !== count) throw new Error('Remove did not remove the new item');
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
     if (overflow) throw new Error('Horizontal overflow at ' + width);
     await page.screenshot({path:path.resolve(__dirname,'../test-results/app-' + width + '.png'),fullPage:true});

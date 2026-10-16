@@ -7,13 +7,17 @@ const base = {
   point: 'Padrão de entrada', conduit: 'Aparente'
 };
 const result = generateMaterials(base);
+const ca = starts => result.items.find(i => i.group === 'Parte CA' && i.description.startsWith(starts))?.quantity;
+const cc = starts => result.items.find(i => i.group === 'Parte CC' && i.description.startsWith(starts))?.quantity;
 const qty = starts => result.items.find(i => i.description.startsWith(starts))?.quantity;
 assert.equal(result.stats.kwp, 5.58);
 assert.equal(qty('Cabo flexível de cobre PVC 70 °C 6 mm², fase (preto)'), '30');
-assert.equal(qty('Cabo flexível de cobre PVC 70 °C 6 mm², PE'), '30');
+// O PE não vai com a CA até o padrão: vai do inversor à haste.
+assert.ok(!result.items.some(i => i.group === 'Parte CA' && /PE/.test(i.description)));
+assert.equal(ca('Condulete 3/4"'), '3');
+assert.equal(ca('Redução'), undefined);
+assert.equal(ca('Terminal tubular pré-isolado 6 mm²'), '6');
 // CA: 5 m internos (branco, plástica) e 20 m externos (preto, cunha); 3/4" para 6 mm².
-const ca = starts => result.items.find(i => i.group === 'Parte CA' && i.description.startsWith(starts))?.quantity;
-const cc = starts => result.items.find(i => i.group === 'Parte CC' && i.description.startsWith(starts))?.quantity;
 assert.equal(ca('Eletroduto PVC rígido 3/4" branco'), '2');
 assert.equal(ca('Eletroduto PVC rígido 3/4" preto'), '8');
 assert.equal(ca('Curva 90° 3/4" branca'), '3');
@@ -32,18 +36,29 @@ assert.equal(cc('Abraçadeira tipo D com cunha 3/4"'), String(12 + 4 + 10));
 // Aterramento: haste da NT.00001 e cabo com a seção do PE.
 assert.equal(qty('Haste de aterramento de aço cobreado 5/8"'), '1');
 assert.equal(qty('Conector tipo cunha para haste'), '1');
-assert.equal(qty('Cabo flexível de cobre 6 mm² verde, inversor até a haste'), '3');
+assert.equal(qty('Cabo flexível de cobre 6 mm² verde, do inversor até a haste'), '3');
 assert.equal(qty('Eletroduto PVC rígido 1/2" para o cabo de terra'), '1');
 const withFlex = generateMaterials({...base, acOut: 15, acFlex: 5});
 assert.equal(withFlex.items.find(i => i.group === 'Parte CA' && i.description.startsWith('Eletroduto corrugado'))?.quantity, '6');
 assert.equal(withFlex.items.find(i => i.description.startsWith('Cabo flexível de cobre PVC 70 °C 6 mm², fase (preto)'))?.quantity, '30');
 const mono127 = generateMaterials({...base, connection: 'Mono 127 V', inverterOutput: 'Mono 127 V'});
-assert.ok(mono127.items.some(i => i.description.startsWith('Cabo flexível de cobre 10 mm² verde, inversor até a haste')));
+assert.ok(mono127.items.some(i => i.description.startsWith('Cabo flexível de cobre 10 mm² verde, do inversor até a haste')));
 assert.ok(mono127.items.some(i => i.description.startsWith('Eletroduto PVC rígido 1/2" para o cabo de terra')));
 const long = generateMaterials({...base, inverter: 6, acIn: 0, acOut: 80});
-assert.ok(long.items.some(i => i.description.startsWith('Cabo flexível de cobre 16 mm² verde, inversor até a haste')));
+assert.ok(long.items.some(i => i.description.startsWith('Cabo flexível de cobre 16 mm² verde, do inversor até a haste')));
 assert.ok(long.items.some(i => i.description.startsWith('Eletroduto PVC rígido 1" para o cabo de terra')));
 assert.deepEqual([6, 10, 16, 25, 35, 50].map(peSection), [6, 10, 16, 16, 16, 25]);
+assert.equal(cc('Condulete 3/4"'), '4');
+// Inversor de 7 kW: CA em 10 mm² e 1"; a área interna inteira fica em 1" e o CC reduz para 3/4" ao sair.
+const big = generateMaterials({...base, inverter: 7, acIn: 6});
+const bigItem = (group, starts) => big.items.find(i => i.group === group && i.description.startsWith(starts))?.quantity;
+assert.equal(bigItem('Parte CC', 'Eletroduto PVC rígido 1" branco'), '2');
+assert.equal(bigItem('Parte CC', 'Eletroduto PVC rígido 3/4" preto'), '5');
+assert.equal(bigItem('Parte CC', 'Redução de eletroduto 1" para 3/4"'), '1');
+assert.equal(bigItem('Parte CC', 'Condulete 1"'), '2');
+assert.equal(bigItem('Parte CC', 'Condulete 3/4"'), '2');
+assert.equal(bigItem('Parte CA', 'Redução'), undefined);
+assert.equal(bigItem('Parte CA', 'Condulete 1"'), '3');
 assert.throws(() => generateMaterials({...base, acIn: 0, acOut: 0, acFlex: 0}), /percurso CA/);
 assert.throws(() => generateMaterials({...base, dcIn: -1}), /Preencha/);
 assert.equal(qty('Fixador para telha de fibrocimento'), '36');
