@@ -33,14 +33,23 @@ export function sizeAcCircuit(inverterKw, acMetres, inverterOutput) {
   throw new Error('Percurso ou potência CA fora do dimensionamento simplificado. Solicite projeto elétrico para definir cabos e proteção.');
 }
 
+// Condutor de proteção pela NBR 5410, tabela 58: igual à fase até 16 mm², 16 mm² até 35 mm², metade acima.
+export function peSection(phase) {
+  return phase <= 16 ? phase : phase <= 35 ? 16 : phase / 2;
+}
+
 export function generateMaterials(m) {
   const modules = Number(m.modules);
   const watts = Number(m.watts);
   const inverter = Number(m.inverter);
-  const ac = Number(m.ac);
-  const dc = Number(m.dc);
-  if (![modules, watts, inverter, ac, dc].every(n => Number.isFinite(n) && n > 0)) {
-    throw new Error('Preencha módulos, potência, inversor, percurso CA e percurso CC com valores maiores que zero.');
+  const segment = key => Number(m[key] || 0);
+  const acIn = segment('acIn'), acOut = segment('acOut'), acFlex = segment('acFlex');
+  const dcIn = segment('dcIn'), dcOut = segment('dcOut'), dcRoof = segment('dcRoof');
+  const ac = acIn + acOut + acFlex;
+  const dc = dcIn + dcOut + dcRoof;
+  if (![modules, watts, inverter].every(n => Number.isFinite(n) && n > 0) ||
+      ![acIn, acOut, acFlex, dcIn, dcOut, dcRoof].every(n => Number.isFinite(n) && n >= 0) || !(ac > 0) || !(dc > 0)) {
+    throw new Error('Preencha módulos, potência, inversor e pelo menos um trecho do percurso CA e do CC.');
   }
   const floors = Math.max(1, Number(m.floors) || 1);
   const ground = Math.max(0, Number(m.ground) || 0);
@@ -60,10 +69,7 @@ export function generateMaterials(m) {
   const conduit = acSizing.conduit;
   const acLength = Math.ceil(ac * 1.1 + floors);
   const dcLength = Math.ceil(dc * 1.1);
-  const acBars = Math.ceil(acLength / 3);
-  const dcBars = Math.ceil(dcLength / 3);
   const roof = String(m.roof || 'A conferir');
-  const sun = m.sun === 'Sim';
   const inverterLabel = inverterOutput === 'Trifásico 220 V' ? 'trifásico 220 V' : inverterOutput === 'Mono 127 V' ? 'monofásico 127 V' : 'monofásico 220 V entre fases';
   const networkLabel = m.connection === 'Trifásico' ? 'trifásica 127/220 V' : m.connection === 'Mono 127 V' ? 'monofásica 127 V' : 'bifásica 127/220 V';
   const items = [];
@@ -71,13 +77,31 @@ export function generateMaterials(m) {
 
   const conductorNames = active === 1 ? ['fase (preto)', 'neutro (azul)'] : active === 2 ? ['fase (preto)', 'fase (vermelho)'] : ['fase L1', 'fase L2', 'fase L3'];
   conductorNames.forEach(name => add('Parte CA', acLength, 'm', `Cabo flexível de cobre PVC 70 °C ${acSection} mm², ${name}`, 'Comprimento de percurso com subida, descida e reserva.'));
-  add('Parte CA', acLength, 'm', `Cabo flexível de cobre PVC 70 °C ${acSection} mm², PE (verde)`);
-  add('Parte CA', acBars, 'barras', `Eletroduto PVC rígido ${conduit}, ${sun ? 'preto resistente a UV' : 'branco'}, barra de 3 m`, 'Pré-seleção: confirmar trajeto, ocupação e diâmetro real dos cabos.');
-  add('Parte CA', Math.max(4, Math.ceil(ac / 4) + 1), 'un', `Curva 90° ${conduit}`, 'Contar mudanças de direção no desenho.');
-  add('Parte CA', acBars, 'un', `Luva ${conduit}`);
+  const pe = peSection(acSection);
+  add('Parte CA', acLength, 'm', `Cabo flexível de cobre PVC 70 °C ${pe} mm², PE (verde)`, pe === acSection ? '' : `NBR 5410, tabela 58: PE de ${pe} mm² para fase de ${acSection} mm².`);
+  // Trecho interno: eletroduto branco e abraçadeira plástica. Externo: preto e abraçadeira tipo D com cunha
+  // (a NT.00001.EQTL pede cunha no eletroduto aparente). Corrugado também fixado com cunha.
+  const rigid = (group, metres, size, inside) => {
+    if (!(metres > 0)) return 0;
+    const bars = Math.ceil(metres * 1.1 / 3);
+    const curves = Math.ceil(metres / 4) + 1;
+    const color = inside ? 'branco' : 'preto resistente a UV';
+    add(group, bars, 'barras', `Eletroduto PVC rígido ${size} ${color}, barra de 3 m`, `Área ${inside ? 'interna' : 'externa'}: ${metres} m. Pré-seleção: confirmar trajeto e ocupação.`);
+    add(group, curves, 'un', `Curva 90° ${size} ${inside ? 'branca' : 'preta'}`, 'Contar mudanças de direção no desenho.');
+    add(group, bars, 'un', `Luva ${size} ${inside ? 'branca' : 'preta'}`);
+    if (inside) add(group, Math.ceil(metres) + curves, 'un', `Abraçadeira plástica tipo D ${size}, com parafuso e bucha`, 'Uma por metro e uma por curva.');
+    return inside ? 0 : Math.ceil(metres) + curves;
+  };
+  const flexible = (group, metres, size, note) => {
+    if (!(metres > 0)) return 0;
+    add(group, Math.ceil(metres * 1.1), 'm', `Eletroduto corrugado flexível preto ${size}`, note);
+    return Math.ceil(metres);
+  };
+  rigid('Parte CA', acIn, conduit, true);
+  const acWedges = rigid('Parte CA', acOut, conduit, false) + flexible('Parte CA', acFlex, conduit, `Área externa: ${acFlex} m em corrugado.`);
+  if (acWedges) add('Parte CA', acWedges, 'un', `Abraçadeira tipo D com cunha ${conduit}, com parafuso e bucha`, 'Trechos externos e corrugado: uma por metro e uma por curva.');
   add('Parte CA', ac > 15 ? 3 : 2, 'un', `Caixa de passagem de sobrepor ${conduit}`);
   add('Parte CA', 4, 'pares', `Bucha e arruela ${conduit}`);
-  add('Parte CA', acLength + 5, 'un', `Abraçadeira tipo D ${conduit}, com parafuso e bucha`);
   add('Parte CA', 1, 'un', 'Prensa-cabo ou adaptador para a caixa do ponto de conexão', 'Confirmar furo disponível.');
   add('Parte CA', (active + 1) * 2 + 2, 'un', `Terminal tubular pré-isolado ${acSection} mm²`);
   add('Parte CA', 1, 'm', 'Espiral protetor de cabo');
@@ -90,18 +114,21 @@ export function generateMaterials(m) {
   add('Proteção', 1, 'un', 'Barra de terra para o quadro');
   add('Proteção', 2, 'm', 'Cabo 6 mm² verde para DPS e barra', 'Ligação curta e reta.');
 
-  add('Aterramento', ground || 'medir', 'm', 'Cabo 6 mm² verde, aterramento do inversor');
-  add('Aterramento', 4, 'un', 'Terminal olhal e parafuso M6');
+  // Haste e conector como na NT.00001.EQTL (aterramento, itens e e f); cabo pela tabela 58 da NBR 5410.
+  add('Aterramento', 1, 'un', 'Haste de aterramento de aço cobreado 5/8" (16 mm) x 1,5 m', 'Haste individual do inversor. A NBR 5410 pede equipotencialização principal: conferir a interligação com o terra do padrão.');
+  add('Aterramento', 1, 'un', 'Conector tipo cunha para haste 5/8"', 'Sem solda, protegido contra corrosão e acessível à inspeção.');
+  add('Aterramento', ground || 'medir', 'm', `Cabo flexível de cobre ${pe} mm² verde, inversor até a haste`, `Mesma seção do PE do circuito CA (fase ${acSection} mm²).`);
+  add('Aterramento', ground ? Math.ceil(ground / 3) : 1, 'barras', `Eletroduto PVC rígido ${pe <= 10 ? '1/2"' : '1"'} para o cabo de terra, barra de 3 m`, 'NT.00001: 1/2" até 10 mm², 1" de 10 a 35 mm², onde o cabo pode sofrer dano mecânico.');
+  add('Aterramento', 4, 'un', `Terminal olhal ${pe} mm² e parafuso M6`);
   add('Aterramento', 'medir', 'm', 'Cabo 6 mm² verde, aterramento da estrutura');
   add('Aterramento', 'conforme layout', 'un', 'Terminal de aterramento da estrutura com arruela dentada');
 
   add('Parte CC', dcLength, 'm', 'Cabo solar 6 mm², vermelho');
   add('Parte CC', dcLength, 'm', 'Cabo solar 6 mm², preto');
   add('Parte CC', 3, 'pares', 'Conector MC4 fêmea e macho', 'String e conectores compatíveis com o inversor.');
-  add('Parte CC', Math.ceil(dc / 3), 'barras', 'Eletroduto PVC rígido preto 3/4", barra de 3 m', 'Ajustar ao trecho efetivamente protegido por eletroduto.');
-  add('Parte CC', Math.max(4, Math.ceil(dc / 4)), 'un', 'Curva 90° 3/4"');
-  add('Parte CC', dcBars, 'un', 'Luva 3/4"');
-  add('Parte CC', Math.ceil(dcLength), 'un', 'Abraçadeira 3/4"');
+  rigid('Parte CC', dcIn, '3/4"', true);
+  const dcWedges = rigid('Parte CC', dcOut, '3/4"', false) + flexible('Parte CC', dcRoof, '3/4"', `Telhado: ${dcRoof} m em corrugado.`);
+  if (dcWedges) add('Parte CC', dcWedges, 'un', 'Abraçadeira tipo D com cunha 3/4", com parafuso e bucha', 'Trecho externo e corrugado do telhado: uma por metro e uma por curva.');
   add('Parte CC', Math.ceil(modules * 5.5), 'un', 'Abraçadeira de nylon com proteção UV');
   add('Parte CC', 1, 'm', 'Espiral protetor de cabo');
 

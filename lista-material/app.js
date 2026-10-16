@@ -1,4 +1,4 @@
-import {GROUPS, generateMaterials} from './rules.js?v=20261007c';
+import {GROUPS, generateMaterials} from './rules.js?v=20261016a';
 
 const config = {
   projectId: 'solargreen-21313',
@@ -28,15 +28,23 @@ function setTab(tab) {
   document.body.dataset.tab = tab;
   $$('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
 }
+const SEGMENTS = ['acIn', 'acOut', 'acFlex', 'dcIn', 'dcOut', 'dcRoof'];
+const sumOf = (m, keys) => keys.reduce((total, key) => total + (Number(m[key]) || 0), 0);
 function measureValues() {
   const m = {};
-  ['modules', 'watts', 'inverter', 'floors', 'ac', 'dc', 'ground', 'roof'].forEach(id => m[id] = $('#' + id).value);
+  ['modules', 'watts', 'inverter', 'floors', ...SEGMENTS, 'ground', 'roof'].forEach(id => m[id] = $('#' + id).value);
   m.inverterOutput = $('#inverter-output').value;
   $$('.seg').forEach(seg => m[seg.dataset.field] = seg.querySelector('.on')?.dataset.value || '');
   return m;
 }
+// Vistoria e listas salvas antes da divisão por trecho só têm o total: mostrado como referência.
+function showTotals(ac, dc) {
+  $('#ac-vistoria').textContent = ac ? 'total informado: ' + ac + ' m' : '';
+  $('#dc-vistoria').textContent = dc ? 'total informado: ' + dc + ' m' : '';
+}
 function fillMeasures(m = {}) {
-  ['modules', 'watts', 'inverter', 'floors', 'ac', 'dc', 'ground'].forEach(id => $('#' + id).value = m[id] ?? (id === 'floors' ? 1 : ''));
+  ['modules', 'watts', 'inverter', 'floors', ...SEGMENTS, 'ground'].forEach(id => $('#' + id).value = m[id] ?? (id === 'floors' ? 1 : ''));
+  showTotals(m.ac, m.dc);
   if (m.roof) $('#roof').value = m.roof;
   $('#inverter-output').value = m.inverterOutput || (m.connection === 'Mono 127 V' ? 'Mono 127 V' : m.connection === 'Trifásico' ? 'Trifásico 220 V' : 'Mono 220 V');
   $$('.seg').forEach(seg => {
@@ -50,8 +58,9 @@ function updateStats() {
   const power = Number(m.modules) * Number(m.watts) / 1000;
   $('#stat-kwp').textContent = power > 0 ? power.toLocaleString('pt-BR', {maximumFractionDigits: 2}) : '—';
   $('#stat-items').textContent = state.items.length;
-  $('#stat-ac').textContent = m.ac ? m.ac + ' m' : '—';
-  $('#stat-dc').textContent = m.dc ? m.dc + ' m' : '—';
+  const ac = sumOf(m, SEGMENTS.slice(0, 3)), dc = sumOf(m, SEGMENTS.slice(3));
+  $('#stat-ac').textContent = ac ? ac.toLocaleString('pt-BR') + ' m' : '—';
+  $('#stat-dc').textContent = dc ? dc.toLocaleString('pt-BR') + ' m' : '—';
   $('#tab-item-count').textContent = state.items.length;
   $('#tab-photo-count').textContent = state.photos.length;
   $('#photo-count').textContent = state.photos.length + (state.photos.length === 1 ? ' foto' : ' fotos');
@@ -218,6 +227,7 @@ async function loadSavedList() {
     fillMeasures(data.medidas || {});
     state.items = Array.isArray(data.itens) ? data.itens : [];
     state.warning = data.medidas?.inverterOutput ? (data.aviso || '') : `${data.aviso || ''} Lista anterior à separação entre rede e inversor: confirme a saída CA e gere novamente.`.trim();
+    if (data.medidas && !SEGMENTS.some(key => key in data.medidas)) state.warning = `${state.warning} Lista anterior à divisão dos percursos: distribua CA e CC entre interna, externa e corrugado e gere novamente.`.trim();
     state.aiText = data.leituraIA || '';
     state.savedAt = data.atualizadoEm?.toDate?.()?.toISOString() || null;
     $('#ai-read').textContent = state.aiText ? 'O que a IA leu: ' + state.aiText : 'O que a IA leu: adicione fotos e toque em “Ler fotos com IA”.';
@@ -258,23 +268,61 @@ async function loadAppointment(appointment) {
   fillMeasures(m);
   await loadSavedList();
 }
+const fold = text => String(text || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+// Mesmo critério do ERP (agendamentos.js, parseBRDateTime): "Data Inicio" vem em dd/mm/aaaa ou aaaa-mm-dd.
+function parseDate(text) {
+  const str = String(text || '').trim();
+  const br = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (br) return new Date(+br[3], +br[2] - 1, +br[1]);
+  const iso = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return iso ? new Date(+iso[1], +iso[2] - 1, +iso[3]) : null;
+}
+// As OS e os nomes de serviço são lidos uma vez por sessão, só quando a janela de escolha abre.
+let osPromise;
+function loadOsList() {
+  osPromise ||= Promise.all([db.collection('agendamentos').get(), db.collection('servicos').get()]).then(([snap, services]) => {
+    const serviceName = new Map(services.docs.map(d => [String(d.data().IdServico || d.id), d.data()['Nome Servico'] || '']));
+    return snap.docs.map(doc => {
+      const a = {...doc.data(), IdAgendamento: doc.data().IdAgendamento || doc.id};
+      return {a, date: parseDate(a['Data Inicio']), service: serviceName.get(String(a.IdServico)) || ''};
+    }).sort((x, y) => (y.date?.getTime() || 0) - (x.date?.getTime() || 0));
+  }).catch(error => { osPromise = null; throw error; });
+  return osPromise;
+}
+function osButton(os) {
+  const button = el('button', 'os-option');
+  button.type = 'button';
+  button.append(el('strong', '', os.a.NomeCliente || 'Cliente ' + os.a.IdCliente),
+    el('span', '', [os.service || 'OS', os.date ? os.date.toLocaleDateString('pt-BR') : 'sem data', os.a['Status Agendamento'], 'OS ' + os.a.IdAgendamento].filter(Boolean).join(' · ')));
+  button.addEventListener('click', async () => { $('#client-dialog').close(); await loadAppointment(os.a).catch(e => status(e.message, true)); });
+  return button;
+}
+async function renderOsResults(query = '') {
+  const term = fold(query).trim();
+  const list = await loadOsList();
+  const hits = list.filter(os => !term || fold([os.a.NomeCliente, os.a.IdAgendamento, os.a.IdCliente, os.service].join(' ')).includes(term)).slice(0, 30);
+  const results = $('#client-results');
+  results.replaceChildren();
+  if (!hits.length) { results.append(el('p', '', 'Nenhuma OS encontrada. Para lista sem OS, digite o ID do cliente e toque em Buscar.')); return; }
+  hits.forEach(os => results.append(osButton(os)));
+}
+function openClientDialog() {
+  if (!$('#client-dialog').open) $('#client-dialog').showModal();
+  $('#client-results').textContent = 'Carregando OS do ERP…';
+  renderOsResults($('#client-search').value).catch(e => { $('#client-results').textContent = 'Não foi possível carregar as OS: ' + e.message; });
+}
 async function selectClient(client) {
   state.client = client;
   state.client.IdCliente ||= client.id;
   state.appointment = null;
   setClientLabel();
-  const snap = await db.collection('agendamentos').where('IdCliente', '==', state.client.IdCliente).limit(10).get();
+  const clientOs = (await loadOsList()).filter(os => String(os.a.IdCliente) === String(state.client.IdCliente));
   const results = $('#client-results');
   results.replaceChildren();
   if (!$('#client-dialog').open) $('#client-dialog').showModal();
-  if (!snap.empty) {
+  if (clientOs.length) {
     results.append(el('p', '', 'Escolha uma OS ou continue com uma lista avulsa:'));
-    snap.forEach(doc => {
-      const ag = {...doc.data(), IdAgendamento: doc.data().IdAgendamento || doc.id};
-      const button = el('button', '', 'OS ' + ag.IdAgendamento + ' · ' + (ag.NomeServico || ag.Servico || 'vistoria'));
-      button.addEventListener('click', async () => { $('#client-dialog').close(); await loadAppointment(ag); });
-      results.append(button);
-    });
+    clientOs.forEach(os => results.append(osButton(os)));
   }
   const button = el('button', '', 'Continuar sem OS');
   button.addEventListener('click', async () => { $('#client-dialog').close(); await loadSavedList(); });
@@ -407,8 +455,8 @@ function printList() {
   sheet.append(el('p', 'print-summary', [
     Number(m.modules) * Number(m.watts) / 1000 ? (Number(m.modules) * Number(m.watts) / 1000).toLocaleString('pt-BR') + ' kWp' : '',
     m.inverter ? m.inverter + ' kW de inversor' : '',
-    m.ac ? m.ac + ' m CA' : '',
-    m.dc ? m.dc + ' m CC' : ''
+    sumOf(m, SEGMENTS.slice(0, 3)) ? `CA ${sumOf(m, SEGMENTS.slice(0, 3))} m (int. ${m.acIn || 0}, ext. ${m.acOut || 0}, corrugado ${m.acFlex || 0})` : '',
+    sumOf(m, SEGMENTS.slice(3)) ? `CC ${sumOf(m, SEGMENTS.slice(3))} m (int. ${m.dcIn || 0}, ext. ${m.dcOut || 0}, telhado ${m.dcRoof || 0})` : ''
   ].filter(Boolean).join('  ·  ')));
   sheet.append(el('p', 'print-warning', state.warning || 'Sugestão técnica. Confira antes de comprar.'));
   GROUPS.forEach(group => {
@@ -449,8 +497,9 @@ function wire() {
   $$('#measure-form input').forEach(input => input.addEventListener('input', updateStats));
   $('#measure-form').addEventListener('submit', event => { event.preventDefault(); try { generate(); } catch (e) { status(e.message, true); } });
   $$('.tabs button').forEach(button => button.addEventListener('click', () => setTab(button.dataset.tab)));
-  $('#client-button').addEventListener('click', () => $('#client-dialog').showModal());
-  $('#client-button-mobile').addEventListener('click', () => $('#client-dialog').showModal());
+  $('#client-button').addEventListener('click', openClientDialog);
+  $('#client-button-mobile').addEventListener('click', openClientDialog);
+  $('#client-search').addEventListener('input', () => renderOsResults($('#client-search').value).catch(e => status(e.message, true)));
   $('#close-dialog').addEventListener('click', () => $('#client-dialog').close());
   $('#client-search-form').addEventListener('submit', event => { event.preventDefault(); searchClient($('#client-search').value).catch(e => status(e.message, true)); });
   $('#save-button').addEventListener('click', () => save().catch(e => status(e.message, true)));
