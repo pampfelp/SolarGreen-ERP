@@ -28,12 +28,15 @@ Regras de material por trecho e a haste do inversor foram definidas pelo Felipe 
 - CA: área interna, área externa e corrugado. CC: área interna, área externa e telhado (todo em corrugado). O cabo é a soma dos trechos, com 10% de reserva.
 - Interna: eletroduto PVC rígido branco, curva e luva brancas, abraçadeira plástica tipo D. Externa: eletroduto preto resistente a UV, curva e luva pretas, abraçadeira tipo D com cunha (a NT.00001.EQTL pede cunha no eletroduto aparente). Corrugado: eletroduto corrugado flexível preto, também com abraçadeira de cunha.
 - Por trecho rígido: barras de 3 m com 10% de reserva, uma curva a cada 4 m mais uma, uma luva por barra, uma abraçadeira por metro e uma por curva.
+- Na área interna, CA e CC usam o mesmo diâmetro, o maior dos dois (nunca menor que o necessário). Na externa, cada circuito tem o seu, com redução na passagem quando o diâmetro cai (ex.: CC interno em 1" porque a CA é 10 mm², reduzindo para 3/4" ao sair).
+- Condulete com tampa em cada ponta do circuito (CA: saída do inversor e ponto de conexão; CC: entrada do inversor e fim do eletroduto no telhado) e em cada troca de trecho.
 - Listas salvas antes da divisão e respostas da vistoria só têm o total; ele aparece como "total informado" ao lado do título do trecho, e a lista antiga ganha aviso para redistribuir e gerar de novo.
 
 ### Aterramento do inversor
 
 - Haste de aço cobreado 5/8" (16 mm) x 1,5 m e conector tipo cunha, como na NT.00001.EQTL (aterramento, item f). Haste individual do inversor por decisão da Solar Green (2026-10-16); a NBR 5410 pede equipotencialização principal, por isso o item traz o aviso de conferir a interligação com o terra do padrão.
-- Cabo de terra e PE do circuito CA pela NBR 5410, tabela 58: igual à fase até 16 mm², 16 mm² de 16 a 35 mm², metade acima. Como a fase sai da potência do inversor, o terra acompanha.
+- O PE do inversor não vai junto da CA até o padrão: sai do borne de terra e da barra do quadro e desce à haste. A seção segue a NBR 5410, tabela 58 (igual à fase até 16 mm², 16 mm² de 16 a 35 mm², metade acima; mesma regra da IEC 60364-5-54 usada pelo app de cálculo da aba IEC). Como a fase sai da potência do inversor, o terra acompanha.
+- Os três cabos verdes da lista são diferentes e cada item diz para que serve: do inversor até a haste (bitola do PE), do DPS até a barra de terra dentro do quadro (6 mm², curto) e a equipotencialização da estrutura dos módulos no telhado (6 mm², medir).
 - Eletroduto do cabo de terra: 1/2" até 10 mm², 1" de 10 a 35 mm² (NT.00001, item e).
 
 ## Integração
