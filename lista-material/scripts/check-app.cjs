@@ -60,7 +60,7 @@ window.firebase.firestore.FieldValue={serverTimestamp:()=>new Date()};
     await page.screenshot({path:path.resolve(__dirname,'../test-results/measures-' + width + '.png'),fullPage:true});
     await page.locator('.gen').click();
     const count = await page.locator('.row').count();
-    if (count !== 53) throw new Error('Expected 53 rows, got ' + count);
+    if (count !== 55) throw new Error('Expected 55 rows, got ' + count);
     const generatedText = await page.locator('#material-list .row .d').evaluateAll(nodes => nodes.map(node => node.value).join('\n'));
     if (!generatedText.includes('Disjuntor bipolar 32 A') || generatedText.includes('fase L3')) throw new Error('Mono 220 V inverter output was confused with grid phases');
     for (const expected of ['3/4" branco', '3/4" preto resistente a UV', 'Abraçadeira plástica', 'Abraçadeira tipo D com cunha', 'Eletroduto corrugado flexível', 'Haste de aterramento']) {
@@ -118,7 +118,7 @@ window.firebase.firestore.FieldValue={serverTimestamp:()=>new Date()};
   await page.reload({waitUntil:'networkidle'});
   await page.getByText('Continuar sem OS').click();
   if(await page.locator('.row').first().locator('.q').inputValue()!=='33') throw new Error('Saved edit did not reload');
-  if(await page.locator('.row').count()!==44) throw new Error('Saved list did not reload');
+  if(await page.locator('.row').count()!==46) throw new Error('Saved list did not reload');
   if(await page.locator('#acOut').inputValue()!=='25') throw new Error('Segment did not reload');
   if(await page.locator('#inverter-output').inputValue()!=='Mono 220 V') throw new Error('Inverter output did not reload');
   await page.evaluate(() => {
@@ -137,7 +137,7 @@ window.firebase.firestore.FieldValue={serverTimestamp:()=>new Date()};
   await page.evaluate(() => { window.print = () => {}; });
   await page.locator('.export-button').first().click();
   await page.pdf({path:path.resolve(__dirname,'../test-results/test-print.pdf'),format:'A4',printBackground:true});
-  console.log('ERP mock: save and reopen preserved 44 items, segments and edited quantity');
+  console.log('ERP mock: save and reopen preserved 46 items, segments and edited quantity');
   await page.close();
   const osPage = await browser.newPage({viewport:{width:390,height:900}});
   osPage.on('pageerror', error => errors.push(error.message));

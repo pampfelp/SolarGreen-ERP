@@ -86,17 +86,18 @@ export function generateMaterials(m) {
   const inside = SIZES[Math.max(SIZES.indexOf(conduit), SIZES.indexOf('3/4"'))];
   const bigger = (a, b) => SIZES.indexOf(a) >= SIZES.indexOf(b) ? a : b;
   // Um condulete em cada ponta do circuito e um em cada troca de trecho; redução onde o diâmetro muda.
-  const fittings = (group, parts, ends) => {
+  // O da ponta do inversor fica numa linha própria: todo circuito precisa dele para o cabo sair do eletroduto e entrar no inversor.
+  const fittings = (group, parts, end) => {
     const used = parts.filter(part => part.metres > 0);
+    if (used.length) add(group, 1, 'un', `Condulete ${used[0].size} com tampa, passagem do eletroduto para o inversor`, 'Onde o cabo sai do eletroduto e entra no conector do inversor.');
     const count = {};
     used.forEach((part, i) => {
       const next = used[i + 1];
       const size = next ? bigger(part.size, next.size) : part.size;
-      if (i === 0) count[part.size] = (count[part.size] || 0) + 1;
       count[size] = (count[size] || 0) + 1;
       if (next && next.size !== part.size) add(group, 1, 'un', `Redução de eletroduto ${part.size} para ${next.size}`, `Na passagem do trecho ${part.name} para o ${next.name}.`);
     });
-    Object.entries(count).forEach(([size, n]) => add(group, n, 'un', `Condulete ${size} com tampa`, `Nas pontas (${ends}) e em cada troca de trecho.`));
+    Object.entries(count).forEach(([size, n]) => add(group, n, 'un', `Condulete ${size} com tampa`, `Na ${end} e em cada troca de trecho.`));
   };
   const rigid = (group, metres, size, inside) => {
     if (!(metres > 0)) return 0;
@@ -117,7 +118,7 @@ export function generateMaterials(m) {
   rigid('Parte CA', acIn, inside, true);
   const acWedges = rigid('Parte CA', acOut, conduit, false) + flexible('Parte CA', acFlex, conduit, `Área externa: ${acFlex} m em corrugado.`);
   if (acWedges) add('Parte CA', acWedges, 'un', `Abraçadeira tipo D com cunha ${conduit}, com parafuso e bucha`, 'Trechos externos e corrugado: uma por metro e uma por curva.');
-  fittings('Parte CA', [{metres: acIn, size: inside, name: 'interno'}, {metres: acOut, size: conduit, name: 'externo'}, {metres: acFlex, size: conduit, name: 'corrugado'}], 'saída do inversor e ponto de conexão');
+  fittings('Parte CA', [{metres: acIn, size: inside, name: 'interno'}, {metres: acOut, size: conduit, name: 'externo'}, {metres: acFlex, size: conduit, name: 'corrugado'}], 'chegada no ponto de conexão');
   add('Parte CA', 4, 'pares', `Bucha e arruela ${conduit}`);
   add('Parte CA', 1, 'un', 'Prensa-cabo ou adaptador para a caixa do ponto de conexão', 'Confirmar furo disponível.');
   add('Parte CA', active * 2 + 2, 'un', `Terminal tubular pré-isolado ${acSection} mm²`);
@@ -146,7 +147,7 @@ export function generateMaterials(m) {
   rigid('Parte CC', dcIn, inside, true);
   const dcWedges = rigid('Parte CC', dcOut, '3/4"', false) + flexible('Parte CC', dcRoof, '3/4"', `Telhado: ${dcRoof} m em corrugado.`);
   if (dcWedges) add('Parte CC', dcWedges, 'un', 'Abraçadeira tipo D com cunha 3/4", com parafuso e bucha', 'Trecho externo e corrugado do telhado: uma por metro e uma por curva.');
-  fittings('Parte CC', [{metres: dcIn, size: inside, name: 'interno'}, {metres: dcOut, size: '3/4"', name: 'externo'}, {metres: dcRoof, size: '3/4"', name: 'telhado'}], 'entrada do inversor e fim do eletroduto no telhado');
+  fittings('Parte CC', [{metres: dcIn, size: inside, name: 'interno'}, {metres: dcOut, size: '3/4"', name: 'externo'}, {metres: dcRoof, size: '3/4"', name: 'telhado'}], 'ponta do eletroduto no telhado');
   add('Parte CC', Math.ceil(modules * 5.5), 'un', 'Abraçadeira de nylon com proteção UV');
   add('Parte CC', 1, 'm', 'Espiral protetor de cabo');
 

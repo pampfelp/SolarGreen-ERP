@@ -14,7 +14,8 @@ assert.equal(result.stats.kwp, 5.58);
 assert.equal(qty('Cabo flexível de cobre PVC 70 °C 6 mm², fase (preto)'), '30');
 // O PE não vai com a CA até o padrão: vai do inversor à haste.
 assert.ok(!result.items.some(i => i.group === 'Parte CA' && /PE/.test(i.description)));
-assert.equal(ca('Condulete 3/4"'), '3');
+assert.equal(ca('Condulete 3/4" com tampa, passagem do eletroduto para o inversor'), '1');
+assert.equal(result.items.find(i => i.group === 'Parte CA' && i.description === 'Condulete 3/4" com tampa')?.quantity, '2');
 assert.equal(ca('Redução'), undefined);
 assert.equal(ca('Terminal tubular pré-isolado 6 mm²'), '6');
 // CA: 5 m internos (branco, plástica) e 20 m externos (preto, cunha); 3/4" para 6 mm².
@@ -48,17 +49,23 @@ const long = generateMaterials({...base, inverter: 6, acIn: 0, acOut: 80});
 assert.ok(long.items.some(i => i.description.startsWith('Cabo flexível de cobre 16 mm² verde, do inversor até a haste')));
 assert.ok(long.items.some(i => i.description.startsWith('Eletroduto PVC rígido 1" para o cabo de terra')));
 assert.deepEqual([6, 10, 16, 25, 35, 50].map(peSection), [6, 10, 16, 16, 16, 25]);
-assert.equal(cc('Condulete 3/4"'), '4');
+assert.equal(cc('Condulete 3/4" com tampa, passagem do eletroduto para o inversor'), '1');
+assert.equal(result.items.find(i => i.group === 'Parte CC' && i.description === 'Condulete 3/4" com tampa')?.quantity, '3');
+// Só trecho externo, sem interno: o condulete do inversor continua lá.
+const onlyOut = generateMaterials({...base, acIn: 0, acOut: 25, dcIn: 0, dcOut: 25, dcRoof: 0});
+assert.equal(onlyOut.items.filter(i => i.description.includes('passagem do eletroduto para o inversor')).map(i => i.group).join(), 'Parte CA,Parte CC');
 // Inversor de 7 kW: CA em 10 mm² e 1"; a área interna inteira fica em 1" e o CC reduz para 3/4" ao sair.
 const big = generateMaterials({...base, inverter: 7, acIn: 6});
 const bigItem = (group, starts) => big.items.find(i => i.group === group && i.description.startsWith(starts))?.quantity;
 assert.equal(bigItem('Parte CC', 'Eletroduto PVC rígido 1" branco'), '2');
 assert.equal(bigItem('Parte CC', 'Eletroduto PVC rígido 3/4" preto'), '5');
 assert.equal(bigItem('Parte CC', 'Redução de eletroduto 1" para 3/4"'), '1');
-assert.equal(bigItem('Parte CC', 'Condulete 1"'), '2');
-assert.equal(bigItem('Parte CC', 'Condulete 3/4"'), '2');
+assert.equal(bigItem('Parte CC', 'Condulete 1" com tampa, passagem do eletroduto para o inversor'), '1');
+assert.equal(big.items.find(i => i.group === 'Parte CC' && i.description === 'Condulete 1" com tampa')?.quantity, '1');
+assert.equal(big.items.find(i => i.group === 'Parte CC' && i.description === 'Condulete 3/4" com tampa')?.quantity, '2');
 assert.equal(bigItem('Parte CA', 'Redução'), undefined);
-assert.equal(bigItem('Parte CA', 'Condulete 1"'), '3');
+assert.equal(bigItem('Parte CA', 'Condulete 1" com tampa, passagem do eletroduto para o inversor'), '1');
+assert.equal(big.items.find(i => i.group === 'Parte CA' && i.description === 'Condulete 1" com tampa')?.quantity, '2');
 assert.throws(() => generateMaterials({...base, acIn: 0, acOut: 0, acFlex: 0}), /percurso CA/);
 assert.throws(() => generateMaterials({...base, dcIn: -1}), /Preencha/);
 assert.equal(qty('Fixador para telha de fibrocimento'), '36');

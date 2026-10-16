@@ -29,7 +29,7 @@ Regras de material por trecho e a haste do inversor foram definidas pelo Felipe 
 - Interna: eletroduto PVC rígido branco, curva e luva brancas, abraçadeira plástica tipo D. Externa: eletroduto preto resistente a UV, curva e luva pretas, abraçadeira tipo D com cunha (a NT.00001.EQTL pede cunha no eletroduto aparente). Corrugado: eletroduto corrugado flexível preto, também com abraçadeira de cunha.
 - Por trecho rígido: barras de 3 m com 10% de reserva, uma curva a cada 4 m mais uma, uma luva por barra, uma abraçadeira por metro e uma por curva.
 - Na área interna, CA e CC usam o mesmo diâmetro, o maior dos dois (nunca menor que o necessário). Na externa, cada circuito tem o seu, com redução na passagem quando o diâmetro cai (ex.: CC interno em 1" porque a CA é 10 mm², reduzindo para 3/4" ao sair).
-- Condulete com tampa em cada ponta do circuito (CA: saída do inversor e ponto de conexão; CC: entrada do inversor e fim do eletroduto no telhado) e em cada troca de trecho.
+- Condulete com tampa em cada ponta do circuito e em cada troca de trecho. O da ponta do inversor sai numa linha própria em CA e em CC ("passagem do eletroduto para o inversor"), porque todo circuito precisa dele; os outros ficam na chegada ao ponto de conexão (CA), na ponta do eletroduto no telhado (CC) e nas trocas de trecho.
 - Listas salvas antes da divisão e respostas da vistoria só têm o total; ele aparece como "total informado" ao lado do título do trecho, e a lista antiga ganha aviso para redistribuir e gerar de novo.
 
 ### Aterramento do inversor
