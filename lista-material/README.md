@@ -23,6 +23,8 @@ O cálculo produz **sugestões de compra**, não projeto elétrico. Estrutura se
 
 ### Percursos por trecho
 
+Regras de material por trecho e a haste do inversor foram definidas pelo Felipe em 2026-10-16 e estão registradas no segundo cérebro, em `tecnico/instalacao-solar/lista-de-material-ca.md` (seções 3 e 4). Mudou lá, muda aqui.
+
 - CA: área interna, área externa e corrugado. CC: área interna, área externa e telhado (todo em corrugado). O cabo é a soma dos trechos, com 10% de reserva.
 - Interna: eletroduto PVC rígido branco, curva e luva brancas, abraçadeira plástica tipo D. Externa: eletroduto preto resistente a UV, curva e luva pretas, abraçadeira tipo D com cunha (a NT.00001.EQTL pede cunha no eletroduto aparente). Corrugado: eletroduto corrugado flexível preto, também com abraçadeira de cunha.
 - Por trecho rígido: barras de 3 m com 10% de reserva, uma curva a cada 4 m mais uma, uma luva por barra, uma abraçadeira por metro e uma por curva.
