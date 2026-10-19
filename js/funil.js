@@ -307,6 +307,9 @@
         pipeline:(o.Pipeline||'').trim()||((pipelinesOrdenados()[0]||{}).IdPipeline||''),
         atividadeAdm:(o.AtividadeAdm||'').trim(),
         idVendaOrigem:(o.IdVendaOrigem||'').trim(),
+        // Quem cuidava do lead antes (lead do site ou redistribuição) —
+        // aparece no card como "Antes: X", igual à tela Funil do site.
+        vendedorAnterior:(o.VendedorAnterior||'').trim(),
         // Posição manual do drag-and-drop (millis) — quando presente, o Kanban
         // ordena por isso em vez de dataProcesso, pra arrastar não mudar de lugar.
         ordemKanban:typeof o.OrdemKanban==='number'?o.OrdemKanban:null,
@@ -720,6 +723,7 @@
         return '<div class="kanban-card" data-id="'+escapeHtml(r.id)+'">'+medalhaHtml+
           '<div class="kcard-nome">'+escapeHtml(tituloDoCard(r))+'</div>'+
           '<div class="kcard-vend">'+escapeHtml(nomeFor(r.idVendedor))+'</div>'+
+          (r.vendedorAnterior?'<div style="margin-bottom:6px;"><span class="pill weekend">Antes: '+escapeHtml(r.vendedorAnterior)+'</span></div>':'')+
           '<div class="kcard-foot"><span class="kcard-valor">'+fmtMoney(r.valor)+'</span>'+slaHtml+'</div>'+
         '</div>';
       }).join(''):'<div class="kanban-col-empty">Nenhum lead aqui.</div>';
