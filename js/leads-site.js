@@ -245,7 +245,7 @@
     return '<div class="kanban-card" draggable="true" data-fs-id="'+escapeHtml(l.IdOportunidade)+'">'+
       '<div class="kcard-nome">'+escapeHtml(l.NomeCliente||'Sem nome')+'</div>'+
       '<div class="kcard-vend">'+escapeHtml(tel)+(tel?' · ':'')+escapeHtml(nomeVendedor(l.IdVendedor))+'</div>'+
-      (l.VendedorAnterior?'<div style="margin-bottom:6px;"><span class="pill weekend">Antes: '+escapeHtml(l.VendedorAnterior)+'</span></div>':'')+
+      (l.VendedorAnterior?'<div style="margin-bottom:6px;"><span class="pill ok">Antes: '+escapeHtml(l.VendedorAnterior)+'</span></div>':'')+
       '<div class="kcard-foot"><span style="font-size:11px;color:var(--ink-faint);">'+dataHora(msDoc(l))+'</span>'+
       '<select class="fs-mover" data-fs-id="'+escapeHtml(l.IdOportunidade)+'" style="font-size:11px;max-width:120px;" title="Mover para">'+opcoes+'</select></div></div>';
   }

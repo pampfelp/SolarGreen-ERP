@@ -723,7 +723,7 @@
         return '<div class="kanban-card" data-id="'+escapeHtml(r.id)+'">'+medalhaHtml+
           '<div class="kcard-nome">'+escapeHtml(tituloDoCard(r))+'</div>'+
           '<div class="kcard-vend">'+escapeHtml(nomeFor(r.idVendedor))+'</div>'+
-          (r.vendedorAnterior?'<div style="margin-bottom:6px;"><span class="pill weekend">Antes: '+escapeHtml(r.vendedorAnterior)+'</span></div>':'')+
+          (r.vendedorAnterior?'<div style="margin-bottom:6px;"><span class="pill ok">Antes: '+escapeHtml(r.vendedorAnterior)+'</span></div>':'')+
           '<div class="kcard-foot"><span class="kcard-valor">'+fmtMoney(r.valor)+'</span>'+slaHtml+'</div>'+
         '</div>';
       }).join(''):'<div class="kanban-col-empty">Nenhum lead aqui.</div>';
