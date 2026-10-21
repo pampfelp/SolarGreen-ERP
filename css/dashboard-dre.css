@@ -55,10 +55,55 @@
 .dd-peq2{font-size:12px;color:var(--ink-soft);margin-top:8px;}
 .dd-link{font-size:12.5px;color:var(--accent-deep);font-weight:600;margin-top:10px;display:inline-block;background:none;border:none;padding:0;cursor:pointer;font-family:inherit;}
 
+/* Tráfego pago (2026-10-21): investimento em anúncios contra vendas de clientes do tráfego. Segue a maquete validada. */
+.tp-kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:14px;}
+.tp-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px;}
+.tp-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:24px;}
+.tp-legenda{display:flex;gap:18px;margin-bottom:6px;}
+.tp-legenda i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px;}
+.tp-legenda i.inv,.tp-chart .inv{background:var(--debit);fill:var(--debit);opacity:.75;}
+.tp-legenda i.fat,.tp-chart .fat{background:var(--accent);fill:var(--accent);}
+.tp-chart{width:100%;height:auto;max-height:260px;display:block;}
+.tp-chart.mob,.tp-nota-mob{display:none;}
+.tp-chart .eixo{stroke:var(--line);}
+.tp-kpis .kpi .num{font-size:19px;}
+.tp-kpis .kpi .num.pos{color:var(--accent-deep);}
+.tp-kpis .kpi .num.neg{color:var(--debit);}
+.tp-legenda{font-size:12px;color:var(--ink-soft);}
+.tp-chart .lb{font-size:11px;fill:var(--ink-faint);font-family:var(--sans);}
+.tp-chart .vl{font-size:10.5px;fill:var(--ink-soft);font-family:var(--sans);font-weight:600;}
+.tp-chart .roas{font-size:11px;fill:var(--sidebar-bg);font-family:var(--sans);font-weight:700;}
+.tp-nota-mob{font-size:11.5px;color:var(--ink-faint);margin-top:4px;}
+.tp-ori{font-size:13px;}
+.tp-ori.h{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-faint);font-weight:600;}
+.tp-ori .n{font-weight:600;color:var(--ink);}
+.tp-ori .v{text-align:right;font-variant-numeric:tabular-nums;font-weight:600;}
+.tp-ori .v small{display:block;color:var(--ink-faint);font-weight:500;font-size:11px;}
+.tp-ori.tot .n,.tp-ori.tot .v{color:var(--sidebar-bg);font-weight:700;}
+.tp-et-l{font-size:12.5px;}
+.tp-et-l span:first-child{font-weight:600;color:var(--ink-soft);}
+.tp-et-l span:last-child{font-weight:700;}
+#db-tpSemOrigem .dd-link{margin-top:0;}
+.tp-ori{display:grid;grid-template-columns:110px 1fr 1fr 1fr;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);}
+.tp-ori.h{padding-top:0;}
+.tp-ori.tot{border-bottom:none;background:var(--accent-soft);margin:0 -22px;padding:11px 22px;}
+.tp-et{margin-bottom:12px;}
+.tp-et:last-of-type{margin-bottom:4px;}
+.tp-et-l{display:flex;justify-content:space-between;margin-bottom:4px;}
+.tp-et .hbar-track{height:16px;}
+
 @media(max-width:900px){
   .dd-kpis{grid-template-columns:1fr;}
   .dd-row{grid-template-columns:1fr 110px 56px;}
   .dd-row .b{display:none;}
   .dd-bar,.dd-bar.fixo,.dd-bar.sm,.dd-bar.mot{grid-template-columns:1fr 110px;}
   .dd-bar .t{grid-column:1 / -1;order:3;}
+  .tp-kpis{grid-template-columns:1fr 1fr;gap:10px;}
+  .tp-grid{grid-template-columns:1fr;}
+  .tp-card{padding:16px;}
+  .tp-ori{grid-template-columns:80px 1fr 1fr 1fr;gap:6px;font-size:12.5px;}
+  .tp-kpis .kpi .num{font-size:15px;white-space:nowrap;}
+  .tp-ori.tot{margin:0 -16px;padding:11px 16px;}
+  .tp-chart{display:none;}
+  .tp-chart.mob,.tp-nota-mob{display:block;}
 }

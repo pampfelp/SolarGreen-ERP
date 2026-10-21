@@ -36,6 +36,7 @@
     {id:'beneficios',nome:'Vale transporte, refeição e alimentação da equipe',grupo:'pessoal'},
     {id:'comissoes',nome:'Comissões de vendas',grupo:'comercial'},
     {id:'marketing',nome:'Marketing, anúncios e leads',grupo:'comercial'},
+    {id:'trafego_pago',nome:'Tráfego pago (Meta, Google Ads)',grupo:'comercial'}, // 2026-10-21: separado de marketing para a seção Tráfego pago do Dashboard
     {id:'aluguel',nome:'Aluguel',grupo:'administrativo'},
     {id:'utilidades',nome:'Energia, internet, água e material de escritório',grupo:'administrativo'},
     {id:'limpeza',nome:'Diarista e limpeza',grupo:'administrativo'},
@@ -74,7 +75,8 @@
     ['servicos_profissionais',/consultoria|contabil|contador/],
     ['software',/sistema (monitoramento|mensagem|casamento)|app monitoramento|plataforma|wavoip|mensalidade ia|\bia\b|claude|orbi|telefone|celular|chip|software|hospedagem|dominio/],
     ['execucao_servico',/ponta de prova|multimetro|ferramenta/],
-    ['marketing',/anuncio|investimento em leads|prospec|facebook|meta ads|google ads|trafego/],
+    ['marketing',/prospec/], // antes do tráfego: "Investimento em Leads (prospecção)" fica em marketing (Felipe, 2026-10-21)
+    ['trafego_pago',/anuncio|facebook|meta ads|google ads|trafego|investimento em leads/], // compra de lead conta como tráfego (Felipe, 2026-10-21)
     ['transporte',/corrida|\buber\b|\b99\b|passagem|desloca|combustivel|gasolina|pedagio|estacionamento/],
     ['utilidades',/conta de (energia|internet|agua)|pagamento internet|energia ref|\bagua\b|material (de )?escritorio|compras? (do mes|escritorio|mateus)|papel higienico|galao|\bcafe\b/],
     ['perdas',/prejuizo|inadimpl|calote|estorno|^desconhecido|^nu ?bank/],
