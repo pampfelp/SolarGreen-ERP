@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teste · Tráfego pago no Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/app.css?v=20261021a">
+<link rel="stylesheet" href="../css/dashboard-dre.css?v=20261021a">
+<style>
+  /* Só desta página: blocos neutros do esqueleto. */
+  .esq{background:var(--line);border-radius:6px;}
+</style>
+</head>
+<body style="background:var(--bg);">
+<div class="app" id="palco">Carregando index.html…</div>
+<script src="../tests/trafego-dashboard.fixture.js?v=20261021a"></script>
+<script src="../js/trafego-dashboard.js?v=20261021a"></script>
+<script>
+// Usa o HTML real do Dashboard: do Funil de conversão até o cabeçalho da DRE.
+fetch('../index.html').then(function(r){return r.text();}).then(function(html){
+  var doc=new DOMParser().parseFromString(html,'text/html');
+  var dash=doc.querySelector('#view-dashboard .app');
+  var nos=[].slice.call(dash.children), ini=-1, fim=-1;
+  nos.forEach(function(n,i){
+    if(ini<0&&n.id==='db-funilConversao')ini=i-1;
+    if(fim<0&&n.id==='db-dre')fim=i;
+  });
+  var palco=document.getElementById('palco'); palco.innerHTML='';
+  nos.slice(ini,fim+1).forEach(function(n){ palco.appendChild(document.importNode(n,true)); });
+  // ?esqueleto = só os blocos neutros; sem parâmetro = o módulo real com os dados fictícios da maquete.
+  if(location.search.indexOf('esqueleto')>=0){ esqueleto(); return; }
+  var h=window.SGTrafegoDash.html(window.SGTrafegoDash.calcular(window.SGTrafegoFixture.params));
+  document.getElementById('db-tpKpis').innerHTML=h.kpis;
+  document.getElementById('db-tpMeses').innerHTML=h.meses;
+  document.getElementById('db-tpOrigens').innerHTML=h.origens;
+  document.getElementById('db-tpFunil').innerHTML=h.funil;
+  document.getElementById('db-tpSemOrigem').innerHTML=h.semOrigem;
+  document.getElementById('db-funilConversao').innerHTML=bloco('100%',60);
+  document.getElementById('db-dre').innerHTML=bloco('100%',60);
+});
+function bloco(w,h,extra){ return '<div class="esq" style="width:'+w+';height:'+h+'px;'+(extra||'')+'"></div>'; }
+function esqueleto(){
+  var k=''; for(var i=0;i<6;i++)k+='<div class="kpi">'+bloco('55%',9)+bloco('80%',20,'margin-top:12px')+bloco('65%',10,'margin-top:10px')+'<div class="bar"></div></div>';
+  document.getElementById('db-tpKpis').innerHTML=k;
+  document.getElementById('db-tpMeses').innerHTML=bloco('30%',10)+bloco('35%',10,'margin-top:10px')+bloco('100%',250,'margin-top:16px');
+  var o=bloco('40%',10); for(var j=0;j<4;j++)o+=bloco('100%',30,'margin-top:14px'); o+=bloco('100%',46,'margin-top:14px');
+  document.getElementById('db-tpOrigens').innerHTML=o;
+  var f=bloco('40%',10); for(var m=0;m<4;m++)f+=bloco('100%',12,'margin-top:16px;width:70%')+bloco('100%',16,'margin-top:6px'); f+=bloco('45%',12,'margin-top:16px');
+  document.getElementById('db-tpFunil').innerHTML=f;
+  document.getElementById('db-tpSemOrigem').innerHTML=bloco('100%',38,'border-radius:8px;margin-top:12px');
+  document.getElementById('db-funilConversao').innerHTML=bloco('100%',60);
+  document.getElementById('db-dre').innerHTML=bloco('100%',60);
+}
+</script>
+</body>
+</html>

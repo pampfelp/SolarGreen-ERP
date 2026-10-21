@@ -32,9 +32,13 @@ const casos=[
   ['Uber','transporte'],
   ['Prejuízo Pagamento Cliente','perdas'],
   ['Comissão Semanal Leonardo','comissoes'],
-  ['Investimento em Anuncios','marketing'],
-  ['Anuncio Facebook','marketing'],
+  ['Investimento em Anuncios','trafego_pago'],   // 2026-10-21: anúncio saiu de marketing para tráfego pago
+  ['Anuncio Facebook','trafego_pago'],
+  ['Meta Ads outubro','trafego_pago'],
+  ['Tráfego pago Google Ads','trafego_pago'],
   ['Crédito para prospecção Felipe Morais','marketing'],
+  ['Investimento em leads','trafego_pago'],     // compra de lead conta como tráfego (Felipe, 2026-10-21)
+  ['Investimento em Leads (prospecção)','marketing'], // com prospecção fica em marketing (Felipe, 2026-10-21)
   ['Almoço Débora','beneficios'],
   ['pizza comemoração','beneficios'],
   ['Referente aos custos de operação do serviço de Vistoria no cliente X em 10/08/2026. Valor: R$150','execucao_servico'],

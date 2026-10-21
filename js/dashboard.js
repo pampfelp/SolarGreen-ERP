@@ -6,7 +6,15 @@
   var vendedoresMap={},clientesMap={},servicosMap={};
   // Cliente cadastrado via "+ Cadastrar cliente" no Funil, na mesma sessão —
   // sem isso, essa tela só enxergaria ele depois de recarregar a página.
-  document.addEventListener('sg:cliente-criado',function(e){ if(e.detail&&e.detail.IdCliente)clientesMap[e.detail.IdCliente]=e.detail; });
+  // Tráfego pago (2026-10-21): Origem do cadastro de cada cliente. A coleção clientes só é assinada quando a seção
+  // aparece na tela (mesma escuta compartilhada de Vendas e Funil), para não pesar na cota de quem não rola até ela.
+  var origemClientes={},origensCarregadas=false,_clientesAssinadosDash=false;
+  document.addEventListener('sg:cliente-criado',function(e){
+    if(!e.detail||!e.detail.IdCliente)return;
+    clientesMap[e.detail.IdCliente]=e.detail;
+    origemClientes[e.detail.IdCliente]=e.detail.Origem||'';
+    if(origensCarregadas)render();
+  });
   var ID_CLIENTE_APORTE_SOCIOS='da6dbd89';
   var vendasEscritorioIds={}; // idVenda -> true, pra qualquer venda "gaveta" do Cliente Teste 1 (custo de escritório lançado nela)
   var APP_VERSION='2026-07-16-1';
@@ -27,7 +35,7 @@
 
   function processVendas(list){var out=[];list.forEach(function(o){if(!o.IdVenda)return;var dt=parseBRDate(o.DataVenda);if(!dt)return;out.push({idVenda:o.IdVenda,idCliente:o.IdCliente,idServico:o.IdServico,idVendedor:o.IdVendedor,dt:dt,dateKey:dateKey(dt),valor:parseBRNumber(o.Valor)});});return out;}
   function processCustosVenda(list){var out=[];list.forEach(function(o){if(!o.IdCusto)return;var dt=parseBRDate(o.Data);out.push({idCusto:o.IdCusto,idVenda:o.IdVenda,status:String(o.Status||''),dt:dt,dateKey:dt?dateKey(dt):null,valor:parseBRNumber(o.Valor),categoria:o.Categoria||''});});return out;}
-  function processFunil(list){var out=[];list.forEach(function(o){var id=o.IdOportunidade||o.IdFunil;if(!id)return;var dt=parseBRDate(o.DataCriacao||o['Data Criacao']||'');out.push({id:id,idCliente:o.IdCliente,idVendedor:o.IdVendedor,idServico:o.IdServico,etapa:o.Etapa,motivo:o.MotivoPerda||'',dt:dt,dateKey:dt?dateKey(dt):null,transicoes:o.Transicoes||[],atividades:o.Atividades||[]});});return out;}
+  function processFunil(list){var out=[];list.forEach(function(o){var id=o.IdOportunidade||o.IdFunil;if(!id)return;var dt=parseBRDate(o.DataCriacao||o['Data Criacao']||'');out.push({id:id,idCliente:o.IdCliente,idVendedor:o.IdVendedor,idServico:o.IdServico,etapa:o.Etapa,motivo:o.MotivoPerda||'',origem:o.Origem||'',dt:dt,dateKey:dt?dateKey(dt):null,transicoes:o.Transicoes||[],atividades:o.Atividades||[]});});return out;}
   var ETAPAS_PROPOSTA_VENDAS=['Negociação','Serviço Agendado','Ganho'];
 
   function getFiltered(){
@@ -308,8 +316,57 @@
       document.getElementById('db-dre').innerHTML=D.htmlDre(D.calcularDre(faturamento,custos),f.vendasFat.length);
       ultimosCustosDre=custos;
       renderCategorias();
+      renderTrafego(f,fator);
     }
     renderProducao(f);
+  }
+  /** Seção Tráfego pago (js/trafego-dashboard.js). Investido usa o mesmo rateio do escritório da DRE. */
+  function renderTrafego(f,fator){
+    var T=window.SGTrafegoDash; if(!T)return;
+    if(!origensCarregadas){
+      document.getElementById('db-tpKpis').innerHTML='<div class="chart-empty" style="grid-column:1 / -1;height:80px;">Carregando a origem dos clientes…</div>';
+      ['db-tpMeses','db-tpOrigens','db-tpFunil','db-tpSemOrigem'].forEach(function(id){ document.getElementById(id).innerHTML=''; });
+      return;
+    }
+    var dataVenda={}; vendasRecords.forEach(function(v){ dataVenda[v.idVenda]=v.dateKey; });
+    var custos=f.custosOp.map(function(c){return {valor:c.valor,categoria:c.categoria,dateKey:c.dateKey||dataVenda[c.idVenda]};})
+      .concat(f.custosEsc.map(function(c){return {valor:c.valor*fator,categoria:c.categoria,dateKey:c.dateKey||dataVenda[c.idVenda]};}));
+    function origemDe(id){ return origemClientes[id]||''; }
+    var leadsTrafego=f.leads.filter(function(l){
+      var t=T.tipoOrigem(origemDe(l.idCliente)); if(t==='sem')t=T.tipoOrigem(l.origem);
+      return t==='trafego'||t==='site';
+    });
+    var funil=window.SGUtil.calcularConversasPropostas(leadsTrafego,f.from,f.to,ETAPAS_PROPOSTA_VENDAS);
+    var h=T.html(T.calcular({custos:custos,vendas:f.vendasFat,leads:f.leads,origemDe:origemDe,funil:funil,
+      origensCadastradas:Object.keys(origemClientes).map(function(id){return origemClientes[id];}),ate:f.to}));
+    document.getElementById('db-tpKpis').innerHTML=h.kpis;
+    document.getElementById('db-tpMeses').innerHTML=h.meses;
+    document.getElementById('db-tpOrigens').innerHTML=h.origens;
+    document.getElementById('db-tpFunil').innerHTML=h.funil;
+    document.getElementById('db-tpSemOrigem').innerHTML=h.semOrigem;
+  }
+  function garantirOrigensDash(){
+    if(_clientesAssinadosDash)return;
+    _clientesAssinadosDash=true;
+    window.SGFireReady.then(function(){
+      window.SGUtil.assinarColecao('clientes',function(lista){
+        origemClientes={}; lista.forEach(function(c){ if(c.IdCliente)origemClientes[c.IdCliente]=c.Origem||''; });
+        origensCarregadas=true;
+        render();
+      });
+    });
+  }
+  /** "Ver quais são": abre Vendas no mesmo período, com o filtro "(sem origem)". */
+  function abrirVendasSemOrigem(){
+    if(!window.SGControllerSwitchTo)return;
+    window.SGControllerSwitchTo('vendas');
+    var sel=document.getElementById('v-selOrigem'); if(!sel)return;
+    // A opção só nasce quando Vendas termina de ler os clientes; cria antes para o valor não cair em "Todas".
+    if(![].some.call(sel.options,function(o){return o.value==='__vazio__';})){ var o=document.createElement('option'); o.value='__vazio__'; o.textContent='(sem origem)'; sel.appendChild(o); }
+    document.getElementById('v-dateFrom').value=document.getElementById('db-dateFrom').value;
+    document.getElementById('v-dateTo').value=document.getElementById('db-dateTo').value;
+    sel.value='__vazio__';
+    sel.dispatchEvent(new Event('change'));
   }
   function renderCategorias(){
     var D=window.SGDreDash, h=D.htmlCategorias(D.agruparPorCategoria(ultimosCustosDre,catGrupoSel),catGrupoSel);
@@ -455,6 +512,16 @@
       var id=bar.getAttribute('data-servico'); if(!id)return;
       var sel=document.getElementById('db-selServico'); sel.value=(sel.value===id)?'__all__':id; render();
     });
+    document.getElementById('db-trafego').addEventListener('click',function(e){
+      if(e.target.closest('#db-tpAbrirCustos'))abrirCustosComCategoria('trafego_pago');
+      else if(e.target.closest('#db-tpVerSemOrigem'))abrirVendasSemOrigem();
+    });
+    if(ehAdminDash()){
+      if(window.IntersectionObserver){
+        var obs=new window.IntersectionObserver(function(ent){ if(ent.some(function(x){return x.isIntersecting;})){ obs.disconnect(); garantirOrigensDash(); } },{rootMargin:'200px'});
+        obs.observe(document.getElementById('db-trafego'));
+      }else garantirOrigensDash();
+    }
     ['db-categorias','db-prodServicos'].forEach(function(id){
       document.getElementById(id).addEventListener('keydown',function(e){
         if((e.key==='Enter'||e.key===' ')&&e.target.classList&&e.target.classList.contains('click')){ e.preventDefault(); e.target.click(); }
