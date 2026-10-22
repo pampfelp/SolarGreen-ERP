@@ -3210,12 +3210,14 @@ var POSICOES_ASSINATURA_ = {
     cliente: { assinatura: { x: '61.7', y: '10' }, assinaturaTodas: { x: '52.5', y: '93' } }
   },
   // Vínculo com imóvel (2026-10-22): assinam LOCADOR (à esquerda) e LOCATÁRIO
-  // (à direita), sem a Solar Green. A página de assinatura tem a mesma
-  // estrutura do monitoramento (blocoAssinaturaParte em proposta.html), então
-  // as mesmas posições, com a chave pelo papel de cada parte.
+  // (à direita), sem a Solar Green. Medido no PDF real assinado na Autentique:
+  // traços a 17,55% do topo, locador de 7,1% a 42,4% e locatário de 57,7% a
+  // 93% da largura; a marca tem 18,7% x 5,3% e sai ~0,7 à direita do x
+  // enviado. Com as posições do monitoramento (x 3, y 10) a marca ficava à
+  // esquerda do traço e encostada na data; estas a centram logo acima dele.
   vinculo_imovel: {
-    locador:   { assinatura: { x: '3', y: '10' }, assinaturaTodas: { x: '7', y: '93' } },
-    locatario: { assinatura: { x: '61.7', y: '10' }, assinaturaTodas: { x: '52.5', y: '93' } }
+    locador:   { assinatura: { x: '14.7', y: '13' }, assinaturaTodas: { x: '7', y: '93' } },
+    locatario: { assinatura: { x: '65.3', y: '13' }, assinaturaTodas: { x: '52.5', y: '93' } }
   }
 };
 
