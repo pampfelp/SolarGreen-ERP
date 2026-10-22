@@ -497,14 +497,14 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
     </div>
     <div class="frow tri" style="margin-top:12px;">
       <div class="field"><label>Nome / Razão Social</label><input type="text" id="ctrNome" oninput="renderContratoPreview();markClienteDirty();"></div>
-      <div class="field"><label>CPF / CNPJ</label><input type="text" id="ctrCpf" placeholder="000.000.000-00" oninput="renderContratoPreview();markClienteDirty();"></div>
+      <div class="field"><label>CPF / CNPJ</label><input type="text" id="ctrCpf" placeholder="000.000.000-00" inputmode="numeric"></div>
       <div class="field"><label>Cidade</label><input type="text" id="ctrCidade" placeholder="ex: Breves" oninput="renderContratoPreview();markClienteDirty();"></div>
     </div>
     <div class="field"><label>Endereço completo</label><input type="text" id="ctrEndereco" placeholder="Rua, número, bairro, cidade - CEP" oninput="renderContratoPreview();markClienteDirty();"></div>
     <div class="field"><label>E-mail do cliente</label><input type="email" id="ctrEmail" placeholder="cliente@email.com" oninput="markClienteDirty();"></div>
     <div class="frow" style="margin-top:12px;">
-      <div class="field"><label>CPF do titular Equatorial</label><input type="text" id="ctrCpfEquatorial" placeholder="000.000.000-00" oninput="renderContratoPreview();markClienteDirty();"></div>
-      <div class="field"><label>Data de nascimento do titular Equatorial</label><input type="text" id="ctrDataNascEquatorial" placeholder="DD/MM/AAAA" oninput="renderContratoPreview();markClienteDirty();"></div>
+      <div class="field"><label>CPF do titular Equatorial</label><input type="text" id="ctrCpfEquatorial" placeholder="000.000.000-00" inputmode="numeric"></div>
+      <div class="field"><label>Data de nascimento do titular Equatorial</label><input type="text" id="ctrDataNascEquatorial" placeholder="DD/MM/AAAA" inputmode="numeric"></div>
     </div>
     <div style="font-size:11px;color:var(--ink-faint,#9aab9a);margin-top:-4px;">Usado pra coletar as faturas da concessionária (Equatorial) — pode ser uma pessoa diferente de quem assina o contrato.</div>
     <div id="ctrSyncRow" style="display:none;margin-top:10px;align-items:center;gap:10px;" class="save-bar">
@@ -1413,6 +1413,22 @@ function blocoAssinaturaParte(rotulo,nome,cpf){
     (cpf?'<br>CPF nº '+escH(cpf):'')+'</div></div>';
 }
 
+// Máscaras dos campos com formato conhecido. CPF, CNPJ e telefone usam as
+// mesmas funções do cadastro de clientes (SGUtil, js/sg-auth.js), pra o
+// valor sair igual ao que já está na base. RG fica livre: cada estado tem um
+// formato, alguns com letra.
+function formatarDataBR(v){
+  var d=String(v==null?'':v).replace(/\D/g,'').slice(0,8);
+  return d.replace(/^(\d{2})(\d)/,'$1/$2').replace(/^(\d{2})\/(\d{2})(\d)/,'$1/$2/$3');
+}
+var MASCARAS={
+  cpf:{fn:function(v){return window.SGUtil.formatarCPF(v);},exemplo:'000.000.000-00'},
+  cpfCnpj:{fn:function(v){return window.SGUtil.formatarCpfCnpj(v);},exemplo:'000.000.000-00'},
+  telefone:{fn:function(v){return window.SGUtil.formatarTelefone(v);},exemplo:'(00) 00000-0000'},
+  digitos:{fn:function(v){return String(v==null?'':v).replace(/\D/g,'');},exemplo:'só números'},
+  dataBR:{fn:formatarDataBR,exemplo:'DD/MM/AAAA'}
+};
+
 var CONTRACT_TYPES=[
   {
     id:'monitoramento', title:'Monitoramento Remoto', tag:'Recorrente',
@@ -1453,7 +1469,7 @@ var CONTRACT_TYPES=[
       {key:'cenario',label:'Cenário',type:'select',options:['Usina existente, nunca homologada','Usina de outro integrador, nunca homologada'],default:'Usina existente, nunca homologada',rebuild:true},
       {key:'integradorAnterior',label:'Empresa que instalou (opcional)',type:'text',default:'',showIf:function(v){return v.cenario==='Usina de outro integrador, nunca homologada';}},
       {key:'potenciaKwp',label:'Potência do sistema (kWp)',type:'number',default:''},
-      {key:'unidadeConsumidora',label:'Nº da unidade consumidora',type:'text',default:''},
+      {key:'unidadeConsumidora',label:'Nº da unidade consumidora',type:'text',mask:'digitos',default:''},
       {key:'valorTotal',label:'Valor total da homologação (R$)',type:'number',min:300,default:1200},
       {key:'formaPagamento',label:'Forma de pagamento',type:'select',options:['Pix ou Boleto','Cartão de crédito','Transferência/TED'],default:'Pix ou Boleto'},
       {key:'momentoSaldo',label:'Segunda metade do valor é paga',type:'text',default:'na aprovação do parecer de acesso'},
@@ -1477,8 +1493,8 @@ var CONTRACT_TYPES=[
       {key:'locadorNascimento',label:'Data de nascimento',type:'date',default:''},
       {key:'locadorNaturalidade',label:'Naturalidade (cidade/UF)',type:'text',default:''},
       {key:'locadorRg',label:'RG',type:'text',default:''},
-      {key:'locadorCpf',label:'CPF',type:'text',default:''},
-      {key:'locadorTelefone',label:'Telefone',type:'text',default:''},
+      {key:'locadorCpf',label:'CPF',type:'text',mask:'cpf',default:''},
+      {key:'locadorTelefone',label:'Telefone',type:'text',mask:'telefone',default:''},
       {key:'locadorEmail',label:'E-mail (recebe o link para assinar)',type:'text',default:''},
       {key:'secLocatario',label:'Locatário',type:'secao'},
       {key:'locatarioNome',label:'Nome completo (digite para buscar nos clientes)',type:'pessoa',parte:'locatario',default:''},
@@ -1487,8 +1503,8 @@ var CONTRACT_TYPES=[
       {key:'locatarioNascimento',label:'Data de nascimento',type:'date',default:''},
       {key:'locatarioNaturalidade',label:'Naturalidade (cidade/UF)',type:'text',default:''},
       {key:'locatarioRg',label:'RG',type:'text',default:''},
-      {key:'locatarioCpf',label:'CPF',type:'text',default:''},
-      {key:'locatarioTelefone',label:'Telefone',type:'text',default:''},
+      {key:'locatarioCpf',label:'CPF',type:'text',mask:'cpf',default:''},
+      {key:'locatarioTelefone',label:'Telefone',type:'text',mask:'telefone',default:''},
       {key:'locatarioEmail',label:'E-mail (recebe o link para assinar)',type:'text',default:''},
       {key:'secImovel',label:'Imóvel e locação',type:'secao'},
       {key:'enderecoImovel',label:'Endereço completo do imóvel (bairro, cidade e CEP)',type:'text',default:''},
@@ -1520,7 +1536,7 @@ var CONTRACT_TYPES=[
     fields:[
       {key:'tipoPessoa',label:'Outorgante é pessoa',type:'select',options:['Física','Jurídica'],default:'Física'},
       {key:'representanteNome',label:'Nome do representante legal (se jurídica)',type:'text',default:''},
-      {key:'representanteCpf',label:'CPF do representante (se jurídica)',type:'text',default:''},
+      {key:'representanteCpf',label:'CPF do representante (se jurídica)',type:'text',mask:'cpf',default:''},
       {key:'outorganteRg',label:'RG / Carteira de Identidade do outorgante (opcional)',type:'text',default:''},
       {key:'concessionaria',label:'Concessionária / órgão',type:'text',default:'Equatorial Energia'},
 
@@ -1543,11 +1559,11 @@ var CONTRACT_TYPES=[
       {key:'procNacionalidade',label:'Nacionalidade',type:'text',default:'brasileiro(a)',showIf:function(v){return !v.procuradorPadrao;}},
       {key:'procEstadoCivil',label:'Estado civil',type:'select',options:['solteiro(a)','casado(a)','divorciado(a)','viúvo(a)'],default:'solteiro(a)',showIf:function(v){return !v.procuradorPadrao;}},
       {key:'procProfissao',label:'Profissão',type:'text',default:'engenheiro(a) eletricista',showIf:function(v){return !v.procuradorPadrao;}},
-      {key:'procCpf',label:'CPF do procurador',type:'text',default:'',showIf:function(v){return !v.procuradorPadrao;}},
+      {key:'procCpf',label:'CPF do procurador',type:'text',mask:'cpf',default:'',showIf:function(v){return !v.procuradorPadrao;}},
       {key:'procRg',label:'RG do procurador',type:'text',default:'',showIf:function(v){return !v.procuradorPadrao;}},
       {key:'procRgOrgao',label:'Órgão expedidor do RG',type:'text',default:'SSP/PA',showIf:function(v){return !v.procuradorPadrao;}},
       {key:'procEndereco',label:'Endereço do procurador',type:'text',default:'',showIf:function(v){return !v.procuradorPadrao;}},
-      {key:'procTelefone',label:'Telefone do procurador',type:'text',default:'',showIf:function(v){return !v.procuradorPadrao;}},
+      {key:'procTelefone',label:'Telefone do procurador',type:'text',mask:'telefone',default:'',showIf:function(v){return !v.procuradorPadrao;}},
 
       {key:'dataDocumento',label:'Data do documento',type:'date',default:dateKey(new Date())}
     ],
@@ -1594,6 +1610,8 @@ function buildVarsForm(t){
   t.fields.forEach(function(f){
     if(f.showIf && !f.showIf(CT.values))return;
     var cur=(CT.values[f.key]!==undefined)?CT.values[f.key]:f.default;
+    // Valor que chegou de fora (busca de cliente) também sai no formato da máscara.
+    if(f.mask&&cur){ cur=MASCARAS[f.mask].fn(cur); CT.values[f.key]=cur; }
     var lbl=typeof f.label==='function'?f.label(CT.values):f.label;
     var row=document.createElement('div');
     if(f.type==='secao'){
@@ -1621,15 +1639,18 @@ function buildVarsForm(t){
         inputHtml='<div class="combo-wrap"><input type="text" id="cv_'+f.key+'" autocomplete="off" value="'+escH(cur)+'">'+
           '<input type="hidden" id="cvid_'+f.key+'"><div class="combo-dropdown hidden" id="cvdd_'+f.key+'"></div></div>';
       } else {
-        inputHtml='<input type="text" id="cv_'+f.key+'" value="'+escH(cur)+'">';
+        inputHtml='<input type="text" id="cv_'+f.key+'" value="'+escH(cur)+'"'+
+          (f.mask?' inputmode="numeric" placeholder="'+escH(MASCARAS[f.mask].exemplo)+'"':'')+'>';
       }
       row.innerHTML='<label>'+escH(lbl)+'</label>'+inputHtml;
     }
     body.appendChild(row);
     var el=row.querySelector('input,select');
     // Antes do onChange: o combo limpa o cliente escolhido a cada tecla, e o
-    // readVarsForm logo depois já lê o campo escondido vazio.
+    // readVarsForm logo depois já lê o campo escondido vazio. A máscara também
+    // vem antes, pra o readVarsForm já ler o valor formatado.
     if(f.type==='pessoa')ligarBuscaPessoa(t,f);
+    if(f.mask)window.SGUtil.aplicarMascara(el,MASCARAS[f.mask].fn);
     if(t.id==='monitoramento'&&f.key==='periodicidade'){
       el.addEventListener('change',function(){
         var oldAnual=CT.values.periodicidade==='Anual (à vista)';
@@ -1689,14 +1710,22 @@ function dataParaIso(s){
   return '';
 }
 
+// CPF/CNPJ que veio da base sem pontuação: o campo mostra como está gravado
+// (formatar ali marcaria "dados alterados" sem ninguém ter mexido), mas o
+// documento sai formatado. Valor que não tem 11 nem 14 dígitos fica como está.
+function cpfCnpjNoDocumento(v){
+  var d=v.replace(/\D/g,'');
+  return (d.length===11||d.length===14)?MASCARAS.cpfCnpj.fn(d):v;
+}
+
 function clienteVars(){
   return{
     nome:document.getElementById('ctrNome').value.trim()||'—',
-    cpf:document.getElementById('ctrCpf').value.trim()||'não informado',
+    cpf:cpfCnpjNoDocumento(document.getElementById('ctrCpf').value.trim())||'não informado',
     endereco:document.getElementById('ctrEndereco').value.trim()||'—',
     cidade:document.getElementById('ctrCidade').value.trim()||'Breves',
     email:document.getElementById('ctrEmail').value.trim(),
-    cpfEquatorial:document.getElementById('ctrCpfEquatorial').value.trim(),
+    cpfEquatorial:cpfCnpjNoDocumento(document.getElementById('ctrCpfEquatorial').value.trim()),
     dataNascimentoEquatorial:document.getElementById('ctrDataNascEquatorial').value.trim()
   };
 }
@@ -2305,6 +2334,13 @@ document.getElementById('ctrPrintBtn').addEventListener('click',printContrato);
 document.getElementById('ctrAssinarBtn').addEventListener('click',enviarContratoParaAssinatura);
 document.getElementById('ctrResetBtn').addEventListener('click',function(){ if(confirm('Limpar contrato atual?'))resetContrato(); });
 document.getElementById('ctrSyncBtn').addEventListener('click',syncClienteToSheet);
+// Máscara primeiro, depois a pré-visualização: assim ela já usa o valor formatado.
+// Mesmo critério do cadastro de clientes (CPF ou CNPJ conforme a quantidade de dígitos).
+[['ctrCpf','cpfCnpj'],['ctrCpfEquatorial','cpfCnpj'],['ctrDataNascEquatorial','dataBR']].forEach(function(par){
+  var el=document.getElementById(par[0]);
+  window.SGUtil.aplicarMascara(el,MASCARAS[par[1]].fn);
+  el.addEventListener('input',function(){ renderContratoPreview(); markClienteDirty(); });
+});
 document.getElementById('ctrSyncBtnBottom').addEventListener('click',syncClienteToSheet);
 
 // ── Boot ─────────────────────────────────────────────────────────────────
