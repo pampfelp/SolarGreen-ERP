@@ -3208,6 +3208,14 @@ var POSICOES_ASSINATURA_ = {
   homologacao: {
     empresa: { assinatura: { x: '3', y: '10' }, assinaturaTodas: { x: '7', y: '93' } },
     cliente: { assinatura: { x: '61.7', y: '10' }, assinaturaTodas: { x: '52.5', y: '93' } }
+  },
+  // Vínculo com imóvel (2026-10-22): assinam LOCADOR (à esquerda) e LOCATÁRIO
+  // (à direita), sem a Solar Green. A página de assinatura tem a mesma
+  // estrutura do monitoramento (blocoAssinaturaParte em proposta.html), então
+  // as mesmas posições, com a chave pelo papel de cada parte.
+  vinculo_imovel: {
+    locador:   { assinatura: { x: '3', y: '10' }, assinaturaTodas: { x: '7', y: '93' } },
+    locatario: { assinatura: { x: '61.7', y: '10' }, assinaturaTodas: { x: '52.5', y: '93' } }
   }
 };
 
@@ -3408,11 +3416,32 @@ function descreverErrosAutentique_(errors) {
   }).join('; ');
 }
 
-function criarDocumentoNaAutentique_(fileId, clienteNome, clienteEmail, nomeDocumento, posicoes) {
+// "partes" (opcional, 2026-10-22): [{ papel, nome, email }] para documento em
+// que quem assina são as partes e a Solar Green fica de fora (vínculo com
+// imóvel). Cada parte vira signatária com as posições de posicoes[papel] e
+// recebe o próprio e-mail da Autentique; não há auto-assinatura. Sem "partes",
+// tudo segue como antes (cliente + Solar Green assinando sozinha).
+function criarDocumentoNaAutentique_(fileId, clienteNome, clienteEmail, nomeDocumento, posicoes, partes) {
   var props = PropertiesService.getScriptProperties();
   var token = props.getProperty('AUTENTIQUE_API_TOKEN');
   if (!token) return { ok: false, erro: 'Configure AUTENTIQUE_API_TOKEN em Project Settings > Script Properties.' };
   var sandbox = props.getProperty('AUTENTIQUE_SANDBOX') === 'true';
+
+  if (partes) {
+    partes = partes.map(function (p) {
+      return { papel: String(p.papel || ''), nome: String(p.nome || '').trim(), email: String(p.email || '').trim() };
+    });
+    for (var i = 0; i < partes.length; i++) {
+      if (!EMAIL_SIGNATARIO_RE_.test(partes[i].email)) {
+        return { ok: false, erro: 'O e-mail do ' + partes[i].papel + ' ("' + partes[i].email + '") não é um endereço válido.' };
+      }
+      for (var j = 0; j < i; j++) {
+        if (partes[j].email.toLowerCase() === partes[i].email.toLowerCase()) {
+          return { ok: false, erro: 'Cada parte precisa de um e-mail diferente: a Autentique não aceita o mesmo signatário duas vezes no documento.' };
+        }
+      }
+    }
+  }
 
   // Signatário conferido aqui, no ponto por onde Ordem de Serviço e Contrato
   // passam os dois: a Autentique recusa e-mail malformado (e signatário
@@ -3422,10 +3451,10 @@ function criarDocumentoNaAutentique_(fileId, clienteNome, clienteEmail, nomeDocu
   // mandamos, e o link de assinatura voltava nulo.
   clienteEmail = String(clienteEmail || '').trim();
   clienteNome  = String(clienteNome || '').trim();
-  if (!EMAIL_SIGNATARIO_RE_.test(clienteEmail)) {
+  if (!partes && !EMAIL_SIGNATARIO_RE_.test(clienteEmail)) {
     return { ok: false, erro: 'O e-mail do cliente ("' + clienteEmail + '") não é um endereço válido — corrija o cadastro do cliente antes de enviar pra assinatura.' };
   }
-  if (clienteEmail.toLowerCase() === EMPRESA_SIGNATARIO_EMAIL_.toLowerCase()) {
+  if (!partes && clienteEmail.toLowerCase() === EMPRESA_SIGNATARIO_EMAIL_.toLowerCase()) {
     return { ok: false, erro: 'O e-mail cadastrado no cliente é o da própria Solar Green (' + EMPRESA_SIGNATARIO_EMAIL_ + '), e a Autentique não aceita o mesmo signatário duas vezes no documento. Cadastre o e-mail do cliente de verdade.' };
   }
 
@@ -3449,15 +3478,21 @@ function criarDocumentoNaAutentique_(fileId, clienteNome, clienteEmail, nomeDocu
     'id name signatures { public_id email link { short_link } } } }';
   var signerCliente = { email: clienteEmail, name: clienteNome || '', action: 'SIGN' };
   var signerEmpresa = { email: EMPRESA_SIGNATARIO_EMAIL_, name: EMPRESA_SIGNATARIO_NOME_, action: 'SIGN' };
-  if (posicoes) {
+  if (posicoes && !partes) {
     var posCliente = resolverPosicoesAssinatura_(posicoes.cliente, totalPaginas);
     var posEmpresa = resolverPosicoesAssinatura_(posicoes.empresa, totalPaginas);
     if (posCliente) signerCliente.positions = posCliente;
     if (posEmpresa) signerEmpresa.positions = posEmpresa;
   }
+  var signersPartes = partes ? partes.map(function (p) {
+    var signer = { email: p.email, name: p.nome, action: 'SIGN' };
+    var pos = posicoes ? resolverPosicoesAssinatura_(posicoes[p.papel], totalPaginas) : null;
+    if (pos) signer.positions = pos;
+    return signer;
+  }) : null;
   var variables = {
     document: { name: nomeDocumento || (clienteNome || 'Cliente') },
-    signers: [signerCliente, signerEmpresa],
+    signers: signersPartes || [signerCliente, signerEmpresa],
     file: null
   };
   var operations = JSON.stringify({ query: query, variables: variables });
@@ -3481,6 +3516,15 @@ function criarDocumentoNaAutentique_(fileId, clienteNome, clienteEmail, nomeDocu
   }
   var documento = json.data && json.data.createDocument;
   if (!documento) return { ok: false, erro: 'Autentique não retornou o documento criado.' };
+  if (partes) {
+    // Sem signDocument: a Solar Green não é signatária deste documento. Os
+    // links voltam só como cópia de reserva (a Autentique já mandou os e-mails).
+    var links = partes.map(function (p) {
+      var s = (documento.signatures || []).filter(function (x) { return String(x.email || '').toLowerCase() === p.email.toLowerCase(); })[0] || {};
+      return s.link ? s.link.short_link : null;
+    });
+    return { ok: true, documento: documento, link: links.filter(Boolean).join(' '), links: links, sandbox: sandbox };
+  }
   var assinaturaCliente = (documento.signatures || []).filter(function (s) { return s.email === clienteEmail; })[0] || {};
   var link = assinaturaCliente.link ? assinaturaCliente.link.short_link : null;
 
@@ -3648,7 +3692,12 @@ function getOrCreatePastaContratosProposta_() {
   return DriveApp.createFolder(nomePasta);
 }
 
-var TIPOS_CONTRATO_ASSINAVEIS_ = { monitoramento: true, manutencao: true, recibo: true, procuracao: true, homologacao: true };
+var TIPOS_CONTRATO_ASSINAVEIS_ = { monitoramento: true, manutencao: true, recibo: true, procuracao: true, homologacao: true, vinculo_imovel: true };
+
+// Tipos em que quem assina são as partes do contrato, e não cliente + Solar
+// Green (2026-10-22, vínculo com imóvel). A tela manda body.signatarios com
+// um item por papel daqui.
+var PARTES_SIGNATARIAS_ = { vinculo_imovel: ['locador', 'locatario'] };
 
 /**
  * action: enviarContratoParaAssinatura — body { idCliente, clienteNome,
@@ -3667,7 +3716,15 @@ function actionEnviarContratoParaAssinatura(body) {
   if (!TIPOS_CONTRATO_ASSINAVEIS_[tipoContrato]) {
     return { ok: false, erro: 'Esse tipo de documento não pode ser enviado pra assinatura digital.' };
   }
-  if (!clienteEmail) return { ok: false, erro: 'O cliente precisa ter um e-mail cadastrado pra receber o link de assinatura.' };
+  var partes = null, papeis = PARTES_SIGNATARIAS_[tipoContrato];
+  if (papeis) {
+    partes = papeis.map(function (papel) {
+      return (body.signatarios || []).filter(function (s) { return s && s.papel === papel; })[0];
+    });
+    if (partes.some(function (p) { return !p; })) {
+      return { ok: false, erro: 'Faltam os dados de quem assina (' + papeis.join(' e ') + ').' };
+    }
+  } else if (!clienteEmail) return { ok: false, erro: 'O cliente precisa ter um e-mail cadastrado pra receber o link de assinatura.' };
 
   try {
     var pasta = getOrCreatePastaContratosProposta_();
@@ -3683,7 +3740,7 @@ function actionEnviarContratoParaAssinatura(body) {
     // de POSICOES_ASSINATURA_) — undefined aqui faz criarDocumentoNaAutentique_
     // cair no comportamento antigo pra esses dois tipos (sem marca visual),
     // em vez de dar erro.
-    var resultado = criarDocumentoNaAutentique_(arquivo.getId(), clienteNome, clienteEmail, body.nomeDocumento || ('Contrato - ' + (clienteNome || 'Cliente')), POSICOES_ASSINATURA_[tipoContrato]);
+    var resultado = criarDocumentoNaAutentique_(arquivo.getId(), clienteNome, clienteEmail, body.nomeDocumento || ('Contrato - ' + (clienteNome || 'Cliente')), POSICOES_ASSINATURA_[tipoContrato], partes);
     if (!resultado.ok) return resultado;
     var documento = resultado.documento, link = resultado.link;
 

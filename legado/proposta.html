@@ -81,6 +81,8 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 .combo-empty{padding:12px;font-size:12.5px;color:var(--ink-faint);text-align:center;}
 .field:last-child{margin-bottom:0;}
 .field label{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-faint);font-weight:600;}
+.ctr-secao{font-size:11px;font-weight:700;color:#003122;text-transform:uppercase;letter-spacing:.06em;margin:18px 0 10px;padding-top:14px;border-top:1px solid var(--line);}
+.ctr-secao:first-child{margin-top:0;padding-top:0;border-top:none;}
 .field input,.field select,.field textarea{font-family:var(--sans);font-size:13px;border:1px solid var(--line);border-radius:7px;padding:8px 12px;background:#fff;color:var(--ink);}
 .field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent);}
 .field input[type=number]{font-family:var(--mono);}
@@ -484,7 +486,7 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 <div class="main">
 
   <!-- ── CLIENTE ── -->
-  <div class="card">
+  <div class="card" id="ctrClienteCard">
     <div class="card-head">Cliente</div>
     <div class="field"><label>Selecionar cliente (tabela Clientes)</label>
       <div class="combo-wrap">
@@ -723,7 +725,9 @@ function buildMaps(resp){
       tipoPessoa:String(c['Tipo Pessoa']||'').trim(),
       status:String(c['Status Cliente']||'').trim(),
       cpfEquatorial:String(c.CPFEquatorial||'').trim(),
-      dataNascimentoEquatorial:String(c.DataNascimentoEquatorial||'').trim()
+      dataNascimentoEquatorial:String(c.DataNascimentoEquatorial||'').trim(),
+      rg:String(c.RG||'').trim(),
+      dataNascimento:String(c.DataNascimento||'').trim()
     };
     S.clientesMap[c.IdCliente]=obj; S.clientesArray.push(obj);
   });
@@ -1400,6 +1404,14 @@ function blocoAssinaturaContratada(dataContratoIso){
 function blocoAssinaturaContratante(nomeCliente){
   return '<div><div style="height:32px;"></div><div class="cp-sign-line">CONTRATANTE – '+escH(nomeCliente)+'</div></div>';
 }
+// Assinatura de uma das partes quando a Solar Green não assina (contrato de
+// vínculo com imóvel: Locador e Locatário). Mesma geometria do bloco do
+// CONTRATANTE, porque POSICOES_ASSINATURA_.vinculo_imovel (Code.gs) reaproveita
+// as posições já conferidas do monitoramento — mexer aqui obriga a medir de novo.
+function blocoAssinaturaParte(rotulo,nome,cpf){
+  return '<div><div style="height:32px;"></div><div class="cp-sign-line">'+escH(rotulo)+' – '+escH(nome)+
+    (cpf?'<br>CPF nº '+escH(cpf):'')+'</div></div>';
+}
 
 var CONTRACT_TYPES=[
   {
@@ -1448,6 +1460,47 @@ var CONTRACT_TYPES=[
       {key:'dataContrato',label:'Data do contrato',type:'date',default:dateKey(new Date())}
     ],
     compose:composeHomologacao
+  },
+  {
+    // Locação residencial que comprova o vínculo de alguém com o imóvel. As
+    // partes muitas vezes nem são clientes (parente, dono do imóvel), então o
+    // cartão Cliente some e cada parte tem a própria busca. Quem assina são as
+    // duas partes; a Solar Green não assina (ver "partes" no envio).
+    id:'vinculo_imovel', title:'Contrato de Vínculo com Imóvel', tag:'Imóvel',
+    sub:'Locação residencial entre locador e locatário, para comprovar o vínculo com o imóvel. Assinam o locador e o locatário; a Solar Green não assina.',
+    partes:[{papel:'locador',rotulo:'Locador'},{papel:'locatario',rotulo:'Locatário'}],
+    fields:[
+      {key:'secLocador',label:'Locador',type:'secao'},
+      {key:'locadorNome',label:'Nome completo (digite para buscar nos clientes)',type:'pessoa',parte:'locador',default:''},
+      {key:'locadorSexo',label:'Sexo',type:'select',options:['Masculino','Feminino'],default:'Masculino'},
+      {key:'locadorNacionalidade',label:'Nacionalidade',type:'text',default:'brasileiro'},
+      {key:'locadorNascimento',label:'Data de nascimento',type:'date',default:''},
+      {key:'locadorNaturalidade',label:'Naturalidade (cidade/UF)',type:'text',default:''},
+      {key:'locadorRg',label:'RG',type:'text',default:''},
+      {key:'locadorCpf',label:'CPF',type:'text',default:''},
+      {key:'locadorTelefone',label:'Telefone',type:'text',default:''},
+      {key:'locadorEmail',label:'E-mail (recebe o link para assinar)',type:'text',default:''},
+      {key:'secLocatario',label:'Locatário',type:'secao'},
+      {key:'locatarioNome',label:'Nome completo (digite para buscar nos clientes)',type:'pessoa',parte:'locatario',default:''},
+      {key:'locatarioSexo',label:'Sexo',type:'select',options:['Masculino','Feminino'],default:'Masculino'},
+      {key:'locatarioNacionalidade',label:'Nacionalidade',type:'text',default:'brasileiro'},
+      {key:'locatarioNascimento',label:'Data de nascimento',type:'date',default:''},
+      {key:'locatarioNaturalidade',label:'Naturalidade (cidade/UF)',type:'text',default:''},
+      {key:'locatarioRg',label:'RG',type:'text',default:''},
+      {key:'locatarioCpf',label:'CPF',type:'text',default:''},
+      {key:'locatarioTelefone',label:'Telefone',type:'text',default:''},
+      {key:'locatarioEmail',label:'E-mail (recebe o link para assinar)',type:'text',default:''},
+      {key:'secImovel',label:'Imóvel e locação',type:'secao'},
+      {key:'enderecoImovel',label:'Endereço completo do imóvel (bairro, cidade e CEP)',type:'text',default:''},
+      {key:'prazoMeses',label:'Prazo (meses)',type:'number',min:1,step:1,default:12},
+      {key:'dataInicio',label:'Início da locação',type:'date',default:dateKey(new Date())},
+      {key:'valorAluguel',label:'Aluguel mensal (R$)',type:'number',default:''},
+      {key:'diaVencimento',label:'Dia de vencimento',type:'number',min:1,max:31,step:1,default:10},
+      {key:'valorCaucao',label:'Caução (R$, vazio se não houver)',type:'number',default:''},
+      {key:'cidade',label:'Cidade (cabeçalho, foro e data)',type:'text',default:'Belém'},
+      {key:'dataContrato',label:'Data do contrato',type:'date',default:dateKey(new Date())}
+    ],
+    compose:composeVinculoImovel
   },
   {
     id:'recibo', title:'Recibo de Pagamento', tag:'Avulso',
@@ -1513,7 +1566,7 @@ function renderCtypeGrid(){
   });
 }
 
-var TIPOS_CONTRATO_ASSINAVEIS={monitoramento:true,manutencao:true,recibo:true,procuracao:true,homologacao:true};
+var TIPOS_CONTRATO_ASSINAVEIS={monitoramento:true,manutencao:true,recibo:true,procuracao:true,homologacao:true,vinculo_imovel:true};
 
 // Mesmo critério que a Autentique usa pro e-mail do signatário (e o mesmo
 // replicado no Code.gs, em criarDocumentoNaAutentique_): exige "@" e um
@@ -1527,6 +1580,7 @@ function selectContractType(id){
   renderCtypeGrid();
   document.getElementById('ctrAssinarBtn').style.display=TIPOS_CONTRATO_ASSINAVEIS[id]?'':'none';
   document.getElementById('ctrAssinarMsg').style.display='none';
+  document.getElementById('ctrClienteCard').style.display=(t&&t.partes)?'none':'';
   var card=document.getElementById('ctrVarsCard');
   if(!t||!t.fields){ card.style.display='none'; document.getElementById('contratoPreview').innerHTML=''; return; }
   card.style.display='';
@@ -1542,6 +1596,9 @@ function buildVarsForm(t){
     var cur=(CT.values[f.key]!==undefined)?CT.values[f.key]:f.default;
     var lbl=typeof f.label==='function'?f.label(CT.values):f.label;
     var row=document.createElement('div');
+    if(f.type==='secao'){
+      row.className='ctr-secao'; row.textContent=lbl; body.appendChild(row); return;
+    }
     if(f.type==='checkbox'){
       row.className='check-row';
       row.innerHTML='<label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="cv_'+f.key+'" '+(cur?'checked':'')+'> '+escH(lbl)+'</label>';
@@ -1560,6 +1617,9 @@ function buildVarsForm(t){
           (f.min!==undefined?' min="'+escH(f.min)+'"':'')+
           (f.max!==undefined?' max="'+escH(f.max)+'"':'')+
           ' value="'+escH(cur)+'" placeholder="0,00">';
+      } else if(f.type==='pessoa'){
+        inputHtml='<div class="combo-wrap"><input type="text" id="cv_'+f.key+'" autocomplete="off" value="'+escH(cur)+'">'+
+          '<input type="hidden" id="cvid_'+f.key+'"><div class="combo-dropdown hidden" id="cvdd_'+f.key+'"></div></div>';
       } else {
         inputHtml='<input type="text" id="cv_'+f.key+'" value="'+escH(cur)+'">';
       }
@@ -1567,6 +1627,9 @@ function buildVarsForm(t){
     }
     body.appendChild(row);
     var el=row.querySelector('input,select');
+    // Antes do onChange: o combo limpa o cliente escolhido a cada tecla, e o
+    // readVarsForm logo depois já lê o campo escondido vazio.
+    if(f.type==='pessoa')ligarBuscaPessoa(t,f);
     if(t.id==='monitoramento'&&f.key==='periodicidade'){
       el.addEventListener('change',function(){
         var oldAnual=CT.values.periodicidade==='Anual (à vista)';
@@ -1592,7 +1655,38 @@ function readVarsForm(t){
   t.fields.forEach(function(f){
     var el=document.getElementById('cv_'+f.key); if(!el)return;
     CT.values[f.key]=f.type==='checkbox'?el.checked:el.value;
+    if(f.type==='pessoa')CT.values[f.parte+'IdCliente']=document.getElementById('cvid_'+f.key).value;
   });
+}
+
+// Campo de nome com busca nos clientes (contrato de vínculo). Achou, puxa o que
+// o cadastro tem; não achou, o nome fica como digitado e o resto é preenchido
+// à mão.
+function ligarBuscaPessoa(t,f){
+  var p=f.parte;
+  window.SGCombo.criar({
+    inputId:'cv_'+f.key, hiddenId:'cvid_'+f.key, dropdownId:'cvdd_'+f.key,
+    getOpcoes:opcoesClienteContrato,
+    valorInicial:{id:CT.values[p+'IdCliente']||'',label:CT.values[f.key]||''},
+    onSelecionar:function(id){
+      var c=S.clientesMap[id]; if(!c)return;
+      CT.values[p+'IdCliente']=id;
+      CT.values[p+'Nome']=c.nome;
+      if(c.cpf)CT.values[p+'Cpf']=c.cpf;
+      if(c.rg)CT.values[p+'Rg']=c.rg;
+      if(c.telefone)CT.values[p+'Telefone']=c.telefone;
+      if(c.email)CT.values[p+'Email']=c.email;
+      var nasc=dataParaIso(c.dataNascimento); if(nasc)CT.values[p+'Nascimento']=nasc;
+      buildVarsForm(t); renderContratoPreview();
+    }
+  });
+}
+// DataNascimento do cliente chega como yyyy-mm-dd (formulário) ou dd/mm/aaaa.
+function dataParaIso(s){
+  s=String(s||'').trim();
+  var m=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m)return m[1]+'-'+m[2]+'-'+m[3];
+  m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m)return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+  return '';
 }
 
 function clienteVars(){
@@ -1886,6 +1980,92 @@ function composeProcuracao(v,c){
   );
 }
 
+var MESES_EXTENSO=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+// "1º de janeiro de 2026" no corpo do contrato; com diaComZero, "05 de agosto
+// de 2026", como na data de assinatura do modelo.
+function dataPorExtenso(iso,diaComZero){
+  var m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})$/); if(!m)return '—';
+  var d=parseInt(m[3],10);
+  return (diaComZero?m[3]:(d===1?'1º':String(d)))+' de '+MESES_EXTENSO[parseInt(m[2],10)-1]+' de '+m[1];
+}
+// Último dia da locação: início + N meses − 1 dia (01/01/2026 + 12 = 31/12/2026).
+// Mês sem o dia de início (31/01 + 1 mês): o prazo vence no dia seguinte
+// (Código Civil, art. 132, §3º), então o último dia é o fim desse mês (28/02).
+function fimDaLocacao(iso,meses){
+  var m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})$/); if(!m||!(meses>0))return '';
+  var ano=+m[1],mes=+m[2]-1+meses,dia=+m[3];
+  var ultimo=new Date(Date.UTC(ano,mes+1,0)).getUTCDate();
+  var fim=dia>ultimo?new Date(Date.UTC(ano,mes,ultimo)):new Date(Date.UTC(ano,mes,dia-1));
+  return fim.toISOString().slice(0,10);
+}
+
+// Texto do modelo Contrato_de_Locacao_Isaias_Marah.docx (2026-10-22). Mudanças
+// aprovadas por ele: sem o bloco de testemunhas (assinatura eletrônica), e a
+// caução é opcional. Locador e locatário concordam em gênero com o sexo de cada um.
+function composeVinculoImovel(v){
+  var fem={locador:v.locadorSexo==='Feminino',locatario:v.locatarioSexo==='Feminino'};
+  var L=fem.locador?'LOCADORA':'LOCADOR', T=fem.locatario?'LOCATÁRIA':'LOCATÁRIO';
+  var doL=(fem.locador?'da ':'do ')+L, aoL=(fem.locador?'à ':'ao ')+L, peloL=(fem.locador?'pela ':'pelo ')+L;
+  var aT=(fem.locatario?'a ':'o ')+T, AT=(fem.locatario?'A ':'O ')+T, daT=(fem.locatario?'da ':'do ')+T, aoT=(fem.locatario?'à ':'ao ')+T;
+  var cidade=String(v.cidade||'').trim()||'—';
+
+  function qualificacao(p,rotulo){
+    var f=fem[p], itens=[];
+    var nac=String(v[p+'Nacionalidade']||'').trim();
+    if(/^brasileir[oa]$/i.test(nac))nac=f?'brasileira':'brasileiro';
+    if(nac)itens.push(escH(nac));
+    if(v[p+'Nascimento'])itens.push((f?'nascida':'nascido')+' em '+isoToBR(v[p+'Nascimento']));
+    if(String(v[p+'Naturalidade']||'').trim())itens.push('natural de '+escH(v[p+'Naturalidade']));
+    var docs=[];
+    if(String(v[p+'Rg']||'').trim())docs.push('do Registro Geral (RG) nº '+escH(v[p+'Rg']));
+    docs.push('do CPF nº '+escH(String(v[p+'Cpf']||'').trim()||'—'));
+    itens.push((f?'portadora ':'portador ')+docs.join(' e '));
+    return '<p><strong>'+rotulo+':</strong> '+escH((String(v[p+'Nome']||'').trim()||'—').toUpperCase())+', '+itens.join(', ')+
+      ', doravante '+(f?'denominada':'denominado')+' simplesmente <strong>'+rotulo+'</strong>.</p>';
+  }
+  function clausula(titulo,texto){ return '<div class="cp-clause-title">'+titulo+'</div><p>'+texto+'</p>'; }
+  function paragrafo(titulo,texto){ return '<p><strong>'+titulo+'</strong> '+texto+'</p>'; }
+
+  var meses=parseInt(v.prazoMeses,10)||0;
+  var aluguel=parseFloat(v.valorAluguel)||0;
+  var dia=parseInt(v.diaVencimento,10)||0;
+  var caucao=parseFloat(v.valorCaucao)||0;
+
+  return(
+  '<h2>Contrato de Locação de Imóvel Residencial</h2>'+
+  '<p style="text-align:center;margin-top:-10px;margin-bottom:16px;">'+escH(cidade)+' / PA</p>'+
+  '<div class="cp-parties">'+qualificacao('locador',L)+qualificacao('locatario',T)+'</div>'+
+  '<p>As partes acima qualificadas têm, entre si, justo e contratado o presente Contrato de Locação de Imóvel Residencial, regido pela Lei nº 8.245, de 18 de outubro de 1991 (Lei do Inquilinato) e pelas cláusulas seguintes:</p>'+
+  clausula('CLÁUSULA PRIMEIRA – DO OBJETO','O objeto deste contrato é o imóvel situado em '+escH(String(v.enderecoImovel||'').trim()||'—')+', de propriedade '+doL+', que o cede em locação '+aoT+' nos termos deste instrumento.')+
+  clausula('CLÁUSULA SEGUNDA – DO PRAZO','A locação vigorará pelo prazo de '+meses+' ('+numPorExtenso(meses)+') '+(meses===1?'mês':'meses')+', com início em '+dataPorExtenso(v.dataInicio)+' e término em '+dataPorExtenso(fimDaLocacao(v.dataInicio,meses))+', podendo ser renovada automaticamente por igual período caso nenhuma das partes se manifeste em contrário, por escrito, com antecedência mínima de 30 (trinta) dias do término do prazo vigente.')+
+  clausula('CLÁUSULA TERCEIRA – DO ALUGUEL E FORMA DE PAGAMENTO','O aluguel mensal é fixado em <strong>'+fmtMoney(aluguel)+'</strong> ('+valorPorExtenso(aluguel)+'), devido até o dia '+dia+' ('+numPorExtenso(dia)+') de cada mês, referente ao mês de ocupação vencido, mediante depósito, transferência bancária ou outro meio indicado '+peloL+'. O valor será reajustado anualmente, na data de aniversário do contrato, pela variação acumulada do IPCA (Índice Nacional de Preços ao Consumidor Amplo) ou índice oficial que vier a substituí-lo. Períodos inferiores a um mês serão calculados proporcionalmente (pro rata die).')+
+  paragrafo('PARÁGRAFO PRIMEIRO – DA MULTA POR ATRASO.','O não pagamento do aluguel e demais encargos até a data de vencimento sujeitará '+aT+' à multa moratória de 2% (dois por cento) sobre o valor devido, acrescida de juros de mora de 1% (um por cento) ao mês e correção monetária, sem prejuízo das demais sanções legais e contratuais aplicáveis.')+
+  paragrafo('PARÁGRAFO SEGUNDO – DA RESCISÃO POR FORÇA MAIOR.','Havendo motivo de força maior devidamente comprovado e reconhecido por ambas as partes, o presente contrato poderá ser rescindido sem incidência de multa rescisória.'+
+    (caucao>0?' Caso a rescisão nessas condições parta '+daT+', o valor do depósito de caução referido na Cláusula Nona não lhe será restituído, destinando-se à eventual restauração do imóvel.':''))+
+  clausula('CLÁUSULA QUARTA – DAS DESPESAS E TRIBUTOS','Correm por conta '+daT+' todas as despesas decorrentes do uso do imóvel, incluindo tarifas de água, energia elétrica, gás, condomínio (se houver) e demais taxas de consumo, a serem pagas diretamente às respectivas concessionárias ou administradora. Os tributos incidentes sobre o imóvel (IPTU e taxas municipais correlatas) correm por conta '+daT+' durante a vigência deste contrato, salvo estipulação em contrário, por escrito, entre as partes.')+
+  clausula('CLÁUSULA QUINTA – DA CONSERVAÇÃO E USO DO IMÓVEL',AT+' obriga-se a zelar pela conservação, limpeza e bom uso do imóvel, respondendo por danos causados por si, seus familiares, visitantes ou prepostos, ressalvado o desgaste natural decorrente do uso regular. É vedada a realização de obras ou modificações que alterem a estrutura do imóvel sem autorização prévia e expressa '+doL+'.')+
+  paragrafo('PARÁGRAFO ÚNICO.',AT+' declara ter recebido o imóvel em perfeitas condições de uso e habitação, conforme vistoria referida na Cláusula Décima.')+
+  clausula('CLÁUSULA SEXTA – DA FINALIDADE','O imóvel destina-se exclusivamente a fins residenciais, sendo vedado o seu uso para qualquer atividade comercial, industrial ou de outra natureza, sem autorização expressa e por escrito '+doL+'.')+
+  clausula('CLÁUSULA SÉTIMA – DA SUBLOCAÇÃO','É vedado '+aoT+' sublocar, ceder, emprestar ou transferir, total ou parcialmente, o imóvel objeto deste contrato, sendo nulo de pleno direito qualquer ato praticado nesse sentido sem o consentimento prévio e por escrito '+doL+'.')+
+  clausula('CLÁUSULA OITAVA – DO SEGURO CONTRA INCÊNDIO','Nos termos do art. 22, inciso IX, da Lei nº 8.245/1991, cabe '+aoL+' a contratação de seguro contra fogo e demais riscos que ameacem o imóvel, salvo se as partes convencionarem, por escrito, a transferência dessa obrigação '+aoT+'.')+
+  clausula('CLÁUSULA NONA – DO DEPÓSITO DE CAUÇÃO',caucao>0
+    ?('A título de garantia das obrigações assumidas neste contrato, '+aT+' entrega '+aoL+', nesta data, o valor de <strong>'+fmtMoney(caucao)+'</strong> ('+valorPorExtenso(caucao)+'), a título de depósito de caução, o qual será devolvido, devidamente atualizado, no prazo de até 30 (trinta) dias após o término da locação e a entrega das chaves, deduzidos eventuais débitos ou danos apurados em vistoria, na forma do art. 38 da Lei nº 8.245/1991.')
+    :'As partes convencionam que não haverá depósito de caução nesta locação.')+
+  clausula('CLÁUSULA DÉCIMA – DA VISTORIA E DEVOLUÇÃO DO IMÓVEL','As partes realizarão vistoria conjunta do imóvel na entrega das chaves e ao término da locação, registrando o estado de conservação em laudo ou relatório fotográfico anexo, que passa a integrar este contrato para todos os fins. Ao término da locação, '+aT+' deverá restituir o imóvel nas mesmas condições em que o recebeu, ressalvado o desgaste natural do uso regular.')+
+  clausula('CLÁUSULA DÉCIMA PRIMEIRA – DO FORO','Fica eleito o foro da Comarca de '+escH(cidade)+'/PA para dirimir quaisquer questões oriundas deste contrato, com renúncia expressa a qualquer outro, por mais privilegiado que seja.')+
+  '<p style="margin-top:16px;">E, por estarem assim justas e contratadas, as partes assinam eletronicamente o presente instrumento.</p>'+
+  // Página de assinatura sempre nova e com a mesma estrutura do monitoramento:
+  // as posições de POSICOES_ASSINATURA_.vinculo_imovel (Code.gs) dependem disso.
+  '<div style="page-break-before:always;padding-top:24px;">'+
+    '<p style="margin-top:24px;">'+escH(cidade)+'/PA, '+dataPorExtenso(v.dataContrato,true)+'.</p>'+
+    '<div class="cp-sign">'+
+      blocoAssinaturaParte(L,String(v.locadorNome||'').trim()||'—',String(v.locadorCpf||'').trim())+
+      blocoAssinaturaParte(T,String(v.locatarioNome||'').trim()||'—',String(v.locatarioCpf||'').trim())+
+    '</div>'+
+  '</div>'
+  );
+}
+
 window.renderContratoPreview=function(){
   var el=document.getElementById('contratoPreview'); if(!el)return;
   var t=CONTRACT_TYPES.find(function(x){return x.id===CT.selectedId;});
@@ -1893,14 +2073,75 @@ window.renderContratoPreview=function(){
   el.innerHTML=t.compose(CT.values,clienteVars());
 }
 
+// Contrato assinado pelas próprias partes (sem a Solar Green): nome e e-mail
+// de cada uma vêm das variáveis do contrato, não do cartão Cliente.
+function partesDoContrato(t){
+  return t.partes.map(function(p){
+    return {papel:p.papel, rotulo:p.rotulo, nome:String(CT.values[p.papel+'Nome']||'').trim(), email:String(CT.values[p.papel+'Email']||'').trim()};
+  });
+}
+function erroNasPartes(partes){
+  for(var i=0;i<partes.length;i++){
+    var p=partes[i], quem='do '+p.rotulo.toLowerCase();
+    if(!p.nome)return 'Informe o nome '+quem+'.';
+    if(!EMAIL_ASSINATURA_RE.test(p.email))return p.email
+      ? 'O e-mail '+quem+' ("'+p.email+'") não é um endereço válido.'
+      : 'Informe o e-mail '+quem+': é por ele que chega o link para assinar.';
+  }
+  // A Autentique recusa o mesmo signatário duas vezes no documento.
+  if(partes[0].email.toLowerCase()===partes[1].email.toLowerCase())
+    return partes[0].rotulo+' e '+partes[1].rotulo.toLowerCase()+' precisam de e-mails diferentes: cada um recebe o próprio link para assinar.';
+  return '';
+}
+
+// Quem assina o contrato de vínculo muitas vezes não é cliente (parente, dono
+// do imóvel). Depois do envio, quem não foi escolhido na busca e não tem o
+// telefone nem o e-mail de nenhum cliente vira cliente com esta origem.
+var ORIGEM_ASSINANTE='Assinante de documento';
+function fim8Tel(tel){ var d=String(tel||'').replace(/\D/g,''); return d.length>=8?d.slice(-8):''; }
+function cadastrarAssinantesNovos(t){
+  var v=CT.values;
+  t.partes.forEach(function(p){
+    var pre=p.papel;
+    if(v[pre+'IdCliente'])return;
+    var nome=String(v[pre+'Nome']||'').trim(), tel=String(v[pre+'Telefone']||'').trim(), email=String(v[pre+'Email']||'').trim();
+    var f8=fim8Tel(tel), emailMin=email.toLowerCase();
+    var existe=S.clientesArray.some(function(c){
+      return (f8&&fim8Tel(c.telefone)===f8)||(emailMin&&c.email.toLowerCase()===emailMin);
+    });
+    if(existe)return;
+    var id=window.SGId.gerar();
+    var dados={
+      idCliente:id, nome:nome, tipoPessoa:'Física', telefone:tel, cpfCnpj:String(v[pre+'Cpf']||'').trim(), email:email,
+      // O locatário mora no imóvel locado; do locador não se sabe o endereço.
+      endereco:pre==='locatario'?String(v.enderecoImovel||'').trim():'',
+      rg:String(v[pre+'Rg']||'').trim(), dataNascimento:v[pre+'Nascimento']||'',
+      origem:ORIGEM_ASSINANTE, vendedorResponsavel:(window.SG_SESSION&&window.SG_SESSION.idVendedor)||''
+    };
+    apiCall('salvarCliente',dados).then(function(resp){
+      if(!resp||!resp.ok){ showToast('O contrato foi enviado, mas '+nome+' não foi cadastrado como cliente: '+((resp&&resp.erro)||'erro desconhecido'),false); return; }
+      var obj={id:id,nome:nome,telefone:tel,email:email,endereco:dados.endereco,cpf:dados.cpfCnpj,tipoPessoa:'Física',status:'',
+        cpfEquatorial:'',dataNascimentoEquatorial:'',rg:dados.rg,dataNascimento:dados.dataNascimento};
+      S.clientesMap[id]=obj; S.clientesArray.push(obj);
+      v[pre+'IdCliente']=id;
+    }).catch(function(err){
+      showToast('O contrato foi enviado, mas '+nome+' não foi cadastrado como cliente: '+err.message,false);
+    });
+  });
+}
+
 function printContrato(){
   var t=CONTRACT_TYPES.find(function(x){return x.id===CT.selectedId;});
   if(!t||!t.compose){ showToast('Selecione um tipo de contrato',false); return; }
   var c=clienteVars();
-  if(c.nome==='—'){ showToast('Informe o nome do cliente',false); return; }
+  var partes=t.partes?partesDoContrato(t):null;
+  var semNome=partes&&partes.filter(function(p){return !p.nome;})[0];
+  if(semNome){ showToast('Informe o nome do '+semNome.rotulo.toLowerCase(),false); return; }
+  if(!partes&&c.nome==='—'){ showToast('Informe o nome do cliente',false); return; }
+  var titulo=partes?partes.map(function(p){return p.nome;}).join(' e '):c.nome;
   var bodyHtml=t.compose(CT.values,c);
   var win=window.open('','_blank');
-  win.document.write('<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Contrato · '+escH(c.nome)+'</title>'+
+  win.document.write('<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Contrato · '+escH(titulo)+'</title>'+
   '<style>'+
   'body{font-family:"Times New Roman",Times,serif;font-size:12.5px;line-height:1.65;color:#111;max-width:760px;margin:0 auto;padding:0 8px 48px;}'+
   '.letterhead{padding:28px 0 14px;text-align:center;}'+
@@ -1931,15 +2172,21 @@ function enviarContratoParaAssinatura(){
   if(!t||!t.compose){ showToast('Selecione um tipo de contrato',false); return; }
   if(!TIPOS_CONTRATO_ASSINAVEIS[CT.selectedId]){ showToast('Esse tipo de documento não pode ser enviado pra assinatura digital.',false); return; }
   var c=clienteVars();
-  if(c.nome==='—'){ showToast('Informe o nome do cliente',false); return; }
+  var partes=t.partes?partesDoContrato(t):null;
+  if(!partes&&c.nome==='—'){ showToast('Informe o nome do cliente',false); return; }
   var msgEl=document.getElementById('ctrAssinarMsg');
+  var erroPartes=partes?erroNasPartes(partes):'';
+  if(erroPartes){
+    msgEl.style.display='block'; msgEl.style.color='#c0392b'; msgEl.textContent=erroPartes;
+    return;
+  }
   // Formato do e-mail conferido AQUI, não só "tem ou não tem": a Autentique
   // recusa endereço malformado com um erro genérico ("validation", sem dizer
   // qual campo), que chegava na tela como um inútil "Autentique: validation".
   // Caso real que motivou isso: cliente cadastrado como "fulano@hotmail.com00"
   // (dois zeros grudados no fim) — passava na checagem antiga, que só olhava
   // se o campo estava preenchido.
-  if(!c.email||!EMAIL_ASSINATURA_RE.test(c.email)){
+  if(!partes&&(!c.email||!EMAIL_ASSINATURA_RE.test(c.email))){
     msgEl.style.display='block'; msgEl.style.color='#c0392b';
     msgEl.textContent=c.email
       ? 'O e-mail do cliente ("'+c.email+'") não é um endereço válido — corrija o cadastro antes de enviar pra assinatura digital.'
@@ -1948,8 +2195,9 @@ function enviarContratoParaAssinatura(){
   }
   msgEl.style.display='none';
 
+  var titulo=partes?partes.map(function(p){return p.nome;}).join(' e '):c.nome;
   var bodyHtml=t.compose(CT.values,c);
-  var htmlDoc='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Contrato · '+escH(c.nome)+'</title>'+
+  var htmlDoc='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Contrato · '+escH(titulo)+'</title>'+
     '<style>'+
     'body{font-family:"Times New Roman",Times,serif;font-size:12.5px;line-height:1.65;color:#111;max-width:760px;margin:0 auto;padding:0 8px 48px;}'+
     '.letterhead{padding:28px 0 14px;text-align:center;}'+
@@ -1967,15 +2215,26 @@ function enviarContratoParaAssinatura(){
 
   var btn=document.getElementById('ctrAssinarBtn');
   btn.disabled=true; var textoOriginal=btn.textContent; btn.textContent='Gerando PDF e enviando…';
-  apiCall('enviarContratoParaAssinatura',{
+  // Com "partes", quem assina são elas (cada uma recebe o próprio link) e a
+  // Solar Green fica de fora; o Code.gs monta os signatários por "signatarios".
+  var payload=partes?{
+    idCliente:t.partes.map(function(p){return CT.values[p.papel+'IdCliente']||'';}).filter(Boolean).join(', '),
+    clienteNome:titulo, clienteEmail:partes.map(function(p){return p.email;}).join(', '),
+    tipoContrato:CT.selectedId, html:htmlDoc, nomeDocumento:t.title+' - '+titulo,
+    signatarios:partes.map(function(p){return {papel:p.papel,nome:p.nome,email:p.email};})
+  }:{
     idCliente:CT.clienteId||'', clienteNome:c.nome, clienteEmail:c.email,
     tipoContrato:CT.selectedId, html:htmlDoc, nomeDocumento:t.title+' - '+c.nome
-  }).then(function(resp){
+  };
+  apiCall('enviarContratoParaAssinatura',payload).then(function(resp){
     btn.disabled=false; btn.textContent=textoOriginal;
     if(!resp||!resp.ok){ showToast((resp&&resp.erro)||'Não foi possível enviar pra assinatura.',false); return; }
     msgEl.style.display='block'; msgEl.style.color='#2c6e00';
-    msgEl.textContent='✓ Documento enviado pro e-mail '+c.email+' com sucesso.';
+    msgEl.textContent=partes
+      ? '✓ Enviado para '+partes.map(function(p){return p.email;}).join(' e ')+'. Cada um recebe o próprio link para assinar.'
+      : '✓ Documento enviado pro e-mail '+c.email+' com sucesso.';
     showToast('Contrato enviado pra assinatura digital!');
+    if(partes)cadastrarAssinantesNovos(t);
   }).catch(function(err){
     btn.disabled=false; btn.textContent=textoOriginal;
     showToast('Erro de conexão: '+err.message,false);
@@ -1991,6 +2250,7 @@ function resetContrato(){
   document.getElementById('ctrSyncRowBottom').style.display='none';
   document.getElementById('ctrAssinarBtn').style.display='none';
   document.getElementById('ctrAssinarMsg').style.display='none';
+  document.getElementById('ctrClienteCard').style.display='';
   CT.selectedId=null; CT.values={}; CT.clienteId=null; CT.clienteOriginal=null;
   renderCtypeGrid();
   document.getElementById('ctrVarsCard').style.display='none';
