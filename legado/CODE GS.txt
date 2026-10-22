@@ -3191,23 +3191,27 @@ var POSICOES_ASSINATURA_ = {
   // assinatura. A rubrica no rodapé das páginas de cláusula não precisa
   // seguir esse espelhamento — é só um cantinho fixo, mesma posição nos
   // dois tipos de contrato.
+  // 2026-10-22: assinatura final de x 3 / 61.7, y 10 para x 14.7 / 65.3, y 13.
+  // A página de assinatura é a mesma do vínculo com imóvel, onde o PDF real
+  // assinado mostrou a marca antiga à esquerda do traço e encostada na data;
+  // as novas foram conferidas lá (ver vinculo_imovel abaixo).
   monitoramento: {
-    empresa: { assinatura: { x: '3', y: '10' }, assinaturaTodas: { x: '7', y: '93' } },
-    cliente: { assinatura: { x: '61.7', y: '10' }, assinaturaTodas: { x: '52.5', y: '93' } }
+    empresa: { assinatura: { x: '14.7', y: '13' }, assinaturaTodas: { x: '7', y: '93' } },
+    cliente: { assinatura: { x: '65.3', y: '13' }, assinaturaTodas: { x: '52.5', y: '93' } }
   },
   // Manutenção: ordem invertida no HTML (CONTRATANTE à esquerda, CONTRATADA
   // à direita) — por isso x trocado em relação ao monitoramento na
   // assinatura final; a assinaturaTodas continua nos mesmos cantos.
   manutencao: {
-    empresa: { assinatura: { x: '61.7', y: '10' }, assinaturaTodas: { x: '52.5', y: '93' } },
-    cliente: { assinatura: { x: '3', y: '10' }, assinaturaTodas: { x: '7', y: '93' } }
+    empresa: { assinatura: { x: '65.3', y: '13' }, assinaturaTodas: { x: '52.5', y: '93' } },
+    cliente: { assinatura: { x: '14.7', y: '13' }, assinaturaTodas: { x: '7', y: '93' } }
   },
   // Homologação (2026-10-07): mesma disposição do monitoramento no HTML
   // (CONTRATADA à esquerda, página de assinatura sempre nova), então as
-  // mesmas posições. Conferir no primeiro envio real.
+  // mesmas posições.
   homologacao: {
-    empresa: { assinatura: { x: '3', y: '10' }, assinaturaTodas: { x: '7', y: '93' } },
-    cliente: { assinatura: { x: '61.7', y: '10' }, assinaturaTodas: { x: '52.5', y: '93' } }
+    empresa: { assinatura: { x: '14.7', y: '13' }, assinaturaTodas: { x: '7', y: '93' } },
+    cliente: { assinatura: { x: '65.3', y: '13' }, assinaturaTodas: { x: '52.5', y: '93' } }
   },
   // Vínculo com imóvel (2026-10-22): assinam LOCADOR (à esquerda) e LOCATÁRIO
   // (à direita), sem a Solar Green. Medido no PDF real assinado na Autentique:

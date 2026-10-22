@@ -61,7 +61,8 @@ assert.equal(r.ok,true,r.erro);
 assert.equal(chamadas.length,2,'createDocument + signDocument');
 s=signers();
 assert.deepEqual(s.map(x=>x.email),['cliente@exemplo.com','solargreensuporte@gmail.com']);
-assert.equal(s[0].positions[2].x,'61.7'); assert.equal(s[1].positions[2].x,'3');
+assert.equal(s[0].positions[2].x,'65.3'); assert.equal(s[1].positions[2].x,'14.7');
+assert.equal(s[0].positions[2].y,'13'); assert.equal(s[1].positions[2].y,'13');
 assert.match(chamadas[1].payload,/signDocument/);
 
 // 4) Contrato comum sem e-mail continua recusado como antes.
