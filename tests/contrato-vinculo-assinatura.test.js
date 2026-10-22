@@ -41,9 +41,9 @@ assert.deepEqual(s.map(x=>x.name),['Isaias','Marah']);
 assert.ok(!s.some(x=>/solargreen/i.test(x.email)));
 // PDF de 3 páginas: marca no rodapé das páginas 1 e 2 e assinatura no topo da 3.
 assert.deepEqual(s[0].positions,[
-  {x:'7',y:'93',z:1,element:'SIGNATURE'},{x:'7',y:'93',z:2,element:'SIGNATURE'},{x:'3',y:'10',z:3,element:'SIGNATURE'}]);
+  {x:'7',y:'93',z:1,element:'SIGNATURE'},{x:'7',y:'93',z:2,element:'SIGNATURE'},{x:'14.7',y:'13',z:3,element:'SIGNATURE'}]);
 assert.deepEqual(s[1].positions,[
-  {x:'52.5',y:'93',z:1,element:'SIGNATURE'},{x:'52.5',y:'93',z:2,element:'SIGNATURE'},{x:'61.7',y:'10',z:3,element:'SIGNATURE'}]);
+  {x:'52.5',y:'93',z:1,element:'SIGNATURE'},{x:'52.5',y:'93',z:2,element:'SIGNATURE'},{x:'65.3',y:'13',z:3,element:'SIGNATURE'}]);
 assert.equal(r.link,'https://assina.ae/0 https://assina.ae/1','links achados mesmo com e-mail em outra caixa');
 assert.equal(linhas[0][3],'isaias@exemplo.com, marah@exemplo.com');
 

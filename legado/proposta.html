@@ -1406,8 +1406,8 @@ function blocoAssinaturaContratante(nomeCliente){
 }
 // Assinatura de uma das partes quando a Solar Green não assina (contrato de
 // vínculo com imóvel: Locador e Locatário). Mesma geometria do bloco do
-// CONTRATANTE, porque POSICOES_ASSINATURA_.vinculo_imovel (Code.gs) reaproveita
-// as posições já conferidas do monitoramento — mexer aqui obriga a medir de novo.
+// CONTRATANTE; POSICOES_ASSINATURA_.vinculo_imovel (Code.gs) foi medida no PDF
+// real com este bloco — mexer aqui obriga a medir de novo.
 function blocoAssinaturaParte(rotulo,nome,cpf){
   return '<div><div style="height:32px;"></div><div class="cp-sign-line">'+escH(rotulo)+' – '+escH(nome)+
     (cpf?'<br>CPF nº '+escH(cpf):'')+'</div></div>';
