@@ -33,7 +33,9 @@ const crypto = require('crypto');
 
 const CAMPANHA = 'r1';
 const DIAS_PARADO = 30;
-const MODELOS = { perdido: 'reativacao_perdido_v1', parado: 'reativacao_parado_v1' };
+// Um modelo só pros dois segmentos (decisão do Felipe, 2026-10-26): o texto não
+// cita proposta nem vendedor. O segmento continua no disparo pra notificação.
+const MODELOS = { perdido: 'reativacao_usina_v1', parado: 'reativacao_usina_v1' };
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 
 const args = process.argv.slice(2);
