@@ -83,7 +83,7 @@ const csv = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
   if (!ativos.length) { console.error('Nenhum vendedor ativo com WhatsApp. Nada a fazer.'); process.exit(1); }
   const ativoPorId = {}; ativos.forEach(v => { ativoPorId[v.id] = v; });
 
-  if (TESTE) return teste(ativoPorId);
+  if (TESTE) return teste(vendedores);
 
   const ps = await db.collection('funil_pipelines').get();
   let comercial = null; const papel = {};
@@ -190,13 +190,14 @@ const csv = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
 })().catch(e => { console.error('ERRO:', e.message); process.exit(1); });
 
 // Disparo de teste: um número qualquer, sem lead do funil. O Apps Script não
-// mexe em funil quando o disparo tem teste=true.
-async function teste(ativoPorId) {
+// mexe em funil quando o disparo tem teste=true. O "vendedor" do teste pode ser
+// qualquer usuário ativo com WhatsApp (ex.: o próprio Felipe), e "proprio" no
+// lugar do telefone usa o WhatsApp desse usuário como o do lead.
+async function teste(vendedores) {
   const [telBruto, nome] = TESTE.split(':');
-  const tel = e164(telBruto);
-  const v = ativoPorId[arg('--vendedor')];
-  if (!tel || !v) { console.error('Use --teste 5591XXXXXXXXX:Nome --vendedor <IdVendedor de um vendedor ativo>. Ativos: ' +
-    Object.values(ativoPorId).map(x => x.Nome + ' = ' + x.id).join(', ')); process.exit(1); }
+  const v = vendedores[arg('--vendedor')];
+  const tel = telBruto === 'proprio' && v ? e164(v.Telefone) : e164(telBruto);
+  if (!tel || !v || v.Status !== 'Ativo' || !e164(v.Telefone)) { console.error('Use --teste 5591XXXXXXXXX:Nome (ou proprio:Nome) --vendedor <IdVendedor ativo com WhatsApp>.'); process.exit(1); }
   const id = 'teste-' + crypto.randomBytes(4).toString('hex');
   const dados = {
     campanha: 'teste', idOportunidade: '', idVendedor: v.id, nomeVendedor: primeiroNome(v.Nome), telVendedor: e164(v.Telefone),
