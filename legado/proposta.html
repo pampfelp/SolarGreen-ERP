@@ -889,7 +889,7 @@ function newBlock(tipo){
   S.seq++;
   if(tipo==='plano')    return {bId:'b'+S.seq,calcTipo:'plano',    qtdModulos:7, lavagemUnit:LAVAGEM_UNIT, descricaoExtra:''};
   if(tipo==='desconto') return {bId:'b'+S.seq,calcTipo:'desconto', descDesc:'Desconto', descontoTipo:'pct', descontoVal:10, descricaoExtra:''};
-  return {bId:'b'+S.seq,calcTipo:'fixo', idServico:'', quantidade:1, valorUnit:0, custoBase:0, margemPct:30, descricaoExtra:''};
+  return {bId:'b'+S.seq,calcTipo:'fixo', idServico:'', quantidade:1, valorUnit:0, custoBase:0, margemPct:40, descricaoExtra:''};
 }
 
 function blkTotal(b){
@@ -991,7 +991,7 @@ function renderBlock(b){
     var calcHtml='';
     if(b.calcTipo==='fixo') calcHtml='<div class="field"><label>Valor total (R$)</label><input type="number" value="'+(b.valorUnit||0)+'" min="0" step="0.01" onchange="_bc(\''+b.bId+'\',\'valorUnit\',this.value)"></div>';
     else if(b.calcTipo==='modulo') calcHtml='<div class="frow"><div class="field"><label>Quantidade</label><input type="number" value="'+(b.quantidade||1)+'" min="1" step="1" onchange="_bc(\''+b.bId+'\',\'quantidade\',this.value)"></div><div class="field"><label>Valor unitário (R$)</label><input type="number" value="'+(b.valorUnit||0)+'" min="0" step="0.01" onchange="_bc(\''+b.bId+'\',\'valorUnit\',this.value)"></div></div>';
-    else calcHtml='<div class="frow"><div class="field"><label>Custo base (R$)</label><input type="number" value="'+(b.custoBase||0)+'" min="0" step="0.01" onchange="_bc(\''+b.bId+'\',\'custoBase\',this.value)"></div><div class="field"><label>Margem (%)</label><input type="number" value="'+(b.margemPct||30)+'" min="0" max="95" step="1" onchange="_bc(\''+b.bId+'\',\'margemPct\',this.value)"></div></div>';
+    else calcHtml='<div class="frow"><div class="field"><label>Custo base (R$)</label><input type="number" value="'+(b.custoBase||0)+'" min="0" step="0.01" onchange="_bc(\''+b.bId+'\',\'custoBase\',this.value)"></div><div class="field"><label>Margem (%)</label><input type="number" value="'+(b.margemPct||40)+'" min="0" max="95" step="1" onchange="_bc(\''+b.bId+'\',\'margemPct\',this.value)"></div></div>';
     var formula=''; if(b.calcTipo==='modulo')formula=b.quantidade+'×'+fmtMoney(b.valorUnit); else if(b.calcTipo==='custo'){var m2=Math.min(b.margemPct||0,95);formula=fmtMoney(b.custoBase)+' ÷ (1−'+m2+'%) = '+fmtMoney(blkTotal(b));} else formula='Valor fixo';
     // Select de tipo: desabilitado quando serviço tem tipo pré-determinado pela planilha
     var lockedAttr=(b._locked&&b.idServico)?'disabled style="opacity:.55;cursor:not-allowed;background:#f8fafc;"':'';
