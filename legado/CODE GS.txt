@@ -4364,6 +4364,8 @@ function conferirNotificacoes() {
 //   DISPARO_SEGREDO             segredo combinado com o Worker
 //   DISPARO_ATIVO               'sim' liga o envio; qualquer outra coisa pausa
 //   DISPARO_COTA_VENDEDOR_DIA   mensagens por vendedor por dia (padrão 25)
+//   DISPARO_PRAZO               prazo real da agenda da onda, vai no texto ("sexta-feira, 31/10");
+//                               sem ele nada é enviado
 //   WA_API_VERSAO               opcional, padrão v23.0
 
 var DISPARO_ETAPA_RETORNO = 'Retomar Contato';
@@ -4377,6 +4379,7 @@ function disparoProps_() {
     segredo: p.getProperty('DISPARO_SEGREDO') || '',
     ativo: p.getProperty('DISPARO_ATIVO') === 'sim',
     cota: Number(p.getProperty('DISPARO_COTA_VENDEDOR_DIA') || 25),
+    prazo: String(p.getProperty('DISPARO_PRAZO') || '').trim(),
     versao: p.getProperty('WA_API_VERSAO') || 'v23.0'
   };
 }
@@ -4400,7 +4403,7 @@ function disparoFim8_(tel) { return String(tel || '').replace(/\D/g, '').slice(-
 
 function disparoEnviarLote() {
   var props = disparoProps_();
-  if (!props.ativo || !props.token || !props.phoneId || !props.segredo) return;
+  if (!props.ativo || !props.token || !props.phoneId || !props.segredo || !props.prazo) return;
   // Só em horário comercial de Belém, de segunda a sexta, das 8h às 17h59.
   var agoraTxt = Utilities.formatDate(new Date(), 'America/Belem', 'u H yyyy-MM-dd').split(' ');
   var diaSemana = Number(agoraTxt[0]), hora = Number(agoraTxt[1]), hoje = agoraTxt[2];
@@ -4459,7 +4462,7 @@ function disparoMandarModelo_(props, d) {
       name: d.modelo, language: { code: 'pt_BR' },
       components: [
         { type: 'body', parameters: [
-          { type: 'text', text: d.nomeLead }, { type: 'text', text: d.nomeVendedor }, { type: 'text', text: d.referencia }
+          { type: 'text', text: d.nomeLead }, { type: 'text', text: d.referencia }, { type: 'text', text: props.prazo }
         ] },
         { type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: sufixo }] },
         { type: 'button', sub_type: 'quick_reply', index: '1', parameters: [{ type: 'payload', payload: 'SAIR:' + d._id }] }
@@ -4663,7 +4666,8 @@ function disparoInstalarGatilho() {
 function disparoConferir() {
   var p = disparoProps_();
   Logger.log('WA_TOKEN: ' + (p.token ? 'ok' : 'FALTA') + ' | WA_PHONE_ID: ' + (p.phoneId ? 'ok' : 'FALTA') +
-    ' | DISPARO_SEGREDO: ' + (p.segredo ? 'ok' : 'FALTA') + ' | DISPARO_ATIVO: ' + (p.ativo ? 'sim' : 'não') + ' | cota: ' + p.cota);
+    ' | DISPARO_SEGREDO: ' + (p.segredo ? 'ok' : 'FALTA') + ' | DISPARO_ATIVO: ' + (p.ativo ? 'sim' : 'não') + ' | cota: ' + p.cota +
+    ' | prazo: ' + (p.prazo || 'FALTA'));
   if (p.token && p.phoneId) {
     var resp = UrlFetchApp.fetch('https://graph.facebook.com/' + p.versao + '/' + p.phoneId + '?fields=display_phone_number,verified_name,quality_rating,messaging_limit_tier', {
       muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + p.token }
