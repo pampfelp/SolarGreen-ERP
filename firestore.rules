@@ -219,6 +219,21 @@ service cloud.firestore {
       allow delete: if isSignedIn();
     }
 
+    // Disparo de reativação pela API do WhatsApp (2026-10-26). Quem grava é
+    // o Apps Script e o _tools/preparar-disparo.js, com a conta de serviço
+    // (fora destas regras). O ERP só lê: o sininho lê interacoes_disparo.
+    match /disparos/{id} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+    match /interacoes_disparo/{id} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+    match /disparo_optout/{id} {
+      allow read, write: if false;
+    }
+
     // Tudo o que não faz parte desse piloto fica fechado por padrão.
     match /{document=**} {
       allow read, write: if false;

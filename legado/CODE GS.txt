@@ -79,6 +79,12 @@ function handleRequest(e) {
     // já existe em leads_site e não repete aviso, então chamar à toa não faz nada.
     if ((params.action || body.action) === 'avisarLeadSite') return jsonOutput(actionAvisarLeadSite(body));
 
+    // Disparo pela API do WhatsApp (2026-10-26): quem chama é o Worker da
+    // Cloudflare, com o segredo próprio do disparo (Script Property
+    // DISPARO_SEGREDO), nunca com a chave da API.
+    if ((params.action || body.action) === 'disparoToque')   return jsonOutput(actionDisparoToque(body));
+    if ((params.action || body.action) === 'disparoWebhook') return jsonOutput(actionDisparoWebhook(body));
+
     var chave = params.chave || body.chave || '';
     if (chave !== CONFIG.CHAVE_SECRETA) {
       return jsonOutput({ ok: false, erro: 'Chave inválida.' });
@@ -4332,4 +4338,338 @@ function conferirNotificacoes() {
   if (texto.indexOf('PERMISSION_DENIED') !== -1) Logger.log('Envio de push: BLOQUEADO. Falta o papel "Firebase Cloud Messaging API Admin" na conta de serviço, ou a API do Cloud Messaging (V1) está desativada.');
   else if (resp.getResponseCode() === 400) Logger.log('Envio de push: liberado.');
   else Logger.log('Envio de push: resposta inesperada (' + resp.getResponseCode() + '): ' + texto.slice(0, 300));
+}
+
+// =====================================================================
+//  DISPARO DE REATIVAÇÃO PELA API DO WHATSAPP (2026-10-26)
+// =====================================================================
+// A fila nasce em disparos/{id} pelo _tools/preparar-disparo.js, já com o
+// vendedor de cada lead (o dono, se está ativo; senão o rodízio). Daqui:
+//
+//   disparoEnviarLote   gatilho de hora em hora: manda o modelo aprovado pela
+//                       Meta, respeitando a cota diária por vendedor.
+//   disparoToque        o lead tocou no botão. O Worker já mandou a pessoa pro
+//                       WhatsApp do vendedor; aqui o funil e o aviso.
+//   disparoWebhook      mensagem que chegou no número do disparo: resposta em
+//                       texto, "Não quero receber" e status de entrega.
+//
+// Toda interação vira interacoes_disparo/{id} (o sininho do ERP lê dali) e
+// push "Fulano interagiu com o disparo" pro vendedor e pra gestão. A primeira
+// interação de cada lead também mexe no funil: dono passa a ser o vendedor do
+// disparo, atividade "Conversa no WhatsApp" e etapa "Retomar Contato".
+//
+// Script Properties (nenhuma vai pro repositório):
+//   WA_TOKEN                    token permanente do usuário do sistema da Meta
+//   WA_PHONE_ID                 id do número do disparo (Gerenciador do WhatsApp)
+//   DISPARO_SEGREDO             segredo combinado com o Worker
+//   DISPARO_ATIVO               'sim' liga o envio; qualquer outra coisa pausa
+//   DISPARO_COTA_VENDEDOR_DIA   mensagens por vendedor por dia (padrão 25)
+//   WA_API_VERSAO               opcional, padrão v23.0
+
+var DISPARO_ETAPA_RETORNO = 'Retomar Contato';
+var DISPARO_TEXTO_VENDEDOR = 'Oi, recebi a mensagem da Solar Green sobre a minha usina.';
+
+function disparoProps_() {
+  var p = PropertiesService.getScriptProperties();
+  return {
+    token: p.getProperty('WA_TOKEN') || '',
+    phoneId: p.getProperty('WA_PHONE_ID') || '',
+    segredo: p.getProperty('DISPARO_SEGREDO') || '',
+    ativo: p.getProperty('DISPARO_ATIVO') === 'sim',
+    cota: Number(p.getProperty('DISPARO_COTA_VENDEDOR_DIA') || 25),
+    versao: p.getProperty('WA_API_VERSAO') || 'v23.0'
+  };
+}
+
+function disparoSegredoOk_(body) {
+  var segredo = disparoProps_().segredo;
+  return !!segredo && String(body.segredo || '') === segredo;
+}
+
+// Assinatura do link do botão: o Worker só redireciona pra um número que o
+// próprio disparo gerou, então ninguém monta link da Solar Green apontando
+// pra outro WhatsApp.
+function disparoAssinatura_(token, telVendedor) {
+  var bytes = Utilities.computeHmacSha256Signature(token + '.' + telVendedor, disparoProps_().segredo);
+  return bytes.map(function (b) { return ('0' + (b & 255).toString(16)).slice(-2); }).join('').slice(0, 16);
+}
+
+function disparoFim8_(tel) { return String(tel || '').replace(/\D/g, '').slice(-8); }
+
+// ── Envio ──────────────────────────────────────────────────────────────
+
+function disparoEnviarLote() {
+  var props = disparoProps_();
+  if (!props.ativo || !props.token || !props.phoneId || !props.segredo) return;
+  // Só em horário comercial de Belém, de segunda a sexta, das 8h às 17h59.
+  var agoraTxt = Utilities.formatDate(new Date(), 'America/Belem', 'u H yyyy-MM-dd').split(' ');
+  var diaSemana = Number(agoraTxt[0]), hora = Number(agoraTxt[1]), hoje = agoraTxt[2];
+  if (diaSemana > 5 || hora < 8 || hora > 17) return;
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(1000)) return;
+  try {
+    var cfg = fbConfig_();
+    if (!cfg) return;
+    // Contagem do dia por vendedor, num documento só.
+    var cont = fsGet_(cfg, 'config/disparo_contagem');
+    var porVendedor = cont && cont.dados.data === hoje ? (cont.dados.porVendedor || {}) : {};
+    // A cota do dia se espalha pelas rodadas que ainda faltam (até as 17h).
+    var rodadasRestantes = 18 - hora;
+    var fila = fsConsulta_(cfg, 'disparos', 'status', 'fila', 300).filter(function (d) {
+      return !d.naoAntesDe || d.naoAntesDe <= Date.now();
+    }).sort(function (a, b) { return (a.ordem || 0) - (b.ordem || 0); });
+    var enviadosAgora = {};
+    fila.forEach(function (d) {
+      var v = String(d.idVendedor);
+      var feitos = Number(porVendedor[v] || 0);
+      var restante = props.cota - feitos;
+      if (restante <= 0) return;
+      var nestaRodada = Math.ceil(restante / rodadasRestantes);
+      if ((enviadosAgora[v] || 0) >= nestaRodada) return;
+      if (fsGet_(cfg, 'disparo_optout/' + disparoFim8_(d.telLead))) {
+        fsCommit_(cfg, [fsUpdate_(cfg, 'disparos/' + d._id, { status: 'saiu' })]);
+        return;
+      }
+      var r = disparoMandarModelo_(props, d);
+      if (r.ok) {
+        fsCommit_(cfg, [fsUpdate_(cfg, 'disparos/' + d._id, { status: 'enviado', wamid: r.wamid, enviadoEm: Date.now() })]);
+        enviadosAgora[v] = (enviadosAgora[v] || 0) + 1;
+        porVendedor[v] = feitos + 1;
+      } else if (r.codigo === 131049) {
+        // A Meta segurou por excesso de propaganda pra essa pessoa. Não cobra.
+        fsCommit_(cfg, [fsUpdate_(cfg, 'disparos/' + d._id, { naoAntesDe: Date.now() + 26 * 3600 * 1000, erro: r.erro })]);
+      } else {
+        fsCommit_(cfg, [fsUpdate_(cfg, 'disparos/' + d._id, { status: 'erro', erro: r.erro, erroCodigo: r.codigo || 0 })]);
+      }
+    });
+    var w = fsUpdate_(cfg, 'config/disparo_contagem', { data: hoje });
+    w.update.fields.porVendedor = fsValorRico_(porVendedor);
+    w.updateMask.fieldPaths.push('porVendedor');
+    fsCommit_(cfg, [w]);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function disparoMandarModelo_(props, d) {
+  var sufixo = d._id + '.' + d.telVendedor + '.' + disparoAssinatura_(d._id, d.telVendedor);
+  var corpo = {
+    messaging_product: 'whatsapp', to: d.telLead, type: 'template',
+    template: {
+      name: d.modelo, language: { code: 'pt_BR' },
+      components: [
+        { type: 'body', parameters: [
+          { type: 'text', text: d.nomeLead }, { type: 'text', text: d.nomeVendedor }, { type: 'text', text: d.referencia }
+        ] },
+        { type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: sufixo }] },
+        { type: 'button', sub_type: 'quick_reply', index: '1', parameters: [{ type: 'payload', payload: 'SAIR:' + d._id }] }
+      ]
+    }
+  };
+  return disparoGraph_(props, corpo);
+}
+
+function disparoGraph_(props, corpo) {
+  var resp = UrlFetchApp.fetch('https://graph.facebook.com/' + props.versao + '/' + props.phoneId + '/messages', {
+    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+    headers: { Authorization: 'Bearer ' + props.token }, payload: JSON.stringify(corpo)
+  });
+  var txt = resp.getContentText(), json = {};
+  try { json = JSON.parse(txt); } catch (e) { /* resposta fora do padrão: vai como texto no erro */ }
+  if (resp.getResponseCode() === 200 && json.messages && json.messages[0]) return { ok: true, wamid: json.messages[0].id };
+  var err = json.error || {};
+  return { ok: false, codigo: Number(err.code || 0), erro: String(err.message || txt).slice(0, 300) };
+}
+
+// Mensagem de texto livre: só vale dentro das 24h depois que o lead escreveu.
+function disparoMandarTexto_(props, para, texto) {
+  return disparoGraph_(props, { messaging_product: 'whatsapp', to: para, type: 'text', text: { body: texto, preview_url: true } });
+}
+
+// ── Toque no botão ─────────────────────────────────────────────────────
+
+function actionDisparoToque(body) {
+  if (!disparoSegredoOk_(body)) return { ok: false, erro: 'não autorizado' };
+  var token = String(body.token || '');
+  if (!/^[A-Za-z0-9_-]{1,80}$/.test(token)) return { ok: false, erro: 'token inválido' };
+  var cfg = fbConfig_();
+  if (!cfg) return { ok: false, erro: 'FIREBASE_SERVICE_ACCOUNT não configurada' };
+  var doc = fsGet_(cfg, 'disparos/' + token);
+  if (!doc) return { ok: false, erro: 'disparo não encontrado' };
+  var d = doc.dados; d._id = token;
+  return disparoRegistrar_(cfg, d, 'toque', '', 'toque-' + token);
+}
+
+// ── Mensagens que chegam no número do disparo ──────────────────────────
+
+function actionDisparoWebhook(body) {
+  if (!disparoSegredoOk_(body)) return { ok: false, erro: 'não autorizado' };
+  var cfg = fbConfig_();
+  if (!cfg) return { ok: false, erro: 'FIREBASE_SERVICE_ACCOUNT não configurada' };
+  var props = disparoProps_();
+  var feitos = 0;
+  ((body.payload || {}).entry || []).forEach(function (en) {
+    (en.changes || []).forEach(function (ch) {
+      var v = ch.value || {};
+      (v.messages || []).forEach(function (m) { if (disparoTratarMensagem_(cfg, props, m)) feitos++; });
+      (v.statuses || []).forEach(function (s) { disparoTratarStatus_(cfg, s); });
+    });
+  });
+  return { ok: true, interacoes: feitos };
+}
+
+function disparoTratarMensagem_(cfg, props, m) {
+  var d = null;
+  if (m.context && m.context.id) d = fsConsulta_(cfg, 'disparos', 'wamid', m.context.id, 1)[0] || null;
+  if (!d) {
+    // Sem citação: o disparo mais recente pra esse telefone.
+    d = fsConsulta_(cfg, 'disparos', 'telFim8', disparoFim8_(m.from), 5).sort(function (a, b) {
+      return (b.enviadoEm || 0) - (a.enviadoEm || 0);
+    })[0] || null;
+  }
+  if (!d) { console.log('Mensagem no número do disparo sem disparo correspondente (final ' + disparoFim8_(m.from).slice(-4) + ').'); return false; }
+
+  var payload = m.button && m.button.payload ? String(m.button.payload) : '';
+  if (payload.indexOf('SAIR') === 0 || (m.button && /não quero/i.test(m.button.text || ''))) {
+    fsCommit_(cfg, [
+      fsUpdate_(cfg, 'disparo_optout/' + disparoFim8_(m.from), { em: Date.now(), disparo: d._id }),
+      fsUpdate_(cfg, 'disparos/' + d._id, { status: 'saiu', saiuEm: Date.now() })
+    ]);
+    disparoMandarTexto_(props, m.from, 'Pronto, você não vai receber mais essas mensagens. Se um dia precisar, é só chamar a Solar Green.');
+    return false;
+  }
+
+  var texto = '';
+  if (m.type === 'text') texto = (m.text || {}).body || '';
+  else if (m.type === 'button') texto = (m.button || {}).text || '';
+  else texto = '[' + m.type + ']';
+  var r = disparoRegistrar_(cfg, d, 'resposta', texto, 'msg-' + String(m.id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(-60));
+  if (r.ok && r.acao === 'registrado') {
+    var link = 'https://wa.me/' + d.telVendedor + '?text=' + encodeURIComponent(DISPARO_TEXTO_VENDEDOR);
+    disparoMandarTexto_(props, m.from, 'Recebi, ' + d.nomeLead + '. Quem vai te atender é ' + d.nomeVendedor +
+      ', da Solar Green. Toque aqui pra falar direto: ' + link);
+  }
+  return r.ok;
+}
+
+function disparoTratarStatus_(cfg, s) {
+  if (s.status !== 'failed' && s.status !== 'delivered' && s.status !== 'read') return;
+  var d = fsConsulta_(cfg, 'disparos', 'wamid', s.id, 1)[0];
+  if (!d) return;
+  var campos = {};
+  if (s.status === 'delivered') campos.entregueEm = Date.now();
+  if (s.status === 'read') campos.lidoEm = Date.now();
+  if (s.status === 'failed') {
+    var e = (s.errors || [])[0] || {};
+    campos.status = 'erro'; campos.erroCodigo = Number(e.code || 0); campos.erro = String(e.title || e.message || 'falhou').slice(0, 300);
+  }
+  fsCommit_(cfg, [fsUpdate_(cfg, 'disparos/' + d._id, campos)]);
+}
+
+// ── Interação: antessala, funil e push ─────────────────────────────────
+
+function disparoRegistrar_(cfg, d, tipo, texto, idInteracao) {
+  var agora = Date.now();
+  var vendedores = vendedoresFs_(cfg), nomes = {}, gestao = [];
+  vendedores.forEach(function (v) {
+    nomes[String(v.IdVendedor)] = v.Nome || '';
+    if (ehGestaoAtivaFs_(v)) gestao.push(String(v.IdVendedor));
+  });
+  var registro = {
+    id: idInteracao, disparo: d._id, tipo: tipo, texto: String(texto || '').slice(0, 500),
+    idOportunidade: d.idOportunidade || '', idVendedor: String(d.idVendedor), nomeLead: d.nomeLeadCompleto || d.nomeLead,
+    segmento: d.segmento || '', criadoEmMs: agora
+  };
+  // Mesmo id duas vezes (o Worker ou a Meta repetiram) não cria nem avisa de novo.
+  var criou = fsCommit_(cfg, [fsUpdate_(cfg, 'interacoes_disparo/' + idInteracao, registro, { exists: false })]);
+  if (!criou) return { ok: true, acao: 'já registrado' };
+
+  if (!d.interagiuEm && d.idOportunidade && !d.teste) disparoMexerNoFunil_(cfg, d, tipo, texto, nomes);
+  if (!d.interagiuEm) fsCommit_(cfg, [fsUpdate_(cfg, 'disparos/' + d._id, { interagiuEm: agora })]);
+
+  var titulo = registro.nomeLead + ' interagiu com o disparo';
+  var corpo = (tipo === 'toque' ? 'Tocou no botão e foi pro seu WhatsApp' : 'Respondeu: "' + registro.texto.slice(0, 80) + '"') +
+    (d.segmento ? ' · ' + d.segmento : '');
+  var url = 'index.html?lead=' + (d.idOportunidade || '') + '&notif=disparo:' + idInteracao;
+  var vendedor = String(d.idVendedor);
+  enviarPush_(cfg, [vendedor], { titulo: titulo, corpo: corpo, url: url, tag: 'disparo-' + d._id, notifId: 'disparo:' + idInteracao });
+  enviarPush_(cfg, gestao.filter(function (g) { return g !== vendedor; }), {
+    titulo: titulo, corpo: corpo + ' · para ' + (nomes[vendedor] || 'vendedor'), url: url, tag: 'disparo-' + d._id, notifId: 'disparo:' + idInteracao
+  });
+  return { ok: true, acao: 'registrado' };
+}
+
+function disparoMexerNoFunil_(cfg, d, tipo, texto, nomes) {
+  var caminho = 'funil/' + d.idOportunidade;
+  var doc = fsGet_(cfg, caminho);
+  if (!doc) return;
+  var f = doc.dados, agoraIso = new Date().toISOString();
+  var campos = {}, extras = [];
+  if (String(f.IdVendedor || '') !== String(d.idVendedor)) {
+    campos.IdVendedor = String(d.idVendedor);
+    campos.VendedorAnterior = nomes[String(f.IdVendedor || '')] || String(f.IdVendedor || '');
+  }
+  if (f.Etapa !== DISPARO_ETAPA_RETORNO) {
+    campos.Etapa = DISPARO_ETAPA_RETORNO;
+    extras.push({ fieldPath: 'EtapasPassadas', appendMissingElements: { values: [fsValorRico_(DISPARO_ETAPA_RETORNO)] } });
+    extras.push({ fieldPath: 'Transicoes', appendMissingElements: { values: [fsValorRico_({ Etapa: DISPARO_ETAPA_RETORNO, Em: agoraIso })] } });
+  }
+  var obs = tipo === 'toque' ? 'Disparo de reativação: tocou no botão e foi pro WhatsApp do vendedor.'
+    : 'Disparo de reativação: respondeu "' + String(texto || '').slice(0, 200) + '".';
+  extras.push({ fieldPath: 'Atividades', appendMissingElements: { values: [fsValorRico_({ Tipo: 'Conversa no WhatsApp', Em: agoraIso, Observacao: obs })] } });
+  var w = fsUpdate_(cfg, caminho, campos, { exists: true });
+  w.updateTransforms = extras;
+  fsCommit_(cfg, [w]);
+}
+
+// ── Firestore: consulta por um campo e valores com mapa ────────────────
+
+function fsConsulta_(cfg, colecao, campo, valor, limite) {
+  var resp = fsPedir_(cfg, 'post', cfg.base + ':runQuery', { structuredQuery: {
+    from: [{ collectionId: colecao }],
+    where: { fieldFilter: { field: { fieldPath: campo }, op: 'EQUAL', value: fsValor_(valor) } },
+    limit: limite || 50
+  } });
+  if (resp.getResponseCode() !== 200) throw new Error('Firestore recusou a consulta em ' + colecao + ': ' + resp.getContentText().slice(0, 200));
+  return JSON.parse(resp.getContentText()).filter(function (r) { return r.document; }).map(function (r) {
+    var item = fsLerCampos_(r.document.fields || {});
+    item._id = r.document.name.split('/').pop();
+    return item;
+  });
+}
+
+function fsValorRico_(v) {
+  if (v && typeof v === 'object' && !Array.isArray(v)) {
+    var fields = {};
+    Object.keys(v).forEach(function (k) { fields[k] = fsValorRico_(v[k]); });
+    return { mapValue: { fields: fields } };
+  }
+  if (Array.isArray(v)) return { arrayValue: { values: v.map(fsValorRico_) } };
+  return fsValor_(v);
+}
+
+// ── Pelo editor ────────────────────────────────────────────────────────
+
+// Liga o envio de hora em hora. Rodar uma vez depois de configurar.
+function disparoInstalarGatilho() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'disparoEnviarLote') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('disparoEnviarLote').timeBased().everyHours(1).create();
+  Logger.log('Gatilho do disparo instalado: de hora em hora (só envia de segunda a sexta, 8h às 17h59, com DISPARO_ATIVO=sim).');
+}
+
+// Mostra o que falta configurar, sem imprimir nenhum segredo.
+function disparoConferir() {
+  var p = disparoProps_();
+  Logger.log('WA_TOKEN: ' + (p.token ? 'ok' : 'FALTA') + ' | WA_PHONE_ID: ' + (p.phoneId ? 'ok' : 'FALTA') +
+    ' | DISPARO_SEGREDO: ' + (p.segredo ? 'ok' : 'FALTA') + ' | DISPARO_ATIVO: ' + (p.ativo ? 'sim' : 'não') + ' | cota: ' + p.cota);
+  if (p.token && p.phoneId) {
+    var resp = UrlFetchApp.fetch('https://graph.facebook.com/' + p.versao + '/' + p.phoneId + '?fields=display_phone_number,verified_name,quality_rating,messaging_limit_tier', {
+      muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + p.token }
+    });
+    Logger.log('Número na Meta (' + resp.getResponseCode() + '): ' + resp.getContentText().slice(0, 300));
+  }
+  var cfg = fbConfig_();
+  if (cfg) Logger.log('Na fila: ' + fsConsulta_(cfg, 'disparos', 'status', 'fila', 1000).length);
 }

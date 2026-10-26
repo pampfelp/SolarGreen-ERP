@@ -17,7 +17,14 @@
   window.SGAuth={isAdmin:function(){ return !ehVendedor; },apiUrl:function(){ return ''; }};
   window.SGUtil={
     escapeHtml:function(s){ var d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; },
-    assinarColecao:function(n,cb){ if(n==='vendedores')cb([{IdVendedor:'V1',Nome:'Leonardo Lins'},{IdVendedor:'V2',Nome:'Marcilene Rodrigues'}]); }
+    assinarColecao:function(n,cb){
+      if(n==='vendedores')cb([{IdVendedor:'V1',Nome:'Leonardo Lins'},{IdVendedor:'V2',Nome:'Marcilene Rodrigues'}]);
+      // Disparo de reativação (2026-10-26): um toque no botão e uma resposta em texto.
+      if(n==='interacoes_disparo')cb([
+        {id:'toque-r1-op000010',tipo:'toque',texto:'',nomeLead:'Ana Paula Ferreira',idVendedor:'V1',idOportunidade:'op000010',segmento:'perdido',criadoEmMs:Date.now()-60000},
+        {id:'msg-abc',tipo:'resposta',texto:'Oi, quero sim, pode vir olhar',nomeLead:'Raimundo Costa',idVendedor:'V2',idOportunidade:'op000011',segmento:'parado',criadoEmMs:Date.now()-20*60000}
+      ]);
+    }
   };
   window.SGFireReady=Promise.resolve();
   window.SGToast={mostrar:function(t){ console.log('toast:',t); }};
@@ -40,7 +47,7 @@
   window.leadsSiteApp={init:function(){},aoAtualizar:function(fn){ ouvintes.push(fn); fn(window.__leads); }};
   window.__chegar=function(l){ window.__leads=window.__leads.concat([l]); ouvintes.forEach(function(f){ f(window.__leads); }); };
 </script>
-<script src="../js/notificacoes.js"></script>
+<script src="../js/notificacoes.js?v=20261026a"></script>
 <script>
   fetch('../index.html').then(function(r){ return r.text(); }).then(function(html){
     var doc=new DOMParser().parseFromString(html,'text/html');
