@@ -10,6 +10,11 @@
 // Lida/não lida fica em `notificacoes_lidas/{idVendedor}`, então ler no
 // celular apaga no computador. O push é mandado pelo Apps Script
 // (avisarLeadSite) pros aparelhos guardados em `push_tokens`.
+//
+// Desde 2026-10-26 entra também o disparo de reativação pela API do WhatsApp:
+// cada toque no botão ou resposta vira um documento em `interacoes_disparo`
+// (gravado pelo Apps Script) e aparece aqui como "Fulano interagiu com o
+// disparo", pro vendedor do lead e pra gestão.
 (function(){
   // Chave pública do certificado Web Push (Firebase > Configurações do
   // projeto > Cloud Messaging > Certificados push da Web). Vazia, o push fica
@@ -24,7 +29,7 @@
   var KEY_MOSTRADOS='sg_notif_mostrados'; // popups já mostrados neste aparelho
   var KEY_TOKEN='sg_push_token';
 
-  var _iniciado=false, _leads=null, _lidas=null, _todas=[], _vendedores={};
+  var _iniciado=false, _leads=null, _interacoes=[], _lidas=null, _todas=[], _vendedores={};
   var _mostrados=lerLocal(KEY_MOSTRADOS)||{};
   var _abertos={};   // popups na tela, por id
   var _fila=[];      // popups esperando a aba ficar visível
@@ -54,21 +59,43 @@
         out.push(Object.assign(base,{id:l.id+':'+l.status,tipo:l.status}));
       }
     });
-    return out.sort(function(a,b){ return b.ms-a.ms; }).slice(0,MAX_LISTA);
+    return out;
+  }
+  // Interações com o disparo: o vendedor vê as dele, a gestão vê todas.
+  function montarDisparo(lista){
+    var me=meuId(), gestao=souGestao(), corte=Date.now()-JANELA_LISTA_MS, out=[];
+    lista.forEach(function(x){
+      if((x.criadoEmMs||0)<corte||!(gestao||String(x.idVendedor)===me))return;
+      out.push({id:'disparo:'+x.id,tipo:'disparo',ms:x.criadoEmMs,nome:x.nomeLead||'Lead',acao:x.tipo,texto:x.texto||'',
+        segmento:x.segmento||'',idOportunidade:x.idOportunidade,idVendedor:x.idVendedor});
+    });
+    return out;
+  }
+  function recombinar(){
+    _todas=montar(_leads||[]).concat(montarDisparo(_interacoes)).sort(function(a,b){ return b.ms-a.ms; }).slice(0,MAX_LISTA);
   }
 
+  function ehAtencao(n){ return n.tipo==='suspeito'||n.tipo==='erro'; }
   function titulo(n){
     if(n.tipo==='suspeito')return 'Contato suspeito no site';
     if(n.tipo==='erro')return 'Contato do site não virou lead';
+    if(n.tipo==='disparo')return 'Disparo de reativação';
     return 'Novo lead do site';
   }
-  function linhaPrincipal(n){ return n.nome+(n.servico?' · '+n.servico:''); }
+  function linhaPrincipal(n){
+    if(n.tipo==='disparo')return n.nome+' interagiu com o disparo';
+    return n.nome+(n.servico?' · '+n.servico:'');
+  }
   function linhaDetalhe(n){
     var partes=[];
+    if(n.tipo==='disparo'){
+      partes.push(n.acao==='toque'?'tocou no botão':'"'+n.texto.slice(0,60)+'"');
+      if(n.segmento)partes.push(n.segmento);
+    }
     if(n.cidade)partes.push(n.cidade);
     partes.push(quando(n.ms));
-    if(n.tipo==='lead'&&souGestao())partes.push('para '+((_vendedores[n.idVendedor]||{}).Nome||'vendedor da vez'));
-    if(n.tipo!=='lead')partes.push('abrir Leads do site');
+    if((n.tipo==='lead'||n.tipo==='disparo')&&souGestao())partes.push('para '+((_vendedores[n.idVendedor]||{}).Nome||'vendedor da vez'));
+    if(ehAtencao(n))partes.push('abrir Leads do site');
     return partes.join(' · ');
   }
   function quando(ms){
@@ -141,10 +168,10 @@
     badge.style.display=naoLidas?'flex':'none';
     el('sg-notif-todas').style.display=naoLidas?'':'none';
     el('sg-notif-lista').innerHTML=_todas.length?_todas.map(function(n){
-      return '<div class="sg-notif-item'+(lida(n.id)?'':' nova')+(n.tipo!=='lead'?' atencao':'')+'" data-notif="'+esc(n.id)+'">'+
-        '<span class="sg-notif-ico">'+(n.tipo==='lead'?ICONE_SINO:ICONE_ALERTA)+'</span>'+
+      return '<div class="sg-notif-item'+(lida(n.id)?'':' nova')+(ehAtencao(n)?' atencao':'')+'" data-notif="'+esc(n.id)+'">'+
+        '<span class="sg-notif-ico">'+(ehAtencao(n)?ICONE_ALERTA:ICONE_SINO)+'</span>'+
         '<div class="sg-notif-txt"><div class="tag">'+esc(titulo(n))+'</div><div class="principal">'+esc(linhaPrincipal(n))+'</div><div class="sub">'+esc(linhaDetalhe(n))+'</div></div></div>';
-    }).join(''):'<div class="sg-notif-vazio">Nenhum lead do site nos últimos 30 dias.</div>';
+    }).join(''):'<div class="sg-notif-vazio">Nenhuma notificação nos últimos 30 dias.</div>';
     // Lido em outro aparelho: o popup daqui some também.
     Object.keys(_abertos).forEach(function(id){ if(lida(id))fecharPopup(id); });
   }
@@ -175,10 +202,10 @@
     var ids=Object.keys(_abertos);
     if(ids.length>=MAX_POPUPS)fecharPopup(ids[0]);
     var pop=document.createElement('div');
-    pop.className='sg-notif-pop'+(n.tipo!=='lead'?' atencao':'');
+    pop.className='sg-notif-pop'+(ehAtencao(n)?' atencao':'');
     pop.setAttribute('data-notif',n.id);
     pop.setAttribute('role','status');
-    pop.innerHTML='<span class="sg-notif-ico">'+(n.tipo==='lead'?ICONE_SINO:ICONE_ALERTA)+'</span>'+
+    pop.innerHTML='<span class="sg-notif-ico">'+(ehAtencao(n)?ICONE_ALERTA:ICONE_SINO)+'</span>'+
       '<div class="sg-notif-txt"><div class="tag">'+esc(titulo(n))+'</div><div class="principal">'+esc(linhaPrincipal(n))+'</div><div class="sub">'+esc(linhaDetalhe(n))+'</div></div>'+
       '<button type="button" class="sg-notif-x" aria-label="Fechar">'+ICONE_FECHAR+'</button>'+
       '<span class="sg-notif-tempo" style="animation-duration:'+DURACAO_POPUP_MS+'ms"></span>';
@@ -227,6 +254,7 @@
   // ── Abrir o que a notificação aponta ──────────────────────────────────
   function abrir(n){
     marcarLida([n.id]);
+    if(n.tipo==='disparo'){ if(n.idOportunidade)abrirDestino({lead:n.idOportunidade}); return; }
     abrirDestino(n.tipo==='lead'?{lead:n.idOportunidade}:{tela:'leadssite'});
   }
   function abrirDestino(d){
@@ -328,9 +356,15 @@
       },function(err){ console.error('Notificações: escuta de lidas caiu',err); _lidas=_lidas||{}; mostrarPopups(); });
     });
     window.leadsSiteApp.aoAtualizar(function(lista){
-      _leads=lista; _todas=montar(lista);
+      _leads=lista; recombinar();
       atualizarTela(); mostrarPopups();
     });
+    // Só os últimos 30 dias: a coleção cresce a cada disparo e o sininho não
+    // olha nada mais antigo que isso.
+    window.SGUtil.assinarColecao('interacoes_disparo',function(lista){
+      _interacoes=lista; recombinar();
+      atualizarTela(); mostrarPopups();
+    },{chave:'recentes',construirQuery:function(ref){ return ref.where('criadoEmMs','>=',Date.now()-JANELA_LISTA_MS); }});
     window.leadsSiteApp.init();
     // Texto de "há 5 min" envelhece; redesenha a cada minuto.
     setInterval(atualizarTela,60000);

@@ -34,3 +34,4 @@ desktop.ini
 
 # Saida do backfill de categorias dos custos: tem nome de funcionario e valores
 _tools/saida-categoria-custos/
+_tools/saida-disparo/
