@@ -292,7 +292,7 @@
   .combo-dropdown.hidden{display:none;}
   .combo-item{padding:10px 12px;font-size:13px;color:var(--ink);cursor:pointer;border-bottom:1px solid var(--bg);}
   .combo-item:last-child{border-bottom:none;}
-  .combo-item:hover{background:var(--bg);}
+  .combo-item:hover,.combo-item.ativo{background:var(--bg);}
   .combo-empty{padding:12px;font-size:12.5px;color:var(--ink-faint);text-align:center;}
   .combo-with-toggle{display:flex;gap:6px;align-items:stretch;}
   .combo-with-toggle .combo-wrap{flex:1;min-width:0;}

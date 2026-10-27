@@ -7,12 +7,13 @@
   // sem isso, essa tela só enxergaria ele depois de recarregar a página.
   document.addEventListener('sg:cliente-criado',function(e){ if(e.detail&&e.detail.IdCliente)clientesMap[e.detail.IdCliente]=e.detail; });
   var editandoId=null;
+  var descricaoEditadaManualmente=false;
   var categoriaSugerida='',categoriaTocada=false; // sugestão da DRE (js/dre-categorias.js) e se a pessoa já mexeu no campo
   var categoriaOrigemSugerida='regra',jevTimerCv=null; // 'regra' ou 'jev' (js/dre-jev.js): de onde veio a sugestão
   var ID_CLIENTE_APORTE_SOCIOS='da6dbd89'; // Cliente Teste 1 — gaveta de custo de escritório, não é venda real
   var paginaAtual=1, ITENS_POR_PAGINA=10;
   var sortState={col:'data',dir:'desc'};
-  var APP_VERSION='2026-07-16-1';
+  var APP_VERSION='2026-10-27-1';
 
   function apiCall(action,extra){ return window.SGAuth.apiCall(action,extra); }
   function meuId(){ return window.SGUtil.meuId(); }
@@ -59,6 +60,83 @@
       var da=parseBRDate(a.DataVenda),db=parseBRDate(b.DataVenda);
       return (db?db.getTime():0)-(da?da.getTime():0);
     }).map(function(v){ return {id:v.IdVenda,label:labelDaVenda(v.IdVenda)}; });
+  }
+
+  /** Venda de escritório mais recente: é onde cai a maior parte dos custos lançados no mês. */
+  function vendaEscritorioPadraoCv(){
+    return vendas.filter(ehVendaEscritorio).sort(function(a,b){
+      var da=parseBRDate(a.DataVenda),db=parseBRDate(b.DataVenda);
+      return (db?db.getTime():0)-(da?da.getTime():0);
+    })[0]||null;
+  }
+  /** Data do último custo que entrou no sistema; sem nenhum, hoje. */
+  function dataUltimoLancamentoCv(){
+    var ultimo=custos.filter(function(c){return c.CriadoEm;}).sort(function(a,b){return String(b.CriadoEm).localeCompare(String(a.CriadoEm));})[0];
+    return (ultimo&&parseBRDate(ultimo.Data))||new Date();
+  }
+
+  /**
+   * Descrições já lançadas, consolidadas (sem repetir maiúscula/acento), na
+   * ordem: começa com o termo, depois contém; dentro de cada, a mais usada
+   * primeiro. Cada uma traz a categoria do lançamento mais recente com ela.
+   */
+  function descricoesAnterioresCv(termo){
+    termo=normalizaBuscaCv(termo).trim();
+    if(!termo)return [];
+    var mapa={};
+    custos.forEach(function(c){
+      var texto=String(c.Descricao||'').trim(); if(!texto)return;
+      var chave=normalizaBuscaCv(texto);
+      if(chave.indexOf(termo)===-1)return;
+      var dt=parseBRDate(c.Data), ordem=(dt?dateKeyFromDate(dt):'')+String(c.CriadoEm||'');
+      var m=mapa[chave]||(mapa[chave]={texto:texto,qtd:0,ordem:'',categoria:'',ordemCat:''});
+      m.qtd++;
+      if(ordem>=m.ordem){ m.ordem=ordem; m.texto=texto; }
+      if(c.Categoria&&ordem>=m.ordemCat){ m.ordemCat=ordem; m.categoria=c.Categoria; }
+    });
+    return Object.keys(mapa).map(function(k){ var m=mapa[k]; m.comeca=k.indexOf(termo)===0; return m; })
+      .sort(function(a,b){ return (b.comeca-a.comeca)||(b.qtd-a.qtd)||a.texto.localeCompare(b.texto,'pt-BR'); })
+      .slice(0,8);
+  }
+  var sugestoesDescricaoCv=[],sugestaoAtivaCv=-1;
+  function mostrarSugestoesDescricaoCv(){
+    var dd=document.getElementById('cv-descricaoDropdown');
+    sugestoesDescricaoCv=descricoesAnterioresCv(document.getElementById('cv-descricao').value);
+    sugestaoAtivaCv=-1;
+    if(!sugestoesDescricaoCv.length){ dd.classList.add('hidden'); return; }
+    dd.innerHTML=sugestoesDescricaoCv.map(function(s,i){
+      return '<div class="combo-item" data-i="'+i+'" style="display:flex;justify-content:space-between;gap:10px;"><span>'+escapeHtml(s.texto)+'</span>'+
+        '<span style="color:var(--ink-faint);font-size:11.5px;white-space:nowrap;">'+s.qtd+(s.qtd===1?' lançamento':' lançamentos')+'</span></div>';
+    }).join('');
+    dd.querySelectorAll('.combo-item').forEach(function(item){
+      item.addEventListener('mousedown',function(e){ e.preventDefault(); escolherDescricaoCv(+item.getAttribute('data-i')); });
+    });
+    dd.classList.remove('hidden');
+  }
+  function esconderSugestoesDescricaoCv(){ document.getElementById('cv-descricaoDropdown').classList.add('hidden'); sugestaoAtivaCv=-1; }
+  /** Usa a descrição escolhida e, se a categoria ainda não foi mexida, a mesma categoria do último lançamento com ela. */
+  function escolherDescricaoCv(i){
+    var s=sugestoesDescricaoCv[i]; if(!s)return;
+    document.getElementById('cv-descricao').value=s.texto;
+    descricaoEditadaManualmente=true;
+    esconderSugestoesDescricaoCv();
+    if(s.categoria&&!categoriaTocada){
+      clearTimeout(jevTimerCv);
+      categoriaTocada=true; categoriaSugerida='';
+      document.getElementById('cv-categoria').value=s.categoria;
+      document.getElementById('cv-categoriaDica').textContent='Mesma categoria do último lançamento com essa descrição.';
+    }else sugerirCategoriaCv();
+  }
+  function teclaDescricaoCv(e){
+    var dd=document.getElementById('cv-descricaoDropdown');
+    if(dd.classList.contains('hidden')||!sugestoesDescricaoCv.length)return;
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+      e.preventDefault();
+      var n=sugestoesDescricaoCv.length;
+      sugestaoAtivaCv=e.key==='ArrowDown'?(sugestaoAtivaCv+1)%n:(sugestaoAtivaCv<=0?n-1:sugestaoAtivaCv-1);
+      dd.querySelectorAll('.combo-item').forEach(function(item,i){ item.classList.toggle('ativo',i===sugestaoAtivaCv); if(i===sugestaoAtivaCv)item.scrollIntoView({block:'nearest'}); });
+    }else if(e.key==='Enter'&&sugestaoAtivaCv>=0){ e.preventDefault(); escolherDescricaoCv(sugestaoAtivaCv); }
+    else if(e.key==='Escape'){ esconderSugestoesDescricaoCv(); }
   }
 
   function textoBuscavelCusto(c){
@@ -261,12 +339,16 @@
     var c=idCusto?custos.filter(function(x){return String(x.IdCusto)===String(idCusto);})[0]:null;
     editandoId=idCusto||null;
     document.getElementById('cvModalTitle').textContent=c?'Editar custo':'Novo custo';
-    var descricaoEditadaManualmente=!!c; // editando um já existente, não mexe na descrição sozinho
+    descricaoEditadaManualmente=!!c; // editando um já existente, não mexe na descrição sozinho
     categoriaTocada=!!(c&&c.Categoria); categoriaSugerida='';
+    // Custo novo (2026-10-27, pedido do Felipe): já vem na venda de escritório
+    // mais recente, com a data do último lançamento e como Pago, porque é
+    // assim que a maioria dos custos do mês é lançada, em lote e já paga.
+    var vendaInicial=c?c.IdVenda:(vendaEscritorioPadraoCv()||{}).IdVenda;
     window.SGCombo.criar({
       inputId:'cv-idVendaBusca', hiddenId:'cv-idVenda', dropdownId:'cv-idVendaDropdown',
       getOpcoes:opcoesVendaCv,
-      valorInicial:c&&c.IdVenda?{id:c.IdVenda,label:labelDaVenda(c.IdVenda)}:null,
+      valorInicial:vendaInicial?{id:vendaInicial,label:labelDaVenda(vendaInicial)}:null,
       onSelecionar:function(idVendaSelecionada){
         if(!descricaoEditadaManualmente)document.getElementById('cv-descricao').value=gerarDescricaoAutomaticaCv(idVendaSelecionada,document.getElementById('cv-valor').value);
         sugerirCategoriaCv();
@@ -274,12 +356,13 @@
     });
     document.getElementById('cv-descricao').value=c?(c.Descricao||''):'';
     document.getElementById('cv-valor').value=c?c.Valor:'';
-    var dt=c?parseBRDate(c.Data):new Date();
+    var dt=c?parseBRDate(c.Data):dataUltimoLancamentoCv();
     document.getElementById('cv-data').value=dt?dateKeyFromDate(dt):'';
-    document.getElementById('cv-status').value=c?(c.Status||'Aguardando Pagamento'):'Aguardando Pagamento';
+    document.getElementById('cv-status').value=c?(c.Status||'Aguardando Pagamento'):'Pago';
     document.getElementById('cv-excluirBtn').style.display=c?'block':'none';
     document.getElementById('cv-modalMsg').textContent='';
-    document.getElementById('cv-descricao').oninput=function(){ descricaoEditadaManualmente=true; sugerirCategoriaCv(); };
+    esconderSugestoesDescricaoCv();
+    document.getElementById('cv-descricao').oninput=function(){ descricaoEditadaManualmente=true; sugerirCategoriaCv(); mostrarSugestoesDescricaoCv(); };
     document.getElementById('cv-valor').oninput=function(){
       if(descricaoEditadaManualmente)return;
       document.getElementById('cv-descricao').value=gerarDescricaoAutomaticaCv(document.getElementById('cv-idVenda').value,document.getElementById('cv-valor').value);
@@ -421,6 +504,8 @@
     document.getElementById('cv-categoria').innerHTML=opcoesCategoriaHtml(true);
     document.getElementById('cv-selCategoria').innerHTML='<option value="__all__">Todas</option><option value="__sem__">A revisar (sem categoria)</option>'+opcoesCategoriaHtml(false);
     document.getElementById('cv-selCategoria').addEventListener('change',function(){ paginaAtual=1; render(); });
+    document.getElementById('cv-descricao').addEventListener('keydown',teclaDescricaoCv);
+    document.getElementById('cv-descricao').addEventListener('blur',function(){ setTimeout(esconderSugestoesDescricaoCv,150); });
     document.getElementById('cv-fecharBtn').addEventListener('click',fecharModal);
     document.getElementById('cv-salvarBtn').addEventListener('click',salvar);
     document.getElementById('cv-excluirBtn').addEventListener('click',excluir);
