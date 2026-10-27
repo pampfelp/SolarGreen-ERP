@@ -19,7 +19,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=20261008a">
+<link rel="stylesheet" href="css/app.css?v=20261027a">
 <link rel="stylesheet" href="css/faturamento.css?v=20261001e">
 <link rel="stylesheet" href="css/dashboard-dre.css?v=20261021a">
 </head>
@@ -1657,7 +1657,12 @@
         <div class="combo-dropdown hidden" id="cv-idVendaDropdown"></div>
       </div>
     </div>
-    <div class="uform-field"><label>Descrição</label><textarea id="cv-descricao" rows="3"></textarea></div>
+    <div class="uform-field"><label>Descrição</label>
+      <div class="combo-wrap">
+        <textarea id="cv-descricao" rows="3" autocomplete="off"></textarea>
+        <div class="combo-dropdown hidden" id="cv-descricaoDropdown"></div>
+      </div>
+    </div>
     <div class="uform-field"><label>Categoria (DRE)</label><select id="cv-categoria"></select><div id="cv-categoriaDica" style="font-size:11.5px;color:var(--ink-faint);margin-top:4px;"></div></div>
     <div class="uform-field"><label>Valor</label><input type="number" id="cv-valor" step="0.01" min="0"></div>
     <div class="uform-field"><label>Data</label><input type="date" id="cv-data"></div>
@@ -2040,7 +2045,7 @@
 <script src="js/agendamentos.js?v=20261007a"></script>
 <script src="js/clientes.js?v=20260930a"></script>
 <script src="js/relatorios.js?v=20260829f"></script>
-<script src="js/custos-venda.js?v=20261013b"></script>
+<script src="js/custos-venda.js?v=20261027a"></script>
 <script src="js/custo-recorrente.js?v=20260829f"></script>
 <script src="js/servicos.js?v=20260831b"></script>
 <script src="js/catalogo.js?v=20260829f"></script>
