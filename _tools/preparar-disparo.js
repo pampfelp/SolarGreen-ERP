@@ -6,17 +6,27 @@
  * Apps Script (disparoEnviarLote), de hora em hora, com cota por vendedor.
  *
  * Segmentos:
- *   perdido  lead na etapa de papel "perdido"
- *   parado   lead aberto (nem ganho nem perdido) sem movimento há 30+ dias
- *            (última transição de etapa ou atividade)
+ *   perdido    lead na etapa de papel "perdido"
+ *   parado     lead aberto sem movimento há 30+ dias (última transição de
+ *              etapa ou atividade)
+ *   aberto     lead aberto com movimento mais recente (entra desde 28/10)
+ *   sem funil  cliente do cadastro sem nenhum lead no funil: ganha um lead
+ *              "Novo Lead" no Comercial na hora de gravar (28/10)
  *
- * Dono: se o vendedor do lead está ativo e tem WhatsApp, fica com ele. Senão
- * o lead vai pro rodízio entre os vendedores ativos com WhatsApp (decisão do
- * Felipe, 2026-10-26). O IdVendedor do funil NÃO muda aqui: só muda quando o
- * lead interage (Apps Script).
+ * Regra de 28/10 (Felipe): entra todo mundo que não tem venda criada, menos
+ * as etapas Ganho, Negociação e Serviço Agendado (papel ganho ou proposta), e
+ * Gerar Proposta só com 20+ dias parado.
  *
- * Ficam de fora: telefone inválido, telefone que pediu pra sair
- * (`disparo_optout`) e o mesmo telefone em mais de um lead (vai o mais recente).
+ * Dono: se o vendedor do lead (ou o Vendedor Responsavel do cliente) está
+ * ativo e tem WhatsApp, fica com ele. Senão o lead vai pro rodízio entre os
+ * vendedores ativos com WhatsApp (decisão do Felipe, 2026-10-26). O IdVendedor
+ * de lead que já existe NÃO muda aqui: só muda quando o lead interage (Apps
+ * Script).
+ *
+ * Ficam de fora: cliente com venda (IdCliente ou telefone em `vendas`),
+ * telefone inválido, telefone que pediu pra sair (`disparo_optout`), telefone
+ * que já está em algum disparo e o mesmo telefone em mais de um lead (vai o
+ * mais recente).
  *
  * Uso (dentro de _tools/, com firebase-admin instalado):
  *   node preparar-disparo.js --key "C:\...\serviceAccount.json"            simulação + CSV
@@ -33,9 +43,15 @@ const crypto = require('crypto');
 
 const CAMPANHA = 'r1';
 const DIAS_PARADO = 30;
-// Um modelo só pros dois segmentos (decisão do Felipe, 2026-10-26): o texto não
-// cita proposta nem vendedor. O segmento continua no disparo pra notificação.
-const MODELOS = { perdido: 'reativacao_usina_v1', parado: 'reativacao_usina_v1' };
+const DIAS_PROPOSTA = 20;
+// Lead criado para cliente sem funil: o mesmo serviço e valor que os vendedores
+// usam no lead novo (Vistoria de Diagnóstico, R$ 400).
+const SERVICO_NOVO = 'c2ad6230', VALOR_NOVO = 400;
+// Sem data de contato, o "Em {{2}} a gente entrou em contato" vira "Em outra ocasião".
+const REFERENCIA_SEM_FUNIL = 'outra ocasião';
+// Um modelo só pra todos os segmentos (decisão do Felipe, 2026-10-26): o texto
+// não cita proposta nem vendedor. O segmento continua no disparo pra notificação.
+const MODELOS = { perdido: 'reativacao_usina_v1', parado: 'reativacao_usina_v1', aberto: 'reativacao_usina_v1', 'sem funil': 'reativacao_usina_v1' };
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 
 const args = process.argv.slice(2);
@@ -96,31 +112,63 @@ const csv = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
   });
   if (!comercial) { console.error('Pipeline Comercial não encontrado.'); process.exit(1); }
 
-  const [funil, optout, existentes] = await Promise.all([
+  const [funil, todoFunil, clientes, vendas, optout, existentes] = await Promise.all([
     db.collection('funil').where('Pipeline', '==', comercial)
       .select('Etapa', 'IdVendedor', 'IdCliente', 'Transicoes', 'Atividades', 'TelefoneCliente', 'NomeCliente').get(),
+    db.collection('funil').select('IdCliente', 'TelefoneCliente').get(),
+    db.collection('clientes').get(),
+    db.collection('vendas').select('IdCliente', 'TelefoneCliente').get(),
     db.collection('disparo_optout').get(),
-    db.collection('disparos').select().get()
+    db.collection('disparos').select('telFim8').get()
   ]);
   const saiu = new Set(); optout.forEach(d => saiu.add(d.id));
-  const jaNaFila = new Set(); existentes.forEach(d => jaNaFila.add(d.id));
+  const jaNaFila = new Set(), telNaFila = new Set();
+  existentes.forEach(d => { jaNaFila.add(d.id); telNaFila.add(d.get('telFim8')); });
+  // Quem tem venda criada fica de fora, achado pelo IdCliente ou pelo telefone.
+  const vendeuId = new Set(), vendeuTel = new Set();
+  vendas.forEach(d => {
+    const v = d.data();
+    if (v.IdCliente) vendeuId.add(String(v.IdCliente));
+    if (fim8(v.TelefoneCliente).length === 8) vendeuTel.add(fim8(v.TelefoneCliente));
+  });
+  const vendeu = (idCliente, tel) => (idCliente && vendeuId.has(String(idCliente))) || vendeuTel.has(fim8(tel));
+  const comFunilId = new Set(), comFunilTel = new Set();
+  todoFunil.forEach(d => {
+    const f = d.data();
+    if (f.IdCliente) comFunilId.add(String(f.IdCliente));
+    if (fim8(f.TelefoneCliente).length === 8) comFunilTel.add(fim8(f.TelefoneCliente));
+  });
 
   const agora = Date.now();
   const candidatos = [];
-  const fora = { semTelefone: 0, saiu: 0, telefoneRepetido: 0, jaNaFila: 0 };
+  const fora = { vendeu: 0, semTelefone: 0, saiu: 0, telefoneRepetido: 0, jaNaFila: 0 };
+  function aceitar(c) {
+    if (!c.tel) { fora.semTelefone++; return; }
+    if (saiu.has(fim8(c.tel))) { fora.saiu++; return; }
+    if (telNaFila.has(fim8(c.tel)) && !jaNaFila.has(CAMPANHA + '-' + c.idOportunidade)) { fora.jaNaFila++; return; }
+    candidatos.push(c);
+  }
   funil.forEach(doc => {
     const f = doc.data();
     const p = papel[f.Etapa] || '';
-    if (p === 'ganho') return;
+    if (p === 'ganho' || p === 'proposta') return;
     const ultimo = Math.max(ultimoEm(f.Transicoes), ultimoEm(f.Atividades));
-    let segmento;
-    if (p === 'perdido') segmento = 'perdido';
-    else if (ultimo && agora - ultimo >= DIAS_PARADO * 86400000) segmento = 'parado';
-    else return;
-    const tel = e164(f.TelefoneCliente);
-    if (!tel) { fora.semTelefone++; return; }
-    if (saiu.has(fim8(tel))) { fora.saiu++; return; }
-    candidatos.push({ idOportunidade: doc.id, f, segmento, ultimo, tel });
+    const dias = ultimo ? (agora - ultimo) / 86400000 : Infinity;
+    if (f.Etapa === 'Gerar Proposta' && dias < DIAS_PROPOSTA) return;
+    if (vendeu(f.IdCliente, f.TelefoneCliente)) { fora.vendeu++; return; }
+    const segmento = p === 'perdido' ? 'perdido' : dias >= DIAS_PARADO ? 'parado' : 'aberto';
+    aceitar({ idOportunidade: doc.id, f, segmento, ultimo, tel: e164(f.TelefoneCliente) });
+  });
+
+  // Cliente do cadastro sem nenhum lead no funil (em qualquer pipeline) e sem
+  // venda: ganha um lead novo, com id gerado aqui no formato do ERP.
+  clientes.forEach(doc => {
+    const c = doc.data();
+    const idCliente = String(c.IdCliente || doc.id);
+    if (comFunilId.has(idCliente) || comFunilTel.has(fim8(c.Telefone))) return;
+    if (vendeu(idCliente, c.Telefone)) { fora.vendeu++; return; }
+    const f = { IdCliente: idCliente, IdVendedor: c['Vendedor Responsavel'] || '', NomeCliente: c['Nome Razao Social'] || '', TelefoneCliente: c.Telefone };
+    aceitar({ idOportunidade: crypto.randomBytes(4).toString('hex'), f, segmento: 'sem funil', ultimo: 0, tel: e164(c.Telefone), novo: true });
   });
 
   // Mesmo telefone em mais de um lead: vai uma mensagem só, pelo lead mais recente.
@@ -133,13 +181,15 @@ const csv = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
   fora.telefoneRepetido = candidatos.length - unicos.length;
 
   // Dono ativo primeiro, depois o rodízio, sempre na mesma ordem (mais antigo
-  // primeiro), pra uma segunda simulação dar o mesmo resultado.
-  unicos.sort((a, b) => (a.ultimo || 0) - (b.ultimo || 0));
+  // primeiro), pra uma segunda simulação dar o mesmo resultado. A ordem
+  // continua depois dos disparos que já existem.
+  unicos.sort((a, b) => (a.ultimo || 0) - (b.ultimo || 0) || String(a.f.NomeCliente).localeCompare(String(b.f.NomeCliente)));
   let vez = 0;
   const fila = [];
   unicos.forEach((c, i) => {
     const id = CAMPANHA + '-' + c.idOportunidade;
     if (jaNaFila.has(id)) { fora.jaNaFila++; return; }
+    i += existentes.size;
     let v = ativoPorId[c.f.IdVendedor], redistribuido = false;
     if (!v) { v = ativos[vez % ativos.length]; vez++; redistribuido = true; }
     const nome = primeiroNome(c.f.NomeCliente);
@@ -151,9 +201,18 @@ const csv = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
         donoAnterior: c.f.IdVendedor || '', redistribuido,
         nomeLead: nome || 'tudo bem', nomeLeadCompleto: c.f.NomeCliente || '',
         telLead: c.tel, telFim8: fim8(c.tel),
-        segmento: c.segmento, modelo: MODELOS[c.segmento], referencia: mesReferencia(c.ultimo || agora),
+        segmento: c.segmento, modelo: MODELOS[c.segmento],
+        referencia: c.novo ? REFERENCIA_SEM_FUNIL : mesReferencia(c.ultimo || agora),
         status: 'fila', ordem: i, criadoEm: agora
-      }
+      },
+      // Lead novo no Comercial, do jeito que o salvarFunil do ERP grava.
+      funil: c.novo ? {
+        IdOportunidade: c.idOportunidade, IdCliente: c.f.IdCliente, IdVendedor: v.id, IdServico: SERVICO_NOVO,
+        Etapa: 'Novo Lead', Observacoes: 'Cliente sem funil incluído no disparo de reativação (' + new Date(agora).toLocaleDateString('pt-BR', { timeZone: 'America/Belem' }) + ').',
+        'Valor Estimado': VALOR_NOVO, MotivoPerda: '', NomeCliente: c.f.NomeCliente, TelefoneCliente: c.f.TelefoneCliente,
+        Pipeline: comercial, DataCriacao: new Date(agora).toLocaleDateString('en-CA', { timeZone: 'America/Belem' }),
+        EtapasPassadas: ['Novo Lead'], Transicoes: [{ Etapa: 'Novo Lead', Em: new Date(agora).toISOString() }]
+      } : null
     });
   });
 
@@ -165,7 +224,7 @@ const csv = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
   });
   console.log('Vendedores no disparo: ' + ativos.map(v => v.Nome).join(', '));
   Object.keys(resumo).sort().forEach(k => console.log('  ' + k + ': ' + resumo[k]));
-  console.log('Total na fila: ' + fila.length + ' | fora: ' + JSON.stringify(fora));
+  console.log('Total na fila: ' + fila.length + ' | leads novos no funil: ' + fila.filter(x => x.funil).length + ' | fora: ' + JSON.stringify(fora));
   console.log('Custo estimado (R$ 0,3217 por entregue): R$ ' + (fila.length * 0.3217).toFixed(2).replace('.', ','));
   const semNome = fila.filter(x => !primeiroNome(x.dados.nomeLeadCompleto)).length;
   if (semNome) console.log('Atenção: ' + semNome + ' lead(s) sem nome; a mensagem sai com "Oi, tudo bem".');
@@ -181,12 +240,17 @@ const csv = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
   console.log('CSV: ' + arquivo);
 
   if (!COMMIT) { console.log('\nSimulação. Nada foi gravado. Confira o CSV e rode de novo com --commit.'); return; }
-  for (let i = 0; i < fila.length; i += 400) {
+  // Lead novo e disparo no mesmo lote: um não existe sem o outro.
+  const { FieldValue } = require('firebase-admin/firestore');
+  for (let i = 0; i < fila.length; i += 200) {
     const lote = db.batch();
-    fila.slice(i, i + 400).forEach(({ id, dados }) => lote.create(db.collection('disparos').doc(id), dados));
+    fila.slice(i, i + 200).forEach(({ id, dados, funil }) => {
+      if (funil) lote.create(db.collection('funil').doc(funil.IdOportunidade), Object.assign({ CriadoEm: FieldValue.serverTimestamp() }, funil));
+      lote.create(db.collection('disparos').doc(id), dados);
+    });
     await lote.commit();
   }
-  console.log('\nGravados ' + fila.length + ' disparos com status "fila".');
+  console.log('\nGravados ' + fila.length + ' disparos com status "fila" e ' + fila.filter(x => x.funil).length + ' leads novos no funil.');
 })().catch(e => { console.error('ERRO:', e.message); process.exit(1); });
 
 // Disparo de teste: um número qualquer, sem lead do funil. O Apps Script não
