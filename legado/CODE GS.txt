@@ -4369,6 +4369,8 @@ function conferirNotificacoes() {
 //   WA_API_VERSAO               opcional, padrão v23.0
 
 var DISPARO_ETAPA_RETORNO = 'Retomar Contato';
+// Lead que já está nessas etapas não volta pra Retomar Contato quando interage.
+var DISPARO_ETAPAS_QUE_FICAM = ['Gerar Proposta'];
 var DISPARO_TEXTO_VENDEDOR = 'Oi, recebi a mensagem da Solar Green sobre a minha usina.';
 
 function disparoProps_() {
@@ -4613,7 +4615,7 @@ function disparoMexerNoFunil_(cfg, d, tipo, texto, nomes) {
     campos.IdVendedor = String(d.idVendedor);
     campos.VendedorAnterior = nomes[String(f.IdVendedor || '')] || String(f.IdVendedor || '');
   }
-  if (f.Etapa !== DISPARO_ETAPA_RETORNO) {
+  if (f.Etapa !== DISPARO_ETAPA_RETORNO && DISPARO_ETAPAS_QUE_FICAM.indexOf(f.Etapa) === -1) {
     campos.Etapa = DISPARO_ETAPA_RETORNO;
     extras.push({ fieldPath: 'EtapasPassadas', appendMissingElements: { values: [fsValorRico_(DISPARO_ETAPA_RETORNO)] } });
     extras.push({ fieldPath: 'Transicoes', appendMissingElements: { values: [fsValorRico_({ Etapa: DISPARO_ETAPA_RETORNO, Em: agoraIso })] } });
@@ -4721,10 +4723,10 @@ function disparoAtualizarPlanilha() {
   });
   var linhas = disparos.map(function (d) {
     var f = funil['funil/' + d.idOportunidade] || {};
-    var ult = ultimoAntes(f, d.criadoEm || Date.now());
+    var ult = d.segmento === 'sem funil' ? 0 : ultimoAntes(f, d.criadoEm || Date.now());
     return [
       d.nomeLeadCompleto || d.nomeLead || '',
-      nomes[String(f.IdVendedor || d.idVendedor)] || d.nomeVendedor || '',
+      nomes[String(d.idVendedor)] || d.nomeVendedor || '',
       ult ? new Date(ult) : '',
       f.Etapa || '(lead não encontrado)',
       situacao(d),
