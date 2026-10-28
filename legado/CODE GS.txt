@@ -4381,6 +4381,10 @@ function disparoProps_() {
     segredo: p.getProperty('DISPARO_SEGREDO') || '',
     ativo: p.getProperty('DISPARO_ATIVO') === 'sim',
     cota: Number(p.getProperty('DISPARO_COTA_VENDEDOR_DIA') || 25),
+    // Envio só de manhã, até essa hora (a tarde fica pro atendimento, pedido do Felipe em 28/10).
+    horaFim: Number(p.getProperty('DISPARO_HORA_FIM') || 12),
+    // A Meta limita contatos únicos em 24h móveis (250 sem empresa verificada). Fica uma folga.
+    limite24h: Number(p.getProperty('DISPARO_LIMITE_24H') || 240),
     prazo: String(p.getProperty('DISPARO_PRAZO') || '').trim(),
     versao: p.getProperty('WA_API_VERSAO') || 'v23.0'
   };
@@ -4406,10 +4410,17 @@ function disparoFim8_(tel) { return String(tel || '').replace(/\D/g, '').slice(-
 function disparoEnviarLote() {
   var props = disparoProps_();
   if (!props.ativo || !props.token || !props.phoneId || !props.segredo || !props.prazo) return;
-  // Só em horário comercial de Belém, de segunda a sexta, das 8h às 17h59.
-  var agoraTxt = Utilities.formatDate(new Date(), 'America/Belem', 'u H yyyy-MM-dd').split(' ');
-  var diaSemana = Number(agoraTxt[0]), hora = Number(agoraTxt[1]), hoje = agoraTxt[2];
+  // Só em horário comercial de Belém, de segunda a sexta, das 8h às 17h59. O
+  // acionador roda a cada 15 minutos; depois de DISPARO_HORA_FIM só atualiza a
+  // planilha, uma vez por hora, pra tarde mostrar quem interagiu.
+  var inicio = Date.now();
+  var agoraTxt = Utilities.formatDate(new Date(), 'America/Belem', 'u H m yyyy-MM-dd').split(' ');
+  var diaSemana = Number(agoraTxt[0]), hora = Number(agoraTxt[1]), minuto = Number(agoraTxt[2]), hoje = agoraTxt[3];
   if (diaSemana > 5 || hora < 8 || hora > 17) return;
+  if (hora >= props.horaFim) {
+    if (minuto < 15) try { disparoAtualizarPlanilha(); } catch (e) { console.error('Planilha do disparo: ' + e.message); }
+    return;
+  }
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(1000)) return;
   try {
@@ -4418,13 +4429,16 @@ function disparoEnviarLote() {
     // Contagem do dia por vendedor, num documento só.
     var cont = fsGet_(cfg, 'config/disparo_contagem');
     var porVendedor = cont && cont.dados.data === hoje ? (cont.dados.porVendedor || {}) : {};
-    // A cota do dia se espalha pelas rodadas que ainda faltam (até as 17h).
-    var rodadasRestantes = 18 - hora;
+    // A cota do dia se espalha pelas rodadas de 15 minutos que faltam até DISPARO_HORA_FIM.
+    var rodadasRestantes = Math.max(1, Math.ceil((props.horaFim * 60 - (hora * 60 + minuto)) / 15));
+    var livres = props.limite24h - disparoEnviados24h_(cfg);
     var fila = fsConsulta_(cfg, 'disparos', 'status', 'fila', 300).filter(function (d) {
       return !d.naoAntesDe || d.naoAntesDe <= Date.now();
     }).sort(function (a, b) { return (a.ordem || 0) - (b.ordem || 0); });
     var enviadosAgora = {};
     fila.forEach(function (d) {
+      // Limite da Meta e tempo do Apps Script (6 min por execução, com folga pra planilha).
+      if (livres <= 0 || Date.now() - inicio > 240000) return;
       var v = String(d.idVendedor);
       var feitos = Number(porVendedor[v] || 0);
       var restante = props.cota - feitos;
@@ -4439,6 +4453,7 @@ function disparoEnviarLote() {
       if (r.ok) {
         fsCommit_(cfg, [fsUpdate_(cfg, 'disparos/' + d._id, { status: 'enviado', wamid: r.wamid, enviadoEm: Date.now() })]);
         enviadosAgora[v] = (enviadosAgora[v] || 0) + 1;
+        livres--;
         porVendedor[v] = feitos + 1;
       } else if (r.codigo === 131049) {
         // A Meta segurou por excesso de propaganda pra essa pessoa. Não cobra.
@@ -4656,13 +4671,27 @@ function fsValorRico_(v) {
 
 // ── Pelo editor ────────────────────────────────────────────────────────
 
-// Liga o envio de hora em hora. Rodar uma vez depois de configurar.
+// Quantos contatos a Meta conta agora no limite de 24h: enviados nas últimas 24h
+// que não falharam (mensagem não entregue não conta pra Meta).
+function disparoEnviados24h_(cfg) {
+  var resp = fsPedir_(cfg, 'post', cfg.base + ':runQuery', { structuredQuery: {
+    from: [{ collectionId: 'disparos' }],
+    where: { fieldFilter: { field: { fieldPath: 'enviadoEm' }, op: 'GREATER_THAN_OR_EQUAL', value: fsValor_(Date.now() - 24 * 3600 * 1000) } },
+    select: { fields: [{ fieldPath: 'status' }] }
+  } });
+  if (resp.getResponseCode() !== 200) throw new Error('Firestore recusou a contagem de 24h: ' + resp.getContentText().slice(0, 200));
+  return JSON.parse(resp.getContentText()).filter(function (r) {
+    return r.document && !(r.document.fields && r.document.fields.status && r.document.fields.status.stringValue === 'erro');
+  }).length;
+}
+
+// Liga o envio a cada 15 minutos. Rodar uma vez depois de configurar.
 function disparoInstalarGatilho() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === 'disparoEnviarLote') ScriptApp.deleteTrigger(t);
   });
-  ScriptApp.newTrigger('disparoEnviarLote').timeBased().everyHours(1).create();
-  Logger.log('Gatilho do disparo instalado: de hora em hora (só envia de segunda a sexta, 8h às 17h59, com DISPARO_ATIVO=sim).');
+  ScriptApp.newTrigger('disparoEnviarLote').timeBased().everyMinutes(15).create();
+  Logger.log('Gatilho do disparo instalado: a cada 15 minutos (envia de segunda a sexta, das 8h até DISPARO_HORA_FIM, com DISPARO_ATIVO=sim).');
 }
 
 // Mostra o que falta configurar, sem imprimir nenhum segredo.
