@@ -4560,6 +4560,13 @@ function disparoTratarMensagem_(cfg, props, m) {
     return false;
   }
 
+  // Só a primeira mensagem do lead vira registro, aviso e resposta automática.
+  // Um robô de atendimento do outro lado responde a nossa resposta, e os dois
+  // ficavam conversando sem parar (Chumber Contabilidade, 28/10). Depois disso
+  // o lead já tem o link do vendedor.
+  if (d.respondeuEm) return false;
+  fsCommit_(cfg, [fsUpdate_(cfg, 'disparos/' + d._id, { respondeuEm: Date.now() })]);
+
   var texto = '';
   if (m.type === 'text') texto = (m.text || {}).body || '';
   else if (m.type === 'button') texto = (m.button || {}).text || '';
