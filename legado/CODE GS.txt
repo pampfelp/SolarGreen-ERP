@@ -4449,6 +4449,7 @@ function disparoEnviarLote() {
     w.update.fields.porVendedor = fsValorRico_(porVendedor);
     w.updateMask.fieldPaths.push('porVendedor');
     fsCommit_(cfg, [w]);
+    try { disparoAtualizarPlanilha(); } catch (e) { console.error("Planilha do disparo: " + e.message); }
   } finally {
     lock.releaseLock();
   }
@@ -4676,4 +4677,113 @@ function disparoConferir() {
   }
   var cfg = fbConfig_();
   if (cfg) Logger.log('Na fila: ' + fsConsulta_(cfg, 'disparos', 'status', 'fila', 1000).length);
+}
+
+// Relatório do disparo numa planilha Google, pedido do Felipe em 28/10: todos
+// os leads da campanha com nome, mês/ano do último movimento do funil antes do
+// disparo, etapa atual, resposta ao disparo e data de envio. A planilha nasce
+// na primeira execução (o id fica em DISPARO_PLANILHA_ID) e é refeita no fim
+// de cada rodada do disparoEnviarLote. Custo: ~1.100 leituras por atualização.
+function disparoAtualizarPlanilha() {
+  var cfg = fbConfig_();
+  if (!cfg) return;
+  var disparos = fsListar_(cfg, 'disparos').filter(function (d) { return !d.teste; });
+  var nomes = {};
+  vendedoresFs_(cfg).forEach(function (v) { nomes[String(v.IdVendedor)] = v.Nome || ''; });
+
+  // Quem respondeu conta como "Respondeu" mesmo que antes tenha só clicado.
+  var resposta = {};
+  fsListar_(cfg, 'interacoes_disparo').forEach(function (x) {
+    if (x.tipo === 'resposta' || !resposta[x.disparo]) resposta[x.disparo] = x.tipo;
+  });
+  function situacao(d) {
+    if (d.status === 'saiu') return 'Não quer receber';
+    if (d.status === 'fila') return 'Ainda não enviado';
+    if (d.status === 'erro') return 'Não entregue';
+    if (resposta[d._id] === 'resposta') return 'Respondeu';
+    if (resposta[d._id] === 'toque') return 'Clicou';
+    return 'Não interagiu';
+  }
+
+  // Mesmo critério do preparar-disparo.js: o Em mais recente de Transicoes e
+  // Atividades, só que antes da entrada na fila (a interação mexe no funil).
+  var funil = fsBatchGet_(cfg, disparos.map(function (d) { return 'funil/' + d.idOportunidade; }),
+    ['Etapa', 'IdVendedor', 'Transicoes', 'Atividades']);
+  function ultimoAntes(f, limite) {
+    return (f.Transicoes || []).concat(f.Atividades || []).reduce(function (m, x) {
+      var t = Date.parse(x && x.Em);
+      return !isNaN(t) && t < limite ? Math.max(m, t) : m;
+    }, 0);
+  }
+
+  disparos.sort(function (a, b) {
+    return (b.enviadoEm || 0) - (a.enviadoEm || 0) || (a.ordem || 0) - (b.ordem || 0);
+  });
+  var linhas = disparos.map(function (d) {
+    var f = funil['funil/' + d.idOportunidade] || {};
+    var ult = ultimoAntes(f, d.criadoEm || Date.now());
+    return [
+      d.nomeLeadCompleto || d.nomeLead || '',
+      nomes[String(f.IdVendedor || d.idVendedor)] || d.nomeVendedor || '',
+      ult ? new Date(ult) : '',
+      f.Etapa || '(lead não encontrado)',
+      situacao(d),
+      d.enviadoEm ? new Date(d.enviadoEm) : ''
+    ];
+  });
+
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty('DISPARO_PLANILHA_ID');
+  var ss = id ? SpreadsheetApp.openById(id) : SpreadsheetApp.create('Solar Green - Disparo de reativação');
+  if (!id) {
+    props.setProperty('DISPARO_PLANILHA_ID', ss.getId());
+    ss.setSpreadsheetTimeZone('America/Belem');
+  }
+
+  var aba = ss.getSheetByName('Leads') || ss.getSheets()[0].setName('Leads');
+  if (aba.getFilter()) aba.getFilter().remove();
+  aba.clear();
+  var cab = ['Nome', 'Vendedor', 'Último movimento no funil', 'Etapa atual no funil', 'Resposta ao disparo', 'Data de envio'];
+  aba.getRange(1, 1, 1, cab.length).setValues([cab]).setFontWeight('bold').setBackground('#003122').setFontColor('#ffffff');
+  if (linhas.length) {
+    aba.getRange(2, 1, linhas.length, cab.length).setValues(linhas);
+    aba.getRange(2, 3, linhas.length, 1).setNumberFormat('mm/yyyy');
+    aba.getRange(2, 6, linhas.length, 1).setNumberFormat('dd/mm/yyyy hh:mm');
+  }
+  aba.setFrozenRows(1);
+  aba.getRange(1, 1, linhas.length + 1, cab.length).createFilter();
+  aba.autoResizeColumns(1, cab.length);
+
+  var conta = {};
+  linhas.forEach(function (l) { conta[l[4]] = (conta[l[4]] || 0) + 1; });
+  var resumo = [['Atualizado em', new Date()], ['', ''], ['Resposta ao disparo', 'Leads']];
+  ['Clicou', 'Respondeu', 'Não quer receber', 'Não interagiu', 'Não entregue', 'Ainda não enviado'].forEach(function (t) {
+    resumo.push([t, conta[t] || 0]);
+  });
+  resumo.push(['Total', linhas.length]);
+  var res = ss.getSheetByName('Resumo') || ss.insertSheet('Resumo');
+  res.clear();
+  res.getRange(1, 1, resumo.length, 2).setValues(resumo);
+  res.getRange(1, 2).setNumberFormat('dd/mm/yyyy hh:mm');
+  res.getRange(3, 1, 1, 2).setFontWeight('bold');
+  res.getRange(resumo.length, 1, 1, 2).setFontWeight('bold');
+  res.autoResizeColumns(1, 2);
+  Logger.log('Planilha do disparo atualizada com ' + linhas.length + ' leads: ' + ss.getUrl());
+  return ss.getUrl();
+}
+
+// Lê vários documentos de uma vez (lotes de 100), só com os campos pedidos.
+function fsBatchGet_(cfg, caminhos, campos) {
+  var raiz = cfg.base.replace('https://firestore.googleapis.com/v1/', '');
+  var out = {};
+  for (var i = 0; i < caminhos.length; i += 100) {
+    var corpo = { documents: caminhos.slice(i, i + 100).map(function (c) { return raiz + '/' + c; }) };
+    if (campos) corpo.mask = { fieldPaths: campos };
+    var resp = fsPedir_(cfg, 'post', cfg.base + ':batchGet', corpo);
+    if (resp.getResponseCode() !== 200) throw new Error('Firestore recusou a leitura em lote: ' + resp.getContentText().slice(0, 200));
+    JSON.parse(resp.getContentText()).forEach(function (r) {
+      if (r.found) out[r.found.name.split('/documents/')[1]] = fsLerCampos_(r.found.fields || {});
+    });
+  }
+  return out;
 }
