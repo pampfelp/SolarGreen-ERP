@@ -144,6 +144,10 @@ const lista=bloco.match(/hasOnly\(\[([\s\S]*?)\]\)/);
 assert.ok(lista,'regra de create de disparos sem hasOnly');
 const naRegra=lista[1].match(/'([^']+)'/g).map(s=>s.slice(1,-1)).sort();
 assert.deepEqual(naRegra,R.CAMPOS_CRIACAO.slice().sort());
+// O update aceita só a marca de robô e a de remoção da campanha.
+const upd=bloco.match(/affectedKeys\(\)\s*\.hasOnly\(\[([\s\S]*?)\]\)/);
+assert.ok(upd,'regra de update de disparos sem affectedKeys().hasOnly');
+assert.deepEqual(upd[1].match(/'([^']+)'/g).map(s=>s.slice(1,-1)).sort(),['removidoEm','removidoPor','robo','roboDesmarcadoEm','roboDesmarcadoPor']);
 
 // ── Contagem (definições das telas) ──
 const lote=[
@@ -153,12 +157,14 @@ const lote=[
   {status:'saiu',enviadoEm:1,entregueEm:2},
   {status:'saiu'},                       // saiu antes de enviar: não conta como enviado
   {status:'erro',erroCodigo:131026},
-  {status:'erro',erroCodigo:131042}      // qualquer erro conta em "Não entregue" nos números
+  {status:'erro',erroCodigo:131042},     // qualquer erro conta em "Não entregue" nos números
+  {status:'fila',removidoEm:9},          // removido da campanha: não é "na fila", vira mensagem cancelada
+  {status:'enviado',enviadoEm:1,removidoEm:9}   // já enviado e depois removido: continua contando como enviado
 ];
 const n=R.contar(lote,0.5);
 assert.deepEqual(
-  {total:n.total,fila:n.fila,enviados:n.enviados,entregues:n.entregues,lidos:n.lidos,clicaram:n.clicaram,responderam:n.responderam,sairam:n.sairam,naoEntregues:n.naoEntregues,custo:n.custo},
-  {total:7,fila:1,enviados:3,entregues:3,lidos:1,clicaram:1,responderam:1,sairam:2,naoEntregues:2,custo:1.5}
+  {total:n.total,fila:n.fila,canceladas:n.canceladas,enviados:n.enviados,entregues:n.entregues,lidos:n.lidos,clicaram:n.clicaram,responderam:n.responderam,sairam:n.sairam,naoEntregues:n.naoEntregues,custo:n.custo},
+  {total:9,fila:1,canceladas:1,enviados:4,entregues:3,lidos:1,clicaram:1,responderam:1,sairam:2,naoEntregues:2,custo:2}
 );
 assert.equal(R.contar([{status:'enviado'}]).custo,0.32);   // custo padrão
 
@@ -168,6 +174,22 @@ assert.equal(R.statusDoContato([{status:'enviado',enviadoEm:1,lidoEm:2},{status:
 assert.equal(R.statusDoContato([{status:'enviado',enviadoEm:1,tocouEm:2},{status:'erro'}]),'erro');
 assert.equal(R.statusDoContato([{status:'enviado',enviadoEm:1,respondeuEm:2},{status:'erro'}]),'respondeu');
 assert.equal(R.statusDoContato([{status:'saiu',enviadoEm:1,respondeuEm:2}]),'saiu');
+// Removido da campanha: algum doc com removidoEm e nenhum envio depois dele.
+assert.equal(R.statusDoContato([{status:'fila',removidoEm:10}]),'removido');
+assert.equal(R.statusDoContato([{status:'enviado',enviadoEm:5,lidoEm:6,removidoEm:10},{status:'fila',removidoEm:10}]),'removido');
+assert.equal(R.statusDoContato([{status:'enviado',enviadoEm:5,removidoEm:10},{status:'enviado',enviadoEm:20}]),'enviado');   // saiu mensagem depois: vale o status real
+assert.equal(R.statusDoContato([{status:'fila',removidoEm:10},{status:'fila'}]),'removido');   // basta um doc marcado
+assert.equal(R.statusDoContato([{status:'fila'}]),'fila');                                     // devolvido (removidoEm apagado)
+// Remover e devolver não valem pra quem já saiu, respondeu ou falhou.
+assert.equal(R.podeRemover([{status:'enviado',enviadoEm:1}]),true);
+assert.equal(R.podeRemover([{status:'fila',removidoEm:10}]),false);
+assert.equal(R.podeRemover([{status:'saiu',enviadoEm:1}]),false);
+assert.equal(R.podeRemover([{status:'enviado',enviadoEm:1,respondeuEm:2}]),false);
+assert.equal(R.podeRemover([{status:'erro'}]),false);
+assert.equal(R.podeDevolver([{status:'fila',removidoEm:10}]),true);
+assert.equal(R.podeDevolver([{status:'enviado',enviadoEm:1,lidoEm:2,removidoEm:10}]),true);
+assert.equal(R.podeDevolver([{status:'saiu',enviadoEm:1,removidoEm:10}]),false);
+assert.equal(R.podeDevolver([{status:'fila'}]),false);
 
 // ── Importação ──
 const clientes=[{id:'k1',nome:'Já Existe',telefone:fmt('91',A)},{id:'k2',nome:'Sem fone',telefone:''}];
