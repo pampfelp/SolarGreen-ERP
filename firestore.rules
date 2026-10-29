@@ -235,7 +235,9 @@ service cloud.firestore {
     // a conta de serviço (fora destas regras).
     // Tela de campanhas (2026-10-29, disparos.html): o administrador CRIA o
     // disparo do passo 1 (sempre em fila, só com os campos de criação) e só
-    // mexe na marca de robô de um disparo existente. Ninguém apaga.
+    // mexe na marca de robô e na marca de remoção da campanha (removidoEm e
+    // removidoPor, que também pode apagar ao devolver o contato) de um disparo
+    // existente. Ninguém apaga.
     match /disparos/{id} {
       allow read: if isSignedIn();
       allow create: if isAdmin()
@@ -261,7 +263,7 @@ service cloud.firestore {
              ? request.resource.data.idOportunidade : 'c' + request.resource.data.idCliente) + '-p1';
       allow update: if isAdmin()
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['robo', 'roboDesmarcadoPor', 'roboDesmarcadoEm']);
+             .hasOnly(['robo', 'roboDesmarcadoPor', 'roboDesmarcadoEm', 'removidoEm', 'removidoPor']);
       allow delete: if false;
     }
     match /interacoes_disparo/{id} {
