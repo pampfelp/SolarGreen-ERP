@@ -9,6 +9,17 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function isSignedIn() { return request.auth != null; }
 
+    // Administrador (2026-10-29, tela de campanhas): o doc vendedores/{uid} da
+    // pessoa logada tem Tipo de chefia e Status Ativo. É a mesma lista de
+    // papéis de SG_ADMIN_ROLES (js/sg-auth.js) e ADMIN_ROLES do Code.gs.
+    function isAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/vendedores/$(request.auth.uid))
+        && get(/databases/$(database)/documents/vendedores/$(request.auth.uid)).data.Tipo.lower()
+             in ['admin', 'administrador', 'ceo', 'gestor', 'gerente']
+        && get(/databases/$(database)/documents/vendedores/$(request.auth.uid)).data.Status == 'Ativo';
+    }
+
     match /vendedores/{id} {
       allow read: if isSignedIn();
       allow write: if isSignedIn();
@@ -219,19 +230,63 @@ service cloud.firestore {
       allow delete: if isSignedIn();
     }
 
-    // Disparo de reativação pela API do WhatsApp (2026-10-26). Quem grava é
-    // o Apps Script e o _tools/preparar-disparo.js, com a conta de serviço
-    // (fora destas regras). O ERP só lê: o sininho lê interacoes_disparo.
+    // Disparo de reativação pela API do WhatsApp (2026-10-26). Quem manda e
+    // atualiza o andamento é o Apps Script e o _tools/preparar-disparo.js, com
+    // a conta de serviço (fora destas regras).
+    // Tela de campanhas (2026-10-29, disparos.html): o administrador CRIA o
+    // disparo do passo 1 (sempre em fila, só com os campos de criação) e só
+    // mexe na marca de robô de um disparo existente. Ninguém apaga.
     match /disparos/{id} {
       allow read: if isSignedIn();
-      allow write: if false;
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasOnly([
+          'campanha', 'idOportunidade', 'idCliente', 'idVendedor', 'nomeVendedor', 'telVendedor',
+          'nomeLead', 'nomeLeadCompleto', 'telLead', 'telFim8', 'segmento', 'modelo', 'referencia',
+          'ordem', 'status', 'passo', 'criadoEm'
+        ])
+        && request.resource.data.keys().hasAll([
+          'campanha', 'idOportunidade', 'idCliente', 'idVendedor', 'nomeVendedor', 'telVendedor',
+          'nomeLead', 'nomeLeadCompleto', 'telLead', 'telFim8', 'segmento', 'modelo', 'referencia',
+          'ordem', 'status', 'passo', 'criadoEm'
+        ])
+        && request.resource.data.status == 'fila'
+        && request.resource.data.passo == 1
+        && request.resource.data.campanha is string && request.resource.data.campanha.size() > 0
+        && request.resource.data.telFim8 is string && request.resource.data.telFim8.matches('^[0-9]{8}$')
+        && request.resource.data.telLead is string && request.resource.data.telLead.matches('^55[0-9]{10,11}$')
+        && request.resource.data.modelo is string && request.resource.data.modelo.size() > 0
+        && request.resource.data.ordem is number
+        && request.resource.data.criadoEm is number
+        && id == request.resource.data.campanha + '-' + (request.resource.data.idOportunidade != ''
+             ? request.resource.data.idOportunidade : 'c' + request.resource.data.idCliente) + '-p1';
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['robo', 'roboDesmarcadoPor', 'roboDesmarcadoEm']);
+      allow delete: if false;
     }
     match /interacoes_disparo/{id} {
       allow read: if isSignedIn();
       allow write: if false;
     }
+    // Opt-out antigo (botão "Não quero receber"): a página só lê, pra deixar
+    // esses contatos fora da seleção. Quem grava é o Apps Script.
     match /disparo_optout/{id} {
-      allow read, write: if false;
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+    // Campanhas (título, prazo, passos e modelos por tipo): só o admin escreve.
+    match /campanhas/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    // Conversas e modelos da Meta: só o Apps Script grava (conta de serviço).
+    match /mensagens_disparo/{id} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+    match /modelos_disparo/{id} {
+      allow read: if isSignedIn();
+      allow write: if false;
     }
 
     // Tudo o que não faz parte desse piloto fica fechado por padrão.
