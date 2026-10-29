@@ -1,15 +1,15 @@
 /* disparos.css: tela de campanhas de disparo (2026-10-29).
-   Cores só do Manual de Marca Solar Green (#78D800, #003122, #1E1E1E, #FFFFFF)
-   e tons delas; o vermelho de --debit é o único fora, só para erro.
-   Tipografia do manual: Unbounded Black nos títulos e números; a AmsiPro
-   (secundária) não tem licença web, então o texto usa Plus Jakarta Sans.
+   Fundo, texto e fontes iguais aos do ERP (css/app.css), pedido do Felipe:
+   fundo #F2F7F2, texto #1E1E1E, Unbounded 700 nos títulos e Inter no texto.
+   Destaques nas cores do Manual de Marca (#78D800, #003122); o vermelho de
+   --debit é o único fora, só para erro.
    Tokens com nome fixo. z-index: toast 400, modal sobre modal 350, modal 300, menu 250. */
 :root {
-  --bg: #ffffff;
+  --bg: #F2F7F2;
   --panel: #ffffff;
-  --ink: #003122;
-  --ink-soft: #565656;
-  --line: #d6dedc;
+  --ink: #1E1E1E;
+  --ink-soft: #5a6b5a;
+  --line: #dde8dd;
   --accent: #78D800;
   --credit: #003122;
   --debit: #c0392b;
@@ -19,8 +19,8 @@
   --lateral-largura: 188px;
   --barra-baixo: 64px;
   --raio: 12px;
-  --display: 'Unbounded', 'Plus Jakarta Sans', sans-serif;
-  --sans: 'Plus Jakarta Sans', 'Helvetica Neue', Arial, sans-serif;
+  --display: 'Unbounded', sans-serif;
+  --sans: 'Inter', 'Helvetica Neue', Arial, sans-serif;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -38,20 +38,20 @@ html.sg-locked body { visibility: hidden; }
 .lateral { background: var(--lateral); color: #fff; position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; padding: 22px 12px; z-index: 250; }
 .marca { display: flex; align-items: center; gap: 10px; padding: 0 6px 26px; text-decoration: none; }
 .marca { flex-direction: column; align-items: stretch; gap: 8px; }
-.marca-placa { display: block; background: #fff; border-radius: 10px; padding: 10px 12px; }
-.marca-placa img { display: block; width: 100%; height: auto; }
-.marca small { display: block; padding: 0 4px; font-family: var(--display); font-weight: 900; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--accent); }
+.marca-placa { display: block; padding: 0 4px; }
+.marca-placa img { display: block; width: 100%; max-width: 150px; height: auto; }
+.marca small { display: block; padding: 0 4px; font-size: 9.5px; letter-spacing: .18em; text-transform: uppercase; color: rgba(255, 255, 255, .35); font-weight: 500; }
 .topo-celular { display: none; }
 .menu { display: flex; flex-direction: column; gap: 4px; }
 .menu a { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 9px; color: rgba(255, 255, 255, .85); text-decoration: none; font-weight: 500; }
 .menu a:hover { background: rgba(255, 255, 255, .08); }
-.menu a.ativo { background: #fff; color: var(--ink); font-weight: 700; }
+.menu a.ativo { background: var(--accent); color: #003122; font-weight: 700; }
 .lateral .voltar { margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 10px 12px; color: rgba(255, 255, 255, .75); text-decoration: none; font-size: 13px; border-radius: 9px; }
 .lateral .voltar:hover { background: rgba(255, 255, 255, .08); color: #fff; }
 .principal { padding: 28px 32px 56px; min-width: 0; }
 .principal.com-rodape { padding-bottom: 120px; }
 
-h1, h2, h3 { font-family: var(--display); font-weight: 900; margin: 0; letter-spacing: -.01em; }
+h1, h2, h3 { font-family: var(--display); font-weight: 700; margin: 0; letter-spacing: -.01em; }
 h1 { font-size: 26px; line-height: 1.2; }
 h2 { font-size: 17px; }
 h3 { font-size: 14px; }
@@ -92,7 +92,7 @@ textarea.entrada { min-height: 130px; resize: vertical; line-height: 1.5; }
 .kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
 .kpi { background: var(--panel); border: 1px solid var(--ink); border-radius: var(--raio); padding: 14px 16px; min-width: 0; }
 .kpi .topo-kpi { display: flex; justify-content: space-between; align-items: center; color: var(--ink-soft); font-size: 14px; }
-.kpi .num { font-family: var(--display); font-weight: 900; font-size: 28px; line-height: 1.25; margin-top: 2px; overflow-wrap: anywhere; }
+.kpi .num { font-family: var(--display); font-weight: 700; font-size: 28px; line-height: 1.25; margin-top: 2px; overflow-wrap: anywhere; }
 .kpi.destaque .num { color: var(--debit); }
 
 /* ── Filtros ── */
@@ -183,7 +183,7 @@ button.cartao:hover { box-shadow: 0 6px 18px rgba(0, 49, 34, .12); }
 .rodape-fixo .resumo { display: flex; gap: 26px; flex-wrap: wrap; margin-right: auto; }
 .rodape-fixo .resumo div { display: flex; flex-direction: column; }
 .rodape-fixo .resumo small { color: var(--ink-soft); font-size: 12px; }
-.rodape-fixo .resumo b { font-family: var(--display); font-weight: 900; font-size: 17px; }
+.rodape-fixo .resumo b { font-family: var(--display); font-weight: 700; font-size: 17px; }
 .rodape-fixo .acoes { display: flex; gap: 10px; flex-wrap: wrap; }
 
 /* ── Modelos ── */
@@ -249,7 +249,7 @@ button.cartao:hover { box-shadow: 0 6px 18px rgba(0, 49, 34, .12); }
   .lateral .marca, .lateral .voltar { display: none; }
   .topo-celular { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -12px 0 16px; }
   .topo-celular img { height: 34px; width: auto; }
-  .topo-celular small { font-family: var(--display); font-weight: 900; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink); }
+  .topo-celular small { font-size: 9.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--ink-soft); font-weight: 500; }
   .menu { flex-direction: row; width: 100%; gap: 0; }
   .menu a { flex: 1; flex-direction: column; justify-content: center; gap: 3px; border-radius: 0; font-size: 12px; padding: 6px 4px; }
   .menu a.ativo { background: rgba(255, 255, 255, .14); color: #fff; box-shadow: inset 0 3px 0 var(--accent); }
