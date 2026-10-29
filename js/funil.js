@@ -1733,7 +1733,7 @@
     window.SGCombo.criar({
       inputId:'cr-origem', hiddenId:'cr-origemHidden', dropdownId:'cr-origemDropdown',
       getOpcoes:function(){
-        var def=['Tráfego pago','base resolve','indicação Bene'];
+        var def=['Tráfego pago','Base Resolve','indicação Bene'];
         var extra = Object.keys(clientesMap).map(function(k){return clientesMap[k].Origem;})
           .filter(function(x){return x && def.indexOf(x)===-1;}).filter(function(v,i,a){return a.indexOf(v)===i;}).sort();
         return def.concat(extra).map(function(o){return {id:o,label:o};});
