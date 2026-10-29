@@ -4489,6 +4489,8 @@ function disparoEnviarLote() {
       // Disparo sem campanha conhecida, ou de campanha que não está ativa, fica na fila.
       var camp = campanhas[d.campanha];
       if (!camp || camp.status !== 'ativa') return;
+      // Contato tirado da campanha pela tela (removidoEm) não recebe.
+      if (d.removidoEm) return;
       var prazo = String(camp.prazo || '').trim() || props.prazo;
       if (!prazo) return;
       var v = String(d.idVendedor);
@@ -4546,7 +4548,8 @@ function disparoAgendarPassos_(cfg, campanhas) {
     var existe = {}, interagiu = {};
     docs.forEach(function (x) {
       existe[x._id] = true;
-      if (x.interagiuEm || x.tocouEm || x.respondeuEm || x.status === 'saiu' || x.status === 'erro') interagiu[x.telFim8] = true;
+      // Quem interagiu, saiu, falhou ou foi tirado da campanha não recebe o passo seguinte.
+      if (x.interagiuEm || x.tocouEm || x.respondeuEm || x.removidoEm || x.status === 'saiu' || x.status === 'erro') interagiu[x.telFim8] = true;
     });
     docs.forEach(function (d) {
       var n = Number(d.passo || 1);
