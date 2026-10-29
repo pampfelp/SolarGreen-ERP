@@ -5,8 +5,8 @@
  * (sg_auth_session) e o papel de administrador é conferido aqui com a mesma lista
  * de SG_ADMIN_ROLES. A segurança de verdade fica nas firestore.rules.
  *
- * Telas: Campanhas, Detalhe, Nova campanha (e edição do rascunho), Contatos,
- * Modelos e Conversa (modal). As regras de negócio puras ficam em
+ * Telas: Campanhas, Detalhe (com remoção de contatos), Nova campanha (e edição do rascunho),
+ * Adicionar contatos a uma campanha ativa ou pausada, Contatos, Modelos e Conversa (modal). As regras de negócio puras ficam em
  * js/disparo-regras.js (também testadas em Node).
  */
 (function () {
@@ -26,7 +26,7 @@
   var LOTE = 400;
   var DICA_ADMIN = 'Só o administrador';
   var MES3 = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-  var STATUS_ROTULO = { fila: 'Na fila', enviado: 'Enviado', entregue: 'Entregue', lido: 'Lido', clicou: 'Clicou', respondeu: 'Respondeu', saiu: 'Saiu', erro: 'Não entregue' };
+  var STATUS_ROTULO = { fila: 'Na fila', enviado: 'Enviado', entregue: 'Entregue', lido: 'Lido', clicou: 'Clicou', respondeu: 'Respondeu', saiu: 'Saiu', erro: 'Não entregue', removido: 'Removido' };
   var RESP_ROTULO = { respondeu: 'Respondeu', clicou: 'Clicou', nao_interagiu: 'Não interagiu', nao_entregue: 'Não entregue', falha_envio: 'Falha de envio', saiu: 'Saiu', nunca: 'Nunca recebeu' };
   var TIPO_ROTULO = { perdido: 'Perdido', parado: 'Parado', aberto: 'Aberto', 'sem funil': 'Sem funil', importado: 'Importado' };
   var CAMPANHA_ROTULO = { rascunho: 'Rascunho', ativa: 'Ativa', pausada: 'Pausada', encerrada: 'Encerrada' };
@@ -464,7 +464,49 @@
       '<button type="button" class="btn" data-pg="1" aria-label="Próxima página"' + (pagina >= ultima ? ' disabled' : '') + '>' + ico('dir') + '</button></div>';
   }
 
-  // ══════════════ LISTA DE CONTATOS (Nova campanha e Contatos) ══════════════
+  // ══════════════ GRAVAÇÃO EM LOTES E DOCS DO PASSO 1 ══════════════
+  // Grava `ops` em lotes de LOTE. escrever(lote, op, db) põe a operação no lote;
+  // aoProgresso(ate, total) é opcional. Se falhar, o erro leva `feitos` (quantas já foram).
+  function emLotes(ops, escrever, aoProgresso) {
+    var db = firebase.firestore(), feitos = 0, cadeia = Promise.resolve();
+    for (var i = 0; i < ops.length; i += LOTE) (function (ini) {
+      cadeia = cadeia.then(function () {
+        var lote = db.batch();
+        ops.slice(ini, ini + LOTE).forEach(function (op) { escrever(lote, op, db); });
+        if (aoProgresso) aoProgresso(Math.min(ini + LOTE, ops.length), ops.length);
+        return lote.commit().then(function () { feitos = Math.min(ini + LOTE, ops.length); });
+      });
+    })(i);
+    return cadeia.then(function () { return feitos; }, function (err) { err.feitos = feitos; throw err; });
+  }
+
+  // Atualiza campos de vários docs de `disparos` (ids de doc), com barra de andamento só se passar de um lote.
+  function atualizarDisparos(ids, campos, titulo) {
+    var prog = ids.length > LOTE ? abrirProgresso(titulo, 'Gravando…') : null;
+    return emLotes(ids, function (lote, idDoc, db) { lote.update(db.collection('disparos').doc(idDoc), campos); }, prog ? function (ate, total) {
+      prog.definir('Gravando: ' + num(ate) + ' de ' + num(total) + '…', ate / total * 100);
+    } : null).then(function () { if (prog) prog.fechar(); }, function (err) { if (prog) prog.fechar(); throw err; });
+  }
+  function msgParou(err, unidade) {
+    return (err && err.feitos ? 'Parou no meio: ' + num(err.feitos) + ' ' + unidade + ' já foram gravados. Confira a tabela e repita para os que faltam. ' : '') + msgErro(err);
+  }
+
+  // Docs do passo 1 de uma lista de contatos (os mesmos campos que o Iniciar grava).
+  // Mesmo telefone em mais de um cadastro: sai uma mensagem só (o primeiro na ordem de envio).
+  function docsDoPasso1(contatos, campId, m1, ordemBase, agora) {
+    var itens = R.ordenarParaEnvio(contatos.map(function (c) { return { c: c, nome: c.nome, ultimo: c.ultimo }; }));
+    var visto = {}, unicos = [];
+    itens.forEach(function (x) { if (!visto[x.c.fim8]) { visto[x.c.fim8] = true; unicos.push(x.c); } });
+    var donos = R.atribuirDonos(unicos.map(function (c) { return { candidatos: c.candidatos }; }), derivar().ativos);
+    return unicos.map(function (c, i) {
+      return R.montarDisparo({
+        campanha: campId, idOportunidade: c.idOportunidade, idCliente: c.id, nomeCompleto: c.nome, telefone: c.tel, vendedor: donos[i].vendedor,
+        tipo: c.tipo, modelo: m1[c.tipo], ultimo: c.ultimo, ordem: ordemBase + i, agora: agora
+      });
+    });
+  }
+
+  // ══════════════ LISTA DE CONTATOS (Nova campanha, Adicionar e Contatos) ══════════════
   var FILTROS_CONTATO = [
     { chave: 'tipo', rotulo: 'Tipo de contato', valores: function (c) { return [c.tipo]; }, opcoes: function () { return R.TIPOS.map(function (t) { return { v: t, t: TIPO_ROTULO[t] }; }); } },
     { chave: 'funil', rotulo: 'Tem funil', valores: function (c) { return [c.temFunil ? 'sim' : 'nao']; }, opcoes: function () { return [{ v: 'sim', t: 'Sim' }, { v: 'nao', t: 'Não' }]; } },
@@ -499,6 +541,7 @@
   }
 
   // cfg: { sel: Set|null (seleção por id de contato), naCampanha: fn -> Set de telFim8, aoMudar: fn }
+  // Sem `sel` (tela Contatos) ninguém aparece riscado nem com motivo: o bloqueio só existe na seleção para campanha.
   function criarListaContatos(host, cfg) {
     var F = {};
     FILTROS_CONTATO.forEach(function (f) { F[f.chave] = new Set(); });
@@ -528,7 +571,7 @@
       var d = derivar();
       var na = cfg.naCampanha ? cfg.naCampanha() : null;
       return (d.contatos || []).map(function (c) {
-        c.motivo = R.motivoDeExclusao(c, d.optout, na);
+        c.motivo = selecionavel ? R.motivoDeExclusao(c, d.optout, na) : '';
         return c;
       });
     }
@@ -784,7 +827,8 @@
           var docs = (d.disparosPorCamp[c._id] || []).filter(filtra);
           var n = R.contar(docs, typeof c.custoPorMensagem === 'number' ? c.custoPorMensagem : CUSTO_PADRAO);
           fila += n.fila; enviados += n.enviados; resp += n.responderam; nao += n.naoEntregues; custo += n.custo;
-          var pct = n.total ? Math.round((n.total - n.fila) / n.total * 100) : 0;
+          var ativas = n.total - n.canceladas;
+          var pct = ativas ? Math.round((ativas - n.fila) / ativas * 100) : 0;
           return '<button type="button" class="cartao" data-id="' + esc(c._id) + '"><div class="cartao-topo">' + ico('whatsapp', 'wa') +
             '<span class="cartao-titulo">' + esc(c.titulo || 'Sem título') + '</span>' + selo(esc(c.status || 'rascunho'), CAMPANHA_ROTULO[c.status] || c.status || 'Rascunho') +
             '<span class="progresso-bloco"><span class="progresso" role="progressbar" aria-valuenow="' + pct + '" aria-valuemin="0" aria-valuemax="100"><i style="width:' + pct + '%"></i></span>' + pct + '%</span></div>' +
@@ -826,7 +870,8 @@
         chave: k, docs: ds, ult: ult, status: R.statusDoContato(ds), etapa: lead && lead.Etapa ? String(lead.Etapa) : 'Sem funil',
         donoNome: d.nomeVend(donoId) || ult.nomeVendedor || '', nome: ult.nomeLeadCompleto || ult.nomeLead || '',
         tel: R.formatarTelefone(ult.telLead), robo: ds.some(function (x) { return x.robo === true; }), enviadoEm: enviadoEm,
-        recente: enviadoEm || ult.criadoEm || 0
+        recente: enviadoEm || ult.criadoEm || 0,
+        removivel: R.podeRemover(ds), devolver: R.podeDevolver(ds)
       };
     }).sort(function (a, b) { return b.recente - a.recente; });
   }
@@ -836,19 +881,21 @@
     montar: function (el, args) {
       var id = args[0];
       var fVend = new Set(), fStatus = new Set(), fEtapa = new Set(), busca = '', pagina = 0;
+      var selRem = new Set(), porChave = {}, fatiaAtual = [], gerencia = false;
       el.innerHTML =
         '<a class="voltar-link" href="#/campanhas">' + ico('esq') + ' Voltar para campanhas</a>' +
         '<div class="topo"><div><div class="titulo-linha"><h1 data-r="titulo"></h1><span data-r="selo"></span></div></div>' +
-        '<div class="acoes"><span class="progresso-bloco" data-r="prog"></span><button type="button" class="btn hidden" data-r="acao"></button></div></div>' +
+        '<div class="acoes"><span class="progresso-bloco" data-r="prog"></span><button type="button" class="btn hidden" data-r="adicionar">' + ico('mais') + ' Adicionar contatos</button><button type="button" class="btn hidden" data-r="acao"></button></div></div>' +
         '<div data-r="kpis"></div>' +
         '<div class="filtros" data-r="filtros"></div>' +
-        '<div class="tabela-wrap"><table class="tabela"><thead><tr><th>Nome</th><th>Telefone</th><th>Dono do lead</th><th>Etapa no funil</th><th>Mensagem</th><th>Status</th><th>Último disparo</th><th></th></tr></thead><tbody data-r="corpo"></tbody></table></div>' +
+        '<div class="barra-selecao hidden" data-r="barra-sel"><button type="button" class="btn btn-fantasma" data-sel-acao="pagina">Selecionar a página</button><button type="button" class="btn btn-fantasma" data-sel-acao="todos">Selecionar todos os filtrados</button><button type="button" class="btn btn-fantasma" data-sel-acao="limpar">Limpar seleção</button><button type="button" class="btn btn-perigo" data-sel-acao="remover">Remover da campanha</button><span class="contador" data-r="contador"></span></div>' +
+        '<div class="tabela-wrap"><table class="tabela"><thead><tr><th class="col-caixa hidden" data-r="th-caixa" aria-label="Selecionar"></th><th>Nome</th><th>Telefone</th><th>Dono do lead</th><th>Etapa no funil</th><th>Mensagem</th><th>Status</th><th>Último disparo</th><th></th></tr></thead><tbody data-r="corpo"></tbody></table></div>' +
         '<div class="rodape-tabela" data-r="rodape"></div>';
       var barra = $('[data-r="filtros"]', el);
       var mV = criarMulti({ rotulo: 'Vendedor', opcoes: [], sel: fVend, aoMudar: function () { pagina = 0; desenhar(); } });
       var mS = criarMulti({
         rotulo: 'Status', sel: fStatus, aoMudar: function () { pagina = 0; desenhar(); },
-        opcoes: ['fila', 'enviado', 'entregue', 'lido', 'clicou', 'respondeu', 'saiu', 'erro'].map(function (k) { return { v: k, t: STATUS_ROTULO[k] }; })
+        opcoes: ['fila', 'enviado', 'entregue', 'lido', 'clicou', 'respondeu', 'saiu', 'erro', 'removido'].map(function (k) { return { v: k, t: STATUS_ROTULO[k] }; })
       });
       var mE = criarMulti({ rotulo: 'Etapa no funil', opcoes: [], sel: fEtapa, aoMudar: function () { pagina = 0; desenhar(); } });
       var campoBusca = document.createElement('input');
@@ -857,10 +904,28 @@
       campoBusca.addEventListener('input', function () { busca = campoBusca.value; pagina = 0; desenhar(); });
       [mV.el, mS.el, mE.el, campoBusca].forEach(function (x) { barra.appendChild(x); });
       var visiveis = [];
+      var bAdicionar = $('[data-r="adicionar"]', el);
+      somenteAdmin(bAdicionar);
+      bAdicionar.addEventListener('click', function () { irPara('#/campanha/' + encodeURIComponent(id) + '/adicionar'); });
 
       el.addEventListener('click', function (e) {
         var pg = e.target.closest('[data-pg]');
         if (pg) { pagina += Number(pg.getAttribute('data-pg')); desenhar(); return; }
+        var sa = e.target.closest('[data-sel-acao]');
+        if (sa) {
+          var a = sa.getAttribute('data-sel-acao');
+          var livres = function (l) { return l.filter(function (g) { return g.removivel; }); };
+          if (a === 'pagina') livres(fatiaAtual).forEach(function (g) { selRem.add(g.chave); });
+          else if (a === 'todos') livres(visiveis).forEach(function (g) { selRem.add(g.chave); });
+          else if (a === 'limpar') selRem.clear();
+          else if (a === 'remover') { removerGrupos(Array.from(selRem).map(function (k) { return porChave[k]; }).filter(function (g) { return g && g.removivel; })); return; }
+          desenhar();
+          return;
+        }
+        var rm = e.target.closest('[data-remover]');
+        if (rm) { removerGrupos([porChave[rm.getAttribute('data-remover')]].filter(function (g) { return g && g.removivel; })); return; }
+        var dv = e.target.closest('[data-devolver]');
+        if (dv) { devolverGrupo(porChave[dv.getAttribute('data-devolver')], dv); return; }
         var conv = e.target.closest('[data-conversa]');
         if (conv) {
           var g = visiveis.filter(function (x) { return x.chave === conv.getAttribute('data-conversa'); })[0];
@@ -870,6 +935,47 @@
         var rb = e.target.closest('[data-robo]');
         if (rb) desmarcarRobo(visiveis.filter(function (x) { return x.chave === rb.getAttribute('data-robo'); })[0], rb);
       });
+
+      el.addEventListener('change', function (e) {
+        var cx = e.target;
+        if (cx.type !== 'checkbox' || !cx.hasAttribute('data-sel')) return;
+        if (cx.checked) selRem.add(cx.getAttribute('data-sel')); else selRem.delete(cx.getAttribute('data-sel'));
+        contadorSel();
+      });
+      function contadorSel() {
+        $('[data-r="contador"]', el).textContent = num(selRem.size) + (selRem.size === 1 ? ' selecionado' : ' selecionados');
+        $('[data-sel-acao="remover"]', el).disabled = !selRem.size;
+      }
+
+      function removerGrupos(gs) {
+        if (!gs.length) return;
+        var n = gs.length;
+        confirmar({
+          titulo: 'Remover da campanha',
+          texto: num(n) + (n === 1 ? ' contato sai' : ' contatos saem') + ' desta campanha. Quem ainda não recebeu não vai receber; quem já recebeu não recebe as próximas mensagens. O que já foi enviado fica no histórico.',
+          ok: 'Remover', perigo: true
+        }).then(function (sim) {
+          if (!sim) return;
+          var uid = firebase.auth().currentUser ? firebase.auth().currentUser.uid : '';
+          var ids = [];
+          gs.forEach(function (g) { g.docs.forEach(function (x) { ids.push(x._id); }); });
+          atualizarDisparos(ids, { removidoEm: Date.now(), removidoPor: uid }, 'Removendo contatos').then(function () {
+            gs.forEach(function (g) { selRem.delete(g.chave); });
+            toast(num(n) + (n === 1 ? ' contato removido da campanha.' : ' contatos removidos da campanha.'));
+            desenhar();
+          }, function (err) { toast(msgParou(err, 'registros'), true); });
+        });
+      }
+
+      function devolverGrupo(g, btn) {
+        if (!g || !g.devolver) return;
+        btn.disabled = true;
+        var apagar = firebase.firestore.FieldValue.delete();
+        var ids = g.docs.filter(function (x) { return x.removidoEm; }).map(function (x) { return x._id; });
+        atualizarDisparos(ids, { removidoEm: apagar, removidoPor: apagar }, 'Devolvendo contato').then(function () {
+          toast('Contato devolvido à campanha.');
+        }, function (err) { btn.disabled = false; toast(msgParou(err, 'registros'), true); });
+      }
 
       function desmarcarRobo(g, btn) {
         if (!g) return;
@@ -913,8 +1019,16 @@
           };
           if (!SOU_ADMIN) somenteAdmin(acao);
         } else acao.classList.add('hidden');
+        bAdicionar.classList.toggle('hidden', camp.status !== 'ativa' && camp.status !== 'pausada');
 
         var grupos = gruposDaCampanha(d, camp);
+        porChave = {};
+        grupos.forEach(function (g) { porChave[g.chave] = g; });
+        // Só administrador mexe, e só enquanto a campanha ainda pode mandar mensagem.
+        gerencia = SOU_ADMIN && (camp.status === 'ativa' || camp.status === 'pausada');
+        $('[data-r="barra-sel"]', el).classList.toggle('hidden', !gerencia);
+        $('[data-r="th-caixa"]', el).classList.toggle('hidden', !gerencia);
+        Array.from(selRem).forEach(function (k) { if (!porChave[k] || !porChave[k].removivel) selRem.delete(k); });
         var vs = {}, es = {};
         grupos.forEach(function (g) { vs[g.ult.idVendedor] = d.nomeVend(g.ult.idVendedor) || g.ult.nomeVendedor || g.ult.idVendedor; es[g.etapa] = true; });
         mV.setOpcoes(Object.keys(vs).map(function (k) { return { v: k, t: vs[k] }; }).sort(function (a, b) { return a.t.localeCompare(b.t, 'pt-BR'); }));
@@ -927,13 +1041,16 @@
         var docs = [];
         base.forEach(function (g) { docs = docs.concat(g.docs); });
         var n = R.contar(docs, typeof camp.custoPorMensagem === 'number' ? camp.custoPorMensagem : CUSTO_PADRAO);
-        var pct = n.total ? Math.round((n.total - n.fila) / n.total * 100) : 0;
+        var ativas = n.total - n.canceladas;
+        var pct = ativas ? Math.round((ativas - n.fila) / ativas * 100) : 0;
+        var removidos = base.filter(function (g) { return g.status === 'removido'; }).length;
         $('[data-r="prog"]', el).innerHTML = '<span class="progresso"><i style="width:' + pct + '%"></i></span>' + pct + '%';
         $('[data-r="kpis"]', el).innerHTML = kpisHtml([
           { rotulo: 'Na fila', valor: num(n.fila), icone: 'relogio' }, { rotulo: 'Enviados', valor: num(n.enviados), icone: 'enviar' },
           { rotulo: 'Entregues', valor: num(n.entregues), icone: 'check' }, { rotulo: 'Lidos', valor: num(n.lidos), icone: 'check' },
           { rotulo: 'Clicaram', valor: num(n.clicaram), icone: 'cursor' }, { rotulo: 'Responderam', valor: num(n.responderam), icone: 'balao' },
-          { rotulo: 'Saíram', valor: num(n.sairam), icone: 'saida' }, { rotulo: 'Não entregue', valor: num(n.naoEntregues), icone: 'alerta', destaque: n.naoEntregues > 0 },
+          { rotulo: 'Saíram', valor: num(n.sairam), icone: 'saida' }, { rotulo: 'Removidos', valor: num(removidos), icone: 'fechar' },
+          { rotulo: 'Não entregue', valor: num(n.naoEntregues), icone: 'alerta', destaque: n.naoEntregues > 0 },
           { rotulo: 'Custo', valor: moeda(n.custo), icone: 'carteira' }
         ]);
 
@@ -944,18 +1061,22 @@
         });
         var ultima = Math.max(0, Math.ceil(visiveis.length / POR_PAGINA) - 1);
         if (pagina > ultima) pagina = ultima;
-        var fatia = visiveis.slice(pagina * POR_PAGINA, (pagina + 1) * POR_PAGINA);
+        var fatia = fatiaAtual = visiveis.slice(pagina * POR_PAGINA, (pagina + 1) * POR_PAGINA);
         $('[data-r="corpo"]', el).innerHTML = fatia.length ? fatia.map(function (g) {
           var u = g.ult;
           var quando = g.enviadoEm ? '<span title="' + esc(dataHora(g.enviadoEm)) + '">' + esc(haDias(g.enviadoEm)) + '</span>' : '<span class="suave">Na fila</span>';
-          return '<tr><td class="nome">' + esc(g.nome || 'Sem nome') + '</td><td class="nowrap">' + esc(g.tel) + '</td><td>' + esc(g.donoNome || '—') + '</td><td>' + esc(g.etapa) + '</td>' +
+          var caixa = gerencia ? '<td class="col-caixa">' + (g.removivel ? '<input type="checkbox" data-sel="' + esc(g.chave) + '" aria-label="Selecionar ' + esc(g.nome || 'contato') + '"' + (selRem.has(g.chave) ? ' checked' : '') + '>' : '') + '</td>' : '';
+          return '<tr>' + caixa + '<td class="nome">' + esc(g.nome || 'Sem nome') + '</td><td class="nowrap">' + esc(g.tel) + '</td><td>' + esc(g.donoNome || '—') + '</td><td>' + esc(g.etapa) + '</td>' +
             '<td class="nowrap">' + esc(TIPO_ROTULO[u.segmento] || u.segmento || '—') + ', passo ' + (u.passo || 1) + '</td>' +
             '<td>' + selo(g.status, STATUS_ROTULO[g.status]) + (g.robo ? ' ' + selo('robo', 'Robô') +
               (SOU_ADMIN ? ' <button type="button" class="btn btn-fantasma btn-mini" data-robo="' + esc(g.chave) + '">Desmarcar robô</button>' : '') : '') + '</td>' +
             '<td class="nowrap">' + quando + '</td>' +
-            '<td><button type="button" class="btn btn-fantasma" data-conversa="' + esc(g.chave) + '">Ver conversa</button></td></tr>';
-        }).join('') : '<tr><td colspan="8" class="vazio">' + (grupos.length ? 'Nenhum contato com esses filtros.' : 'Esta campanha ainda não tem contatos.') + '</td></tr>';
+            '<td><div class="acoes-linha"><button type="button" class="btn btn-fantasma" data-conversa="' + esc(g.chave) + '">Ver conversa</button>' +
+              (gerencia && g.removivel ? '<button type="button" class="btn btn-fantasma" data-remover="' + esc(g.chave) + '">Remover</button>' : '') +
+              (gerencia && g.devolver ? '<button type="button" class="btn btn-fantasma" data-devolver="' + esc(g.chave) + '">Devolver à campanha</button>' : '') + '</div></td></tr>';
+        }).join('') : '<tr><td colspan="' + (gerencia ? 9 : 8) + '" class="vazio">' + (grupos.length ? 'Nenhum contato com esses filtros.' : 'Esta campanha ainda não tem contatos.') + '</td></tr>';
         $('[data-r="rodape"]', el).innerHTML = paginaHtml(visiveis.length, pagina);
+        contadorSel();
       }
       desenhar();
       return { atualizar: desenhar };
@@ -1143,19 +1264,7 @@
         }
         gravarRascunho().then(function (ok) {
           if (!ok) throw new Error('Não foi possível salvar a campanha.');
-          var d = derivar(), agora = Date.now();
-          // Mesmo telefone em mais de um cadastro: sai uma mensagem só (o primeiro na ordem de envio).
-          var itens = R.ordenarParaEnvio(resumo().itens.map(function (c) { return { c: c, nome: c.nome, ultimo: c.ultimo }; }));
-          var visto = {}, unicos = [];
-          itens.forEach(function (x) { if (!visto[x.c.fim8]) { visto[x.c.fim8] = true; unicos.push(x.c); } });
-          var donos = R.atribuirDonos(unicos.map(function (c) { return { candidatos: c.candidatos }; }), d.ativos);
-          var base = L('disparos').length, m1 = N.passos[0].modelos, campId = N.id;
-          var docs = unicos.map(function (c, i) {
-            return R.montarDisparo({
-              campanha: campId, idOportunidade: c.idOportunidade, idCliente: c.id, nomeCompleto: c.nome, telefone: c.tel, vendedor: donos[i].vendedor,
-              tipo: c.tipo, modelo: m1[c.tipo], ultimo: c.ultimo, ordem: base + i, agora: agora
-            });
-          });
+          var docs = docsDoPasso1(resumo().itens, N.id, N.passos[0].modelos, L('disparos').length, Date.now());
           total = docs.length;
           var db = firebase.firestore(), cadeia = Promise.resolve();
           for (var i = 0; i < docs.length; i += LOTE) (function (ini) {
@@ -1192,6 +1301,110 @@
           if (!$('.passo :focus', el)) desenharPassos();
         }
       };
+    }
+  };
+
+  // ---------- 3b. Adicionar contatos a uma campanha ativa ou pausada ----------
+  // Rota #/campanha/<id>/adicionar. Grava só o passo 1, igual ao Iniciar; os passos seguintes o servidor agenda.
+  TELAS.adicionar = {
+    menu: 'campanhas', rodape: true, nec: ['campanhas', 'disparos', 'vendedores', 'funil', 'clientes', 'vendas', 'pipelines', 'optout', 'modelos'],
+    montar: function (el, args) {
+      var id = args[0];
+      var camp0 = derivar().campMap[id];
+      if (!camp0) { el.innerHTML = '<a class="voltar-link" href="#/campanhas">' + ico('esq') + ' Voltar para campanhas</a><div class="bloco vazio">Campanha não encontrada.</div>'; return {}; }
+      if (camp0.status !== 'ativa' && camp0.status !== 'pausada') { irPara('#/campanha/' + encodeURIComponent(id)); return {}; }
+      var S = { sel: new Set(), gravando: false };
+
+      el.innerHTML =
+        '<a class="voltar-link" href="#/campanha/' + encodeURIComponent(id) + '">' + ico('esq') + ' Voltar para a campanha</a>' +
+        '<div class="topo"><div><h1>Adicionar contatos</h1><p class="suave" style="margin:4px 0 0" data-r="camp"></p></div></div>' +
+        '<section class="bloco"><h2>Contatos</h2><p class="ajuda" style="margin-top:-6px" data-r="aviso"></p><div data-r="lista"></div></section>' +
+        '<div class="rodape-fixo"><div class="resumo"><div><small>Selecionados</small><b data-r="r-sel">0</b></div><div><small>Mensagens previstas</small><b data-r="r-msg">0</b></div>' +
+          '<div class="hidden" data-r="r-sem-box"><small>Sem modelo no passo 1</small><b data-r="r-sem">0</b></div><div><small>Custo estimado</small><b data-r="r-custo">R$ 0,00</b></div></div>' +
+          '<div class="acoes"><button type="button" class="btn btn-principal" data-r="adicionar">Adicionar à campanha</button></div></div>';
+      var bAdd = $('[data-r="adicionar"]', el);
+      somenteAdmin(bAdd);
+
+      function campAtual() { return derivar().campMap[id] || camp0; }
+      function modelos1() { var p = campAtual().passos; return p && p[0] && p[0].modelos ? p[0].modelos : {}; }
+      function custoMsg() { var c = campAtual().custoPorMensagem; return typeof c === 'number' && isFinite(c) ? c : CUSTO_PADRAO; }
+      function naCampanha() {
+        var s = new Set();
+        (derivar().disparosPorCamp[id] || []).forEach(function (x) { s.add(x.telFim8); });
+        return s;
+      }
+      var lista = criarListaContatos($('[data-r="lista"]', el), { sel: S.sel, naCampanha: naCampanha, aoMudar: rodape });
+
+      // Quem entra de verdade: selecionado, sem motivo de exclusão (inclusive "já está nesta campanha").
+      function resumo() {
+        var d = derivar(), na = naCampanha(), m1 = modelos1(), itens = [];
+        S.sel.forEach(function (cid) {
+          var c = d.contatosPorId[cid];
+          if (c && !R.motivoDeExclusao(c, d.optout, na)) itens.push(c);
+        });
+        var prev = itens.filter(function (c) { return !!m1[c.tipo]; });
+        return { selecionados: itens.length, previstas: prev.length, itens: prev, semModelo: itens.length - prev.length, custo: prev.length * custoMsg() };
+      }
+      function rodape() {
+        $('[data-r="camp"]', el).textContent = 'Campanha: ' + (campAtual().titulo || 'Sem título');
+        var m1 = modelos1();
+        var com = R.TIPOS.filter(function (t) { return !!m1[t]; }), sem = R.TIPOS.filter(function (t) { return !m1[t]; });
+        $('[data-r="aviso"]', el).textContent = com.length
+          ? 'Os contatos entram com a mensagem do passo 1 da campanha. Tipos com mensagem: ' + com.map(function (t) { return TIPO_ROTULO[t]; }).join(', ') + '.' +
+            (sem.length ? ' Contato de tipo sem modelo no passo 1 (' + sem.map(function (t) { return TIPO_ROTULO[t]; }).join(', ') + ') não recebe mensagem e não entra.' : '')
+          : 'O passo 1 desta campanha não tem nenhum modelo, então nenhum contato pode ser adicionado.';
+        var r = derivar().contatos ? resumo() : { selecionados: 0, previstas: 0, semModelo: 0, custo: 0 };
+        $('[data-r="r-sel"]', el).textContent = num(r.selecionados);
+        $('[data-r="r-msg"]', el).textContent = num(r.previstas);
+        $('[data-r="r-sem"]', el).textContent = num(r.semModelo);
+        $('[data-r="r-sem-box"]', el).classList.toggle('hidden', !r.semModelo);
+        $('[data-r="r-custo"]', el).textContent = moeda(r.custo);
+      }
+
+      // `ordem` continua depois da maior que a campanha já tem.
+      function proximaOrdem() {
+        var maior = -1;
+        (derivar().disparosPorCamp[id] || []).forEach(function (x) { if (typeof x.ordem === 'number' && x.ordem > maior) maior = x.ordem; });
+        return maior + 1;
+      }
+
+      bAdd.addEventListener('click', function () {
+        if (S.gravando) return;
+        var c = campAtual();
+        if (c.status !== 'ativa' && c.status !== 'pausada') { toast('Esta campanha não aceita mais contatos.', true); return; }
+        if (!derivar().ativos.length) { toast('Nenhum vendedor ativo com WhatsApp para receber os leads.', true); return; }
+        var r = resumo();
+        if (!r.previstas) { toast('Nenhum contato selecionado recebe mensagem no passo 1. Escolha contatos de tipos que tenham modelo.', true); return; }
+        var docs = docsDoPasso1(r.itens, id, modelos1(), proximaOrdem(), Date.now());
+        var n = docs.length;
+        confirmar({
+          titulo: 'Adicionar à campanha',
+          texto: '<b>' + num(n) + '</b> ' + (n === 1 ? 'contato entra' : 'contatos entram') + ' na campanha <b>' + esc(c.titulo || 'Sem título') + '</b>, com custo estimado de <b>' + moeda(n * custoMsg()) + '</b>. ' +
+            (c.status === 'ativa' ? 'Eles entram na fila e saem na próxima rodada do servidor.' : 'A campanha está pausada: eles ficam na fila e saem quando ela for retomada.') +
+            (r.semModelo ? ' ' + num(r.semModelo) + (r.semModelo === 1 ? ' contato selecionado é de um tipo sem modelo no passo 1 e não entra.' : ' contatos selecionados são de tipos sem modelo no passo 1 e não entram.') : ''),
+          ok: 'Adicionar'
+        }).then(function (sim) { if (sim) gravar(docs); });
+      });
+
+      function gravar(docs) {
+        S.gravando = true; bAdd.disabled = true;
+        var prog = abrirProgresso('Adicionando contatos', 'Gravando contatos…');
+        emLotes(docs, function (lote, x, db) { lote.set(db.collection('disparos').doc(x.id), x.dados); }, function (ate, total) {
+          prog.definir('Gravando contatos: ' + num(ate) + ' de ' + num(total) + '…', ate / total * 100);
+        }).then(function () {
+          prog.fechar();
+          toast(num(docs.length) + (docs.length === 1 ? ' contato adicionado.' : ' contatos adicionados.'));
+          irPara('#/campanha/' + encodeURIComponent(id));
+        }, function (err) {
+          prog.fechar();
+          S.gravando = false; if (SOU_ADMIN) bAdd.disabled = false;
+          toast(msgParou(err, 'contatos') + (err && err.feitos ? ' Quem já entrou aparece como "já está nesta campanha"; selecione os demais e adicione de novo.' : ''), true);
+        });
+      }
+
+      lista.atualizar();
+      rodape();
+      return { atualizar: function () { lista.atualizar(); rodape(); } };
     }
   };
 
@@ -1541,9 +1754,12 @@
     TELA_ATUAL = null; MONTADA = false;
     fecharTodosModais();
     var partes = (location.hash || '#/campanhas').replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
-    var def = TELAS[partes[0] || 'campanhas'];
+    var chave = partes[0] || 'campanhas', args = partes.slice(1);
+    // #/campanha/<id>/adicionar tem tela própria.
+    if (chave === 'campanha' && args[1] === 'adicionar') { chave = 'adicionar'; args = [args[0]]; }
+    var def = TELAS[chave];
     if (!def) { location.replace('#/campanhas'); return; }
-    ROTA_ATUAL = { def: def, args: partes.slice(1) };
+    ROTA_ATUAL = { def: def, args: args };
     marcarMenu(def.menu);
     garantir(def.nec);
     window.scrollTo(0, 0);

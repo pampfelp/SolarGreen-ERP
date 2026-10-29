@@ -196,11 +196,13 @@
   }
 
   // Números de uma lista de disparos (as definições valem em todas as telas).
+  // Doc removido da campanha (removidoEm) não conta como "na fila"; `canceladas` são essas mensagens
+  // que não vão mais sair (a tela tira do progresso).
   function contar(disparos, custoPorMensagem) {
-    var n = { total: 0, fila: 0, enviados: 0, entregues: 0, lidos: 0, clicaram: 0, responderam: 0, sairam: 0, naoEntregues: 0, custo: 0 };
+    var n = { total: 0, fila: 0, canceladas: 0, enviados: 0, entregues: 0, lidos: 0, clicaram: 0, responderam: 0, sairam: 0, naoEntregues: 0, custo: 0 };
     (disparos || []).forEach(function (d) {
       n.total++;
-      if (d.status === 'fila') n.fila++;
+      if (d.status === 'fila') { if (d.removidoEm) n.canceladas++; else n.fila++; }
       if (d.status === 'enviado' || (d.status === 'saiu' && d.enviadoEm)) n.enviados++;
       if (d.entregueEm) n.entregues++;
       if (d.lidoEm) n.lidos++;
@@ -216,6 +218,7 @@
 
   // Situação de um contato (todos os docs dele na campanha), pro selo da tabela.
   // Ordem de peso: saiu, respondeu, erro, clicou, lido, entregue, enviado, fila.
+  // "removido" vale por cima de todos, quando o contato foi tirado da campanha.
   var PESO_STATUS = { saiu: 8, respondeu: 7, erro: 6, clicou: 5, lido: 4, entregue: 3, enviado: 2, fila: 1 };
   function statusDoDisparo(d) {
     if (d.status === 'saiu') return 'saiu';
@@ -227,7 +230,7 @@
     if (d.status === 'enviado') return 'enviado';
     return 'fila';
   }
-  function statusDoContato(docs) {
+  function statusSemRemocao(docs) {
     var melhor = 'fila';
     (docs || []).forEach(function (d) {
       var s = statusDoDisparo(d);
@@ -235,6 +238,25 @@
     });
     return melhor;
   }
+  // Tirado da campanha: algum doc tem removidoEm e nenhum envio saiu depois da remoção mais recente.
+  function removidoDoContato(docs) {
+    var rem = 0, env = 0;
+    (docs || []).forEach(function (d) {
+      if (d.removidoEm && d.removidoEm > rem) rem = d.removidoEm;
+      if (d.enviadoEm && d.enviadoEm > env) env = d.enviadoEm;
+    });
+    return rem > 0 && !(env > rem);
+  }
+  function statusDoContato(docs) {
+    return removidoDoContato(docs) ? 'removido' : statusSemRemocao(docs);
+  }
+  // Status final: a pessoa saiu, respondeu ou o envio falhou. Nesses casos remover ou devolver não muda nada.
+  function statusFinal(docs) {
+    var s = statusSemRemocao(docs);
+    return s === 'saiu' || s === 'respondeu' || s === 'erro';
+  }
+  function podeRemover(docs) { return !removidoDoContato(docs) && !statusFinal(docs); }
+  function podeDevolver(docs) { return removidoDoContato(docs) && !statusFinal(docs); }
 
   // Importação: lê linhas { nome, telefone, etiqueta } e separa em novos, já cadastrados e pulados.
   // clientes: [{ id, nome, telefone }]; etiquetaPadrao vale pra linha sem etiqueta.
@@ -272,6 +294,7 @@
     ordenarParaEnvio: ordenarParaEnvio, respostaNaUltimaCampanha: respostaNaUltimaCampanha,
     motivoDeExclusao: motivoDeExclusao, chaveDoContato: chaveDoContato, idDoDisparo: idDoDisparo,
     montarDisparo: montarDisparo, contar: contar, statusDoDisparo: statusDoDisparo, statusDoContato: statusDoContato,
+    podeRemover: podeRemover, podeDevolver: podeDevolver,
     analisarImportacao: analisarImportacao
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
