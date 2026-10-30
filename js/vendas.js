@@ -63,7 +63,7 @@
   function nomeFor(id){var v=vendedoresMap[id];return(v&&v.Nome)||('Vendedor '+String(id).slice(0,8));}
 
   function processVendedores(list){vendedoresMap={};vendedoresAtivosVenda=[];list.forEach(function(v){if(!v.IdVendedor)return;vendedoresMap[v.IdVendedor]=v;if(isVendedorAtivo(v))vendedoresAtivosVenda.push(v.IdVendedor);});}
-  function processVendas(list){var out=[];list.forEach(function(o){if(!o.IdVenda)return;var dt=parseBRDate(o.DataVenda);if(!dt)return;out.push({idVenda:o.IdVenda,idCliente:o.IdCliente,idServico:o.IdServico,idVendedor:o.IdVendedor,dt:dt,dateKey:dateKey(dt),valor:parseBRNumber(o.Valor),nomeCliente:(o.NomeCliente||'').trim(),telefoneCliente:(o.TelefoneCliente||'').trim()});});return out;}
+  function processVendas(list){var out=[];list.forEach(function(o){if(!o.IdVenda)return;var dt=parseBRDate(o.DataVenda);if(!dt)return;out.push({idVenda:o.IdVenda,idCliente:o.IdCliente,idServico:o.IdServico,idVendedor:o.IdVendedor,dt:dt,dateKey:dateKey(dt),valor:parseBRNumber(o.Valor),nomeCliente:(o.NomeCliente||'').trim(),telefoneCliente:(o.TelefoneCliente||'').trim(),osVinculadas:Array.isArray(o.OsVinculadas)?o.OsVinculadas:undefined});});return out;}
 
   /**
    * Preenche clientesMap com o nome já gravado em cada venda
@@ -639,32 +639,91 @@
       .map(function(v){return {id:v.IdVendedor,label:v.Nome};});
   }
 
-  function abrirModalVenda(idVenda){
+  // Bloco "Quitar OS deste cliente" do modal (aba Cobrança). osEstadoVenda guarda
+  // só o que a pessoa mexeu ou o que veio pré-marcado; o resto vem do vínculo já
+  // existente. osBlocoVisivelVenda decide se a venda grava OsVinculadas: bloco
+  // escondido = não envia o campo, e a venda segue elegível ao vínculo automático.
+  var osEstadoVenda={},osBlocoVisivelVenda=false,agendamentosVendas=[],_agendamentosAssinadosVendas=false;
+  function garantirAgendamentosVendas(){
+    if(_agendamentosAssinadosVendas)return;
+    _agendamentosAssinadosVendas=true;
+    window.SGFireReady.then(function(){
+      window.SGUtil.assinarColecao('agendamentos',function(lista){
+        agendamentosVendas=lista;
+        if(!document.getElementById('vendaModal').classList.contains('hidden'))atualizarBlocoOSVenda();
+      });
+    });
+  }
+  function atualizarBlocoOSVenda(){
+    var bloco=document.getElementById('vm-osBloco'),lista=document.getElementById('vm-osLista');
+    var idCliente=document.getElementById('vm-cliente').value;
+    osBlocoVisivelVenda=false;
+    bloco.classList.add('hidden');
+    if(!idCliente||!window.SGCobrancaRegra)return;
+    garantirAgendamentosVendas(); // só aqui: quem nunca escolhe cliente não paga essa leitura
+    var linhas=window.SGCobrancaRegra.classificar({
+      agendamentos:agendamentosVendas.filter(function(a){return a.IdCliente===idCliente;}),
+      vendas:dadosBrutosVendas.vendas,clientes:[],hoje:new Date()
+    });
+    var idVenda=vendaAtual?vendaAtual.idVenda:null;
+    var itens=[];
+    linhas.forEach(function(l){
+      var ligadaAqui=!!idVenda&&l.vendasLigadas.some(function(x){return String(x.idVenda)===String(idVenda);});
+      var comSaldo=l.saldo>0&&['em_aberto','diferenca','a_conferir'].indexOf(l.situacao)!==-1;
+      if(!ligadaAqui&&!comSaldo)return;
+      itens.push({l:l,marcada:l.idAgendamento in osEstadoVenda?osEstadoVenda[l.idAgendamento]:ligadaAqui});
+    });
+    if(!itens.length)return;
+    itens.sort(function(a,b){return (a.l.data?a.l.data.getTime():0)-(b.l.data?b.l.data.getTime():0);});
+    lista.innerHTML=itens.map(function(it){
+      var l=it.l;
+      return '<label class="vm-os-item"><input type="checkbox" value="'+escapeHtml(l.idAgendamento)+'"'+(it.marcada?' checked':'')+'> '+
+        fmtDateBRVendas(l.data)+' · '+escapeHtml(servicosMap[l.idServico]||l.idServico||'—')+' · saldo '+fmtMoney(l.saldo)+'</label>';
+    }).join('');
+    lista.querySelectorAll('input[type=checkbox]').forEach(function(cb){
+      cb.addEventListener('change',function(){ osEstadoVenda[cb.value]=cb.checked; });
+    });
+    osBlocoVisivelVenda=true;
+    bloco.classList.remove('hidden');
+  }
+  function osMarcadasNoModal(){
+    return [].map.call(document.querySelectorAll('#vm-osLista input:checked'),function(cb){return cb.value;});
+  }
+
+  function abrirModalVenda(idVenda,pre){
     var v=idVenda?vendasRecords.filter(function(x){return String(x.idVenda)===String(idVenda);})[0]:null;
     vendaAtual=v;
+    pre=pre||{};
     document.getElementById('vendaModalTitle').textContent=v?'Editar venda':'Nova venda';
+    osEstadoVenda={};
+    (pre.idsOS||[]).forEach(function(id){osEstadoVenda[id]=true;});
+    if(v&&Array.isArray(v.osVinculadas))v.osVinculadas.forEach(function(id){osEstadoVenda[id]=true;});
 
     window.SGCombo.criar({
       inputId:'vm-clienteBusca', hiddenId:'vm-cliente', dropdownId:'vm-clienteDropdown',
       getOpcoes:opcoesClienteVenda,
-      valorInicial:v&&v.idCliente?{id:v.idCliente,label:nomeClienteVenda(v.idCliente)}:null
+      onSelecionar:function(){ osEstadoVenda={}; atualizarBlocoOSVenda(); },
+      valorInicial:v&&v.idCliente?{id:v.idCliente,label:nomeClienteVenda(v.idCliente)}:(pre.idCliente?{id:pre.idCliente,label:pre.nomeCliente||nomeClienteVenda(pre.idCliente)}:null)
     });
     window.SGCombo.criar({
       inputId:'vm-servicoBusca', hiddenId:'vm-servico', dropdownId:'vm-servicoDropdown',
       getOpcoes:opcoesServicoVenda,
-      valorInicial:v&&v.idServico?{id:v.idServico,label:servicosMap[v.idServico]||v.idServico}:null
+      valorInicial:v&&v.idServico?{id:v.idServico,label:servicosMap[v.idServico]||v.idServico}:(pre.idServico?{id:pre.idServico,label:servicosMap[pre.idServico]||pre.idServico}:null)
     });
-    var vendedorInicial=v?v.idVendedor:(window.SG_SESSION?window.SG_SESSION.idVendedor:null);
+    // Venda aberta pela Cobrança vai para o vendedor do cadastro do cliente
+    // (decisão do Felipe, 2026-10-30), não para quem está registrando.
+    var vendedorInicial=v?v.idVendedor:(pre.idVendedor||(window.SG_SESSION?window.SG_SESSION.idVendedor:null));
     window.SGCombo.criar({
       inputId:'vm-vendedorBusca', hiddenId:'vm-vendedor', dropdownId:'vm-vendedorDropdown',
       getOpcoes:opcoesVendedorVenda,
       valorInicial:vendedorInicial?{id:vendedorInicial,label:nomeFor(vendedorInicial)}:null
     });
 
-    document.getElementById('vm-data').value=v?v.dateKey:'';
-    document.getElementById('vm-valor').value=v?v.valor:'';
+    document.getElementById('vm-data').value=v?v.dateKey:(pre.idCliente?dateKey(new Date()):'');
+    document.getElementById('vm-valor').value=v?v.valor:(pre.valor?Math.round(pre.valor*100)/100:'');
     showVendaMsg('');
     document.getElementById('vendaModal').classList.remove('hidden');
+    atualizarBlocoOSVenda();
   }
   function fecharModalVenda(){ document.getElementById('vendaModal').classList.add('hidden'); }
 
@@ -728,7 +787,10 @@
     var registroAnterior=vendaAtual?Object.assign({},vendaAtual):null;
     var indiceExistente=vendasRecords.findIndex(function(x){return String(x.idVenda)===String(idVenda);});
     var dt=parseBRDate(dataVenda.split('-').reverse().join('/'));
-    var registroNovo={idVenda:idVenda,idCliente:idCliente,idServico:idServico,idVendedor:idVendedor,dt:dt,dateKey:dataVenda,valor:parseFloat(valor)||0};
+    // Bloco "Quitar OS" visível = envia o array marcado (pode ser []); escondido = não envia.
+    var osVinculadas=osBlocoVisivelVenda?osMarcadasNoModal():undefined;
+    var registroNovo={idVenda:idVenda,idCliente:idCliente,idServico:idServico,idVendedor:idVendedor,dt:dt,dateKey:dataVenda,valor:parseFloat(valor)||0,
+      osVinculadas:osVinculadas!==undefined?osVinculadas:(registroAnterior?registroAnterior.osVinculadas:undefined)};
     if(indiceExistente===-1)vendasRecords.push(registroNovo);
     else vendasRecords[indiceExistente]=registroNovo;
     _epoca.marcar();
@@ -739,7 +801,8 @@
 
     apiCall('salvarVenda',{
       idVenda: idVenda,
-      idCliente:idCliente, idServico:idServico, idVendedor:idVendedor, dataVenda:dataVenda, valor:valor
+      idCliente:idCliente, idServico:idServico, idVendedor:idVendedor, dataVenda:dataVenda, valor:valor,
+      osVinculadas:osVinculadas
     }).then(function(resp){
       if(!resp||!resp.ok){
         if(ehNovo)vendasRecords=vendasRecords.filter(function(x){return String(x.idVenda)!==String(idVenda);});
@@ -1167,6 +1230,13 @@
   });
 
   document.getElementById('v-novaVendaBtn').addEventListener('click',function(){ abrirModalVenda(null); });
+  document.getElementById('vm-clienteBusca').addEventListener('input',function(){ setTimeout(function(){ osEstadoVenda={}; atualizarBlocoOSVenda(); },0); });
+  // Usada pela aba Cobrança ("Registrar pagamento"): abre "Nova venda" já preenchida.
+  window.SGVendas={abrirNovaVendaParaOS:function(o){
+    o=o||{};
+    garantirClientesCarregadosVendas();
+    abrirModalVenda(null,{idCliente:o.idCliente,nomeCliente:o.nomeCliente,idServico:o.idServico,valor:o.valor,idsOS:o.idsOS,idVendedor:o.idVendedor});
+  }};
   document.getElementById('vm-cancelarBtn').addEventListener('click',fecharModalVenda);
   document.getElementById('vm-salvarBtn').addEventListener('click',salvarVenda);
   document.getElementById('vendaModal').addEventListener('click',function(e){ if(e.target.id==='vendaModal')fecharModalVenda(); });
