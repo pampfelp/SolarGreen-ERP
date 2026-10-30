@@ -102,7 +102,11 @@
       (vendasPorPar[k] = vendasPorPar[k] || []).push(v);
       (vendasPorCliente[v.IdCliente] = vendasPorCliente[v.IdCliente] || []).push(v);
     });
-    elegiveis.forEach(function (l) {
+    // A OS sem valor também disputa a venda: sem ela na conta, a venda de maio do
+    // Marcos ligou sozinha na vistoria de setembro, quando era da vistoria de maio
+    // (caso real, 30/10/2026).
+    linhas.forEach(function (l) {
+      if (l.situacao === 'sem_cobranca' || l.vendasLigadas.length) return;
       var k = chave(l.idCliente, l.idServico);
       osPorPar[k] = (osPorPar[k] || 0) + 1;
     });
