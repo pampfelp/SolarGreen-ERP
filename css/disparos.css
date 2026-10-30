@@ -94,6 +94,10 @@ textarea.entrada { min-height: 130px; resize: vertical; line-height: 1.5; }
 .kpi .topo-kpi { display: flex; justify-content: space-between; align-items: center; color: var(--ink-soft); font-size: 14px; }
 .kpi .num { font-family: var(--display); font-weight: 700; font-size: 28px; line-height: 1.25; margin-top: 2px; overflow-wrap: anywhere; }
 .kpi.destaque .num { color: var(--debit); }
+.kpi-filtro { display: block; width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; transition: background .12s, box-shadow .12s; }
+.kpi-filtro:hover { box-shadow: inset 0 0 0 1px var(--ink); }
+.kpi-filtro.ativo { background: var(--accent); }
+.kpi-filtro.ativo .topo-kpi, .kpi-filtro.ativo .num { color: #003122; }
 
 /* ── Filtros ── */
 .filtros { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
