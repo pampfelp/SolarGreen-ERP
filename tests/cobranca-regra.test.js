@@ -84,6 +84,12 @@ l=uma([os('a')],[venda('x',200),venda('y',200)]);
 assert.equal(l.situacao,'a_conferir');
 assert.deepEqual(l.candidatas,['x','y']);
 
+// OS sem valor também disputa a venda (caso Marcos): nada liga sozinho
+ls=rodar([os('a',{Valor:'','Data Inicio':'2026-05-11'}),os('b')],[venda('x',400)]);
+assert.deepEqual(ls.map(x=>x.situacao),['sem_valor','a_conferir']);
+assert.deepEqual(ls[0].candidatas,['x']);
+assert.deepEqual(ls[1].candidatas,['x']);
+
 // Venda com OsVinculadas vazio é decisão explícita: não entra no automático
 l=uma([os('a')],[venda('x',400,{OsVinculadas:[]})]);
 assert.equal(l.situacao,'em_aberto');
