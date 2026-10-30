@@ -378,10 +378,27 @@
   }
 
   // ══════════════ COMPONENTES ══════════════
-  function kpisHtml(itens) {
+  // Cartão com "chave" vira botão de filtro: clicar filtra a tabela, clicar de novo desfaz.
+  function kpisHtml(itens, ativo) {
     return '<div class="kpis">' + itens.map(function (k) {
-      return '<div class="kpi' + (k.destaque ? ' destaque' : '') + '"><div class="topo-kpi"><span>' + esc(k.rotulo) + '</span>' + ico(k.icone) + '</div><div class="num">' + esc(k.valor) + '</div></div>';
+      var miolo = '<div class="topo-kpi"><span>' + esc(k.rotulo) + '</span>' + ico(k.icone) + '</div><div class="num">' + esc(k.valor) + '</div>';
+      var cls = 'kpi' + (k.destaque ? ' destaque' : '');
+      if (k.chave == null) return '<div class="' + cls + '">' + miolo + '</div>';
+      var on = k.chave !== '' && k.chave === ativo;
+      return '<button type="button" class="' + cls + ' kpi-filtro' + (on ? ' ativo' : '') + '" data-kpi="' + esc(k.chave) + '" aria-pressed="' + on + '">' + miolo + '</button>';
     }).join('') + '</div>';
+  }
+  // Liga os cliques dos cartões: chave '' (Total) limpa; a mesma chave de novo também limpa.
+  function ligarKpis(host, aoMudar) {
+    var atual = '';
+    host.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-kpi]');
+      if (!b) return;
+      var k = b.getAttribute('data-kpi');
+      atual = k === atual ? '' : k;
+      aoMudar(atual);
+    });
+    return function () { return atual; };
   }
 
   function selo(classe, texto) { return '<span class="selo selo-' + classe + '">' + esc(texto) + '</span>'; }
@@ -601,7 +618,10 @@
       var corpo = $('[data-r="corpo"]', host), rodape = $('[data-r="rodape"]', host);
       if (!d.contatos) { corpo.innerHTML = '<tr><td colspan="9" class="vazio">Carregando contatos…</td></tr>'; if (cfg.aoFiltrar) cfg.aoFiltrar([]); return; }
       var todos = comMotivo();
-      contatosAtuais = filtrar(todos);
+      var filtrados = filtrar(todos);
+      if (cfg.aoFiltrar) cfg.aoFiltrar(filtrados);
+      var extra = cfg.filtroExtra ? cfg.filtroExtra() : null;
+      contatosAtuais = extra ? filtrados.filter(extra) : filtrados;
       var ultima = Math.max(0, Math.ceil(contatosAtuais.length / POR_PAGINA) - 1);
       if (pagina > ultima) pagina = ultima;
       var fatia = contatosAtuais.slice(pagina * POR_PAGINA, (pagina + 1) * POR_PAGINA);
@@ -620,7 +640,6 @@
           '<td class="nowrap">' + (c.diasDisparo == null ? '<span class="suave">Nunca</span>' : (c.diasDisparo === 0 ? 'Hoje' : c.diasDisparo + (c.diasDisparo === 1 ? ' dia' : ' dias'))) + '</td></tr>';
       }).join('') : '<tr><td colspan="9" class="vazio">Nenhum contato com esses filtros.</td></tr>';
       rodape.innerHTML = paginaHtml(contatosAtuais.length, pagina);
-      if (cfg.aoFiltrar) cfg.aoFiltrar(contatosAtuais);
       if (selecionavel) $('[data-r="contador"]', host).textContent = num(cfg.sel.size) + (cfg.sel.size === 1 ? ' selecionado' : ' selecionados');
     }
     host.addEventListener('click', function (e) {
@@ -650,6 +669,7 @@
         if (d.contatos) atualizarOpcoes(comMotivo());
         render();
       },
+      irInicio: function () { pagina = 0; render(); },
       todos: function () { return comMotivo(); },
       filtrados: function () { return contatosAtuais; }
     };
@@ -905,6 +925,20 @@
       campoBusca.addEventListener('input', function () { busca = campoBusca.value; pagina = 0; desenhar(); });
       [mV.el, mS.el, mE.el, campoBusca].forEach(function (x) { barra.appendChild(x); });
       var visiveis = [];
+      // Clicar num cartão filtra a tabela pelos contatos daquele número; clicar de novo desfaz.
+      var algum = function (f) { return function (g) { return g.docs.some(f); }; };
+      var KPI_GRUPO = {
+        fila: algum(function (x) { return x.status === 'fila' && !x.removidoEm; }),
+        enviados: algum(function (x) { return x.status === 'enviado' || (x.status === 'saiu' && x.enviadoEm); }),
+        entregues: algum(function (x) { return x.entregueEm; }),
+        lidos: algum(function (x) { return x.lidoEm; }),
+        clicaram: algum(function (x) { return x.tocouEm; }),
+        responderam: algum(function (x) { return x.respondeuEm; }),
+        sairam: algum(function (x) { return x.status === 'saiu'; }),
+        removidos: function (g) { return g.status === 'removido'; },
+        erro: algum(function (x) { return x.status === 'erro'; })
+      };
+      var kpiAtivo = ligarKpis($('[data-r="kpis"]', el), function () { pagina = 0; desenhar(); });
       var bAdicionar = $('[data-r="adicionar"]', el);
       somenteAdmin(bAdicionar);
       bAdicionar.addEventListener('click', function () { irPara('#/campanha/' + encodeURIComponent(id) + '/adicionar'); });
@@ -1050,15 +1084,15 @@
         var removidos = base.filter(function (g) { return g.status === 'removido'; }).length;
         $('[data-r="prog"]', el).innerHTML = '<span class="progresso"><i style="width:' + pct + '%"></i></span>' + pct + '%';
         $('[data-r="kpis"]', el).innerHTML = kpisHtml([
-          { rotulo: 'Na fila', valor: num(n.fila), icone: 'relogio' }, { rotulo: 'Enviados', valor: num(n.enviados), icone: 'enviar' },
-          { rotulo: 'Entregues', valor: num(n.entregues), icone: 'check' }, { rotulo: 'Lidos', valor: num(n.lidos), icone: 'check' },
-          { rotulo: 'Clicaram', valor: num(n.clicaram), icone: 'cursor' }, { rotulo: 'Responderam', valor: num(n.responderam), icone: 'balao' },
-          { rotulo: 'Saíram', valor: num(n.sairam), icone: 'saida' }, { rotulo: 'Removidos', valor: num(removidos), icone: 'fechar' },
-          { rotulo: 'Não entregue', valor: num(n.naoEntregues), icone: 'alerta', destaque: n.naoEntregues > 0 },
+          { rotulo: 'Na fila', valor: num(n.fila), icone: 'relogio', chave: 'fila' }, { rotulo: 'Enviados', valor: num(n.enviados), icone: 'enviar', chave: 'enviados' },
+          { rotulo: 'Entregues', valor: num(n.entregues), icone: 'check', chave: 'entregues' }, { rotulo: 'Lidos', valor: num(n.lidos), icone: 'check', chave: 'lidos' },
+          { rotulo: 'Clicaram', valor: num(n.clicaram), icone: 'cursor', chave: 'clicaram' }, { rotulo: 'Responderam', valor: num(n.responderam), icone: 'balao', chave: 'responderam' },
+          { rotulo: 'Saíram', valor: num(n.sairam), icone: 'saida', chave: 'sairam' }, { rotulo: 'Removidos', valor: num(removidos), icone: 'fechar', chave: 'removidos' },
+          { rotulo: 'Não entregue', valor: num(n.naoEntregues), icone: 'alerta', destaque: n.naoEntregues > 0, chave: 'erro' },
           { rotulo: 'Custo', valor: moeda(n.custo), icone: 'carteira' }
-        ]);
+        ], kpiAtivo());
 
-        visiveis = base;
+        visiveis = KPI_GRUPO[kpiAtivo()] ? base.filter(KPI_GRUPO[kpiAtivo()]) : base;
         var ultima = Math.max(0, Math.ceil(visiveis.length / POR_PAGINA) - 1);
         if (pagina > ultima) pagina = ultima;
         var fatia = fatiaAtual = visiveis.slice(pagina * POR_PAGINA, (pagina + 1) * POR_PAGINA);
@@ -1621,14 +1655,21 @@
         });
       });
       // Os números contam só quem passa pelos filtros e pela busca da lista.
-      var lista = criarListaContatos($('[data-r="lista"]', el), { aoFiltrar: kpis });
+      // Clicar num cartão filtra a lista por ele, sem mudar os números dos outros.
+      var KPI_CONTATO = {
+        funil: function (c) { return c.temFunil; },
+        semfunil: function (c) { return !c.temFunil; },
+        importada: function (c) { return c.origem === R.ORIGEM_IMPORTADA; }
+      };
+      var kpiAtivo = ligarKpis($('[data-r="kpis"]', el), function () { lista.irInicio(); });
+      var lista = criarListaContatos($('[data-r="lista"]', el), { aoFiltrar: kpis, filtroExtra: function () { return KPI_CONTATO[kpiAtivo()] || null; } });
       function kpis(cs) {
-        var comFunil = cs.filter(function (c) { return c.temFunil; }).length;
+        var conta = function (k) { return cs.filter(KPI_CONTATO[k]).length; };
         $('[data-r="kpis"]', el).innerHTML = kpisHtml([
-          { rotulo: 'Total', valor: num(cs.length), icone: 'balao' }, { rotulo: 'Com funil', valor: num(comFunil), icone: 'check' },
-          { rotulo: 'Sem funil', valor: num(cs.length - comFunil), icone: 'relogio' },
-          { rotulo: 'Base importada', valor: num(cs.filter(function (c) { return c.origem === R.ORIGEM_IMPORTADA; }).length), icone: 'upload' }
-        ]);
+          { rotulo: 'Total', valor: num(cs.length), icone: 'balao', chave: '' }, { rotulo: 'Com funil', valor: num(conta('funil')), icone: 'check', chave: 'funil' },
+          { rotulo: 'Sem funil', valor: num(conta('semfunil')), icone: 'relogio', chave: 'semfunil' },
+          { rotulo: 'Base importada', valor: num(conta('importada')), icone: 'upload', chave: 'importada' }
+        ], kpiAtivo());
       }
       function desenhar() { lista.atualizar(); }
       desenhar();
