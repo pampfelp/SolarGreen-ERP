@@ -19,7 +19,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=20261027a">
+<link rel="stylesheet" href="css/app.css?v=20261030a">
 <link rel="stylesheet" href="css/faturamento.css?v=20261001e">
 <link rel="stylesheet" href="css/dashboard-dre.css?v=20261021a">
 </head>
@@ -511,6 +511,11 @@
     <div><h1>Relatório de <span>Vendas</span></h1><div class="top-sub">Meta, projeção e conversão por colaborador · <span id="v-appVersion"></span></div></div>
     <div style="text-align:right;"><div class="clock" id="v-lastUpdate"></div><div class="sync-pill" id="v-syncPill" style="display:none;"><span class="dot"></span><span id="v-syncPillText">Sincronizado</span></div></div>
   </header>
+  <div class="sub-tabs" role="tablist" aria-label="Seções de Vendas">
+    <button type="button" class="sub-tab" role="tab" id="v-tabRelatorio" aria-selected="true" aria-controls="v-painelRelatorio" tabindex="0">Relatório</button>
+    <button type="button" class="sub-tab" role="tab" id="v-tabCobranca" aria-selected="false" aria-controls="v-painelCobranca" tabindex="-1">Cobrança</button>
+  </div>
+  <div id="v-painelRelatorio" role="tabpanel" aria-labelledby="v-tabRelatorio">
   <div id="v-mainContent" style="display:none;">
     <div class="filters">
       <div class="field"><label>Período de</label><input type="date" id="v-dateFrom"></div>
@@ -610,6 +615,50 @@
     <footer class="note">Meta diária considera apenas dias úteis (seg–sex). A meta individual é a meta do mês dividida pelos vendedores Ativos do tipo Vendedor.</footer>
   </div>
   <div class="empty" id="v-emptyState"><div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 7-8"/><path d="M15 7h5v5"/></svg></div><p>Carregando o relatório de vendas…</p></div>
+  </div>
+  <div id="v-painelCobranca" role="tabpanel" aria-labelledby="v-tabCobranca" style="display:none;">
+    <div class="filters">
+      <div class="field" id="cb-campoVendedor" style="display:none;"><label>Vendedor</label><select id="cb-selVendedor"><option value="__all__">Todos os vendedores</option></select></div>
+      <div class="field"><label>Serviço</label><select id="cb-selServico"><option value="__all__">Todos os serviços</option></select></div>
+      <div class="field"><label>Cliente</label><input type="text" id="cb-busca" placeholder="Buscar cliente…" autocomplete="off"></div>
+      <div class="field"><label>Situação</label><select id="cb-selSituacao">
+        <option value="pendentes">Pendentes</option>
+        <option value="em_aberto">Em aberto</option>
+        <option value="diferenca">Diferença a confirmar</option>
+        <option value="a_conferir">A conferir</option>
+        <option value="sem_valor">Valor não definido</option>
+        <option value="quitada">Quitadas</option>
+        <option value="todas">Todas</option>
+      </select></div>
+      <div class="spacer"></div>
+      <button class="reset-btn" id="cb-reset">Limpar filtros</button>
+    </div>
+    <div class="kpis">
+      <div class="kpi accentbar"><div class="tag">Em aberto</div><div class="num" id="cb-kpiAberto">R$ 0,00</div><div class="sub" id="cb-kpiAbertoSub">0 OS</div><div class="bar"></div></div>
+      <div class="kpi"><div class="tag">Diferenças a confirmar</div><div class="num" id="cb-kpiDif">R$ 0,00</div><div class="sub" id="cb-kpiDifSub">0 OS</div><div class="bar"></div></div>
+      <div class="kpi"><div class="tag">Valor não definido</div><div class="num" id="cb-kpiSemValor">0</div><div class="sub">OS para conciliar</div><div class="bar"></div></div>
+      <div class="kpi accentbar"><div class="tag">Recebido pela cobrança no mês</div><div class="num" id="cb-kpiRecebido">R$ 0,00</div><div class="sub">vendas ligadas a OS</div><div class="bar"></div></div>
+    </div>
+    <div class="section-head"><h2>OS a <span>receber</span></h2><div class="hint" id="cb-hint"></div></div>
+    <div class="table-wrap" id="cb-tabela">
+      <table>
+        <thead><tr>
+          <th class="sortable" data-sort="data">Data da OS<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+          <th class="num sortable" data-sort="dias">Dias<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+          <th class="sortable" data-sort="cliente">Cliente<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+          <th class="sortable" data-sort="servico">Serviço<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+          <th class="sortable" data-sort="vendedor">Vendedor<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+          <th class="num sortable" data-sort="valor">Valor da OS<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+          <th class="num sortable" data-sort="pago">Pago<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+          <th class="num sortable" data-sort="saldo">Saldo<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+          <th class="sortable" data-sort="situacao">Situação<span class="arrow-sort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></th>
+        </tr></thead>
+        <tbody id="cb-tbody"></tbody>
+      </table>
+    </div>
+    <div id="cb-paginacao" class="paginacao"></div>
+    <div class="empty" id="cb-vazio"><p>Carregando…</p></div>
+  </div>
 </div>
 </div>
 
@@ -1116,6 +1165,7 @@
     </div>
     <div class="uform-field"><label>Data da venda</label><input type="date" id="vm-data"></div>
     <div class="uform-field"><label>Valor</label><input type="number" id="vm-valor" step="0.01" min="0"></div>
+    <div class="uform-field hidden" id="vm-osBloco"><label>Quitar OS deste cliente</label><div id="vm-osLista"></div></div>
     <div class="uform-msg" id="vm-msg"></div>
     <div class="modal-actions">
       <button class="reset-btn" id="vm-cancelarBtn">Cancelar</button>
@@ -2035,12 +2085,14 @@
 <script src="js/dre-jev.js?v=20261013a"></script>
 <script src="js/dre-dashboard.js?v=20261014a"></script>
 <script src="js/trafego-dashboard.js?v=20261021a"></script>
-<script src="js/firestore-router.js?v=20261013b"></script>
+<script src="js/firestore-router.js?v=20261030a"></script>
 <script src="js/sg-auth.js?v=20261013a"></script>
 <script src="js/dashboard.js?v=20261021a"></script>
 <script src="js/faturamento.js?v=20261001g"></script>
 <script src="js/ponto.js?v=20260928b"></script>
-<script src="js/vendas.js?v=20261013c"></script>
+<script src="js/cobranca-regra.js?v=20261030a"></script>
+<script src="js/cobranca.js?v=20261030a"></script>
+<script src="js/vendas.js?v=20261030a"></script>
 <script src="js/funil.js?v=20261029a"></script>
 <script src="js/agendamentos.js?v=20261007a"></script>
 <script src="js/clientes.js?v=20261029a"></script>

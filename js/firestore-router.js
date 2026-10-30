@@ -191,6 +191,9 @@
       IdVenda:id, IdCliente:p.idCliente, IdServico:p.idServico, IdVendedor:p.idVendedor,
       DataVenda:p.dataVenda||'', Valor:parseFloat(p.valor)||0
     };
+    // Só grava quando veio um array (mesmo vazio): campo ausente = venda ainda
+    // não decidida, e continua elegível ao vínculo automático da Cobrança.
+    if(Array.isArray(p.osVinculadas))doc.OsVinculadas=p.osVinculadas;
     var ref=db().collection('vendas').doc(id);
     // Checa existência ANTES de gravar pra saber se é criação ou edição — a
     // automação de demandas administrativas só roda na criação (editar o
@@ -199,7 +202,9 @@
     return Promise.all([ref.get(),extraNomeCliente(p.idCliente)]).then(function(r){
       var snap=r[0]; Object.assign(doc,r[1]);
       var ehNovo=!snap.exists;
-      return ref.set(doc).then(function(){
+      // merge: editar a venda pelo modal não pode apagar OsVinculadas, que o modal
+      // só reenvia quando o bloco "Quitar OS" aparece.
+      return ref.set(doc,{merge:true}).then(function(){
         if(!ehNovo)return null;
         return gerarDemandasAdmDaVenda(p).catch(function(err){
           // A venda em si já está salva — uma falha na automação não pode
@@ -704,6 +709,29 @@
     }).then(function(){ return {ok:true,idAgendamento:id}; })
       .catch(function(err){ return {ok:false,erro:err.message}; });
   }
+  // Cobrança (aba de Vendas): liga uma venda a uma ou mais OS. O array inteiro é
+  // reescrito; quem chama calcula a lista nova a partir do que já está na tela.
+  function vincularVendaOS(p){
+    if(!p.idVenda||!Array.isArray(p.osVinculadas)) return Promise.resolve({ok:false,erro:'Dados incompletos.'});
+    return db().collection('vendas').doc(p.idVenda).update({OsVinculadas:p.osVinculadas})
+      .then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+  // ajuste null remove o campo (desfazer o ajuste de desconto/parcial).
+  function salvarAjusteCobrancaOS(p){
+    if(!p.idAgendamento) return Promise.resolve({ok:false,erro:'idAgendamento é obrigatório.'});
+    var valor=p.ajuste?p.ajuste:firebase.firestore.FieldValue.delete();
+    return db().collection('agendamentos').doc(p.idAgendamento).update({CobrancaAjuste:valor})
+      .then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+  function definirValorOS(p){
+    var valor=parseFloat(p.valor);
+    if(!p.idAgendamento||!(valor>0)) return Promise.resolve({ok:false,erro:'Dados incompletos.'});
+    return db().collection('agendamentos').doc(p.idAgendamento).update({Valor:valor})
+      .then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
   function atualizarStatusAgendamento(p){
     var id=p.idAgendamento;
     if(!id||!p.status) return Promise.resolve({ok:false,erro:'Dados incompletos.'});
@@ -1030,6 +1058,9 @@
     salvarAgendamento:comSync('agendamentos',function(p){return 'agendamento de '+(p.idCliente||'');},comAuthPronto(salvarAgendamento)),
     atualizarStatusAgendamento:comSync('agendamentos',function(p){return 'status → '+(p.status||'');},comAuthPronto(atualizarStatusAgendamento)),
     excluirAgendamento:comSync('agendamentos',function(p){return 'excluir '+p.idAgendamento;},comAuthPronto(excluirAgendamento)),
+    vincularVendaOS:comSync('vendas',function(p){return 'vincular venda '+p.idVenda;},comAuthPronto(vincularVendaOS)),
+    salvarAjusteCobrancaOS:comSync('agendamentos',function(p){return 'ajuste da OS '+p.idAgendamento;},comAuthPronto(salvarAjusteCobrancaOS)),
+    definirValorOS:comSync('agendamentos',function(p){return 'valor da OS '+p.idAgendamento;},comAuthPronto(definirValorOS)),
     // gerarPdfOS/enviarOSParaAssinatura/verificarStatusOS NÃO entram aqui de
     // propósito — apiCall() cai sozinho no Apps Script antigo pra essas 3
     // (é lá que mora o token da Autentique, ver comentário acima de
