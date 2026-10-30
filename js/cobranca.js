@@ -291,6 +291,32 @@
         '<button type="button" class="reset-btn" data-acao="candidata" data-venda="'+esc(id)+'">'+rotuloBotao+'</button></div>';
     }).join('');
   }
+  // OS que uma venda paga hoje (vínculo gravado ou automático).
+  function osPagasPela(idVenda){
+    return linhas.filter(function(x){ return x.vendasLigadas.some(function(y){ return y.idVenda===idVenda; }); });
+  }
+  // Escolha livre (pedido do Felipe, 2026-10-30): qualquer venda do cliente, de
+  // qualquer serviço, a mais próxima da data da OS primeiro. Venda que já paga
+  // outra OS pode ser movida para esta ou ligada às duas (como o plano anual).
+  function htmlEscolherVenda(l){
+    var jaLigadas={};l.vendasLigadas.forEach(function(x){ jaLigadas[x.idVenda]=true; });
+    var base=l.data?l.data.getTime():0;
+    var lista=vendasLista.filter(function(v){ return v.IdCliente===l.idCliente&&!jaLigadas[v.IdVenda]; }).map(function(v){
+      var d=window.SGCobrancaRegra.parseData(v.DataVenda);
+      return {v:v,d:d,dist:d?Math.abs(d.getTime()-base):Infinity};
+    }).sort(function(a,b){ return a.dist-b.dist; });
+    if(!lista.length)return '<div class="hint">Nenhuma outra venda registrada para esse cliente.</div>';
+    return lista.map(function(x){
+      var outras=osPagasPela(x.v.IdVenda);
+      var nota=outras.length?'<br><span class="hint">Já paga: '+outras.map(function(o){ return fmtData(o.data)+' '+esc(nomeServico[o.idServico]||'—'); }).join(', ')+'</span>':'';
+      var botoes=outras.length?
+        '<button type="button" class="reset-btn" data-acao="mover" data-venda="'+esc(x.v.IdVenda)+'">Mover para esta</button>'+
+        '<button type="button" class="reset-btn" data-acao="somar" data-venda="'+esc(x.v.IdVenda)+'">Ligar às duas</button>':
+        '<button type="button" class="reset-btn" data-acao="ligar" data-venda="'+esc(x.v.IdVenda)+'">Ligar</button>';
+      return '<div class="cb-candidata"><span>'+fmtData(x.d)+' · '+esc(nomeServico[x.v.IdServico]||x.v.IdServico||'—')+' · '+dinheiro(x.v.Valor)+nota+'</span>'+
+        '<span class="cb-acoes" style="margin-top:0;flex-wrap:nowrap;">'+botoes+'</span></div>';
+    }).join('');
+  }
   function abrirDetalhe(id){
     var l=linhas.filter(function(x){ return x.idAgendamento===id; })[0];
     if(!l)return;
@@ -317,6 +343,8 @@
         html+='<div class="cb-acoes">'+
           '<button type="button" class="connect-btn" data-acao="confirmar" data-venda="'+esc(x.idVenda)+'">Confirmar vínculo</button>'+
           '<button type="button" class="reset-btn" data-acao="desfazer" data-venda="'+esc(x.idVenda)+'">Desfazer</button></div>';
+      }else{
+        html+='<div class="cb-acoes"><button type="button" class="reset-btn" data-acao="desligar" data-venda="'+esc(x.idVenda)+'">Desligar desta OS</button></div>';
       }
     });
     html+='</div>';
@@ -325,8 +353,8 @@
     if(l.saldo>0&&l.situacao!=='sem_valor'&&l.situacao!=='quitada'){
       acoes+='<div class="cb-acoes"><button type="button" class="connect-btn" data-acao="pagamento">Registrar pagamento</button></div>';
     }
-    if(l.situacao==='a_conferir'){
-      acoes+='<h4 style="margin-top:14px;">Qual venda paga essa OS?</h4>'+htmlCandidatas(l,'Ligar esta venda');
+    if(l.situacao!=='sem_valor'){
+      acoes+='<h4 style="margin-top:14px;">Escolher a venda que paga essa OS</h4>'+htmlEscolherVenda(l);
     }
     if(l.situacao==='diferenca'){
       acoes+=admin?
@@ -363,10 +391,16 @@
             gravarVinculo(idVenda,[l.idAgendamento],'Vínculo confirmado.');
           }else if(acao==='desfazer'){
             gravarVinculo(idVenda,[],'Vínculo desfeito.');
-          }else if(acao==='candidata'&&l.situacao==='a_conferir'){
-            var v=mapaVendas[idVenda]||{},arr=osDaVenda(v);
+          }else if(acao==='ligar'||acao==='somar'){
+            // "Ligar às duas" parte do que a venda paga hoje, inclusive o automático.
+            var arr=acao==='somar'?osPagasPela(idVenda).map(function(o){ return o.idAgendamento; }):osDaVenda(mapaVendas[idVenda]||{});
             if(arr.indexOf(l.idAgendamento)===-1)arr.push(l.idAgendamento);
             gravarVinculo(idVenda,arr,'Venda ligada à OS.');
+          }else if(acao==='mover'){
+            gravarVinculo(idVenda,[l.idAgendamento],'Venda movida para esta OS.');
+          }else if(acao==='desligar'){
+            var resto=osDaVenda(mapaVendas[idVenda]||{}).filter(function(x){ return x!==l.idAgendamento; });
+            gravarVinculo(idVenda,resto,'Venda desligada da OS.');
           }else if(acao==='candidata'){
             var vv=mapaVendas[idVenda]||{};
             gravarValor(l,window.SGCobrancaRegra.numero(vv.Valor),idVenda);
