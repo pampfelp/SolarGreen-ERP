@@ -599,7 +599,7 @@
     function render() {
       var d = derivar();
       var corpo = $('[data-r="corpo"]', host), rodape = $('[data-r="rodape"]', host);
-      if (!d.contatos) { corpo.innerHTML = '<tr><td colspan="9" class="vazio">Carregando contatos…</td></tr>'; return; }
+      if (!d.contatos) { corpo.innerHTML = '<tr><td colspan="9" class="vazio">Carregando contatos…</td></tr>'; if (cfg.aoFiltrar) cfg.aoFiltrar([]); return; }
       var todos = comMotivo();
       contatosAtuais = filtrar(todos);
       var ultima = Math.max(0, Math.ceil(contatosAtuais.length / POR_PAGINA) - 1);
@@ -620,6 +620,7 @@
           '<td class="nowrap">' + (c.diasDisparo == null ? '<span class="suave">Nunca</span>' : (c.diasDisparo === 0 ? 'Hoje' : c.diasDisparo + (c.diasDisparo === 1 ? ' dia' : ' dias'))) + '</td></tr>';
       }).join('') : '<tr><td colspan="9" class="vazio">Nenhum contato com esses filtros.</td></tr>';
       rodape.innerHTML = paginaHtml(contatosAtuais.length, pagina);
+      if (cfg.aoFiltrar) cfg.aoFiltrar(contatosAtuais);
       if (selecionavel) $('[data-r="contador"]', host).textContent = num(cfg.sel.size) + (cfg.sel.size === 1 ? ' selecionado' : ' selecionados');
     }
     host.addEventListener('click', function (e) {
@@ -1034,9 +1035,12 @@
         mV.setOpcoes(Object.keys(vs).map(function (k) { return { v: k, t: vs[k] }; }).sort(function (a, b) { return a.t.localeCompare(b.t, 'pt-BR'); }));
         mE.setOpcoes(Object.keys(es).sort(function (a, b) { return a.localeCompare(b, 'pt-BR'); }).map(function (k) { return { v: k, t: k }; }));
 
-        // Os números respeitam os filtros e ignoram a busca de texto.
+        // Os números contam só quem passa pelos filtros e pela busca da tabela.
+        var b = semAcento(busca).trim(), bd = R.digitos(busca);
         var base = grupos.filter(function (g) {
-          return (!fVend.size || fVend.has(String(g.ult.idVendedor))) && (!fStatus.size || fStatus.has(g.status)) && (!fEtapa.size || fEtapa.has(g.etapa));
+          if ((fVend.size && !fVend.has(String(g.ult.idVendedor))) || (fStatus.size && !fStatus.has(g.status)) || (fEtapa.size && !fEtapa.has(g.etapa))) return false;
+          if (!b) return true;
+          return semAcento(g.nome).indexOf(b) !== -1 || (bd.length >= 3 && String(g.ult.telLead || '').indexOf(bd) !== -1) || (bd.length >= 3 && g.tel.replace(/\D/g, '').indexOf(bd) !== -1);
         });
         var docs = [];
         base.forEach(function (g) { docs = docs.concat(g.docs); });
@@ -1054,11 +1058,7 @@
           { rotulo: 'Custo', valor: moeda(n.custo), icone: 'carteira' }
         ]);
 
-        var b = semAcento(busca).trim(), bd = R.digitos(busca);
-        visiveis = base.filter(function (g) {
-          if (!b) return true;
-          return semAcento(g.nome).indexOf(b) !== -1 || (bd.length >= 3 && String(g.ult.telLead || '').indexOf(bd) !== -1) || (bd.length >= 3 && g.tel.replace(/\D/g, '').indexOf(bd) !== -1);
-        });
+        visiveis = base;
         var ultima = Math.max(0, Math.ceil(visiveis.length / POR_PAGINA) - 1);
         if (pagina > ultima) pagina = ultima;
         var fatia = fatiaAtual = visiveis.slice(pagina * POR_PAGINA, (pagina + 1) * POR_PAGINA);
@@ -1620,17 +1620,17 @@
           ]
         });
       });
-      var lista = criarListaContatos($('[data-r="lista"]', el), {});
-      function desenhar() {
-        var d = derivar(), cs = d.contatos || [];
+      // Os números contam só quem passa pelos filtros e pela busca da lista.
+      var lista = criarListaContatos($('[data-r="lista"]', el), { aoFiltrar: kpis });
+      function kpis(cs) {
         var comFunil = cs.filter(function (c) { return c.temFunil; }).length;
         $('[data-r="kpis"]', el).innerHTML = kpisHtml([
           { rotulo: 'Total', valor: num(cs.length), icone: 'balao' }, { rotulo: 'Com funil', valor: num(comFunil), icone: 'check' },
           { rotulo: 'Sem funil', valor: num(cs.length - comFunil), icone: 'relogio' },
           { rotulo: 'Base importada', valor: num(cs.filter(function (c) { return c.origem === R.ORIGEM_IMPORTADA; }).length), icone: 'upload' }
         ]);
-        lista.atualizar();
       }
+      function desenhar() { lista.atualizar(); }
       desenhar();
       if (args[0] === 'importar') {
         history.replaceState(null, '', '#/contatos');
