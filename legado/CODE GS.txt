@@ -4300,10 +4300,16 @@ function fsUpdate_(cfg, caminho, campos, condicao) {
   Object.keys(campos).forEach(function (k) { fields[k] = fsValor_(campos[k]); });
   var w = {
     update: { name: cfg.base.replace('https://firestore.googleapis.com/v1/', '') + '/' + caminho, fields: fields },
-    updateMask: { fieldPaths: Object.keys(campos) }
+    updateMask: { fieldPaths: Object.keys(campos).map(fsCampoMascara_) }
   };
   if (condicao) w.currentDocument = condicao;
   return w;
+}
+
+// Campo com espaço ou acento ('Valor Estimado') só entra na máscara entre crases;
+// sem elas o Firestore recusa a gravação inteira (30/10: lead do disparo não nascia).
+function fsCampoMascara_(k) {
+  return /^[A-Za-z_][A-Za-z_0-9]*$/.test(k) ? k : '`' + String(k).replace(/([`\\])/g, '\\$1') + '`';
 }
 
 // Devolve false quando uma pré-condição falhou (alguém mexeu antes).
@@ -5168,7 +5174,7 @@ function fsUpdateRico_(cfg, caminho, campos, condicao) {
   var w = fsUpdate_(cfg, caminho, {}, condicao);
   Object.keys(campos).forEach(function (k) {
     w.update.fields[k] = fsValorRico_(campos[k]);
-    w.updateMask.fieldPaths.push(k);
+    w.updateMask.fieldPaths.push(fsCampoMascara_(k));
   });
   return w;
 }
