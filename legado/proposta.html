@@ -566,10 +566,10 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 
 // ── Tabelas de precificação (da planilha Precificação) ────────────────
 var MONITORING_TABLE = [
-  { min:0,  label:'Residencial até 6kWp',           valor:34.90 },
-  { min:10, label:'Residencial 6–10kWp',             valor:39.90 },
-  { min:17, label:'Residencial 10–15kWp',            valor:49.90 },
-  { min:25, label:'Comercial Médio 15–20kWp',        valor:59.90 },
+  { min:0,  label:'Residencial até 6kWp',           valor:49.90 },
+  { min:10, label:'Residencial 6–10kWp',             valor:59.90 },
+  { min:17, label:'Residencial 10–15kWp',            valor:69.90 },
+  { min:25, label:'Comercial Médio 15–20kWp',        valor:69.90 },
   { min:32, label:'Comercial Médio 20–25kWp',        valor:69.90 },
   { min:41, label:'Comercial Grande 25–30kWp',       valor:79.90 },
   { min:50, label:'Comercial Grande 30–35kWp',       valor:89.90 },
@@ -920,10 +920,10 @@ function subtotalValorFixo(){
 }
 
 function totalDescontos(subtotal){
-  return S.blocks.filter(function(b){return b.calcTipo==='desconto';}).reduce(function(s,b){
+  return Math.min(S.blocks.filter(function(b){return b.calcTipo==='desconto';}).reduce(function(s,b){
     if(b.descontoTipo==='pct') return s + subtotal*(b.descontoVal/100);
     return s + (b.descontoVal||0);
-  },0);
+  },0), subtotal); // desconto nunca passa do subtotal: total sem negativo
 }
 
 function renderBlock(b){
@@ -1054,9 +1054,10 @@ function updateSummary(){
     // re-render desconto block com valor atualizado
     var el=document.getElementById(b.bId); if(el) renderBlock(b);
   });
+  totalDesc=Math.min(totalDesc,subTotal); // total nunca negativo
   if(!S.blocks.length) html='<div style="font-size:12px;color:var(--ink-faint);padding:8px 0 4px;">Nenhum serviço adicionado</div>';
   document.getElementById('summaryBlocks').innerHTML=html;
-  var desl=parseFloat(document.getElementById('deslocamento').value)||0;
+  var desl=Math.max(parseFloat(document.getElementById('deslocamento').value)||0,0);
   document.getElementById('sumDeslocamento').textContent=fmtMoney(desl);
   var total=subTotal-totalDesc+desl;
   document.getElementById('sumTotal').textContent=fmtMoney(total);
@@ -1068,7 +1069,7 @@ function updateSummary(){
   // parte (fixo vs elegível) antes de aplicar o 10% extra só na parte elegível —
   // senão o desconto manual pode ser descontado inteiro só da parte elegível e
   // ficar negativo, fazendo o "à vista" dar MAIOR que o total parcelado.
-  var maxParc=getMaxParcelas(total);
+  var maxParc=getMaxParcelas(total-desl); // deslocamento não conta para o número de parcelas
   var subtotalFixo=subtotalValorFixo();
   var subtotalElegivel=subTotal-subtotalFixo; // tudo que NÃO é valor fixo (nem desconto)
   var fixoPosDesconto=Math.max(subtotalFixo-(subTotal>0?totalDesc*(subtotalFixo/subTotal):0),0);
@@ -1080,6 +1081,9 @@ function updateSummary(){
     spEl.innerHTML='Parcelamento: até <strong>'+maxParc+'x</strong> de <strong>'+fmtMoney(total/maxParc)+'</strong><br>À vista: <strong>'+fmtMoney(aVista)+'</strong> (10% desc. em serviços avulsos e plano anual — não incide sobre itens de valor fixo)';
   } else { spEl.style.display='none'; }
 }
+
+// O campo Deslocamento chama updateSummary() pelo oninput, fora deste escopo.
+window.updateSummary=updateSummary;
 
 // ── Histórico ──────────────────────────────────────────────────────────
 function renderHistory(){
@@ -1128,7 +1132,7 @@ function showSaveBar(id,link){
 function saveProposal(){
   var btn=document.getElementById('saveBtn'); btn.disabled=true;btn.textContent='Salvando…';
   var lead=S.funilRecords.find(function(r){return r.id===document.getElementById('selLead').value;})||{};
-  var subT=subtotalServicos(),totalDesc=totalDescontos(subT),desl=parseFloat(document.getElementById('deslocamento').value)||0;
+  var subT=subtotalServicos(),totalDesc=totalDescontos(subT),desl=Math.max(parseFloat(document.getElementById('deslocamento').value)||0,0);
   var total=subT-totalDesc+desl;
   apiCall('saveProposal',{
     id:S.propostaId||undefined,data:document.getElementById('dataProp').value,numero:document.getElementById('numeroProp').value,
@@ -1148,7 +1152,7 @@ function saveProposal(){
 function printProposal(){
   var lead=S.funilRecords.find(function(r){return r.id===document.getElementById('selLead').value;})||{};
   var data=document.getElementById('dataProp').value,num=document.getElementById('numeroProp').value;
-  var obs=document.getElementById('obsGerais').value,desl=parseFloat(document.getElementById('deslocamento').value)||0;
+  var obs=document.getElementById('obsGerais').value,desl=Math.max(parseFloat(document.getElementById('deslocamento').value)||0,0);
   var dObs=document.getElementById('deslocObs').value;
   var subT=subtotalServicos(),totalDesc=totalDescontos(subT),total=subT-totalDesc+desl;
   var subtotalFixoPrint=subtotalValorFixo();
@@ -1158,7 +1162,7 @@ function printProposal(){
   var fixoPosDescontoPrint=Math.max(subtotalFixoPrint-(subT>0?totalDesc*(subtotalFixoPrint/subT):0),0);
   var elegivelPosDescontoPrint=Math.max(subtotalElegivelPrint-(subT>0?totalDesc*(subtotalElegivelPrint/subT):0),0);
   var aVistaPrint=elegivelPosDescontoPrint*0.90+fixoPosDescontoPrint+desl; // 10% só sobre serviços avulsos + plano anual
-  var maxParc=getMaxParcelas(total);
+  var maxParc=getMaxParcelas(total-desl); // deslocamento não conta para o número de parcelas
 
   // Perda
   var perdaSection='';
