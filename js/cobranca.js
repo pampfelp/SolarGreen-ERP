@@ -5,7 +5,6 @@
   var ABA_KEY='sg_vendas_aba';
   var POR_PAGINA=10;
   var NOMES_SITUACAO={em_aberto:'Em aberto',diferenca:'Diferença a confirmar',a_conferir:'A conferir',sem_valor:'Valor não definido',quitada:'Quitada'};
-  var PENDENTES=['em_aberto','diferenca','a_conferir','sem_valor'];
 
   var iniciado=false,pendenteRecalculo=false;
   var bruto={agendamentos:null,vendas:null,clientes:null,vendedores:null,servicos:null};
@@ -115,13 +114,15 @@
     if(v!=='__all__'&&l.idVendedorResp!==v)return false;
     if(s!=='__all__'&&l.idServico!==s)return false;
     if(b&&norm(nomeDoCliente(l)).indexOf(b)===-1)return false;
+    // Período pela data da OS; com período escolhido, OS sem data fica de fora.
+    var de=window.SGCobrancaRegra.parseData(el('cb-dataDe').value),ate=window.SGCobrancaRegra.parseData(el('cb-dataAte').value);
+    if((de||ate)&&!l.data)return false;
+    if(de&&l.data<de)return false;
+    if(ate&&l.data>ate)return false;
     return true;
   }
   function passaSituacao(l){
-    var s=el('cb-selSituacao').value;
-    if(s==='todas')return true;
-    if(s==='pendentes')return PENDENTES.indexOf(l.situacao)!==-1;
-    return l.situacao===s;
+    return window.SGCobrancaRegra.GRUPOS[el('cb-selSituacao').value].indexOf(l.situacao)!==-1;
   }
 
   // ── Situação como texto ──
@@ -174,21 +175,18 @@
       tabela.style.display='none';el('cb-paginacao').innerHTML='';
       return;
     }
-    // KPIs seguem vendedor, serviço e busca, mas não a situação escolhida.
-    var base=linhas.filter(filtroBase);
-    var ids={};base.forEach(function(l){ ids[l.idAgendamento]=true; });
-    var vendasDoFiltro=vendasLista.filter(function(v){
-      return Array.isArray(v.OsVinculadas)&&v.OsVinculadas.some(function(id){ return ids[id]; });
-    });
-    var r=window.SGCobrancaRegra.resumo(base,vendasDoFiltro,new Date());
+    // KPIs seguem todos os filtros, inclusive situação e período.
+    var lista=linhas.filter(function(l){ return filtroBase(l)&&passaSituacao(l); });
+    var r=window.SGCobrancaRegra.resumo(lista);
     el('cb-kpiAberto').textContent=dinheiro(r.emAberto.valor);
     el('cb-kpiAbertoSub').textContent=r.emAberto.qtd+' OS';
     el('cb-kpiDif').textContent=dinheiro(r.diferencas.valor);
     el('cb-kpiDifSub').textContent=r.diferencas.qtd+' OS';
-    el('cb-kpiSemValor').textContent=r.semValor.qtd;
-    el('cb-kpiRecebido').textContent=dinheiro(r.recebidoMes);
+    el('cb-kpiQuitado').textContent=dinheiro(r.quitado.valor);
+    el('cb-kpiQuitadoSub').textContent=r.quitado.qtd+' OS';
+    el('cb-kpiDesconto').textContent=dinheiro(r.desconto.valor);
+    el('cb-kpiDescontoSub').textContent=r.desconto.qtd+' OS';
 
-    var lista=base.filter(passaSituacao);
     ordenar(lista);
     el('cb-hint').textContent=lista.length+' OS no filtro';
     if(!lista.length){
@@ -433,13 +431,14 @@
         mostrarAba(alvo===1?'cobranca':'relatorio',true);
       });
     });
-    ['cb-selVendedor','cb-selServico','cb-selSituacao'].forEach(function(id){
+    ['cb-selVendedor','cb-selServico','cb-selSituacao','cb-dataDe','cb-dataAte'].forEach(function(id){
       el(id).addEventListener('change',function(){ pagina=1; renderTudo(); });
     });
     el('cb-busca').addEventListener('input',function(){ pagina=1; renderTudo(); });
     el('cb-reset').addEventListener('click',function(){
       el('cb-selVendedor').value='__all__';el('cb-selServico').value='__all__';
       el('cb-busca').value='';el('cb-selSituacao').value='pendentes';
+      el('cb-dataDe').value='';el('cb-dataAte').value='';
       pagina=1;renderTudo();
     });
     document.querySelectorAll('#cb-tabela th.sortable').forEach(function(th){
