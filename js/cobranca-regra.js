@@ -156,34 +156,43 @@
     return linhas;
   }
 
-  // KPIs da tela. A tela passa só as linhas e vendas já filtradas.
-  function resumo(linhas, vendas, hoje) {
-    var h = parseData(hoje || new Date());
-    var r = { emAberto: { valor: 0, qtd: 0 }, diferencas: { valor: 0, qtd: 0 }, semValor: { qtd: 0 }, recebidoMes: 0 };
+  // Filtro de situação da tela (pedido do Felipe, 2026-10-31). "Valor não definido"
+  // fica fora de Pendentes, numa opção própria, para ser visto com calma.
+  var GRUPOS = {
+    pendentes: ['a_conferir', 'em_aberto', 'diferenca'],
+    concluidos: ['quitada'],
+    sem_valor: ['sem_valor']
+  };
+
+  // KPIs da tela. A tela passa só as linhas já filtradas (situação e período inclusive).
+  function resumo(linhas) {
+    var r = { emAberto: { valor: 0, qtd: 0 }, diferencas: { valor: 0, qtd: 0 }, quitado: { valor: 0, qtd: 0 }, desconto: { valor: 0, qtd: 0 } };
     (linhas || []).forEach(function (l) {
-      if (l.situacao === 'em_aberto' || l.situacao === 'diferenca' || l.situacao === 'a_conferir') {
+      if (GRUPOS.pendentes.indexOf(l.situacao) !== -1) {
         r.emAberto.valor += l.saldo;
         r.emAberto.qtd++;
       }
+      // Só a diferença entre o valor da OS e o que foi pago.
       if (l.situacao === 'diferenca') {
         r.diferencas.valor += l.valor - l.pago;
         r.diferencas.qtd++;
       }
-      if (l.situacao === 'sem_valor') r.semValor.qtd++;
+      if (l.situacao === 'quitada') {
+        r.quitado.valor += l.pago;
+        r.quitado.qtd++;
+        // O desconto vale pelo que falta hoje, não pelo que foi gravado no ajuste:
+        // uma venda ligada depois pode ter coberto parte dele.
+        if (l.ajuste && l.ajuste.Tipo === 'Desconto' && l.pago < l.valor) {
+          r.desconto.valor += l.valor - l.pago;
+          r.desconto.qtd++;
+        }
+      }
     });
-    (vendas || []).forEach(function (v) {
-      var ids = osDaVenda(v);
-      var d = parseData(v.DataVenda);
-      if (!ids || !ids.length || !d || !h) return;
-      if (d.getFullYear() === h.getFullYear() && d.getMonth() === h.getMonth()) r.recebidoMes += numero(v.Valor);
-    });
-    r.emAberto.valor = arredondar(r.emAberto.valor);
-    r.diferencas.valor = arredondar(r.diferencas.valor);
-    r.recebidoMes = arredondar(r.recebidoMes);
+    ['emAberto', 'diferencas', 'quitado', 'desconto'].forEach(function (k) { r[k].valor = arredondar(r[k].valor); });
     return r;
   }
 
-  var api = { normalizar: normalizar, numero: numero, parseData: parseData, classificar: classificar, resumo: resumo };
+  var api = { normalizar: normalizar, numero: numero, parseData: parseData, classificar: classificar, GRUPOS: GRUPOS, resumo: resumo };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.SGCobrancaRegra = api;
 })(typeof window !== 'undefined' ? window : null);

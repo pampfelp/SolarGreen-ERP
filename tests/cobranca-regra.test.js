@@ -112,14 +112,25 @@ assert.equal(l.situacao,'sem_valor');
 assert.deepEqual(l.candidatas,['y','x']);
 
 // Resumo para os KPIs
+const desconto={Tipo:'Desconto',Valor:50};
 const linhas=rodar(
-  [os('a'),os('b'),os('c'),os('d',{Valor:''}),os('e',{Valor:0.01}),os('f')],
-  [venda('x',370,{OsVinculadas:['b']}),venda('y',400,{OsVinculadas:['c'],DataVenda:'2026-09-30'}),venda('z',80,{OsVinculadas:[],DataVenda:'2026-10-15'})]
+  [os('a'),os('b'),os('c'),os('d',{Valor:''}),os('e',{Valor:0.01}),os('f'),os('g',{CobrancaAjuste:desconto}),os('h',{CobrancaAjuste:desconto})],
+  [venda('x',370,{OsVinculadas:['b']}),venda('y',400,{OsVinculadas:['c']}),venda('z',80,{OsVinculadas:[]}),
+   venda('w',350,{OsVinculadas:['g']}),venda('k',400,{OsVinculadas:['h']})]
 );
-const r=R.resumo(linhas,[venda('x',370,{OsVinculadas:['b']}),venda('y',400,{OsVinculadas:['c'],DataVenda:'2026-09-30'}),venda('z',80,{OsVinculadas:[],DataVenda:'2026-10-15'})],hoje);
+const r=R.resumo(linhas);
 assert.deepEqual(r.emAberto,{valor:830,qtd:3}); // a (400) + f (400) + b (30)
 assert.deepEqual(r.diferencas,{valor:30,qtd:1});
-assert.deepEqual(r.semValor,{qtd:1});
-assert.equal(r.recebidoMes,370); // y é de setembro e z não está ligada a nenhuma OS
+assert.deepEqual(r.quitado,{valor:1150,qtd:3}); // c (400) + g (350) + h (400)
+// g fica com 50 de desconto; h tinha desconto gravado, mas uma venda depois cobriu tudo
+assert.deepEqual(r.desconto,{valor:50,qtd:1});
+
+// Os KPIs seguem a situação: a tela passa só as linhas do grupo escolhido
+const doGrupo=g=>linhas.filter(x=>R.GRUPOS[g].indexOf(x.situacao)!==-1);
+assert.deepEqual(doGrupo('pendentes').map(x=>x.idAgendamento),['a','b','f']);
+assert.deepEqual(doGrupo('concluidos').map(x=>x.idAgendamento),['c','g','h']);
+assert.deepEqual(doGrupo('sem_valor').map(x=>x.idAgendamento),['d']);
+assert.deepEqual(R.resumo(doGrupo('pendentes')).quitado,{valor:0,qtd:0});
+assert.deepEqual(R.resumo(doGrupo('concluidos')).emAberto,{valor:0,qtd:0});
 
 console.log('cobranca-regra: ok');
