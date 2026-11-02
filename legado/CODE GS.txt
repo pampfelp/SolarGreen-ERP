@@ -5379,6 +5379,20 @@ var COBRANCA_HORARIOS = {
   sabado: { 8: '8h', 12: '15h' }
 };
 
+// Parcelas em que a Solar Green assume a taxa da InfinitePay (assured_installments).
+// Mesma tabela do gerador de propostas (legado/proposta.html, INSTALLMENT_TABLE);
+// abaixo de R$ 400 fica no máximo 2x (pedido do Felipe, 02/11/2026).
+var COBRANCA_PARCELAS = [
+  { min: 0, parcelas: 1 }, { min: 100.01, parcelas: 2 }, { min: 150.01, parcelas: 3 },
+  { min: 400.01, parcelas: 5 }, { min: 800.01, parcelas: 6 }, { min: 1000.01, parcelas: 8 },
+  { min: 1500.01, parcelas: 9 }, { min: 2000.01, parcelas: 10 }
+];
+function cobrancaParcelasAssumidas_(valor) {
+  var n = 1;
+  COBRANCA_PARCELAS.forEach(function (f) { if (valor >= f.min) n = f.parcelas; });
+  return valor < 400 ? Math.min(n, 2) : n;
+}
+
 function cobrancaHoje_() { return Utilities.formatDate(new Date(), 'America/Belem', 'yyyy-MM-dd'); }
 
 function cobrancaNumero_(v) {
@@ -5453,7 +5467,7 @@ function actionCobrancaCriarLink(body) {
     items: [{ quantity: 1, price: Math.round(saldo * 100), description: ('Solar Green - ' + (nomeServico || 'serviço')).slice(0, 100) }],
     order_nsu: orderNsu,
     webhook_url: COBRANCA_WEBHOOK,
-    options: { single_payment: true }
+    options: { single_payment: true, assured_installments: cobrancaParcelasAssumidas_(saldo) }
   };
   var tel = String(cliente.Telefone || '').replace(/\D/g, '');
   if (tel.length === 10 || tel.length === 11) tel = '55' + tel;
