@@ -314,12 +314,16 @@
   function clienteDe(l){ return bruto.clientes.filter(function(c){ return c.IdCliente===l.idCliente; })[0]||{}; }
   // tipo: inicio, 8h, 15h, 18h, parcial ou obrigado. A janela abre já no clique
   // (senão o navegador bloqueia) e recebe o endereço do WhatsApp depois.
+  // janelaAberta 'navegar': vindo da notificação, a própria página vai pro
+  // WhatsApp (não há clique na página para abrir outra janela).
   function enviarWhats(l,tipo,forcar,janelaAberta){
+    var navegar=janelaAberta==='navegar';
+    if(navegar)janelaAberta=null;
     var falhar=function(msg){ if(janelaAberta)janelaAberta.close(); toast(msg,true); };
     var tel=window.SGCobrancaRegra.telefoneWhatsApp(clienteDe(l).Telefone);
     if(!tel){ falhar('O cliente não tem um celular válido no cadastro.'); return; }
     if(tipo!=='obrigado'&&!forcar&&!cobravel(l)){ falhar('Essa OS não tem cobrança em aberto.'); return; }
-    var janela=janelaAberta||window.open('','_blank');
+    var janela=navegar?null:(janelaAberta||window.open('','_blank'));
     var a=mapaAg[l.idAgendamento]||{},link=a.CobrancaLink;
     var saldo=Math.round(l.saldo*100)/100;
     var precisaLink=tipo!=='obrigado'&&(!link||!a.CobrancaAtiva||Math.abs(window.SGCobrancaRegra.numero(link.Valor)-saldo)>0.009);
@@ -536,19 +540,28 @@
   window.SGCobranca={
     // Botão do aviso de OS enviada para assinatura: primeira mensagem, com o link.
     // A janela abre já no clique; o resto espera os dados chegarem.
-    enviarInicio:function(id){
-      var janela=window.open('','_blank');
+    enviarInicio:function(id,janela){
       quandoCarregar().then(function(){
         var l=linhaDaOS(id);
         if(!l){ if(janela)janela.close(); toast('OS não encontrada na cobrança.',true); return; }
         enviarWhats(l,'inicio',false,janela);
       });
     },
-    // Clique na notificação de lembrete ou de pagamento: abre o detalhe da OS.
-    abrirDaNotificacao:function(id){
+    // Clique na notificação de lembrete ou de pagamento: já abre o WhatsApp com a
+    // mensagem (pedido do Felipe, 02/11). Se a OS foi paga nesse meio-tempo, só
+    // mostra o detalhe.
+    abrirDaNotificacao:function(id,msg){
       if(window.SGControllerSwitchTo)window.SGControllerSwitchTo('vendas');
       mostrarAba('cobranca');
-      quandoCarregar().then(function(){ if(linhaDaOS(id))abrirDetalhe(id); else toast('Essa OS não está mais na cobrança.',true); });
+      quandoCarregar().then(function(){
+        var l=linhaDaOS(id);
+        if(!l){ toast('Essa OS não está mais na cobrança.',true); return; }
+        var a=mapaAg[id]||{};
+        if(msg==='obrigado'&&a.CobrancaAgradecer&&!a.CobrancaAgradecidoEm)enviarWhats(l,'obrigado',false,'navegar');
+        // O texto segue a hora do toque: aviso das 8h aberto à tarde não sai com "Bom dia".
+        else if(msg&&msg!=='obrigado'&&cobravel(l))enviarWhats(l,window.SGCobrancaRegra.tipoPelaHora(new Date()),false,'navegar');
+        else abrirDetalhe(id);
+      });
     }
   };
 })();

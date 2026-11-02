@@ -298,20 +298,13 @@
   // Modal de confirmação depois de mandar a OS pra assinatura — fica na
   // frente até a pessoa clicar OK (não some sozinho como um toast), com o
   // link já pronto pra copiar e mandar manualmente por WhatsApp se quiser.
-  function abrirModalOSEnviada(email,link,idAgendamento){
+  function abrirModalOSEnviada(email,link){
     document.getElementById('osEnviada-email').textContent=email;
-    document.getElementById('osEnviadaModal').setAttribute('data-os',idAgendamento||'');
     document.getElementById('osEnviada-link').value=link||'';
     document.getElementById('osEnviadaModal').classList.remove('hidden');
   }
   function fecharModalOSEnviada(){ document.getElementById('osEnviadaModal').classList.add('hidden'); }
   document.getElementById('osEnviada-okBtn').addEventListener('click',fecharModalOSEnviada);
-  // Primeira mensagem da cobrança, com o link de pagamento (2026-11-02).
-  document.getElementById('osEnviada-pagamentoBtn').addEventListener('click',function(){
-    var id=document.getElementById('osEnviadaModal').getAttribute('data-os');
-    if(id&&window.SGCobranca)window.SGCobranca.enviarInicio(id);
-    fecharModalOSEnviada();
-  });
   document.getElementById('osEnviada-copiarBtn').addEventListener('click',function(){
     var link=document.getElementById('osEnviada-link').value;
     navigator.clipboard.writeText(link).then(function(){
@@ -746,6 +739,11 @@
     var a=agendamentoAtual;
     var btn=document.getElementById('ad-assinaturaBtn');
     btn.disabled=true; var textoOriginal=btn.innerHTML; btn.innerHTML='Carregando respostas…';
+    // A aba do WhatsApp com o link de pagamento abre já no clique (depois da
+    // espera do PDF o navegador bloquearia) e fecha se o envio falhar.
+    var janela=window.open('','_blank');
+    try{ if(janela)janela.document.write('<p style="font-family:sans-serif;padding:24px">Preparando a mensagem de pagamento…</p>'); }catch(e){}
+    function fecharJanela(){ if(janela)janela.close(); }
     // Cliente completo primeiro: o e-mail (obrigatório pra assinatura) e o
     // endereço da OS só vêm no doc completo — a lista traz só o nome.
     // gerarPdfOS/enviarOSParaAssinatura continuam batendo no Apps Script
@@ -766,14 +764,14 @@
     // já estava visível no navegador.
     Promise.all([garantirRespostas(a.IdAgendamento),garantirClienteCarregadoAg(a.IdCliente)]).then(function(){
       var cliente=clientesMap[a.IdCliente]||{};
-      if(!cliente.Email){ btn.disabled=false; btn.innerHTML=textoOriginal; showAgToast('Cadastre o e-mail do cliente antes de enviar a Ordem de Serviço pra assinatura digital.',true); return; }
+      if(!cliente.Email){ fecharJanela(); btn.disabled=false; btn.innerHTML=textoOriginal; showAgToast('Cadastre o e-mail do cliente antes de enviar a Ordem de Serviço pra assinatura digital.',true); return; }
       btn.innerHTML='Gerando PDF…';
       var html=montarHtmlOS(a);
       var souAdmin=!!(window.SGAuth&&window.SGAuth.isAdmin());
       var vendedorResponsavelCliente=cliente['Vendedor Responsavel']||'';
       var statusAgendamento=a['Status Agendamento']||'';
       apiCall('gerarPdfOS',{solicitanteId:meuId(),idAgendamento:a.IdAgendamento,html:html,souAdmin:souAdmin,vendedorResponsavelCliente:vendedorResponsavelCliente,statusAgendamento:statusAgendamento}).then(function(resp){
-        if(!resp||!resp.ok){ btn.disabled=false; btn.innerHTML=textoOriginal; showAgToast((resp&&resp.erro)||'Não foi possível gerar o PDF.',true); return; }
+        if(!resp||!resp.ok){ fecharJanela(); btn.disabled=false; btn.innerHTML=textoOriginal; showAgToast((resp&&resp.erro)||'Não foi possível gerar o PDF.',true); return; }
         btn.innerHTML='Enviando pra assinatura…';
         return apiCall('enviarOSParaAssinatura',{
           solicitanteId:meuId(),idAgendamento:a.IdAgendamento,
@@ -781,7 +779,7 @@
           clienteNome:nomeCliente(a.IdCliente),clienteEmail:cliente.Email,
           nomeDocumento:'Ordem de Serviço - '+nomeCliente(a.IdCliente)
         }).then(function(resp2){
-          if(!resp2||!resp2.ok){ btn.disabled=false; btn.innerHTML=textoOriginal; showAgToast((resp2&&resp2.erro)||'PDF gerado, mas não foi possível enviar pra assinatura.',true); return; }
+          if(!resp2||!resp2.ok){ fecharJanela(); btn.disabled=false; btn.innerHTML=textoOriginal; showAgToast((resp2&&resp2.erro)||'PDF gerado, mas não foi possível enviar pra assinatura.',true); return; }
           // Atualiza localmente (mesmo objeto referenciado em "agendamentos")
           // e reabre o painel pra seção "Assinatura digital da OS" (com o
           // link/status) já aparecer na hora, sem precisar fechar e reabrir.
@@ -798,9 +796,12 @@
           });
           btn.disabled=false; btn.innerHTML=textoOriginal;
           abrirPainelDetalhe(a.IdAgendamento);
-          abrirModalOSEnviada(cliente.Email,resp2.link||'',a.IdAgendamento);
+          abrirModalOSEnviada(cliente.Email,resp2.link||'');
+          // Cobrança (2026-11-02): a OS enviada já abre o WhatsApp do cliente com o link de pagamento.
+          if(window.SGCobranca)window.SGCobranca.enviarInicio(a.IdAgendamento,janela); else if(janela)janela.close();
         });
       }).catch(function(err){
+        fecharJanela();
         btn.disabled=false; btn.innerHTML=textoOriginal;
         showAgToast('Erro de conexão: '+err.message,true);
       });
