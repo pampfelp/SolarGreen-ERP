@@ -273,7 +273,7 @@
     try{ p=new URL(url,location.href).searchParams; }catch(e){ return; }
     if(p.get('notif'))marcarLida([p.get('notif')]);
     if(p.get('lead')||p.get('tela'))abrirDestino({lead:p.get('lead'),tela:p.get('tela')});
-    if(p.get('cobranca')&&window.SGCobranca)window.SGCobranca.abrirDaNotificacao(p.get('cobranca'));
+    if(p.get('cobranca')&&window.SGCobranca)window.SGCobranca.abrirDaNotificacao(p.get('cobranca'),p.get('msg'));
   }
 
   // ── Push neste aparelho ────────────────────────────────────────────────
