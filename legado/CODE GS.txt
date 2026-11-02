@@ -4712,6 +4712,7 @@ function actionDisparoWebhook(body) {
 function disparoTratarStatusModelo_(cfg, v) {
   var nome = String(v.message_template_name || '');
   if (!/^[A-Za-z0-9_]{1,512}$/.test(nome) || !v.event) return;
+  if (/^cobranca_/.test(nome)) return; // modelos da cobrança não entram na lista das campanhas
   fsCommit_(cfg, [fsUpdate_(cfg, 'modelos_disparo/' + nome, {
     nome: nome, status: String(v.event).toUpperCase(),
     motivo: v.reason && v.reason !== 'NONE' ? String(v.reason).slice(0, 500) : '', atualizadoEm: Date.now()
