@@ -292,7 +292,7 @@
       var s=sessao();
       gravarAjuste(l,{Tipo:tipo,Valor:dif,Por:s.nome||'',PorId:s.idVendedor||'',Em:new Date().toISOString()},desconto?'Desconto registrado.':'Pagamento parcial registrado.');
       // Parcial confirmado já manda a primeira cobrança do saldo (pedido do Felipe).
-      if(!desconto)enviarWhats(l,'parcial',true);
+      if(!desconto)enviarPelaSolarGreen(l,'parcial');
     });
   }
 
@@ -312,18 +312,13 @@
     return l.saldo>=1&&(l.situacao==='em_aberto'||(l.situacao==='diferenca'&&l.ajuste&&l.ajuste.Tipo==='Parcial'));
   }
   function clienteDe(l){ return bruto.clientes.filter(function(c){ return c.IdCliente===l.idCliente; })[0]||{}; }
-  // tipo: inicio, 8h, 15h, 18h, parcial ou obrigado. A janela abre já no clique
+  // Reserva: manda pelo WhatsApp de quem clicou. A janela abre já no clique
   // (senão o navegador bloqueia) e recebe o endereço do WhatsApp depois.
-  // janelaAberta 'navegar': vindo da notificação, a própria página vai pro
-  // WhatsApp (não há clique na página para abrir outra janela).
-  function enviarWhats(l,tipo,forcar,janelaAberta){
-    var navegar=janelaAberta==='navegar';
-    if(navegar)janelaAberta=null;
-    var falhar=function(msg){ if(janelaAberta)janelaAberta.close(); toast(msg,true); };
+  function enviarWhats(l,tipo){
     var tel=window.SGCobrancaRegra.telefoneWhatsApp(clienteDe(l).Telefone);
-    if(!tel){ falhar('O cliente não tem um celular válido no cadastro.'); return; }
-    if(tipo!=='obrigado'&&!forcar&&!cobravel(l)){ falhar('Essa OS não tem cobrança em aberto.'); return; }
-    var janela=navegar?null:(janelaAberta||window.open('','_blank'));
+    if(!tel){ toast('O cliente não tem um celular válido no cadastro.',true); return; }
+    if(tipo!=='obrigado'&&!cobravel(l)){ toast('Essa OS não tem cobrança em aberto.',true); return; }
+    var janela=window.open('','_blank');
     var a=mapaAg[l.idAgendamento]||{},link=a.CobrancaLink;
     var saldo=Math.round(l.saldo*100)/100;
     var precisaLink=tipo!=='obrigado'&&(!link||!a.CobrancaAtiva||Math.abs(window.SGCobrancaRegra.numero(link.Valor)-saldo)>0.009);
@@ -341,17 +336,27 @@
       toast(err.message,true);
     });
   }
+  // Envio pelo número da Solar Green (API oficial, 2026-11-02): o servidor cria o
+  // link se precisar e manda o modelo. tipo vazio = texto da hora.
+  function enviarPelaSolarGreen(l,tipo){
+    toast('Enviando a mensagem pelo WhatsApp da Solar Green…');
+    chamarServidor('cobrancaEnviar',{idAgendamento:l.idAgendamento,tipo:tipo||''}).then(function(r){
+      if(r&&r.ok)toast('Mensagem enviada pelo WhatsApp da Solar Green.');
+      else toast((r&&r.erro)||'Não foi possível enviar a mensagem.',true);
+    }).catch(function(err){ toast('Erro de conexão: '+err.message,true); });
+  }
   function htmlWhats(l){
     var a=mapaAg[l.idAgendamento]||{},html='';
     var envios=Array.isArray(a.CobrancaEnvios)?a.CobrancaEnvios:[];
     var ultimo=envios.length?envios[envios.length-1]:null;
     var info=a.CobrancaLink?linhaDetalhe('Link de pagamento',dinheiro(a.CobrancaLink.Valor)+(a.CobrancaAtiva?' · ativo':' · encerrado')):'';
-    if(ultimo)info+=linhaDetalhe('Última mensagem',esc(new Date(ultimo.Em).toLocaleString('pt-BR'))+(ultimo.Por?' · '+esc(ultimo.Por):''));
+    if(ultimo)info+=linhaDetalhe('Última mensagem',esc(new Date(ultimo.Em).toLocaleString('pt-BR'))+(ultimo.Por?' · '+esc(ultimo.Por):'')+(ultimo.Erro?' · <span class="hint">não saiu: '+esc(ultimo.Erro)+'</span>':''));
     if(cobravel(l)){
       var tipo=window.SGCobrancaRegra.tipoPelaHora(new Date());
-      html+='<div class="cb-acoes"><button type="button" class="connect-btn" data-acao="whats" data-tipo="'+tipo+'">Enviar cobrança no WhatsApp</button></div>';
+      html+='<div class="cb-acoes"><button type="button" class="connect-btn" data-acao="api" data-tipo="">Enviar cobrança agora</button>'+
+        '<button type="button" class="reset-btn" data-acao="whats" data-tipo="'+tipo+'">Mandar pelo meu WhatsApp</button></div>';
     }else if(l.situacao==='quitada'&&a.CobrancaAgradecer&&!a.CobrancaAgradecidoEm){
-      html+='<div class="cb-acoes"><button type="button" class="connect-btn" data-acao="whats" data-tipo="obrigado">Enviar agradecimento no WhatsApp</button></div>';
+      html+='<div class="cb-acoes"><button type="button" class="connect-btn" data-acao="api" data-tipo="obrigado">Enviar agradecimento</button></div>';
     }
     if(!html&&!info)return '';
     return '<h4 style="margin-top:14px;">Cobrança pelo WhatsApp</h4>'+info+html;
@@ -461,7 +466,9 @@
           var b=e.target.closest?e.target.closest('button[data-acao]'):null;
           if(!b)return;
           var acao=b.getAttribute('data-acao'),idVenda=b.getAttribute('data-venda');
-          if(acao==='whats'){
+          if(acao==='api'){
+            enviarPelaSolarGreen(l,b.getAttribute('data-tipo'));
+          }else if(acao==='whats'){
             enviarWhats(l,b.getAttribute('data-tipo'));
           }else if(acao==='pagamento'){
             window.SGViewPanel.fechar();
@@ -538,30 +545,16 @@
 
   function linhaDaOS(id){ return linhas.filter(function(x){ return x.idAgendamento===id; })[0]; }
   window.SGCobranca={
-    // Botão do aviso de OS enviada para assinatura: primeira mensagem, com o link.
-    // A janela abre já no clique; o resto espera os dados chegarem.
-    enviarInicio:function(id,janela){
-      quandoCarregar().then(function(){
-        var l=linhaDaOS(id);
-        if(!l){ if(janela)janela.close(); toast('OS não encontrada na cobrança.',true); return; }
-        enviarWhats(l,'inicio',false,janela);
-      });
+    // OS enviada para assinatura: a primeira mensagem, com o link, sai pelo
+    // WhatsApp da Solar Green.
+    enviarInicio:function(id){
+      enviarPelaSolarGreen({idAgendamento:id},'inicio');
     },
-    // Clique na notificação de lembrete ou de pagamento: já abre o WhatsApp com a
-    // mensagem (pedido do Felipe, 02/11). Se a OS foi paga nesse meio-tempo, só
-    // mostra o detalhe.
-    abrirDaNotificacao:function(id,msg){
+    // Clique na notificação (pagamento recebido, cliente respondeu): abre o detalhe da OS.
+    abrirDaNotificacao:function(id){
       if(window.SGControllerSwitchTo)window.SGControllerSwitchTo('vendas');
       mostrarAba('cobranca');
-      quandoCarregar().then(function(){
-        var l=linhaDaOS(id);
-        if(!l){ toast('Essa OS não está mais na cobrança.',true); return; }
-        var a=mapaAg[id]||{};
-        if(msg==='obrigado'&&a.CobrancaAgradecer&&!a.CobrancaAgradecidoEm)enviarWhats(l,'obrigado',false,'navegar');
-        // O texto segue a hora do toque: aviso das 8h aberto à tarde não sai com "Bom dia".
-        else if(msg&&msg!=='obrigado'&&cobravel(l))enviarWhats(l,window.SGCobrancaRegra.tipoPelaHora(new Date()),false,'navegar');
-        else abrirDetalhe(id);
-      });
+      quandoCarregar().then(function(){ if(linhaDaOS(id))abrirDetalhe(id); else toast('Essa OS não está mais na cobrança.',true); });
     }
   };
 })();
