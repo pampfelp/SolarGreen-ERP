@@ -5366,6 +5366,12 @@ function fsBatchGet_(cfg, caminhos, campos) {
 // cobranca_pagamentos/{transaction_nsu} impede lançar o mesmo pagamento duas vezes.
 
 var COBRANCA_API = 'https://api.checkout.infinitepay.io';
+// Endereço fixo do aviso: rodando pelo editor, ScriptApp.getService().getUrl()
+// pode devolver o /dev, que pede login e a InfinitePay não consegue chamar.
+var COBRANCA_WEBHOOK = 'https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA34xrlLTVUUNhKBIlguJT3ectH7Yus-VW1n41GcCclc5q_Yj0Di2O7g/exec?action=cobrancaWebhook';
+
+// A InfiniteTag da conta vem no próprio link (checkout.infinitepay.io/<tag>/<id>).
+function cobrancaHandle_(url) { var m = String(url || '').match(/infinitepay\.io\/([^\/?#]+)\//); return m ? m[1] : ''; }
 // Horários da cobrança (hora de Belém). Sábado só dois; domingo, nenhum.
 // O valor é o texto usado (o de 12h do sábado é o mesmo das 15h).
 var COBRANCA_HORARIOS = {
@@ -5446,7 +5452,7 @@ function actionCobrancaCriarLink(body) {
   var corpo = {
     items: [{ quantity: 1, price: Math.round(saldo * 100), description: ('Solar Green - ' + (nomeServico || 'serviço')).slice(0, 100) }],
     order_nsu: orderNsu,
-    webhook_url: ScriptApp.getService().getUrl() + '?action=cobrancaWebhook',
+    webhook_url: COBRANCA_WEBHOOK,
     options: { single_payment: true }
   };
   var tel = String(cliente.Telefone || '').replace(/\D/g, '');
@@ -5466,7 +5472,7 @@ function actionCobrancaCriarLink(body) {
   if (!os.CobrancaDesde) campos.CobrancaDesde = cobrancaHoje_();
   fsCommit_(cfg, [
     fsUpdateRico_(cfg, 'agendamentos/' + id, campos),
-    fsUpdate_(cfg, 'cobranca_links/' + orderNsu, { idAgendamento: id, valor: saldo, criadoEm: agora, criadoPor: String(auth.vendedor.IdVendedor) })
+    fsUpdate_(cfg, 'cobranca_links/' + orderNsu, { idAgendamento: id, valor: saldo, criadoEm: agora, criadoPor: String(auth.vendedor.IdVendedor), handle: cobrancaHandle_(url) })
   ]);
   return { ok: true, url: url, valor: saldo };
 }
@@ -5486,7 +5492,10 @@ function actionCobrancaWebhook(body) {
     if (fsGet_(cfg, 'cobranca_pagamentos/' + transacao)) return { ok: true, acao: 'já lançado' };
     var ref = fsGet_(cfg, 'cobranca_links/' + orderNsu);
     if (!ref) return { ok: false, erro: 'pedido desconhecido' };
-    var conf = cobrancaPedir_('/payment_check', { order_nsu: orderNsu, transaction_nsu: transacao, slug: String(body.invoice_slug || body.slug || '') });
+    console.log('Aviso da InfinitePay: ' + JSON.stringify(body).slice(0, 500));
+    var pedido = { order_nsu: orderNsu, transaction_nsu: transacao, slug: String(body.invoice_slug || body.slug || '') };
+    if (ref.dados.handle) pedido.handle = ref.dados.handle;
+    var conf = cobrancaPedir_('/payment_check', pedido);
     if (!conf.json || conf.json.success !== true || conf.json.paid !== true) {
       console.error('payment_check não confirmou ' + orderNsu + ': ' + conf.texto.slice(0, 300));
       return { ok: false, erro: 'pagamento não confirmado' };
@@ -5601,13 +5610,13 @@ function cobrancaCriarLinkTeste() {
   var orderNsu = 'teste-' + Date.now();
   var r = cobrancaPedir_('/links', {
     items: [{ quantity: 1, price: 100, description: 'Solar Green - teste' }],
-    order_nsu: orderNsu, webhook_url: ScriptApp.getService().getUrl() + '?action=cobrancaWebhook',
+    order_nsu: orderNsu, webhook_url: COBRANCA_WEBHOOK,
     options: { single_payment: true }
   });
   console.log('Resposta (' + r.codigo + '): ' + r.texto);
   var url = cobrancaAcharUrl_(r.json);
   if (!url) return;
-  fsCommit_(cfg, [fsUpdate_(cfg, 'cobranca_links/' + orderNsu, { teste: true, valor: 1, criadoEm: new Date().toISOString() })]);
+  fsCommit_(cfg, [fsUpdate_(cfg, 'cobranca_links/' + orderNsu, { teste: true, valor: 1, criadoEm: new Date().toISOString(), handle: cobrancaHandle_(url) })]);
   console.log('Link de teste: ' + url);
 }
 
