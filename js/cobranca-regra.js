@@ -192,7 +192,49 @@
     return r;
   }
 
-  var api = { normalizar: normalizar, numero: numero, parseData: parseData, classificar: classificar, GRUPOS: GRUPOS, resumo: resumo };
+  // ── Mensagens de cobrança pelo WhatsApp (textos aprovados pelo Felipe em 02/11/2026) ──
+  // Saem do WhatsApp de atendimento pela mão do vendedor, então o link vai no
+  // próprio texto ("pelo link abaixo") em vez de botão.
+  var TEXTOS = {
+    inicio: 'Olá, {nome}! Aqui é da Solar Green. O serviço de {servico} do dia {data} foi concluído, e a ordem de serviço foi enviada para assinatura no seu e-mail. O valor é {valor} e você pode pagar por Pix ou cartão pelo link abaixo:\n{link}',
+    '8h': 'Bom dia, {nome}! Passando para lembrar do pagamento de {valor}, referente ao serviço de {servico} do dia {data}. É só tocar no link abaixo para pagar por Pix ou cartão:\n{link}',
+    '15h': 'Olá, {nome}. O pagamento do serviço de {servico}, no valor de {valor}, ainda consta em aberto no nosso sistema. O link está abaixo. Se você já pagou, pode desconsiderar esta mensagem.\n{link}',
+    '18h': '{nome}, antes de encerrar o dia: o valor de {valor} do serviço de {servico} continua pendente. Você pode pagar agora pelo link abaixo. Qualquer dúvida, é só responder aqui.\n{link}',
+    parcial: 'Olá, {nome}. Recebemos {pago} do serviço de {servico}, obrigado! Ficou um saldo de {valor}, que você pode pagar pelo link abaixo:\n{link}',
+    obrigado: '{nome}, recebemos o seu pagamento. Muito obrigado pela confiança na Solar Green! Qualquer coisa que precisar da sua usina, é só chamar aqui.'
+  };
+
+  function dinheiroBR(n) {
+    return 'R$ ' + (Math.round(numero(n) * 100) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+
+  // dados: {nome, servico, data (Date), valor, pago, link}. Usa só o primeiro nome.
+  function montarTexto(tipo, dados) {
+    var d = dados || {};
+    var data = d.data instanceof Date ? ('0' + d.data.getDate()).slice(-2) + '/' + ('0' + (d.data.getMonth() + 1)).slice(-2) : '';
+    var nome = String(d.nome || '').trim().split(/\s+/)[0] || '';
+    nome = nome ? nome.charAt(0).toUpperCase() + nome.slice(1).toLowerCase() : '';
+    var trocas = { nome: nome, servico: String(d.servico || '').toLowerCase(), data: data, valor: dinheiroBR(d.valor), pago: dinheiroBR(d.pago), link: d.link || '' };
+    return String(TEXTOS[tipo] || '').replace(/\{(\w+)\}/g, function (m, k) { return trocas.hasOwnProperty(k) ? trocas[k] : m; });
+  }
+
+  // Texto do envio feito à mão, pela hora: os mesmos horários do lembrete automático
+  // (semana 8h, 15h e 18h; sábado 8h e 12h, que usa o texto das 15h).
+  function tipoPelaHora(agora) {
+    var h = agora.getHours(), dia = agora.getDay();
+    if (dia === 6) return h < 12 ? '8h' : '15h';
+    return h < 15 ? '8h' : (h < 18 ? '15h' : '18h');
+  }
+
+  // Telefone do cadastro para o wa.me: só dígitos, com 55 na frente.
+  function telefoneWhatsApp(tel) {
+    var t = String(tel || '').replace(/\D/g, '');
+    if (t.length === 10 || t.length === 11) t = '55' + t;
+    return /^55\d{10,11}$/.test(t) ? t : '';
+  }
+
+  var api = { normalizar: normalizar, numero: numero, parseData: parseData, classificar: classificar, GRUPOS: GRUPOS, resumo: resumo,
+    TEXTOS: TEXTOS, montarTexto: montarTexto, tipoPelaHora: tipoPelaHora, telefoneWhatsApp: telefoneWhatsApp };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.SGCobrancaRegra = api;
 })(typeof window !== 'undefined' ? window : null);

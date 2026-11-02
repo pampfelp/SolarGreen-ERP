@@ -298,13 +298,20 @@
   // Modal de confirmação depois de mandar a OS pra assinatura — fica na
   // frente até a pessoa clicar OK (não some sozinho como um toast), com o
   // link já pronto pra copiar e mandar manualmente por WhatsApp se quiser.
-  function abrirModalOSEnviada(email,link){
+  function abrirModalOSEnviada(email,link,idAgendamento){
     document.getElementById('osEnviada-email').textContent=email;
+    document.getElementById('osEnviadaModal').setAttribute('data-os',idAgendamento||'');
     document.getElementById('osEnviada-link').value=link||'';
     document.getElementById('osEnviadaModal').classList.remove('hidden');
   }
   function fecharModalOSEnviada(){ document.getElementById('osEnviadaModal').classList.add('hidden'); }
   document.getElementById('osEnviada-okBtn').addEventListener('click',fecharModalOSEnviada);
+  // Primeira mensagem da cobrança, com o link de pagamento (2026-11-02).
+  document.getElementById('osEnviada-pagamentoBtn').addEventListener('click',function(){
+    var id=document.getElementById('osEnviadaModal').getAttribute('data-os');
+    if(id&&window.SGCobranca)window.SGCobranca.enviarInicio(id);
+    fecharModalOSEnviada();
+  });
   document.getElementById('osEnviada-copiarBtn').addEventListener('click',function(){
     var link=document.getElementById('osEnviada-link').value;
     navigator.clipboard.writeText(link).then(function(){
@@ -791,7 +798,7 @@
           });
           btn.disabled=false; btn.innerHTML=textoOriginal;
           abrirPainelDetalhe(a.IdAgendamento);
-          abrirModalOSEnviada(cliente.Email,resp2.link||'');
+          abrirModalOSEnviada(cliente.Email,resp2.link||'',a.IdAgendamento);
         });
       }).catch(function(err){
         btn.disabled=false; btn.innerHTML=textoOriginal;

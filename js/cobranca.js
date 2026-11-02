@@ -6,7 +6,9 @@
   var POR_PAGINA=10;
   var NOMES_SITUACAO={em_aberto:'Em aberto',diferenca:'Diferença a confirmar',a_conferir:'A conferir',sem_valor:'Valor não definido',quitada:'Quitada'};
 
-  var iniciado=false,pendenteRecalculo=false;
+  // Apps Script: cria o link da InfinitePay (a chave fica lá, nunca na página).
+  var API_URL='https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA34xrlLTVUUNhKBIlguJT3ectH7Yus-VW1n41GcCclc5q_Yj0Di2O7g/exec';
+  var iniciado=false,pendenteRecalculo=false,aoCarregar=[];
   var bruto={agendamentos:null,vendas:null,clientes:null,vendedores:null,servicos:null};
   // Escrita otimista: o que a pessoa acabou de gravar vale por cima do dado do
   // listener até o servidor responder. Os documentos do listener são compartilhados
@@ -45,7 +47,11 @@
   // tela (cota do Firestore): aba lembrada do localStorage não conta se a tela de
   // Vendas ainda nem foi aberta.
   function iniciarSePreciso(){
-    if(iniciado||!viewVendasAtiva()||el('v-painelCobranca').style.display==='none')return;
+    if(!viewVendasAtiva()||el('v-painelCobranca').style.display==='none')return;
+    assinar();
+  }
+  function assinar(){
+    if(iniciado)return;
     iniciado=true;
     window.SGFireReady.then(function(){
       Object.keys(bruto).forEach(function(nome){
@@ -64,6 +70,7 @@
   function recalcular(){
     var carregado=Object.keys(bruto).every(function(k){ return bruto[k]; });
     if(!carregado){ renderTudo(); return; }
+    var esperando=aoCarregar;aoCarregar=[];
     var ags=bruto.agendamentos.map(function(a){
       var o=sobrepor.agend[a.IdAgendamento];
       if(!o)return a;
@@ -86,6 +93,15 @@
     });
     popularSelects();
     renderTudo();
+    esperando.forEach(function(f){ f(); });
+  }
+  // Para quem chega de fora da aba (assinatura da OS, notificação): assina as
+  // coleções se ainda não assinou e espera o primeiro cálculo.
+  function quandoCarregar(){
+    assinar();
+    return new Promise(function(ok){
+      if(Object.keys(bruto).every(function(k){ return bruto[k]; }))ok(); else aoCarregar.push(ok);
+    });
   }
   function nomeDoCliente(l){ return nomeCliente[l.idCliente]||(mapaAg[l.idAgendamento]||{}).NomeCliente||l.idCliente||'—'; }
 
@@ -275,7 +291,66 @@
       if(!ok)return;
       var s=sessao();
       gravarAjuste(l,{Tipo:tipo,Valor:dif,Por:s.nome||'',PorId:s.idVendedor||'',Em:new Date().toISOString()},desconto?'Desconto registrado.':'Pagamento parcial registrado.');
+      // Parcial confirmado já manda a primeira cobrança do saldo (pedido do Felipe).
+      if(!desconto)enviarWhats(l,'parcial',true);
     });
+  }
+
+  // ── WhatsApp (semiautomático, 2026-11-02) ──
+  // A mensagem sai do WhatsApp aberto no aparelho de quem toca; o ERP só monta o
+  // texto e o link. Os lembretes de horário chegam como notificação do Apps Script.
+  function chamarServidor(acao,dados){
+    var u=window.firebase&&firebase.auth().currentUser;
+    if(!u)return Promise.reject(new Error('Sessão expirada. Entre de novo.'));
+    return u.getIdToken().then(function(t){
+      return fetch(API_URL,{method:'POST',cache:'no-store',body:JSON.stringify(Object.assign({action:acao,idToken:t},dados))});
+    }).then(function(r){ return r.json(); });
+  }
+  // Só cobra o que está em aberto de verdade: "A conferir" pode já estar paga, e
+  // a diferença só entra depois que o admin confirma que foi pagamento parcial.
+  function cobravel(l){
+    return l.saldo>=1&&(l.situacao==='em_aberto'||(l.situacao==='diferenca'&&l.ajuste&&l.ajuste.Tipo==='Parcial'));
+  }
+  function clienteDe(l){ return bruto.clientes.filter(function(c){ return c.IdCliente===l.idCliente; })[0]||{}; }
+  // tipo: inicio, 8h, 15h, 18h, parcial ou obrigado. A janela abre já no clique
+  // (senão o navegador bloqueia) e recebe o endereço do WhatsApp depois.
+  function enviarWhats(l,tipo,forcar,janelaAberta){
+    var falhar=function(msg){ if(janelaAberta)janelaAberta.close(); toast(msg,true); };
+    var tel=window.SGCobrancaRegra.telefoneWhatsApp(clienteDe(l).Telefone);
+    if(!tel){ falhar('O cliente não tem um celular válido no cadastro.'); return; }
+    if(tipo!=='obrigado'&&!forcar&&!cobravel(l)){ falhar('Essa OS não tem cobrança em aberto.'); return; }
+    var janela=janelaAberta||window.open('','_blank');
+    var a=mapaAg[l.idAgendamento]||{},link=a.CobrancaLink;
+    var saldo=Math.round(l.saldo*100)/100;
+    var precisaLink=tipo!=='obrigado'&&(!link||!a.CobrancaAtiva||Math.abs(window.SGCobrancaRegra.numero(link.Valor)-saldo)>0.009);
+    var passo=tipo==='obrigado'?Promise.resolve({ok:true,url:''}):
+      precisaLink?chamarServidor('cobrancaCriarLink',{idAgendamento:l.idAgendamento}):Promise.resolve({ok:true,url:link.Url});
+    passo.then(function(r){
+      if(!r||!r.ok)throw new Error((r&&r.erro)||'Não foi possível criar o link de pagamento.');
+      var texto=window.SGCobrancaRegra.montarTexto(tipo,{nome:nomeDoCliente(l),servico:nomeServico[l.idServico]||'',data:l.data,valor:r.valor||saldo,pago:l.pago,link:r.url});
+      var destino='https://wa.me/'+tel+'?text='+encodeURIComponent(texto);
+      if(janela)janela.location.href=destino; else location.href=destino;
+      var s=sessao();
+      window.SGAuth.apiCall('registrarEnvioCobranca',{idAgendamento:l.idAgendamento,envio:{Tipo:tipo,Em:new Date().toISOString(),Por:s.nome||'',PorId:s.idVendedor||''}});
+    }).catch(function(err){
+      if(janela)janela.close();
+      toast(err.message,true);
+    });
+  }
+  function htmlWhats(l){
+    var a=mapaAg[l.idAgendamento]||{},html='';
+    var envios=Array.isArray(a.CobrancaEnvios)?a.CobrancaEnvios:[];
+    var ultimo=envios.length?envios[envios.length-1]:null;
+    var info=a.CobrancaLink?linhaDetalhe('Link de pagamento',dinheiro(a.CobrancaLink.Valor)+(a.CobrancaAtiva?' · ativo':' · encerrado')):'';
+    if(ultimo)info+=linhaDetalhe('Última mensagem',esc(new Date(ultimo.Em).toLocaleString('pt-BR'))+(ultimo.Por?' · '+esc(ultimo.Por):''));
+    if(cobravel(l)){
+      var tipo=window.SGCobrancaRegra.tipoPelaHora(new Date());
+      html+='<div class="cb-acoes"><button type="button" class="connect-btn" data-acao="whats" data-tipo="'+tipo+'">Enviar cobrança no WhatsApp</button></div>';
+    }else if(l.situacao==='quitada'&&a.CobrancaAgradecer&&!a.CobrancaAgradecidoEm){
+      html+='<div class="cb-acoes"><button type="button" class="connect-btn" data-acao="whats" data-tipo="obrigado">Enviar agradecimento no WhatsApp</button></div>';
+    }
+    if(!html&&!info)return '';
+    return '<h4 style="margin-top:14px;">Cobrança pelo WhatsApp</h4>'+info+html;
   }
 
   // ── Detalhe ──
@@ -347,7 +422,7 @@
     });
     html+='</div>';
 
-    var acoes='';
+    var acoes=htmlWhats(l);
     if(l.saldo>0&&l.situacao!=='sem_valor'&&l.situacao!=='quitada'){
       acoes+='<div class="cb-acoes"><button type="button" class="connect-btn" data-acao="pagamento">Registrar pagamento</button></div>';
     }
@@ -382,7 +457,9 @@
           var b=e.target.closest?e.target.closest('button[data-acao]'):null;
           if(!b)return;
           var acao=b.getAttribute('data-acao'),idVenda=b.getAttribute('data-venda');
-          if(acao==='pagamento'){
+          if(acao==='whats'){
+            enviarWhats(l,b.getAttribute('data-tipo'));
+          }else if(acao==='pagamento'){
             window.SGViewPanel.fechar();
             window.SGVendas.abrirNovaVendaParaOS({idCliente:l.idCliente,nomeCliente:nomeDoCliente(l),idServico:l.idServico,valor:l.saldo,idsOS:[l.idAgendamento],idVendedor:l.idVendedorResp});
           }else if(acao==='confirmar'){
@@ -454,4 +531,24 @@
     if(lerAba()==='cobranca')mostrarAba('cobranca');
   }
   ligar();
+
+  function linhaDaOS(id){ return linhas.filter(function(x){ return x.idAgendamento===id; })[0]; }
+  window.SGCobranca={
+    // Botão do aviso de OS enviada para assinatura: primeira mensagem, com o link.
+    // A janela abre já no clique; o resto espera os dados chegarem.
+    enviarInicio:function(id){
+      var janela=window.open('','_blank');
+      quandoCarregar().then(function(){
+        var l=linhaDaOS(id);
+        if(!l){ if(janela)janela.close(); toast('OS não encontrada na cobrança.',true); return; }
+        enviarWhats(l,'inicio',false,janela);
+      });
+    },
+    // Clique na notificação de lembrete ou de pagamento: abre o detalhe da OS.
+    abrirDaNotificacao:function(id){
+      if(window.SGControllerSwitchTo)window.SGControllerSwitchTo('vendas');
+      mostrarAba('cobranca');
+      quandoCarregar().then(function(){ if(linhaDaOS(id))abrirDetalhe(id); else toast('Essa OS não está mais na cobrança.',true); });
+    }
+  };
 })();

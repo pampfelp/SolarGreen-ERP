@@ -133,4 +133,22 @@ assert.deepEqual(doGrupo('sem_valor').map(x=>x.idAgendamento),['d']);
 assert.deepEqual(R.resumo(doGrupo('pendentes')).quitado,{valor:0,qtd:0});
 assert.deepEqual(R.resumo(doGrupo('concluidos')).emAberto,{valor:0,qtd:0});
 
+// Textos da cobrança: primeiro nome, valor em reais, data dd/mm e o link no fim
+const txt=R.montarTexto('8h',{nome:'LEANDRO ARAUJO SIDRIM',servico:'Vistoria de Diagnóstico',data:new Date(2026,9,30),valor:1053.8,link:'https://x.y/z'});
+assert.equal(txt,'Bom dia, Leandro! Passando para lembrar do pagamento de R$ 1.053,80, referente ao serviço de vistoria de diagnóstico do dia 30/10. É só tocar no link abaixo para pagar por Pix ou cartão:\nhttps://x.y/z');
+assert.ok(R.montarTexto('parcial',{nome:'ana',servico:'Limpeza',valor:363,pago:270,link:'L'}).startsWith('Olá, Ana. Recebemos R$ 270,00 do serviço de limpeza, obrigado! Ficou um saldo de R$ 363,00'));
+assert.ok(!/\{/.test(R.montarTexto('obrigado',{nome:'Ana'})));
+
+// Texto pela hora: semana 8h/15h/18h, sábado 8h e 12h (texto das 15h)
+assert.equal(R.tipoPelaHora(new Date(2026,10,2,9)),'8h');   // segunda
+assert.equal(R.tipoPelaHora(new Date(2026,10,2,15)),'15h');
+assert.equal(R.tipoPelaHora(new Date(2026,10,2,19)),'18h');
+assert.equal(R.tipoPelaHora(new Date(2026,10,7,11)),'8h');  // sábado
+assert.equal(R.tipoPelaHora(new Date(2026,10,7,12)),'15h');
+
+// Telefone para o wa.me
+assert.equal(R.telefoneWhatsApp('(91) 98759-8592'),'5591987598592');
+assert.equal(R.telefoneWhatsApp('5591987598592'),'5591987598592');
+assert.equal(R.telefoneWhatsApp('123'),'');
+
 console.log('cobranca-regra: ok');
