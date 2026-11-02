@@ -725,6 +725,16 @@
       .then(function(){ return {ok:true}; })
       .catch(function(err){ return {ok:false,erro:err.message}; });
   }
+  // Cobrança pelo WhatsApp: guarda cada mensagem aberta pelo ERP. O agradecimento
+  // encerra o pedido de agradecer que o Apps Script deixou na OS.
+  function registrarEnvioCobranca(p){
+    if(!p.idAgendamento||!p.envio) return Promise.resolve({ok:false,erro:'Dados incompletos.'});
+    var campos={CobrancaEnvios:firebase.firestore.FieldValue.arrayUnion(p.envio)};
+    if(p.envio.Tipo==='obrigado'){ campos.CobrancaAgradecer=false; campos.CobrancaAgradecidoEm=p.envio.Em; }
+    return db().collection('agendamentos').doc(p.idAgendamento).update(campos)
+      .then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
   function definirValorOS(p){
     var valor=parseFloat(p.valor);
     if(!p.idAgendamento||!(valor>0)) return Promise.resolve({ok:false,erro:'Dados incompletos.'});
@@ -1061,6 +1071,7 @@
     vincularVendaOS:comSync('vendas',function(p){return 'vincular venda '+p.idVenda;},comAuthPronto(vincularVendaOS)),
     salvarAjusteCobrancaOS:comSync('agendamentos',function(p){return 'ajuste da OS '+p.idAgendamento;},comAuthPronto(salvarAjusteCobrancaOS)),
     definirValorOS:comSync('agendamentos',function(p){return 'valor da OS '+p.idAgendamento;},comAuthPronto(definirValorOS)),
+    registrarEnvioCobranca:comSync('agendamentos',function(p){return 'envio de cobrança da OS '+p.idAgendamento;},comAuthPronto(registrarEnvioCobranca)),
     // gerarPdfOS/enviarOSParaAssinatura/verificarStatusOS NÃO entram aqui de
     // propósito — apiCall() cai sozinho no Apps Script antigo pra essas 3
     // (é lá que mora o token da Autentique, ver comentário acima de

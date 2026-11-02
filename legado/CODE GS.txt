@@ -89,6 +89,10 @@ function handleRequest(e) {
     if ((params.action || body.action) === 'disparoCriarModelo')         return jsonOutput(actionDisparoCriarModelo(body));
     if ((params.action || body.action) === 'disparoSincronizarModelos')  return jsonOutput(actionDisparoSincronizarModelos(body));
     if ((params.action || body.action) === 'disparoMidia')               return jsonOutput(actionDisparoMidia(body));
+    // Cobrança com link da InfinitePay (2026-11-02): a página chama com o idToken;
+    // o aviso de pagamento vem da InfinitePay, com a ação na URL.
+    if ((params.action || body.action) === 'cobrancaCriarLink')          return jsonOutput(actionCobrancaCriarLink(body));
+    if (params.action === 'cobrancaWebhook')                             return jsonOutput(actionCobrancaWebhook(body));
 
     var chave = params.chave || body.chave || '';
     if (chave !== CONFIG.CHAVE_SECRETA) {
@@ -5337,4 +5341,280 @@ function fsBatchGet_(cfg, caminhos, campos) {
     });
   }
   return out;
+}
+
+// =====================================================================
+// COBRANÇA PELO WHATSAPP COM LINK DA INFINITEPAY (2026-11-02)
+// =====================================================================
+//
+// Semiautomático, pedido do Felipe: a mensagem sai do WhatsApp de atendimento
+// pela mão do vendedor (o ERP abre o WhatsApp com o texto pronto). Aqui ficam
+// as partes que precisam de servidor:
+//   cobrancaCriarLink     cria o link de pagamento da OS na InfinitePay
+//   cobrancaWebhook       a InfinitePay avisa o pagamento; confere no
+//                         /payment_check (o aviso não tem assinatura), lança a
+//                         venda ligada à OS e avisa o vendedor para agradecer
+//   cobrancaLembretes     gatilho de hora em hora: nos horários da cobrança,
+//                         avisa no celular o vendedor de cada OS em aberto
+//
+// Script Properties (nenhuma vai pro repositório):
+//   INFINITEPAY_API_KEY   chave do Checkout Integrado (começa com inchk_)
+//
+// Campos na OS (agendamentos/{id}): CobrancaLink {Url, OrderNsu, Valor, CriadoEm},
+// CobrancaAtiva, CobrancaDesde (yyyy-MM-dd; lembrete só a partir do dia seguinte),
+// CobrancaAgradecer. cobranca_links/{orderNsu} liga o pedido à OS;
+// cobranca_pagamentos/{transaction_nsu} impede lançar o mesmo pagamento duas vezes.
+
+var COBRANCA_API = 'https://api.checkout.infinitepay.io';
+// Horários da cobrança (hora de Belém). Sábado só dois; domingo, nenhum.
+// O valor é o texto usado (o de 12h do sábado é o mesmo das 15h).
+var COBRANCA_HORARIOS = {
+  semana: { 8: '8h', 15: '15h', 18: '18h' },
+  sabado: { 8: '8h', 12: '15h' }
+};
+
+function cobrancaHoje_() { return Utilities.formatDate(new Date(), 'America/Belem', 'yyyy-MM-dd'); }
+
+function cobrancaNumero_(v) {
+  if (typeof v === 'number') return isFinite(v) ? v : 0;
+  var s = String(v == null ? '' : v).trim().replace(/R\$\s?/g, '');
+  if (!s) return 0;
+  if (s.indexOf(',') !== -1) s = s.replace(/\./g, '').replace(',', '.');
+  var n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+}
+
+// Saldo da OS pela mesma regra da tela (js/cobranca-regra.js): venda ligada só a
+// ela soma o valor da venda; venda ligada a várias (plano) quita a OS inteira;
+// desconto confirmado pelo admin quita.
+function cobrancaSaldo_(cfg, idAgendamento, os) {
+  var valor = cobrancaNumero_(os.Valor);
+  if (os.CobrancaAjuste && os.CobrancaAjuste.Tipo === 'Desconto') return 0;
+  var pago = 0;
+  fsConsulta_(cfg, 'vendas', 'IdCliente', String(os.IdCliente || ''), 300).forEach(function (v) {
+    var ids = Array.isArray(v.OsVinculadas) ? v.OsVinculadas : [];
+    if (ids.indexOf(idAgendamento) === -1) return;
+    pago += ids.length === 1 ? cobrancaNumero_(v.Valor) : valor;
+  });
+  return Math.max(Math.round((valor - pago) * 100) / 100, 0);
+}
+
+function cobrancaPedir_(caminho, corpo) {
+  var chave = PropertiesService.getScriptProperties().getProperty('INFINITEPAY_API_KEY') || '';
+  if (!chave) throw new Error('Falta a INFINITEPAY_API_KEY nas Propriedades do script.');
+  var resp = UrlFetchApp.fetch(COBRANCA_API + caminho, {
+    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+    headers: { 'X-Api-Key': chave }, payload: JSON.stringify(corpo)
+  });
+  var texto = resp.getContentText();
+  var json = null;
+  try { json = JSON.parse(texto); } catch (e) { /* resposta sem JSON */ }
+  return { codigo: resp.getResponseCode(), json: json, texto: texto };
+}
+
+// A documentação não diz o nome do campo da URL na resposta: pega o primeiro
+// endereço https que vier nela.
+function cobrancaAcharUrl_(obj) {
+  if (!obj) return '';
+  if (typeof obj === 'string') return /^https:\/\//.test(obj) ? obj : '';
+  var achado = '';
+  Object.keys(obj).some(function (k) { achado = cobrancaAcharUrl_(obj[k]); return !!achado; });
+  return achado;
+}
+
+// action: cobrancaCriarLink { idToken, idAgendamento }. Sempre cria um link novo
+// com o saldo de agora: link da InfinitePay não se cancela nem se edita.
+function actionCobrancaCriarLink(body) {
+  var cfg = fbConfig_();
+  if (!cfg) return { ok: false, erro: 'Firebase não configurado no servidor.' };
+  var auth = disparoAutenticar_(cfg, body, false);
+  if (auth.erro) return { ok: false, erro: auth.erro };
+  var id = String(body.idAgendamento || '');
+  var doc = id ? fsGet_(cfg, 'agendamentos/' + id) : null;
+  if (!doc) return { ok: false, erro: 'OS não encontrada.' };
+  var os = doc.dados;
+  var cli = fsGet_(cfg, 'clientes/' + String(os.IdCliente || ''));
+  var cliente = cli ? cli.dados : {};
+  var resp = String(cliente['Vendedor Responsavel'] || '');
+  if (!ehGestaoAtivaFs_(auth.vendedor) && resp !== String(auth.vendedor.IdVendedor)) return { ok: false, erro: 'Só o vendedor do cliente ou a gestão cobram essa OS.' };
+  var saldo = cobrancaSaldo_(cfg, id, os);
+  if (saldo < 1) return { ok: false, erro: 'Essa OS não tem saldo a cobrar.' };
+
+  var serv = os.IdServico ? fsGet_(cfg, 'servicos/' + os.IdServico) : null;
+  var nomeServico = serv ? String(serv.dados['Nome Servico'] || '') : '';
+  var orderNsu = 'os-' + id + '-' + Date.now();
+  var corpo = {
+    items: [{ quantity: 1, price: Math.round(saldo * 100), description: ('Solar Green - ' + (nomeServico || 'serviço')).slice(0, 100) }],
+    order_nsu: orderNsu,
+    webhook_url: ScriptApp.getService().getUrl() + '?action=cobrancaWebhook',
+    options: { single_payment: true }
+  };
+  var tel = String(cliente.Telefone || '').replace(/\D/g, '');
+  if (tel.length === 10 || tel.length === 11) tel = '55' + tel;
+  var nome = String(cliente['Nome Razao Social'] || cliente.Nome || '').trim();
+  if (nome && /^55\d{10,11}$/.test(tel)) corpo.customer = { name: nome, phone_number: '+' + tel };
+  var r = cobrancaPedir_('/links', corpo);
+  var url = cobrancaAcharUrl_(r.json);
+  if (r.codigo < 200 || r.codigo >= 300 || !url) {
+    console.error('InfinitePay recusou o link (' + r.codigo + '): ' + r.texto.slice(0, 500));
+    return { ok: false, erro: 'A InfinitePay não criou o link (' + r.codigo + ').' };
+  }
+  var agora = new Date().toISOString();
+  var link = { Url: url, OrderNsu: orderNsu, Valor: saldo, CriadoEm: agora };
+  var campos = { CobrancaLink: link, CobrancaAtiva: true, CobrancaAgradecer: false };
+  // O começo da cobrança não muda quando o link é refeito (saldo parcial).
+  if (!os.CobrancaDesde) campos.CobrancaDesde = cobrancaHoje_();
+  fsCommit_(cfg, [
+    fsUpdateRico_(cfg, 'agendamentos/' + id, campos),
+    fsUpdate_(cfg, 'cobranca_links/' + orderNsu, { idAgendamento: id, valor: saldo, criadoEm: agora, criadoPor: String(auth.vendedor.IdVendedor) })
+  ]);
+  return { ok: true, url: url, valor: saldo };
+}
+
+// action: cobrancaWebhook (na URL). Quem chama é a InfinitePay, sem assinatura:
+// nada é lançado sem o /payment_check confirmar. O Apps Script responde com
+// redirecionamento; se a InfinitePay tratar isso como falha e reenviar, o
+// transaction_nsu já gravado impede a venda em dobro.
+function actionCobrancaWebhook(body) {
+  var orderNsu = String(body.order_nsu || ''), transacao = String(body.transaction_nsu || '');
+  if (!orderNsu || !transacao) return { ok: false, erro: 'aviso incompleto' };
+  var cfg = fbConfig_();
+  if (!cfg) return { ok: false, erro: 'Firebase não configurado no servidor.' };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    if (fsGet_(cfg, 'cobranca_pagamentos/' + transacao)) return { ok: true, acao: 'já lançado' };
+    var ref = fsGet_(cfg, 'cobranca_links/' + orderNsu);
+    if (!ref) return { ok: false, erro: 'pedido desconhecido' };
+    var conf = cobrancaPedir_('/payment_check', { order_nsu: orderNsu, transaction_nsu: transacao, slug: String(body.invoice_slug || body.slug || '') });
+    if (!conf.json || conf.json.success !== true || conf.json.paid !== true) {
+      console.error('payment_check não confirmou ' + orderNsu + ': ' + conf.texto.slice(0, 300));
+      return { ok: false, erro: 'pagamento não confirmado' };
+    }
+    // Link de teste (cobrancaCriarLinkTeste): prova o aviso e a conferência sem lançar venda.
+    if (ref.dados.teste === true) {
+      fsCommit_(cfg, [fsUpdate_(cfg, 'cobranca_pagamentos/' + transacao, {
+        orderNsu: orderNsu, teste: true, valor: cobrancaNumero_(conf.json.amount) / 100, lancadoEm: new Date().toISOString()
+      }, { exists: false })]);
+      console.log('Teste confirmado: ' + orderNsu + ' / ' + transacao);
+      return { ok: true, acao: 'teste confirmado' };
+    }
+    var id = String(ref.dados.idAgendamento);
+    var doc = fsGet_(cfg, 'agendamentos/' + id);
+    if (!doc) return { ok: false, erro: 'OS não encontrada' };
+    var os = doc.dados;
+    var cli = fsGet_(cfg, 'clientes/' + String(os.IdCliente || ''));
+    var cliente = cli ? cli.dados : {};
+    // amount é o valor do link; paid_amount pode vir maior pelo juro do parcelamento.
+    var valor = cobrancaNumero_(conf.json.amount) / 100;
+    var idVenda = Utilities.getUuid().replace(/-/g, '').substring(0, 8);
+    var venda = {
+      IdVenda: idVenda, IdCliente: String(os.IdCliente || ''), IdServico: String(os.IdServico || ''),
+      IdVendedor: String(cliente['Vendedor Responsavel'] || ''), DataVenda: cobrancaHoje_(), Valor: valor,
+      OsVinculadas: [id], PagamentoInfinitePay: transacao
+    };
+    var nome = String(cliente['Nome Razao Social'] || cliente.Nome || '');
+    if (nome) venda.NomeCliente = nome;
+    if (cliente.Telefone) venda.TelefoneCliente = String(cliente.Telefone);
+    var saldoAntes = cobrancaSaldo_(cfg, id, os);
+    var quitou = saldoAntes - valor < 0.01;
+    var writes = [
+      fsUpdateRico_(cfg, 'vendas/' + idVenda, venda, { exists: false }),
+      fsUpdate_(cfg, 'cobranca_pagamentos/' + transacao, {
+        orderNsu: orderNsu, idAgendamento: id, idVenda: idVenda, valor: valor,
+        metodo: String(conf.json.capture_method || body.capture_method || ''), recibo: String(body.receipt_url || ''),
+        lancadoEm: new Date().toISOString()
+      }, { exists: false })
+    ];
+    var agradecer = false;
+    if (quitou) {
+      // Agradece só quando o cliente não tem mais nenhuma cobrança aberta.
+      var outras = fsConsulta_(cfg, 'agendamentos', 'IdCliente', String(os.IdCliente || ''), 200).filter(function (a) {
+        return a._id !== id && a.CobrancaAtiva === true;
+      });
+      agradecer = !outras.length;
+      writes.push(fsUpdate_(cfg, 'agendamentos/' + id, { CobrancaAtiva: false, CobrancaAgradecer: agradecer }));
+    }
+    if (!fsCommit_(cfg, writes)) return { ok: true, acao: 'já lançado' };
+    var vendedor = String(cliente['Vendedor Responsavel'] || '');
+    var destino = vendedor ? [vendedor] : cobrancaGestao_(cfg);
+    enviarPush_(cfg, destino, {
+      titulo: agradecer ? 'Pagamento recebido: agradeça o cliente' : 'Pagamento recebido pelo link',
+      corpo: (nome || 'Cliente') + ' pagou R$ ' + valor.toFixed(2).replace('.', ',') + (quitou ? '' : ' (ainda resta saldo)'),
+      url: 'index.html?cobranca=' + id + (agradecer ? '&msg=obrigado' : ''), tag: 'cobranca-' + id, notifId: 'cobranca:' + transacao
+    });
+    return { ok: true, acao: 'lançado', idVenda: idVenda };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function cobrancaGestao_(cfg) {
+  return vendedoresFs_(cfg).filter(ehGestaoAtivaFs_).map(function (v) { return String(v.IdVendedor); });
+}
+
+// Gatilho de hora em hora (cobrancaInstalarGatilho). Fora dos horários não faz nada.
+function cobrancaLembretes() {
+  var cfg = fbConfig_();
+  if (!cfg) return;
+  var partes = Utilities.formatDate(new Date(), 'America/Belem', 'u H').split(' ');
+  var dia = Number(partes[0]), hora = Number(partes[1]);
+  var tabela = dia === 6 ? COBRANCA_HORARIOS.sabado : (dia === 7 ? {} : COBRANCA_HORARIOS.semana);
+  var texto = tabela[hora];
+  if (!texto) return;
+  var hoje = cobrancaHoje_();
+  fsConsulta_(cfg, 'agendamentos', 'CobrancaAtiva', true, 300).forEach(function (os) {
+    // Lembrete só a partir do dia seguinte ao do envio do link.
+    if (!os.CobrancaDesde || os.CobrancaDesde >= hoje) return;
+    var id = os._id;
+    var cli = fsGet_(cfg, 'clientes/' + String(os.IdCliente || ''));
+    var cliente = cli ? cli.dados : {};
+    var nome = String(cliente['Nome Razao Social'] || cliente.Nome || 'Cliente');
+    var vendedor = String(cliente['Vendedor Responsavel'] || '');
+    var destino = vendedor ? [vendedor] : cobrancaGestao_(cfg);
+    var saldo = cobrancaSaldo_(cfg, id, os);
+    if (saldo < 0.01) {
+      // Quitada por fora do link (Pix direto, venda lançada à mão): encerra e pede o agradecimento.
+      var outras = fsConsulta_(cfg, 'agendamentos', 'IdCliente', String(os.IdCliente || ''), 200).filter(function (a) {
+        return a._id !== id && a.CobrancaAtiva === true;
+      });
+      fsCommit_(cfg, [fsUpdate_(cfg, 'agendamentos/' + id, { CobrancaAtiva: false, CobrancaAgradecer: !outras.length })]);
+      if (!outras.length) enviarPush_(cfg, destino, {
+        titulo: 'Cobrança quitada: agradeça o cliente', corpo: nome,
+        url: 'index.html?cobranca=' + id + '&msg=obrigado', tag: 'cobranca-' + id, notifId: 'cobranca:' + id + ':obrigado'
+      });
+      return;
+    }
+    enviarPush_(cfg, destino, {
+      titulo: 'Cobrança das ' + hora + 'h',
+      corpo: nome + ' · R$ ' + saldo.toFixed(2).replace('.', ',') + ' · toque para enviar',
+      url: 'index.html?cobranca=' + id + '&msg=' + texto, tag: 'cobranca-' + id, notifId: 'cobranca:' + id + ':' + hoje + ':' + hora
+    });
+  });
+}
+
+// Teste pelo editor: cria um link real de R$ 1,00 que não está ligado a OS
+// nenhuma. Pague, estorne pelo app da InfinitePay e confira o log da execução
+// do aviso (ou cobranca_pagamentos com teste: true).
+function cobrancaCriarLinkTeste() {
+  var cfg = fbConfig_();
+  var orderNsu = 'teste-' + Date.now();
+  var r = cobrancaPedir_('/links', {
+    items: [{ quantity: 1, price: 100, description: 'Solar Green - teste' }],
+    order_nsu: orderNsu, webhook_url: ScriptApp.getService().getUrl() + '?action=cobrancaWebhook',
+    options: { single_payment: true }
+  });
+  console.log('Resposta (' + r.codigo + '): ' + r.texto);
+  var url = cobrancaAcharUrl_(r.json);
+  if (!url) return;
+  fsCommit_(cfg, [fsUpdate_(cfg, 'cobranca_links/' + orderNsu, { teste: true, valor: 1, criadoEm: new Date().toISOString() })]);
+  console.log('Link de teste: ' + url);
+}
+
+// Rodar uma vez pelo editor.
+function cobrancaInstalarGatilho() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'cobrancaLembretes') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('cobrancaLembretes').timeBased().everyHours(1).create();
 }
