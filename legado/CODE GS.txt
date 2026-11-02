@@ -5382,7 +5382,6 @@ var COBRANCA_WEBHOOK = 'https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA3
 // O botão "Pagar agora" do modelo tem a parte fixa do endereço; o envio completa
 // com o código do link.
 var COBRANCA_PAGAR_BASE = 'https://checkout.infinitepay.io/felipe-eduardo-y25/';
-var COBRANCA_ATENDIMENTO = 'https://wa.me/5591987598592';
 
 // A InfiniteTag da conta vem no próprio link (checkout.infinitepay.io/<tag>/<id>).
 function cobrancaHandle_(url) { var m = String(url || '').match(/infinitepay\.io\/([^\/?#]+)\//); return m ? m[1] : ''; }
@@ -5793,21 +5792,18 @@ function cobrancaTratarStatus_(cfg, s) {
 }
 
 // Pelo editor, uma vez: cria os seis modelos na conta do disparo, na categoria
-// utilidade. O log mostra o que a Meta respondeu para cada um.
+// utilidade. O log mostra o que a Meta respondeu para cada um. Sem botão para o
+// WhatsApp de atendimento: a Meta recusa botão com link direto do WhatsApp, e a
+// resposta do cliente já vira aviso para o vendedor (cobrancaTratarMensagem_).
 function cobrancaCriarModelos() {
   var props = disparoProps_();
   var exemplo = { nome: 'Maria', servico: 'limpeza', data: '05/10', valor: 'R$ 400,00', pago: 'R$ 200,00' };
   Object.keys(COBRANCA_MODELOS).forEach(function (k) {
     var m = COBRANCA_MODELOS[k];
-    var botoes = [];
-    if (m.pagar) botoes.push({ type: 'URL', text: 'Pagar agora', url: COBRANCA_PAGAR_BASE + '{{1}}', example: [COBRANCA_PAGAR_BASE + 'exemplo'] });
-    botoes.push({ type: 'URL', text: 'Falar com o atendimento', url: COBRANCA_ATENDIMENTO });
+    var componentes = [{ type: 'BODY', text: m.texto, example: { body_text: [m.campos.map(function (c) { return exemplo[c]; })] } }];
+    if (m.pagar) componentes.push({ type: 'BUTTONS', buttons: [{ type: 'URL', text: 'Pagar agora', url: COBRANCA_PAGAR_BASE + '{{1}}', example: [COBRANCA_PAGAR_BASE + 'exemplo'] }] });
     var r = disparoMetaPedir_(props, 'post', props.wabaId + '/message_templates', {
-      name: m.nome, category: 'UTILITY', language: 'pt_BR',
-      components: [
-        { type: 'BODY', text: m.texto, example: { body_text: [m.campos.map(function (c) { return exemplo[c]; })] } },
-        { type: 'BUTTONS', buttons: botoes }
-      ]
+      name: m.nome, category: 'UTILITY', language: 'pt_BR', components: componentes
     });
     console.log(m.nome + ' (' + r.codigo + '): ' + JSON.stringify(r.json).slice(0, 400));
   });
