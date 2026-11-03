@@ -5012,8 +5012,10 @@ var DISPARO_BOTAO_URL = 'Falar com o atendente';
 var DISPARO_BOTAO_SAIR = 'Não tenho interesse agora';
 
 // Confere o idToken do Firebase em accounts:lookup e acha a pessoa em
-// vendedores (o id do documento é o uid; senão busca por IdVendedor). Só
-// usuário ativo passa; com exigirGestao, só os papéis de gestão.
+// vendedores (o id do documento é o uid; senão busca por IdVendedor; senão pelo
+// e-mail, como o login da página faz com os vendedores vindos da planilha, que
+// guardam o id antigo: Marcilene, 03/11). Só usuário ativo passa; com
+// exigirGestao, só os papéis de gestão.
 function disparoAutenticar_(cfg, body, exigirGestao) {
   var idToken = String(body.idToken || '');
   if (!idToken) return { erro: 'não autorizado' };
@@ -5021,11 +5023,16 @@ function disparoAutenticar_(cfg, body, exigirGestao) {
     method: 'post', contentType: 'application/json', muteHttpExceptions: true, payload: JSON.stringify({ idToken: idToken })
   });
   if (resp.getResponseCode() !== 200) return { erro: 'não autorizado' };
-  var uid = '';
-  try { uid = String(JSON.parse(resp.getContentText()).users[0].localId || ''); } catch (e) { /* sem usuário na resposta */ }
+  var uid = '', email = '';
+  try {
+    var usuario = JSON.parse(resp.getContentText()).users[0];
+    uid = String(usuario.localId || '');
+    email = String(usuario.email || '');
+  } catch (e) { /* sem usuário na resposta */ }
   if (!uid) return { erro: 'não autorizado' };
   var doc = fsGet_(cfg, 'vendedores/' + uid);
   var v = doc ? doc.dados : fsConsulta_(cfg, 'vendedores', 'IdVendedor', uid, 1)[0];
+  if (!v && email) v = fsConsulta_(cfg, 'vendedores', 'Email', email, 1)[0];
   if (!v || String(v.Status || '').trim() !== 'Ativo') return { erro: 'não autorizado' };
   if (exigirGestao && !ehGestaoAtivaFs_(v)) return { erro: 'sem permissão' };
   return { vendedor: v, uid: uid };
