@@ -95,7 +95,7 @@ function handleRequest(e) {
     if ((params.action || body.action) === 'cobrancaCriarLink')          return jsonOutput(actionCobrancaCriarLink(body));
     if ((params.action || body.action) === 'cobrancaPlanoEnviar')        return jsonOutput(actionCobrancaPlanoEnviar(body));
     if ((params.action || body.action) === 'cobrancaPlanoCriarLink')     return jsonOutput(actionCobrancaPlanoCriarLink(body));
-    if ((params.action || body.action) === 'cobrancaPlanoBaixa')         return jsonOutput(actionCobrancaPlanoBaixa(body));
+    if ((params.action || body.action) === 'cobrancaPlanoValidar')       return jsonOutput(actionCobrancaPlanoValidar(body));
     if ((params.action || body.action) === 'cobrancaLinkAvulso')         return jsonOutput(actionCobrancaLinkAvulso(body));
     if ((params.action || body.action) === 'cobrancaAvulsos')            return jsonOutput(actionCobrancaAvulsos(body));
     if (params.action === 'cobrancaWebhook')                             return jsonOutput(actionCobrancaWebhook(body));
@@ -5522,13 +5522,14 @@ function cobrancaContexto_(cfg, id) {
 // Cria o link com o saldo de agora (link da InfinitePay não se cancela nem se
 // edita) e grava na OS. Devolve a URL ou lança erro.
 // Link de pagamento único na InfinitePay. cliente (opcional) preenche nome e
-// celular na tela de pagamento. Devolve a URL ou lança erro.
-function cobrancaNovoLink_(valor, descricao, orderNsu, cliente) {
+// celular na tela de pagamento; parcelas (opcional) troca a tabela pelas
+// parcelas sem juros escolhidas. Devolve a URL ou lança erro.
+function cobrancaNovoLink_(valor, descricao, orderNsu, cliente, parcelas) {
   var corpo = {
     items: [{ quantity: 1, price: Math.round(valor * 100), description: String(descricao).slice(0, 100) }],
     order_nsu: orderNsu,
     webhook_url: COBRANCA_WEBHOOK,
-    options: { single_payment: true, assured_installments: cobrancaParcelasAssumidas_(valor) }
+    options: { single_payment: true, assured_installments: parcelas || cobrancaParcelasAssumidas_(valor) }
   };
   var tel = cliente ? cobrancaTelefone_(cliente.Telefone) : '';
   var nome = cliente ? String(cliente['Nome Razao Social'] || cliente.Nome || '').trim() : '';
@@ -6011,15 +6012,12 @@ function cobrancaPagouPlano_(cfg, ref, orderNsu, transacao, conf, body) {
   var valor = cobrancaNumero_(conf.amount) / 100;
   var pagos = Array.isArray(ref.meses) ? ref.meses : [];
   var resto = c.meses.filter(function (m) { return pagos.indexOf(m) === -1; });
-  var idVenda = Utilities.getUuid().replace(/-/g, '').substring(0, 8);
-  var venda = {
-    IdVenda: idVenda, IdCliente: String(c.plano.IdCliente || ''), IdServico: COBRANCA_PLANO_SERVICO,
-    IdVendedor: String(c.cliente['Vendedor Responsavel'] || ''), DataVenda: cobrancaHoje_(), Valor: valor,
-    IdPlano: c.id, MesesPlano: pagos, PagamentoInfinitePay: transacao
-  };
+  // Link pago depois de os meses já estarem quitados (validados à mão): o
+  // dinheiro entrou, então a venda sai, mas o aviso pede conferência.
+  var repetido = pagos.length > 0 && !pagos.some(function (m) { return c.meses.indexOf(m) !== -1; });
+  var venda = cobrancaVendaPlano_(c, valor, pagos, { PagamentoInfinitePay: transacao });
+  var idVenda = venda.IdVenda;
   var nome = String(c.cliente['Nome Razao Social'] || c.cliente.Nome || '');
-  if (nome) venda.NomeCliente = nome;
-  if (c.cliente.Telefone) venda.TelefoneCliente = String(c.cliente.Telefone);
   // Sobrou mês em aberto (pagou um link antigo): o próximo envio refaz o link com o resto.
   var cm = cobrancaJuntar_(c.cm, resto.length ? { Meses: resto, Url: '', OrderNsu: '', Valor: 0 } : { Meses: [], Ativa: false, PagoEm: new Date().toISOString() });
   var writes = [
@@ -6033,12 +6031,12 @@ function cobrancaPagouPlano_(cfg, ref, orderNsu, transacao, conf, body) {
   ];
   if (!fsCommit_(cfg, writes)) return { ok: true, acao: 'já lançado' };
   var vendedor = String(c.cliente['Vendedor Responsavel'] || '');
-  enviarPush_(cfg, vendedor ? [vendedor] : cobrancaGestao_(cfg), {
-    titulo: 'Mensalidade paga pelo link',
-    corpo: (nome || 'Cliente') + ' pagou ' + cobrancaDinheiro_(valor) + ' do plano (' + cobrancaPlanoNomeMeses_(pagos) + ')',
+  enviarPush_(cfg, repetido ? cobrancaGestao_(cfg) : (vendedor ? [vendedor] : cobrancaGestao_(cfg)), {
+    titulo: repetido ? 'Mensalidade paga de novo pelo link' : 'Mensalidade paga pelo link',
+    corpo: (nome || 'Cliente') + ' pagou ' + cobrancaDinheiro_(valor) + ' do plano (' + cobrancaPlanoNomeMeses_(pagos) + ')' + (repetido ? '; esses meses já estavam quitados, confira' : ''),
     url: 'index.html?cobrancaPlano=' + c.id, tag: 'cobranca-plano-' + c.id, notifId: 'cobranca:' + transacao
   });
-  if (!resto.length && !cobrancaOutrasAbertas_(cfg, { id: '', os: { IdCliente: c.plano.IdCliente } })) {
+  if (!repetido && !resto.length && !cobrancaOutrasAbertas_(cfg, { id: '', os: { IdCliente: c.plano.IdCliente } })) {
     c.cm = cm; c.meses = [];
     cobrancaPlanoEnviar_(cfg, c, 'obrigado');
   }
@@ -6059,9 +6057,22 @@ function cobrancaPlanoAuth_(body) {
   return { cfg: cfg, auth: auth, c: c, por: auth.vendedor.Nome || auth.vendedor.IdVendedor };
 }
 
-// Mês a cobrar pelo botão: sem nada em aberto, adianta o mês corrente.
+function cobrancaMesSeguinte_(mes) {
+  var a = Number(mes.slice(0, 4)), m = Number(mes.slice(5, 7)) + 1;
+  if (m > 12) { m = 1; a++; }
+  return a + '-' + ('0' + m).slice(-2);
+}
+
+// Próximo mês ainda não posto em cobrança: o corrente ou, se ele já foi (pago
+// ou em aberto), o seguinte ao último. Serve para cobrar ou receber adiantado.
+function cobrancaPlanoProximoMes_(c) {
+  var mes = cobrancaHoje_().slice(0, 7), ultimo = String(c.plano.CobrancaUltimoMes || '');
+  return ultimo < mes ? mes : cobrancaMesSeguinte_(ultimo);
+}
+
+// Mês a cobrar pelo botão: sem nada em aberto, adianta o próximo.
 function cobrancaPlanoMesDoBotao_(c) {
-  return c.meses.length ? '' : cobrancaHoje_().slice(0, 7);
+  return c.meses.length ? '' : cobrancaPlanoProximoMes_(c);
 }
 
 // action: cobrancaPlanoEnviar { idToken, idPlano, tipo? }. Sem tipo: o primeiro
@@ -6094,23 +6105,55 @@ function actionCobrancaPlanoCriarLink(body) {
   } catch (e) { return { ok: false, erro: e.message }; }
 }
 
-// action: cobrancaPlanoBaixa { idToken, idPlano }: pago por fora (gestão). Encerra
-// os meses em aberto sem lançar venda.
-function actionCobrancaPlanoBaixa(body) {
+// Venda da mensalidade (link pago ou pagamento validado à mão).
+function cobrancaVendaPlano_(c, valor, meses, extra) {
+  var venda = {
+    IdVenda: Utilities.getUuid().replace(/-/g, '').substring(0, 8), IdCliente: String(c.plano.IdCliente || ''),
+    IdServico: COBRANCA_PLANO_SERVICO, IdVendedor: String(c.cliente['Vendedor Responsavel'] || ''),
+    DataVenda: cobrancaHoje_(), Valor: valor, IdPlano: c.id, MesesPlano: meses
+  };
+  var nome = String(c.cliente['Nome Razao Social'] || c.cliente.Nome || '');
+  if (nome) venda.NomeCliente = nome;
+  if (c.cliente.Telefone) venda.TelefoneCliente = String(c.cliente.Telefone);
+  return cobrancaJuntar_(venda, extra);
+}
+
+// action: cobrancaPlanoValidar { idToken, idPlano } (gestão): pagamento recebido
+// fora do link (dinheiro, Pix direto). Quita os meses em aberto; sem nada em
+// aberto, recebe adiantado o próximo mês, que então não entra em cobrança.
+// Lança a venda e agradece (pedido do Felipe, 03/11).
+function actionCobrancaPlanoValidar(body) {
   var a = cobrancaPlanoAuth_(body);
   if (a.erro) return { ok: false, erro: a.erro };
-  if (!ehGestaoAtivaFs_(a.auth.vendedor)) return { ok: false, erro: 'Só a gestão dá baixa na mensalidade.' };
-  if (!a.c.meses.length) return { ok: false, erro: 'Esse plano não tem mensalidade em aberto.' };
-  var cm = cobrancaJuntar_(a.c.cm, { Meses: [], Ativa: false, PagoEm: new Date().toISOString(), BaixaPor: String(a.por), BaixaMeses: a.c.meses });
-  fsCommit_(a.cfg, [fsUpdateRico_(a.cfg, 'planos/' + a.c.id, { CobrancaMes: cm })]);
-  return { ok: true };
+  if (!ehGestaoAtivaFs_(a.auth.vendedor)) return { ok: false, erro: 'Só a gestão valida pagamento da mensalidade.' };
+  var c = a.c;
+  var meses = c.meses.length ? c.meses.slice() : [cobrancaPlanoProximoMes_(c)];
+  if (c.valorMes < 1) return { ok: false, erro: 'O plano está sem valor de mensalidade.' };
+  var valor = Math.round(c.valorMes * meses.length * 100) / 100;
+  var agora = new Date().toISOString();
+  var venda = cobrancaVendaPlano_(c, valor, meses, { PagamentoManual: String(a.por) });
+  // O link que estava aberto fica sem uso: Url vazia.
+  var cm = cobrancaJuntar_(c.cm, { Meses: [], Ativa: false, Url: '', OrderNsu: '', Valor: 0, PagoEm: agora, PagoMeses: meses, ValidadoPor: String(a.por) });
+  var campos = { CobrancaMes: cm };
+  var ultimo = meses[meses.length - 1];
+  if (ultimo > String(c.plano.CobrancaUltimoMes || '')) campos.CobrancaUltimoMes = ultimo;
+  fsCommit_(a.cfg, [
+    fsUpdateRico_(a.cfg, 'vendas/' + venda.IdVenda, venda, { exists: false }),
+    fsUpdateRico_(a.cfg, 'planos/' + c.id, campos)
+  ]);
+  if (!cobrancaOutrasAbertas_(a.cfg, { id: '', os: { IdCliente: c.plano.IdCliente } })) {
+    c.cm = cm; c.meses = [];
+    cobrancaPlanoEnviar_(a.cfg, c, 'obrigado', a.por);
+  }
+  return { ok: true, meses: meses, valor: valor, idVenda: venda.IdVenda };
 }
 
 // ── Link avulso (2026-11-03) ───────────────────────────────────────────
 // Qualquer valor, sem OS: o vendedor manda pelo próprio WhatsApp ou copia. Com
 // cliente e serviço escolhidos, o pagamento lança a venda; sem eles, só avisa.
 
-// action: cobrancaLinkAvulso { idToken, valor, descricao, idCliente?, idServico? }
+// action: cobrancaLinkAvulso { idToken, valor, descricao, idCliente?, idServico?, parcelas? }
+// parcelas: quantas a Solar Green assume (1 a 12); vazio segue a tabela pelo valor.
 function actionCobrancaLinkAvulso(body) {
   var cfg = fbConfig_();
   if (!cfg) return { ok: false, erro: 'Firebase não configurado no servidor.' };
@@ -6120,18 +6163,24 @@ function actionCobrancaLinkAvulso(body) {
   if (valor < 1) return { ok: false, erro: 'O valor mínimo do link é R$ 1,00.' };
   var descricao = String(body.descricao || '').trim().slice(0, 80);
   if (!descricao) return { ok: false, erro: 'Escreva o que está sendo cobrado.' };
+  var parcelas = 0;
+  if (body.parcelas !== undefined && body.parcelas !== null && String(body.parcelas) !== '') {
+    parcelas = Number(body.parcelas);
+    if (!(parcelas >= 1 && parcelas <= 12 && Math.floor(parcelas) === parcelas)) return { ok: false, erro: 'Parcelas entre 1 e 12.' };
+  }
   var idCliente = String(body.idCliente || ''), idServico = String(body.idServico || '');
   var cli = idCliente ? fsGet_(cfg, 'clientes/' + idCliente) : null;
   if (idCliente && !cli) return { ok: false, erro: 'Cliente não encontrado.' };
   var orderNsu = 'av-' + Utilities.getUuid().replace(/-/g, '').substring(0, 8) + '-' + Date.now();
   try {
-    var url = cobrancaNovoLink_(valor, 'Solar Green - ' + descricao, orderNsu, cli ? cli.dados : null);
+    var assumidas = parcelas || cobrancaParcelasAssumidas_(valor);
+    var url = cobrancaNovoLink_(valor, 'Solar Green - ' + descricao, orderNsu, cli ? cli.dados : null, assumidas);
     fsCommit_(cfg, [fsUpdate_(cfg, 'cobranca_links/' + orderNsu, {
-      avulso: true, valor: valor, descricao: descricao, idCliente: idCliente, idServico: idServico, url: url,
+      avulso: true, valor: valor, descricao: descricao, idCliente: idCliente, idServico: idServico, url: url, parcelas: assumidas,
       criadoEm: new Date().toISOString(), criadoPor: String(auth.vendedor.IdVendedor), criadoPorNome: String(auth.vendedor.Nome || ''),
       handle: cobrancaHandle_(url)
     })]);
-    return { ok: true, url: url, valor: valor };
+    return { ok: true, url: url, valor: valor, parcelas: assumidas };
   } catch (e) { return { ok: false, erro: e.message }; }
 }
 
@@ -6146,7 +6195,7 @@ function actionCobrancaAvulsos(body) {
     return gestao || String(x.criadoPor) === String(auth.vendedor.IdVendedor);
   }).sort(function (a, b) { return String(b.criadoEm).localeCompare(String(a.criadoEm)); }).slice(0, 30).map(function (x) {
     return { valor: x.valor, descricao: x.descricao, idCliente: x.idCliente || '', criadoEm: x.criadoEm, criadoPorNome: x.criadoPorNome || '',
-      url: x.url, pagoEm: x.pagoEm || '', idVenda: x.idVenda || '' };
+      url: x.url, pagoEm: x.pagoEm || '', idVenda: x.idVenda || '', parcelas: x.parcelas || 0 };
   });
   return { ok: true, links: lista };
 }

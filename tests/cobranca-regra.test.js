@@ -167,5 +167,13 @@ assert.deepEqual(R.situacaoPlano(pl({CobrancaMes:{Ativa:true,Meses:['2026-11','2
 assert.equal(R.situacaoPlano(pl({CobrancaUltimoMes:'2026-11',CobrancaMes:{Ativa:false,Meses:[],PagoEm:'x'}}),nov).situacao,'pago');
 assert.equal(R.situacaoPlano(pl({CobrancaUltimoMes:'2026-10',CobrancaMes:{Ativa:false,Meses:[],PagoEm:'x'}}),nov).situacao,'aguardando');
 assert.equal(R.situacaoPlano(pl(),nov).situacao,'aguardando');
+// Validar pagamento: em aberto quita os meses; sem nada, o próximo ainda não cobrado
+assert.deepEqual(R.mesesParaValidar(pl({CobrancaMes:{Ativa:true,Meses:['2026-10','2026-11']}}),nov),['2026-10','2026-11']);
+assert.deepEqual(R.mesesParaValidar(pl(),nov),['2026-11']);
+assert.deepEqual(R.mesesParaValidar(pl({CobrancaUltimoMes:'2026-11'}),nov),['2026-12']);
+assert.deepEqual(R.mesesParaValidar(pl({CobrancaUltimoMes:'2026-12'}),nov),['2027-01']);
+// Parcelas pela tabela
+assert.equal(R.parcelasPelaTabela(100),1); assert.equal(R.parcelasPelaTabela(150),2); assert.equal(R.parcelasPelaTabela(399.99),2);
+assert.equal(R.parcelasPelaTabela(400),3); assert.equal(R.parcelasPelaTabela(500),5); assert.equal(R.parcelasPelaTabela(2500),10);
 
 console.log('cobranca-regra: ok');
