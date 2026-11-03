@@ -908,6 +908,9 @@
   .cb-tag.diferenca{background:var(--warn-soft);color:var(--warn);}
   .cb-tag.a_conferir{background:var(--info-soft);color:var(--info);}
   #v-painelCobranca td.num{white-space:nowrap;}
+  .cb-pausa{margin-top:10px;}
+  .cb-pausa label{font-size:12px;color:var(--ink-soft);font-weight:600;}
+  .cb-pausa input[type=date]{padding:8px 10px;border:1px solid var(--line);border-radius:9px;font-size:13px;background:#fff;}
   .cb-tag.sem_valor{background:var(--bg);color:var(--ink-soft);border:1px solid var(--line);}
   .cb-tag.quitada{background:var(--accent-soft);color:var(--accent-deep);}
   #view-vendas .ag-row-click:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;}

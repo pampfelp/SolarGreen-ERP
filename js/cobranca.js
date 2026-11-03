@@ -157,7 +157,18 @@
     if(l.situacao==='quitada'&&l.ajuste&&l.ajuste.Tipo==='Desconto'&&l.pago<l.valor)return 'Quitada com desconto';
     return NOMES_SITUACAO[l.situacao]||l.situacao;
   }
-  function etiqueta(l){ return '<span class="cb-tag '+l.situacao+'">'+esc(rotuloSituacao(l))+'</span>'; }
+  // Pausa combinada com o cliente ainda valendo (hoje antes da data): yyyy-MM-dd ou ''.
+  function pausaAte(l){
+    var ate=String((mapaAg[l.idAgendamento]||{}).CobrancaPausaAte||'');
+    var d=new Date(),hoje=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+    return ate&&hoje<ate?ate:'';
+  }
+  function dataCurta(iso){ return iso.slice(8,10)+'/'+iso.slice(5,7); }
+  function etiqueta(l){
+    var p=pausaAte(l);
+    return '<span class="cb-tag '+l.situacao+'">'+esc(rotuloSituacao(l))+'</span>'+
+      (p&&cobravel(l)?' <span class="cb-tag sem_valor" title="Sem lembretes automáticos até a véspera">Pausada até '+dataCurta(p)+'</span>':'');
+  }
 
   // ── Tabela ──
   function ordenar(lista){
@@ -408,6 +419,15 @@
       else toast((r&&r.erro)||'Não foi possível enviar a mensagem.',true);
     }).catch(function(err){ toast('Erro de conexão: '+err.message,true); });
   }
+  // Prazo de perdão (03/11): sem lembrete automático até a véspera da data.
+  function pausarCobranca(l,ate){
+    var d=new Date(),hoje=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+    if(ate!==''&&!(ate>hoje)){ toast('Escolha uma data depois de hoje.',true); return; }
+    var s=sessao(),campos={CobrancaPausaAte:ate,CobrancaPausaPor:ate?(s.nome||''):''};
+    var ov={agend:{}}; ov.agend[l.idAgendamento]=campos;
+    executar([{acao:'pausarCobranca',payload:{idAgendamento:l.idAgendamento,ate:ate,por:s.nome||''}}],ov,
+      ate?'Cobrança pausada até '+dataCurta(ate)+'. No dia, os lembretes voltam.':'Cobrança retomada.');
+  }
   function htmlWhats(l){
     var a=mapaAg[l.idAgendamento]||{},html='';
     var envios=Array.isArray(a.CobrancaEnvios)?a.CobrancaEnvios:[];
@@ -415,6 +435,16 @@
     var info=a.CobrancaLink?linhaDetalhe('Link de pagamento',dinheiro(a.CobrancaLink.Valor)+(a.CobrancaAtiva?' · ativo':' · encerrado')):'';
     if(ultimo)info+=linhaDetalhe('Última mensagem',esc(new Date(ultimo.Em).toLocaleString('pt-BR'))+(ultimo.Por?' · '+esc(ultimo.Por):'')+(ultimo.Erro?' · <span class="hint">não saiu: '+esc(ultimo.Erro)+'</span>':''));
     if(cobravel(l)){
+      var pausa=pausaAte(l);
+      if(pausa){
+        info+=linhaDetalhe('Lembretes pausados','até '+fmtData(new Date(pausa+'T12:00:00'))+(a.CobrancaPausaPor?' · '+esc(a.CobrancaPausaPor):''));
+        html+='<div class="hint">No dia '+dataCurta(pausa)+' os lembretes automáticos voltam.</div>'+
+          '<div class="cb-acoes"><button type="button" class="reset-btn" data-acao="retomar">Retomar cobrança agora</button></div>';
+      }else{
+        html+='<div class="cb-pausa"><label for="cb-pausaAte">Prazo pedido pelo cliente</label>'+
+          '<div class="cb-acoes" style="margin-top:4px;"><input type="date" id="cb-pausaAte" aria-label="Pausar até">'+
+          '<button type="button" class="reset-btn" data-acao="pausar">Pausar cobrança até essa data</button></div></div>';
+      }
       var tipo=window.SGCobrancaRegra.tipoPelaHora(new Date());
       html+='<div class="cb-acoes"><button type="button" class="connect-btn" data-acao="api" data-tipo="">Enviar cobrança agora</button>'+
         '<button type="button" class="reset-btn" data-acao="whats" data-tipo="'+tipo+'">Mandar pelo meu WhatsApp</button></div>';
@@ -781,7 +811,9 @@
           var b=e.target.closest?e.target.closest('button[data-acao]'):null;
           if(!b)return;
           var acao=b.getAttribute('data-acao'),idVenda=b.getAttribute('data-venda');
-          if(acao==='api'){
+          if(acao==='pausar'||acao==='retomar'){
+            pausarCobranca(l,acao==='pausar'?el('cb-pausaAte').value:'');
+          }else if(acao==='api'){
             enviarPelaSolarGreen(l,b.getAttribute('data-tipo'));
           }else if(acao==='whats'){
             enviarWhats(l,b.getAttribute('data-tipo'));

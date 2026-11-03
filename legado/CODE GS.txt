@@ -5927,6 +5927,9 @@ function cobrancaLembretes() {
       if (agradecer) cobrancaEnviar_(cfg, c, 'obrigado');
       return;
     }
+    // Prazo combinado com o cliente (CobrancaPausaAte, yyyy-MM-dd): sem
+    // lembrete até a véspera; no dia, volta a cobrar (pedido do Felipe, 03/11).
+    if (os.CobrancaPausaAte && hoje < String(os.CobrancaPausaAte)) return;
     var r = cobrancaEnviar_(cfg, c, tipo);
     if (r.reserva) cobrancaPedirReserva_(cfg, c.cliente, r.reserva, 'os-' + c.id);
   });
