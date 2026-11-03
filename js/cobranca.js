@@ -324,10 +324,14 @@
     return l.saldo>=1&&(l.situacao==='em_aberto'||(l.situacao==='diferenca'&&l.ajuste&&l.ajuste.Tipo==='Parcial'));
   }
   function clienteDe(l){ return bruto.clientes.filter(function(c){ return c.IdCliente===l.idCliente; })[0]||{}; }
-  // Reserva: manda pelo WhatsApp de quem clicou, com o PDF da OS (03/11). O
-  // wa.me não leva arquivo; texto e PDF juntos só pelo compartilhar do aparelho,
-  // que precisa de um toque novo depois que o link e o PDF chegam. Por isso o
-  // clique prepara e mostra os botões de envio em #cb-whatsPronto.
+  // Reserva: manda pelo WhatsApp de quem clicou, com o PDF da OS (03/11). Um
+  // botão só (pedido do Felipe). No celular, o compartilhar do aparelho manda o
+  // PDF com o texto e o link do PDF; ele só aceita arquivo no próprio toque, então
+  // o link e o PDF são preparados quando a OS abre. No computador o WhatsApp não
+  // recebe arquivo do navegador (o do Windows perde o PDF): abre a conversa com o
+  // link do PDF no texto.
+  var CELULAR=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  var preparoWhats=null;
   function registrarEnvioWhats(l,tipo){
     var s=sessao();
     window.SGAuth.apiCall('registrarEnvioCobranca',{idAgendamento:l.idAgendamento,envio:{Tipo:tipo,Em:new Date().toISOString(),Por:s.nome||'',PorId:s.idVendedor||''}});
@@ -337,13 +341,9 @@
     for(var i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
     return new File([bytes],nome,{type:'application/pdf'});
   }
-  function enviarWhats(l,tipo){
-    var tel=window.SGCobrancaRegra.telefoneWhatsApp(clienteDe(l).Telefone);
-    if(!tel){ toast('O cliente não tem um celular válido no cadastro.',true); return; }
-    if(tipo!=='obrigado'&&!cobravel(l)){ toast('Essa OS não tem cobrança em aberto.',true); return; }
-    var caixa=el('cb-whatsPronto');
-    if(!caixa)return;
-    caixa.innerHTML='<div class="hint" style="margin-top:8px;">Preparando o link e o PDF da OS…</div>';
+  // Link de pagamento + PDF da OS + texto pronto. Guarda o resultado em p.pronto.
+  function prepararWhats(l,tipo){
+    var p={id:l.idAgendamento,tipo:tipo,pronto:null};
     var a=mapaAg[l.idAgendamento]||{},link=a.CobrancaLink;
     var saldo=Math.round(l.saldo*100)/100;
     var precisaLink=tipo!=='obrigado'&&(!link||!a.CobrancaAtiva||Math.abs(window.SGCobrancaRegra.numero(link.Valor)-saldo)>0.009);
@@ -351,33 +351,50 @@
       precisaLink?chamarServidor('cobrancaCriarLink',{idAgendamento:l.idAgendamento}):Promise.resolve({ok:true,url:link.Url});
     var passoPdf=tipo==='obrigado'?Promise.resolve(null):
       chamarServidor('cobrancaPdfOS',{idAgendamento:l.idAgendamento}).catch(function(){ return null; });
-    Promise.all([passo,passoPdf]).then(function(rs){
+    p.promessa=Promise.all([passo,passoPdf]).then(function(rs){
       var r=rs[0],pdf=rs[1]&&rs[1].ok?rs[1]:null;
       if(!r||!r.ok)throw new Error((r&&r.erro)||'Não foi possível criar o link de pagamento.');
       var texto=window.SGCobrancaRegra.montarTexto(tipo,{nome:nomeDoCliente(l),servico:nomeServico[l.idServico]||'',data:l.data,valor:r.valor||saldo,pago:l.pago,link:r.url});
+      if(pdf)texto+='\n\nOrdem de serviço: '+pdf.link;
       var arquivo=null;
-      if(pdf){ try{ arquivo=arquivoDoBase64(pdf.base64,pdf.nome); }catch(e){ arquivo=null; } }
-      // Arquivo só no celular: no computador o compartilhar do Windows entrega ao
-      // WhatsApp só o texto e o PDF se perde (Leonardo, 03/11). O link do PDF vai
-      // sempre no texto, para nunca chegar sem a OS.
-      var celular=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-      var textoLink=texto+(pdf?'\n\nOrdem de serviço: '+pdf.link:'');
-      var comArquivo=!!(celular&&arquivo&&navigator.canShare&&navigator.canShare({files:[arquivo],text:textoLink}));
-      var aviso=pdf?(comArquivo?'No compartilhar, escolha o WhatsApp e a conversa de '+esc(nomeDoCliente(l))+'. Texto e PDF vão juntos.':'O PDF da OS vai como link no fim da mensagem.'):
-        (tipo==='obrigado'?'':'Essa OS não tem PDF gerado: vai só o texto com o link de pagamento.');
-      caixa.innerHTML='<div class="cb-acoes">'+
-        (comArquivo?'<button type="button" class="connect-btn" data-pdf="compartilhar">Enviar com o PDF</button>':'')+
-        '<a class="'+(comArquivo?'reset-btn':'connect-btn')+'" target="_blank" rel="noopener" data-pdf="conversa" href="https://wa.me/'+tel+'?text='+encodeURIComponent(textoLink)+'">'+(comArquivo?'Abrir a conversa (PDF em link)':'Abrir no WhatsApp'+(pdf?' com o PDF':''))+'</a>'+
-        '</div>'+(aviso?'<div class="hint">'+aviso+'</div>':'');
-      if(caixa.scrollIntoView)caixa.scrollIntoView({block:'nearest',behavior:'smooth'});
-      var b=caixa.querySelector('[data-pdf="compartilhar"]');
-      if(b)b.addEventListener('click',function(){
-        navigator.share({files:[arquivo],text:textoLink}).then(function(){ registrarEnvioWhats(l,tipo); })
-          .catch(function(err){ if(err&&err.name!=='AbortError')toast('Não deu para compartilhar: '+err.message,true); });
-      });
-      caixa.querySelector('[data-pdf="conversa"]').addEventListener('click',function(){ registrarEnvioWhats(l,tipo); });
+      if(pdf&&CELULAR){ try{ arquivo=arquivoDoBase64(pdf.base64,pdf.nome); }catch(e){ arquivo=null; } }
+      if(arquivo&&!(navigator.canShare&&navigator.canShare({files:[arquivo],text:texto})))arquivo=null;
+      p.pronto={texto:texto,arquivo:arquivo,temPdf:!!pdf};
+      return p.pronto;
+    });
+    return p;
+  }
+  // Ao abrir a OS no celular: já prepara, para o toque compartilhar na hora.
+  function anteciparWhats(l){
+    preparoWhats=null;
+    var b=document.querySelector('#vw-body [data-acao="whats"]');
+    if(!b||!CELULAR||!navigator.canShare)return;
+    var p=prepararWhats(l,b.getAttribute('data-tipo'));
+    preparoWhats=p;
+    p.promessa.catch(function(){ if(preparoWhats===p)preparoWhats=null; });
+  }
+  function enviarWhats(l,tipo){
+    var tel=window.SGCobrancaRegra.telefoneWhatsApp(clienteDe(l).Telefone);
+    if(!tel){ toast('O cliente não tem um celular válido no cadastro.',true); return; }
+    if(tipo!=='obrigado'&&!cobravel(l)){ toast('Essa OS não tem cobrança em aberto.',true); return; }
+    var p=preparoWhats&&preparoWhats.id===l.idAgendamento&&preparoWhats.tipo===tipo?preparoWhats:null;
+    if(p&&p.pronto&&p.pronto.arquivo){
+      navigator.share({files:[p.pronto.arquivo],text:p.pronto.texto}).then(function(){ registrarEnvioWhats(l,tipo); })
+        .catch(function(err){ if(err&&err.name!=='AbortError')toast('Não deu para compartilhar: '+err.message,true); });
+      return;
+    }
+    if(p&&!p.pronto){ toast('Ainda preparando o PDF da OS. Toque de novo em alguns segundos.'); return; }
+    // Computador (ou celular sem arquivo): a janela abre já no clique, senão o
+    // navegador bloqueia, e recebe a conversa quando o texto fica pronto.
+    var janela=window.open('','_blank');
+    toast('Preparando a mensagem com o link e o PDF da OS…');
+    (p?p.promessa:prepararWhats(l,tipo).promessa).then(function(pr){
+      var destino='https://wa.me/'+tel+'?text='+encodeURIComponent(pr.texto);
+      if(janela)janela.location.href=destino; else location.href=destino;
+      registrarEnvioWhats(l,tipo);
+      if(!pr.temPdf&&tipo!=='obrigado')toast('Essa OS não tem PDF gerado: foi só o texto com o link de pagamento.',true);
     }).catch(function(err){
-      caixa.innerHTML='';
+      if(janela)janela.close();
       toast(err.message,true);
     });
   }
@@ -400,8 +417,7 @@
     if(cobravel(l)){
       var tipo=window.SGCobrancaRegra.tipoPelaHora(new Date());
       html+='<div class="cb-acoes"><button type="button" class="connect-btn" data-acao="api" data-tipo="">Enviar cobrança agora</button>'+
-        '<button type="button" class="reset-btn" data-acao="whats" data-tipo="'+tipo+'">Mandar pelo meu WhatsApp</button></div>'+
-        '<div id="cb-whatsPronto"></div>';
+        '<button type="button" class="reset-btn" data-acao="whats" data-tipo="'+tipo+'">Mandar pelo meu WhatsApp</button></div>';
     }else if(l.situacao==='quitada'&&a.CobrancaAgradecer&&!a.CobrancaAgradecidoEm){
       html+='<div class="cb-acoes"><button type="button" class="connect-btn" data-acao="api" data-tipo="obrigado">Enviar agradecimento</button></div>';
     }
@@ -730,6 +746,7 @@
       html:html,
       onAbrir:function(){
         var corpo=el('vw-body');
+        anteciparWhats(l);
         corpo.onclick=function(e){
           var b=e.target.closest?e.target.closest('button[data-acao]'):null;
           if(!b)return;
