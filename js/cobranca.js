@@ -377,7 +377,7 @@
   // ── Mensalidade dos planos (2026-11-03) ──
   // Os planos marcados na tela de Planos recebem a cobrança do mês pelo WhatsApp
   // da Solar Green (Apps Script, cobrancaPlanos_). Aqui fica a lista, o envio na
-  // hora, a reserva pelo WhatsApp de quem clica e a baixa de quem pagou por fora.
+  // hora, a reserva pelo WhatsApp de quem clica e o pagamento validado à mão.
   var NOMES_PLANO={em_aberto:'Em aberto',pago:'Pago no mês',aguardando:'Aguardando vencimento'};
   var CLASSE_PLANO={em_aberto:'em_aberto',pago:'quitada',aguardando:'sem_valor'};
   function vendedorDoPlano(p){ return (mapaClientes[p.IdCliente]||{})['Vendedor Responsavel']||''; }
@@ -428,17 +428,24 @@
       toast(err.message,true);
     });
   }
-  function darBaixaPlano(id){
+  // Pagamento fora do link (dinheiro, Pix direto), inclusive adiantado: quita os
+  // meses em aberto ou, sem nenhum, o próximo mês. Lança a venda (pedido do Felipe, 03/11).
+  function validarPagamentoPlano(id){
+    var p=mapaPlanos[id]||{};
+    var meses=window.SGCobrancaRegra.mesesParaValidar(p,new Date());
+    var valor=window.SGCobrancaRegra.numero(p.Valor)*meses.length;
+    var aberto=window.SGCobrancaRegra.situacaoPlano(p,new Date()).situacao==='em_aberto';
     window.SGConfirm.perguntar({
-      titulo:'Mensalidade paga por fora',
-      mensagem:'Encerrar a cobrança dos meses em aberto? As mensagens param. A venda não é lançada: registre o pagamento na tela de Vendas.',
-      textoConfirmar:'Encerrar cobrança'
+      titulo:'Validar pagamento',
+      mensagem:'Registrar que '+nomeDoPlano(p)+' pagou '+dinheiro(valor)+' da mensalidade de '+window.SGCobrancaRegra.nomeMeses(meses)+(aberto?'':' (adiantado)')+'? A venda é lançada, a cobrança desse mês para e o cliente recebe o agradecimento.',
+      textoConfirmar:'Validar pagamento'
     }).then(function(ok){
       if(!ok)return;
       window.SGViewPanel.fechar();
-      chamarServidor('cobrancaPlanoBaixa',{idPlano:id}).then(function(r){
-        if(r&&r.ok)toast('Cobrança do plano encerrada.');
-        else toast((r&&r.erro)||'Não foi possível encerrar.',true);
+      toast('Registrando o pagamento…');
+      chamarServidor('cobrancaPlanoValidar',{idPlano:id}).then(function(r){
+        if(r&&r.ok)toast('Pagamento de '+window.SGCobrancaRegra.nomeMeses(r.meses)+' registrado e venda lançada.');
+        else toast((r&&r.erro)||'Não foi possível registrar.',true);
       }).catch(function(err){ toast('Erro de conexão: '+err.message,true); });
     });
   }
@@ -455,7 +462,8 @@
       linhaDetalhe('Mensalidade',dinheiro(window.SGCobrancaRegra.numero(p.Valor)))+
       linhaDetalhe('Vencimento','Todo dia '+window.SGCobrancaRegra.diaVencimentoPlano(p)+(p.DataAssinatura?'':' (plano sem data de assinatura)'))+
       (s.situacao==='em_aberto'?linhaDetalhe('Em aberto',esc(s.nomes)+' · '+dinheiro(s.valor)):'')+
-      (cm.PagoEm&&s.situacao!=='em_aberto'?linhaDetalhe('Último pagamento',esc(new Date(cm.PagoEm).toLocaleString('pt-BR'))+(cm.BaixaPor?' · baixa por '+esc(cm.BaixaPor):'')):'')+
+      (cm.PagoEm&&s.situacao!=='em_aberto'?linhaDetalhe('Último pagamento',esc(new Date(cm.PagoEm).toLocaleString('pt-BR'))+(cm.ValidadoPor?' · validado por '+esc(cm.ValidadoPor):' · pelo link')):'')+
+      (s.situacao!=='em_aberto'&&cm.PagoEm&&p.CobrancaUltimoMes?linhaDetalhe('Pago até',esc(window.SGCobrancaRegra.nomeMeses([p.CobrancaUltimoMes])+' de '+String(p.CobrancaUltimoMes).slice(0,4))):'')+
       (ultimo?linhaDetalhe('Última mensagem',esc(new Date(ultimo.Em).toLocaleString('pt-BR'))+(ultimo.Por?' · '+esc(ultimo.Por):'')+(ultimo.Erro?' · <span class="hint">não saiu: '+esc(ultimo.Erro)+'</span>':'')):'')+
     '</div>';
     var acoes='';
@@ -464,8 +472,10 @@
         '<div class="cb-acoes"><button type="button" class="connect-btn" data-acao="planoApi">Enviar cobrança agora</button>'+
         '<button type="button" class="reset-btn" data-acao="planoWhats">Mandar pelo meu WhatsApp</button></div>';
     }
-    if(s.situacao==='em_aberto'&&souAdmin()){
-      acoes+='<div class="cb-acoes"><button type="button" class="reset-btn" data-acao="planoBaixa">Já pagou por fora</button></div>';
+    if(souAdmin()&&(s.situacao==='em_aberto'||window.SGCobrancaRegra.planoEntra(p))){
+      var mv=window.SGCobrancaRegra.mesesParaValidar(p,new Date());
+      acoes+='<div class="cb-acoes"><button type="button" class="reset-btn" data-acao="planoValidar">Validar pagamento ('+esc(window.SGCobrancaRegra.nomeMeses(mv))+')</button></div>'+
+        '<div class="hint">Para pagamento em dinheiro ou Pix direto, inclusive antes do vencimento. Lança a venda.</div>';
     }
     if(acoes)html+='<div class="ad-section"><h4>Cobrança pelo WhatsApp</h4>'+acoes+'</div>';
     window.SGViewPanel.abrir({
@@ -478,7 +488,7 @@
           var acao=b.getAttribute('data-acao');
           if(acao==='planoApi')enviarPlanoSolarGreen(id,'');
           else if(acao==='planoWhats')enviarPlanoWhats(id);
-          else if(acao==='planoBaixa')darBaixaPlano(id);
+          else if(acao==='planoValidar')validarPagamentoPlano(id);
         };
       }
     });
@@ -508,7 +518,7 @@
       if(!r.links.length){ box.innerHTML='<div class="hint">Nenhum link avulso ainda.</div>'; return; }
       box.innerHTML=r.links.map(function(x){
         var quem=x.idCliente?(nomeCliente[x.idCliente]||''):'';
-        return '<div class="cb-candidata"><span>'+fmtData(new Date(x.criadoEm))+' · '+esc(x.descricao)+(quem?' · '+esc(quem):'')+' · '+dinheiro(x.valor)+
+        return '<div class="cb-candidata"><span>'+fmtData(new Date(x.criadoEm))+' · '+esc(x.descricao)+(quem?' · '+esc(quem):'')+' · '+dinheiro(x.valor)+(x.parcelas?' · até '+x.parcelas+'x sem juros':'')+
           (x.criadoPorNome&&souAdmin()?' · '+esc(x.criadoPorNome):'')+'</span>'+
           (x.pagoEm?'<span class="cb-tag quitada">Pago</span>':'<span class="cb-acoes" style="margin-top:0;"><button type="button" class="reset-btn" data-acao="copiarDaLista" data-url="'+esc(x.url)+'">Copiar</button></span>')+
         '</div>';
@@ -530,6 +540,10 @@
         '<input type="hidden" id="cb-avCliente"><div class="combo-dropdown hidden" id="cb-avClienteDropdown"></div></div></div>'+
       '<div class="uform-field"><label>Serviço (opcional)</label><select id="cb-avServico"><option value="">Sem serviço</option>'+
         servicos.map(function(x){ return '<option value="'+esc(x.IdServico)+'">'+esc(x['Nome Servico']||x.IdServico)+'</option>'; }).join('')+'</select></div>'+
+      '<div class="uform-field"><label>Parcelas sem juros para o cliente (a Solar Green assume a taxa)</label><select id="cb-avParcelas">'+
+        '<option value="">Pela tabela do valor</option>'+
+        [1,2,3,4,5,6,7,8,9,10,11,12].map(function(n){ return '<option value="'+n+'">'+n+'x'+(n===1?' (só à vista sem juros)':'')+'</option>'; }).join('')+'</select>'+
+        '<div class="hint" id="cb-avParcelasHint" style="margin-top:4px;"></div></div>'+
       '<div class="hint">Com cliente e serviço, o pagamento lança a venda sozinho. Sem eles, você recebe o aviso e lança a venda se for o caso.</div>'+
       '<div class="cb-acoes"><button type="button" class="connect-btn" data-acao="criarAvulso">Criar link</button></div>'+
     '</div><div id="cb-avPronto"></div>'+
@@ -547,6 +561,12 @@
           }
         });
         carregarAvulsos();
+        var dicaParcelas=function(){
+          var v=parseFloat(el('cb-avValor').value),n=v>=1?window.SGCobrancaRegra.parcelasPelaTabela(v):0;
+          el('cb-avParcelasHint').textContent=el('cb-avParcelas').value?'Acima disso, o juro do parcelamento fica com o cliente.':(n?'Pela tabela, para esse valor: até '+n+'x sem juros.':'');
+        };
+        el('cb-avValor').addEventListener('input',dicaParcelas);
+        el('cb-avParcelas').addEventListener('change',dicaParcelas);
         el('vw-body').onclick=function(e){
           var b=e.target.closest?e.target.closest('button[data-acao]'):null;
           if(!b)return;
@@ -565,7 +585,7 @@
     if(!(valor>=1)){ toast('O valor mínimo do link é R$ 1,00.',true); return; }
     if(!descricao){ toast('Escreva o que está sendo cobrado.',true); return; }
     b.disabled=true;b.textContent='Criando…';
-    chamarServidor('cobrancaLinkAvulso',{valor:valor,descricao:descricao,idCliente:idCliente,idServico:el('cb-avServico').value}).then(function(r){
+    chamarServidor('cobrancaLinkAvulso',{valor:valor,descricao:descricao,idCliente:idCliente,idServico:el('cb-avServico').value,parcelas:el('cb-avParcelas').value}).then(function(r){
       b.disabled=false;b.textContent='Criar link';
       if(!r||!r.ok){ toast((r&&r.erro)||'Não foi possível criar o link.',true); return; }
       var cli=mapaClientes[idCliente]||{};

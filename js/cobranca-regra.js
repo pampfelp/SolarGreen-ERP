@@ -250,6 +250,29 @@
     var nomes = (meses || []).map(function (m) { return MESES[Number(String(m).slice(5, 7)) - 1]; });
     return nomes.length > 1 ? nomes.slice(0, -1).join(', ') + ' e ' + nomes[nomes.length - 1] : (nomes[0] || '');
   }
+  // Meses que "Validar pagamento" quita: os em aberto ou, sem nenhum, o próximo
+  // ainda não posto em cobrança (corrente, ou o seguinte ao último). Mesma regra
+  // do Apps Script (cobrancaPlanoProximoMes_).
+  function mesesParaValidar(p, hoje) {
+    var cm = p.CobrancaMes || {};
+    if (cm.Ativa === true && Array.isArray(cm.Meses) && cm.Meses.length) return cm.Meses.slice();
+    var mes = hoje.getFullYear() + '-' + ('0' + (hoje.getMonth() + 1)).slice(-2);
+    var ultimo = String(p.CobrancaUltimoMes || '');
+    if (ultimo < mes) return [mes];
+    var a = Number(ultimo.slice(0, 4)), m = Number(ultimo.slice(5, 7)) + 1;
+    if (m > 12) { m = 1; a++; }
+    return [a + '-' + ('0' + m).slice(-2)];
+  }
+
+  // Parcelas sem juros que a Solar Green assume pela tabela (Apps Script,
+  // COBRANCA_PARCELAS e cobrancaParcelasAssumidas_): só para mostrar na tela.
+  var PARCELAS = [[0, 1], [100.01, 2], [150.01, 3], [400.01, 5], [800.01, 6], [1000.01, 8], [1500.01, 9], [2000.01, 10]];
+  function parcelasPelaTabela(valor) {
+    var n = 1;
+    PARCELAS.forEach(function (f) { if (valor >= f[0]) n = f[1]; });
+    return valor < 400 ? Math.min(n, 2) : n;
+  }
+
   // Situação do plano para a tela. hoje: Date local.
   //   em_aberto  meses na cobrança (total e nomes)
   //   pago       o mês corrente já foi cobrado e pago
@@ -266,7 +289,8 @@
 
   var api = { normalizar: normalizar, numero: numero, parseData: parseData, classificar: classificar, GRUPOS: GRUPOS, resumo: resumo,
     TEXTOS: TEXTOS, montarTexto: montarTexto, tipoPelaHora: tipoPelaHora, telefoneWhatsApp: telefoneWhatsApp,
-    planoEntra: planoEntra, diaVencimentoPlano: diaVencimentoPlano, nomeMeses: nomeMeses, situacaoPlano: situacaoPlano };
+    planoEntra: planoEntra, diaVencimentoPlano: diaVencimentoPlano, nomeMeses: nomeMeses, situacaoPlano: situacaoPlano,
+    mesesParaValidar: mesesParaValidar, parcelasPelaTabela: parcelasPelaTabela };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.SGCobrancaRegra = api;
 })(typeof window !== 'undefined' ? window : null);
