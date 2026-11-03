@@ -746,6 +746,18 @@
       .then(function(){ return {ok:true}; })
       .catch(function(err){ return {ok:false,erro:err.message}; });
   }
+  // Prazo de perdão: sem lembrete automático até a véspera de p.ate (yyyy-MM-dd);
+  // p.ate vazio retoma. O Apps Script lê CobrancaPausaAte em cobrancaLembretes.
+  function pausarCobranca(p){
+    if(!p.idAgendamento) return Promise.resolve({ok:false,erro:'Dados incompletos.'});
+    var ate=String(p.ate||'');
+    if(ate&&!/^\d{4}-\d{2}-\d{2}$/.test(ate)) return Promise.resolve({ok:false,erro:'Data inválida.'});
+    var campos=ate?{CobrancaPausaAte:ate,CobrancaPausaPor:String(p.por||''),CobrancaPausaEm:new Date().toISOString()}:
+      {CobrancaPausaAte:'',CobrancaPausaPor:'',CobrancaPausaEm:''};
+    return db().collection('agendamentos').doc(p.idAgendamento).update(campos)
+      .then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
   function definirValorOS(p){
     var valor=parseFloat(p.valor);
     if(!p.idAgendamento||!(valor>0)) return Promise.resolve({ok:false,erro:'Dados incompletos.'});
@@ -1084,6 +1096,7 @@
     salvarAjusteCobrancaOS:comSync('agendamentos',function(p){return 'ajuste da OS '+p.idAgendamento;},comAuthPronto(salvarAjusteCobrancaOS)),
     definirValorOS:comSync('agendamentos',function(p){return 'valor da OS '+p.idAgendamento;},comAuthPronto(definirValorOS)),
     registrarEnvioCobranca:comSync('agendamentos',function(p){return 'envio de cobrança da OS '+p.idAgendamento;},comAuthPronto(registrarEnvioCobranca)),
+    pausarCobranca:comSync('agendamentos',function(p){return 'pausa da cobrança da OS '+p.idAgendamento;},comAuthPronto(pausarCobranca)),
     // gerarPdfOS/enviarOSParaAssinatura/verificarStatusOS NÃO entram aqui de
     // propósito — apiCall() cai sozinho no Apps Script antigo pra essas 3
     // (é lá que mora o token da Autentique, ver comentário acima de
