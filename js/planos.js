@@ -206,11 +206,17 @@
     document.getElementById('pm-vistoria').checked=p?isMarcado(p.VistoriaDiagnostica):false;
     document.getElementById('pm-limpeza').checked=p?isMarcado(p.Limpeza):false;
     document.getElementById('pm-manutencao').checked=p?isMarcado(p.ManutencaoPreventiva):false;
+    document.getElementById('pm-cobrancaMensal').checked=!!(p&&p.CobrancaMensal===true);
+    mostrarCampoCobranca();
     document.getElementById('pm-excluirBtn').style.display=p?'block':'none';
     document.getElementById('pm-msg').textContent='';
     document.getElementById('pm-msg').className='uform-msg';
     document.getElementById('pm-msg').onclick=null;
     document.getElementById('planoModal').classList.remove('hidden');
+  }
+  // Cobrança mensal pelo WhatsApp (2026-11-03) só faz sentido em plano Mensal.
+  function mostrarCampoCobranca(){
+    document.getElementById('pm-campoCobranca').style.display=document.getElementById('pm-tipo').value==='Mensal'?'':'none';
   }
   function fecharModalPlano(){ document.getElementById('planoModal').classList.add('hidden'); editandoId=null; }
 
@@ -243,6 +249,7 @@
     var vistoria=document.getElementById('pm-vistoria').checked;
     var limpeza=document.getElementById('pm-limpeza').checked;
     var manutencao=document.getElementById('pm-manutencao').checked;
+    var cobrancaMensal=tipo==='Mensal'&&document.getElementById('pm-cobrancaMensal').checked;
 
     var ehNovo=!editandoId;
     var idPlano=editandoId||window.SGId.gerar();
@@ -253,8 +260,11 @@
     var registroNovo={
       IdPlano:idPlano, IdCliente:idCliente, TipoAssinatura:tipo, Valor:valor,
       DataAssinatura:dataBRDe(dataAssinatura), DiaVencimento:dataBRDe(diaVencimento), Status:status,
-      Monitoramento:monitoramento, VistoriaDiagnostica:vistoria, Limpeza:limpeza, ManutencaoPreventiva:manutencao
+      Monitoramento:monitoramento, VistoriaDiagnostica:vistoria, Limpeza:limpeza, ManutencaoPreventiva:manutencao,
+      CobrancaMensal:cobrancaMensal
     };
+    // Os campos que o servidor da cobrança grava no plano continuam na tela.
+    if(registroAnterior)['CobrancaMes','CobrancaUltimoMes','CobrancaEnvios'].forEach(function(k){ if(registroAnterior[k]!==undefined)registroNovo[k]=registroAnterior[k]; });
     var indice=planos.findIndex(function(p){return String(p.IdPlano)===String(idPlano);});
     if(indice===-1)planos.push(registroNovo);
     else planos[indice]=registroNovo;
@@ -268,7 +278,8 @@
       idPlano: idPlano,
       idCliente: idCliente, tipoAssinatura: tipo,
       valor: valor, dataAssinatura: dataAssinatura, diaVencimento: diaVencimento, status: status,
-      monitoramento: monitoramento, vistoriaDiagnostica: vistoria, limpeza: limpeza, manutencaoPreventiva: manutencao
+      monitoramento: monitoramento, vistoriaDiagnostica: vistoria, limpeza: limpeza, manutencaoPreventiva: manutencao,
+      cobrancaMensal: cobrancaMensal
     }).then(function(resp){
       if(!resp||!resp.ok){
         if(ehNovo)planos=planos.filter(function(p){return String(p.IdPlano)!==String(idPlano);});
@@ -361,6 +372,7 @@
     document.getElementById('pl-novoBtn').addEventListener('click',function(){ abrirModalPlano(null); });
     document.getElementById('pm-cancelarBtn').addEventListener('click',fecharModalPlano);
     document.getElementById('pm-salvarBtn').addEventListener('click',salvarPlano);
+    document.getElementById('pm-tipo').addEventListener('change',mostrarCampoCobranca);
     document.getElementById('pm-excluirBtn').addEventListener('click',excluirPlano);
     document.getElementById('planoModal').addEventListener('click',function(e){ if(e.target.id==='planoModal')fecharModalPlano(); });
     document.getElementById('pl-selVendedor').addEventListener('change',function(){ paginaAtual=1; render(); });

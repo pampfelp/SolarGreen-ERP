@@ -233,8 +233,40 @@
     return /^55\d{10,11}$/.test(t) ? t : '';
   }
 
+  // ── Mensalidade dos planos (2026-11-03) ──
+  // Mesma regra do Apps Script (cobrancaPlanoEntra_ e cobrancaPlanoVencimento_):
+  // plano Ativo, Mensal, marcado para cobrança e com valor; vence no dia da data
+  // de assinatura (sem data, dia 10).
+  var DIA_PLANO_PADRAO = 10;
+  var MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  function planoEntra(p) {
+    return p.CobrancaMensal === true && normalizar(p.Status) === 'ativo' && normalizar(p.TipoAssinatura) === 'mensal' && numero(p.Valor) >= 1;
+  }
+  function diaVencimentoPlano(p) {
+    var m = /^(\d{1,2})\//.exec(String(p.DataAssinatura || ''));
+    return m ? Number(m[1]) : DIA_PLANO_PADRAO;
+  }
+  function nomeMeses(meses) {
+    var nomes = (meses || []).map(function (m) { return MESES[Number(String(m).slice(5, 7)) - 1]; });
+    return nomes.length > 1 ? nomes.slice(0, -1).join(', ') + ' e ' + nomes[nomes.length - 1] : (nomes[0] || '');
+  }
+  // Situação do plano para a tela. hoje: Date local.
+  //   em_aberto  meses na cobrança (total e nomes)
+  //   pago       o mês corrente já foi cobrado e pago
+  //   aguardando o mês corrente ainda não venceu (ou foi pulado ao marcar)
+  function situacaoPlano(p, hoje) {
+    var cm = p.CobrancaMes || {};
+    var mes = hoje.getFullYear() + '-' + ('0' + (hoje.getMonth() + 1)).slice(-2);
+    if (cm.Ativa === true && Array.isArray(cm.Meses) && cm.Meses.length) {
+      return { situacao: 'em_aberto', meses: cm.Meses.slice(), nomes: nomeMeses(cm.Meses), valor: numero(cm.Valor) || numero(p.Valor) * cm.Meses.length };
+    }
+    if (String(p.CobrancaUltimoMes || '') >= mes && cm.PagoEm) return { situacao: 'pago', meses: [], nomes: '', valor: 0 };
+    return { situacao: 'aguardando', meses: [], nomes: '', valor: 0 };
+  }
+
   var api = { normalizar: normalizar, numero: numero, parseData: parseData, classificar: classificar, GRUPOS: GRUPOS, resumo: resumo,
-    TEXTOS: TEXTOS, montarTexto: montarTexto, tipoPelaHora: tipoPelaHora, telefoneWhatsApp: telefoneWhatsApp };
+    TEXTOS: TEXTOS, montarTexto: montarTexto, tipoPelaHora: tipoPelaHora, telefoneWhatsApp: telefoneWhatsApp,
+    planoEntra: planoEntra, diaVencimentoPlano: diaVencimentoPlano, nomeMeses: nomeMeses, situacaoPlano: situacaoPlano };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.SGCobrancaRegra = api;
 })(typeof window !== 'undefined' ? window : null);

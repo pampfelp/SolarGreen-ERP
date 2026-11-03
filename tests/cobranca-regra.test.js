@@ -150,5 +150,22 @@ assert.equal(R.tipoPelaHora(new Date(2026,10,7,12)),'15h');
 assert.equal(R.telefoneWhatsApp('(91) 98759-8592'),'5591987598592');
 assert.equal(R.telefoneWhatsApp('5591987598592'),'5591987598592');
 assert.equal(R.telefoneWhatsApp('123'),'');
+
+// Mensalidade dos planos
+const pl=(x)=>Object.assign({IdPlano:'p',TipoAssinatura:'Mensal',Status:'Ativo',Valor:39.9,CobrancaMensal:true},x);
+assert.equal(R.planoEntra(pl()),true);
+assert.equal(R.planoEntra(pl({CobrancaMensal:false})),false);
+assert.equal(R.planoEntra(pl({TipoAssinatura:'Anual'})),false);
+assert.equal(R.planoEntra(pl({Status:'Inativo'})),false);
+assert.equal(R.planoEntra(pl({Valor:'0'})),false);
+assert.equal(R.diaVencimentoPlano(pl({DataAssinatura:''})),10);
+assert.equal(R.diaVencimentoPlano(pl({DataAssinatura:'26/08/2026'})),26);
+assert.equal(R.nomeMeses(['2026-11','2026-12']),'novembro e dezembro');
+assert.equal(R.nomeMeses(['2026-10','2026-11','2026-12']),'outubro, novembro e dezembro');
+const nov=new Date(2026,10,15);
+assert.deepEqual(R.situacaoPlano(pl({CobrancaMes:{Ativa:true,Meses:['2026-11','2026-12'],Valor:79.8}}),nov),{situacao:'em_aberto',meses:['2026-11','2026-12'],nomes:'novembro e dezembro',valor:79.8});
+assert.equal(R.situacaoPlano(pl({CobrancaUltimoMes:'2026-11',CobrancaMes:{Ativa:false,Meses:[],PagoEm:'x'}}),nov).situacao,'pago');
+assert.equal(R.situacaoPlano(pl({CobrancaUltimoMes:'2026-10',CobrancaMes:{Ativa:false,Meses:[],PagoEm:'x'}}),nov).situacao,'aguardando');
+assert.equal(R.situacaoPlano(pl(),nov).situacao,'aguardando');
 
 console.log('cobranca-regra: ok');
