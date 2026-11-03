@@ -4889,6 +4889,7 @@ function disparoRegistrar_(cfg, d, tipo, texto, idInteracao) {
         var idLead = pipe ? disparoCriarLead_(cfg, d, pipe, DISPARO_ETAPA_RETORNO, '') : '';
         if (idLead) {
           campos.idOportunidade = idLead;
+          disparoDonoNoCliente_(cfg, d.idCliente, d.idVendedor);
           writes.push(fsUpdate_(cfg, 'interacoes_disparo/' + idInteracao, { idOportunidade: idLead }));
         }
       }
@@ -4932,6 +4933,17 @@ function disparoMexerNoFunil_(cfg, d, tipo, texto, nomes) {
   var w = fsUpdate_(cfg, caminho, campos, { exists: true });
   w.updateTransforms = extras;
   fsCommit_(cfg, [w]);
+  disparoDonoNoCliente_(cfg, d.idCliente || f.IdCliente, d.idVendedor);
+}
+
+// Cliente sem Vendedor Responsavel ganha o vendedor do disparo (cobrança, venda e OS
+// leem o dono dali; 03/11: importados ficavam com o lead dono e o cliente vazio).
+// Quem já tem dono fica com ele; se o ERP mexeu no cliente no meio, não grava.
+function disparoDonoNoCliente_(cfg, idCliente, idVendedor) {
+  if (!idCliente || !idVendedor) return;
+  var doc = fsGet_(cfg, 'clientes/' + idCliente);
+  if (!doc || String(doc.dados['Vendedor Responsavel'] || '').trim()) return;
+  fsCommit_(cfg, [fsUpdate_(cfg, 'clientes/' + idCliente, { 'Vendedor Responsavel': String(idVendedor) }, { updateTime: doc.updateTime })]);
 }
 
 // Pipeline Comercial e o papel de cada etapa, do mesmo jeito que o
