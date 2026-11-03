@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/disparos.css?v=20261030b">
+<link rel="stylesheet" href="css/disparos.css?v=20261103a">
 <script>
 // Trava ANTES de renderizar: a porta de entrada é a sessão do ERP (mesmo padrão
 // de planilha.html e ponto.html). Sem sessão válida, manda pro login (index.html).
@@ -44,6 +44,10 @@
         <svg class="svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-3.6 3.2-5.5 6.5-5.5s6 1.9 6.5 5.5"/><path d="M16 4.7a3.5 3.5 0 0 1 0 6.6M18.5 14.8c1.7.7 2.8 2.3 3 5.2"/></svg>
         <span>Contatos</span>
       </a>
+      <a href="#/conversas" data-nav="conversas">
+        <svg class="svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg>
+        <span>Conversas</span>
+      </a>
       <a href="#/modelos" data-nav="modelos">
         <svg class="svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></svg>
         <span>Modelos</span>
@@ -69,7 +73,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="js/firebase-init.js?v=20260928b"></script>
 <script src="js/disparo-regras.js?v=20261029d"></script>
-<script src="js/disparos.js?v=20261030b"></script>
+<script src="js/disparos.js?v=20261103a"></script>
 <script>
   // Instalável no celular (crença 39): o mesmo service worker do ERP, rede primeiro.
   if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js',{updateViaCache:'none'});

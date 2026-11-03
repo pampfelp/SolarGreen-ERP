@@ -231,7 +231,8 @@
   // ══════════════ ESCUTAS (uma por coleção, compartilhada entre as telas) ══════════════
   var NOMES_COL = {
     campanhas: 'campanhas', disparos: 'disparos', clientes: 'clientes', funil: 'funil', vendas: 'vendas',
-    vendedores: 'vendedores', modelos: 'modelos_disparo', optout: 'disparo_optout', pipelines: 'funil_pipelines'
+    vendedores: 'vendedores', modelos: 'modelos_disparo', optout: 'disparo_optout', pipelines: 'funil_pipelines',
+    mensagens: 'mensagens_disparo'
   };
   var DADOS = {};
   var VERSAO = 0;
@@ -754,7 +755,9 @@
           else if (md && x.tipo === 'image') conteudo = '<span data-foto="' + esc(md.driveId) + '" class="suave pequeno">Carregando foto…</span>';
           else if (md) conteudo = '<button type="button" class="btn btn-fantasma btn-mini" data-abrir="' + esc(md.driveId) + '" data-nome="' + esc(md.nomeArquivo || 'arquivo') + '">' + ico('doc') + ' ' + esc(md.nomeArquivo || 'Abrir arquivo') + '</button>';
           else if (!x.texto) conteudo = '<span class="suave">[' + esc(x.tipo || 'mensagem') + ']</span>';
-          html += '<div class="balao-linha ' + (x.direcao === 'saida' ? 'saida' : 'entrada') + '"><div class="balao">' + conteudo + (conteudo && x.texto ? '<br>' : '') + esc(x.texto || '') + '<div class="meta">' + (x.em ? hora(x.em) : '') + '</div></div></div>';
+          var marca = x.campanha === 'cobranca' && x.direcao === 'saida' ? '<span class="balao-origem">Cobrança</span>' : '';
+          var visto = x.direcao === 'saida' && x.status ? ' ' + (x.status === 'read' ? '<span class="lido">' + ico('tick2') + '</span>' : x.status === 'delivered' ? ico('tick2') : x.status === 'failed' ? '<span class="suave">não entregue</span>' : ico('tick')) : '';
+          html += '<div class="balao-linha ' + (x.direcao === 'saida' ? 'saida' : 'entrada') + '"><div class="balao">' + marca + conteudo + (conteudo && x.texto ? '<br>' : '') + esc(x.texto || '') + '<div class="meta">' + (x.em ? hora(x.em) : '') + visto + '</div></div></div>';
         }
       });
       linha.innerHTML = html;
@@ -1677,6 +1680,99 @@
         history.replaceState(null, '', '#/contatos');
         if (SOU_ADMIN) abrirImportacao(); else toast(DICA_ADMIN + ' importa contatos.', true);
       }
+      return { atualizar: desenhar };
+    }
+  };
+
+  // ---------- 4b. Conversas (03/11) ----------
+  // Tudo o que passou pelo número da API, por telefone: campanhas (disparos e
+  // mensagens_disparo), cobrança (copiada em mensagens_disparo com campanha
+  // 'cobranca') e mensagens soltas. Só leitura. Vendedor vê os clientes dele.
+  function fim8DoTelefone(t) { var dg = R.digitos(t); return dg.length >= 8 ? dg.slice(-8) : ''; }
+  function listaConversas(d) {
+    var g = {};
+    function pega(k) { return g[k] || (g[k] = { telFim8: k, ult: 0, texto: '', dir: '', nome: '', tel: '', idVend: '', origens: {}, respondeu: false, disp: null }); }
+    L('disparos').forEach(function (x) {
+      var em = paraMs(x.enviadoEm);
+      if (!em || !x.telFim8) return;
+      var c = pega(x.telFim8);
+      c.origens.campanha = true;
+      if (!c.nome) c.nome = x.nomeLeadCompleto || x.nomeLead || '';
+      if (!c.tel) c.tel = x.telLead || '';
+      if (!c.idVend) c.idVend = String(x.idVendedor || '');
+      if (!c.disp || em > paraMs(c.disp.enviadoEm)) c.disp = x;
+      if (em >= c.ult) { var camp = d.campMap[x.campanha]; c.ult = em; c.dir = 'saida'; c.texto = 'Campanha: ' + (camp ? camp.titulo : x.campanha); }
+    });
+    L('mensagens').forEach(function (x) {
+      if (!x.telFim8) return;
+      var c = pega(x.telFim8), em = paraMs(x.em);
+      c.origens[x.campanha === 'cobranca' ? 'cobranca' : x.campanha ? 'campanha' : 'direto'] = true;
+      if (!c.nome && x.nomeLead) c.nome = x.nomeLead;
+      if (!c.idVend && x.idVendedor) c.idVend = String(x.idVendedor);
+      if (x.direcao === 'entrada') c.respondeu = true;
+      if (em >= c.ult) { c.ult = em; c.dir = x.direcao; c.texto = x.texto || '[' + (x.tipo || 'mensagem') + ']'; }
+    });
+    var cliPorTel = {};
+    L('clientes').forEach(function (cl) { var k = fim8DoTelefone(cl.Telefone); if (k && !cliPorTel[k]) cliPorTel[k] = cl; });
+    return Object.keys(g).map(function (k) {
+      var c = g[k], cl = cliPorTel[k];
+      if (cl) {
+        if (!c.nome) c.nome = cl['Nome Razao Social'] || cl.Nome || '';
+        if (!c.tel) c.tel = cl.Telefone || '';
+        if (!c.idVend) c.idVend = String(cl['Vendedor Responsavel'] || '');
+      }
+      return c;
+    }).filter(function (c) { return SOU_ADMIN || c.idVend === String(SESSAO.idVendedor || ''); })
+      .sort(function (a, b) { return b.ult - a.ult; });
+  }
+
+  TELAS.conversas = {
+    menu: 'conversas', nec: ['mensagens', 'disparos', 'vendedores', 'clientes', 'campanhas', 'modelos'],
+    montar: function (el) {
+      var busca = '', filtro = '', limite = 100;
+      el.innerHTML =
+        '<div class="topo"><h1>Conversas</h1></div>' +
+        '<p class="ajuda" style="margin:-6px 0 14px">Tudo o que passou pelo número da Solar Green na API: campanhas, cobranças e o que os clientes responderam. Só leitura.</p>' +
+        '<div class="filtros"><select class="entrada" data-r="filtro" aria-label="Mostrar">' +
+          '<option value="">Todas as conversas</option><option value="respondeu">Só quem respondeu</option>' +
+          '<option value="cobranca">Cobrança</option><option value="campanha">Campanhas</option></select>' +
+          '<input type="search" class="entrada busca" data-r="busca" placeholder="Buscar nome ou telefone…" aria-label="Buscar conversa"></div>' +
+        '<div class="tabela-wrap"><table class="tabela"><thead><tr><th>Contato</th><th>Origem</th><th>Última mensagem</th><th>Quando</th></tr></thead><tbody data-r="corpo"></tbody></table></div>' +
+        '<div class="rodape-tabela" data-r="rodape"></div>';
+      var corpo = $('[data-r="corpo"]', el), rodape = $('[data-r="rodape"]', el), atuais = [];
+      $('[data-r="busca"]', el).addEventListener('input', function (e) { busca = e.target.value; limite = 100; desenhar(); });
+      $('[data-r="filtro"]', el).addEventListener('change', function (e) { filtro = e.target.value; limite = 100; desenhar(); });
+      corpo.addEventListener('click', function (e) {
+        var tr = e.target.closest('[data-tel]');
+        if (!tr) return;
+        var c = atuais.filter(function (x) { return x.telFim8 === tr.getAttribute('data-tel'); })[0];
+        if (!c) return;
+        var d = derivar(), camp = c.disp ? d.campMap[c.disp.campanha] : null;
+        abrirConversa({ telFim8: c.telFim8, nome: c.nome || 'Sem nome', telefone: c.tel ? R.formatarTelefone(c.tel) : 'final ' + c.telFim8.slice(-4),
+          dono: d.nomeVend(c.idVend), etapa: '', campanha: camp ? camp.titulo : (c.origens.cobranca ? 'Cobrança' : ''), robo: !!(c.disp && c.disp.robo) });
+      });
+      rodape.addEventListener('click', function (e) { if (e.target.closest('[data-r="mais"]')) { limite += 100; desenhar(); } });
+      function desenhar() {
+        var d = derivar(), b = semAcento(busca).trim(), bd = R.digitos(busca);
+        atuais = listaConversas(d).filter(function (c) {
+          if (filtro === 'respondeu' && !c.respondeu) return false;
+          if (filtro && filtro !== 'respondeu' && !c.origens[filtro]) return false;
+          if (b && semAcento(c.nome).indexOf(b) === -1 && !(bd.length >= 3 && R.digitos(c.tel || c.telFim8).indexOf(bd) !== -1)) return false;
+          return true;
+        });
+        var vis = atuais.slice(0, limite);
+        corpo.innerHTML = vis.length ? vis.map(function (c) {
+          var origem = (c.origens.cobranca ? selo('neutro', 'Cobrança') + ' ' : '') + (c.origens.campanha ? selo('enviado', 'Campanha') + ' ' : '') + (c.origens.direto ? selo('neutro', 'Mensagem') : '');
+          var prev = String(c.texto || '').replace(/\s+/g, ' ');
+          return '<tr class="clicavel" data-tel="' + esc(c.telFim8) + '"><td><b>' + esc(c.nome || 'Sem nome') + '</b><br><span class="suave pequeno">' + esc(c.tel ? R.formatarTelefone(c.tel) : 'final ' + c.telFim8.slice(-4)) + '</span></td>' +
+            '<td>' + origem + (c.respondeu ? ' ' + selo('respondeu', 'Respondeu') : '') + '</td>' +
+            '<td>' + (c.dir === 'entrada' ? '<b>Cliente:</b> ' : '') + esc(prev.length > 90 ? prev.slice(0, 90) + '…' : prev) + '</td>' +
+            '<td class="suave">' + (c.ult ? esc(diaLongo(c.ult)) + ' ' + hora(c.ult) : '—') + '</td></tr>';
+        }).join('') : '<tr><td colspan="4" class="vazio">Nenhuma conversa' + (busca || filtro ? ' com esse filtro.' : ' ainda.') + '</td></tr>';
+        rodape.innerHTML = atuais.length > limite ? '<span>' + num(limite) + ' de ' + num(atuais.length) + '</span> <button type="button" class="btn btn-fantasma btn-mini" data-r="mais">Mostrar mais</button>' :
+          '<span>' + num(atuais.length) + ' conversa' + (atuais.length === 1 ? '' : 's') + '</span>';
+      }
+      desenhar();
       return { atualizar: desenhar };
     }
   };

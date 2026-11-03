@@ -153,6 +153,9 @@ button.cartao:hover { box-shadow: 0 6px 18px rgba(0, 49, 34, .12); }
 .selo-neutro { background: #e5ebe9; color: #003122; }
 
 /* ── Tabelas ── */
+.balao-origem { display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; opacity: .7; margin-bottom: 4px; }
+tr.clicavel { cursor: pointer; }
+tr.clicavel:hover td { background: #f2f5f4; }
 .tabela-wrap { background: var(--panel); border: 1px solid var(--ink); border-radius: var(--raio); overflow-x: auto; }
 .tabela { border-collapse: collapse; width: 100%; min-width: 900px; }
 .tabela th { text-align: left; font-weight: 600; font-size: 13px; padding: 11px 14px; border-bottom: 1px solid var(--ink); white-space: nowrap; background: #f2f5f4; }

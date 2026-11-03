@@ -4739,7 +4739,15 @@ function disparoTratarMensagem_(cfg, props, m) {
       return (b.enviadoEm || 0) - (a.enviadoEm || 0);
     })[0] || null;
   }
-  if (!d) { console.log('Mensagem no número do disparo sem disparo correspondente (final ' + fim8.slice(-4) + ').'); return false; }
+  if (!d) {
+    // Sem campanha nem cobrança: guarda assim mesmo, para a tela Conversas (03/11).
+    var tipoSolto = m.type || 'text';
+    var infoSolta = m[tipoSolto] && typeof m[tipoSolto] === 'object' ? m[tipoSolto] : {};
+    disparoGravarMensagem_(cfg, { telFim8: fim8, telLead: m.from, campanha: '', _id: '', idVendedor: '' }, 'entrada', m.id, tipoSolto,
+      tipoSolto === 'text' ? (m.text || {}).body : tipoSolto === 'button' ? infoSolta.text : infoSolta.caption);
+    console.log('Mensagem no número do disparo sem disparo correspondente (final ' + fim8.slice(-4) + ').');
+    return false;
+  }
   // Um objeto só por disparo, pra o que for gravado aqui valer pro resto da função.
   var igual = docsTel.filter(function (x) { return x._id === d._id; })[0];
   if (igual) d = igual; else docsTel.push(d);
@@ -5658,6 +5666,19 @@ function cobrancaMandarModelo_(props, tel, modelo, dados, url, mediaId) {
 }
 
 // O mesmo texto do modelo, com o link no fim, para mandar pelo WhatsApp do vendedor.
+// Cópia da mensagem da cobrança em mensagens_disparo (03/11): a tela Conversas
+// do Disparos lê dali, que a página já pode ler (cobranca_mensagens não).
+function cobrancaIdEspelho_(direcao, wamid) {
+  return (direcao === 'entrada' ? 'in-' : 'out-') + String(wamid || Utilities.getUuid()).replace(/[^A-Za-z0-9_-]/g, '');
+}
+function cobrancaEspelho_(cfg, direcao, wamid, cliente, campos) {
+  cliente = cliente || {};
+  return fsUpdate_(cfg, 'mensagens_disparo/' + cobrancaIdEspelho_(direcao, wamid), cobrancaJuntar_({
+    campanha: 'cobranca', disparo: '', idVendedor: String(cliente['Vendedor Responsavel'] || ''),
+    nomeLead: String(cliente['Nome Razao Social'] || cliente.Nome || ''), direcao: direcao, em: Date.now()
+  }, campos));
+}
+
 function cobrancaTextoReserva_(modelo, dados, url) {
   var t = modelo.texto.replace(/\{\{(\d+)\}\}/g, function (_, n) { return dados[modelo.campos[n - 1]] || '-'; })
     .replace(/botão abaixo/g, 'link abaixo');
@@ -5733,7 +5754,11 @@ function cobrancaEnviar_(cfg, c, tipo, por) {
   registro.Wamid = r.wamid;
   var writes = [
     cobrancaAnexar_(cfg, 'agendamentos/' + c.id, 'CobrancaEnvios', registro),
-    fsUpdate_(cfg, 'cobranca_mensagens/out-' + r.wamid, { direcao: 'saida', idAgendamento: c.id, tipo: tipo, telFim8: disparoFim8_(tel), em: Date.now(), status: 'enviado' })
+    fsUpdate_(cfg, 'cobranca_mensagens/out-' + r.wamid, { direcao: 'saida', idAgendamento: c.id, tipo: tipo, telFim8: disparoFim8_(tel), em: Date.now(), status: 'enviado' }),
+    cobrancaEspelho_(cfg, 'saida', r.wamid, c.cliente, {
+      telFim8: disparoFim8_(tel), tipo: 'text', cobrancaTipo: tipo, idAgendamento: c.id, status: 'enviado',
+      texto: (registro.Pdf ? '[PDF da ordem de serviço anexado]\n\n' : '') + cobrancaTextoReserva_(modelo, dados, url)
+    })
   ];
   if (tipo === 'obrigado') writes.push(fsUpdate_(cfg, 'agendamentos/' + c.id, { CobrancaAgradecer: false, CobrancaAgradecidoEm: registro.Em }));
   fsCommit_(cfg, writes);
@@ -5967,6 +5992,9 @@ function cobrancaTratarMensagem_(cfg, m) {
   var vendedor = c ? String(c.cliente['Vendedor Responsavel'] || '') : '';
   var nome = c ? String(c.cliente['Nome Razao Social'] || c.cliente.Nome || 'Cliente') : 'Cliente';
   var chave = ref.idPlano ? 'plano-' + dono.idPlano : dono.idAgendamento;
+  fsCommit_(cfg, [cobrancaEspelho_(cfg, 'entrada', m.id, c ? c.cliente : null, cobrancaJuntar_({
+    telFim8: fim8, tipo: tipo, texto: String(texto || '').slice(0, 1000)
+  }, dono))]);
   enviarPush_(cfg, vendedor ? [vendedor] : cobrancaGestao_(cfg), {
     titulo: 'Cliente respondeu a cobrança', corpo: nome + ': ' + String(texto || '[' + tipo + ']').slice(0, 120),
     url: 'index.html?' + (ref.idPlano ? 'cobrancaPlano=' : 'cobranca=') + (dono.idPlano || dono.idAgendamento),
@@ -5984,6 +6012,8 @@ function cobrancaTratarStatus_(cfg, s) {
   var campos = { status: s.status, statusEm: Date.now() };
   if (s.status === 'failed') { campos.erroCodigo = Number(e.code || 0); campos.erro = String(e.title || e.message || 'falhou').slice(0, 300); }
   fsCommit_(cfg, [fsUpdate_(cfg, 'cobranca_mensagens/out-' + s.id, campos)]);
+  // A cópia da tela Conversas (só existe para as mensagens enviadas desde 03/11).
+  fsCommit_(cfg, [fsUpdate_(cfg, 'mensagens_disparo/' + cobrancaIdEspelho_('saida', s.id), campos, { exists: true })]);
 }
 
 // ── Mensalidade dos planos (2026-11-03) ─────────────────────────────────
@@ -6085,7 +6115,10 @@ function cobrancaPlanoEnviar_(cfg, c, tipo, por, mes) {
   registro.Wamid = r.wamid;
   fsCommit_(cfg, [
     cobrancaAnexar_(cfg, 'planos/' + c.id, 'CobrancaEnvios', registro),
-    fsUpdate_(cfg, 'cobranca_mensagens/out-' + r.wamid, { direcao: 'saida', idPlano: c.id, tipo: tipo, telFim8: disparoFim8_(tel), em: Date.now(), status: 'enviado' })
+    fsUpdate_(cfg, 'cobranca_mensagens/out-' + r.wamid, { direcao: 'saida', idPlano: c.id, tipo: tipo, telFim8: disparoFim8_(tel), em: Date.now(), status: 'enviado' }),
+    cobrancaEspelho_(cfg, 'saida', r.wamid, c.cliente, {
+      telFim8: disparoFim8_(tel), tipo: 'text', cobrancaTipo: tipo, idPlano: c.id, status: 'enviado', texto: cobrancaTextoReserva_(modelo, dados, url)
+    })
   ]);
   return { ok: true };
 }
