@@ -324,28 +324,55 @@
     return l.saldo>=1&&(l.situacao==='em_aberto'||(l.situacao==='diferenca'&&l.ajuste&&l.ajuste.Tipo==='Parcial'));
   }
   function clienteDe(l){ return bruto.clientes.filter(function(c){ return c.IdCliente===l.idCliente; })[0]||{}; }
-  // Reserva: manda pelo WhatsApp de quem clicou. A janela abre já no clique
-  // (senão o navegador bloqueia) e recebe o endereço do WhatsApp depois.
+  // Reserva: manda pelo WhatsApp de quem clicou, com o PDF da OS (03/11). O
+  // wa.me não leva arquivo; texto e PDF juntos só pelo compartilhar do aparelho,
+  // que precisa de um toque novo depois que o link e o PDF chegam. Por isso o
+  // clique prepara e mostra os botões de envio em #cb-whatsPronto.
+  function registrarEnvioWhats(l,tipo){
+    var s=sessao();
+    window.SGAuth.apiCall('registrarEnvioCobranca',{idAgendamento:l.idAgendamento,envio:{Tipo:tipo,Em:new Date().toISOString(),Por:s.nome||'',PorId:s.idVendedor||''}});
+  }
+  function arquivoDoBase64(b64,nome){
+    var bin=atob(b64),bytes=new Uint8Array(bin.length);
+    for(var i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+    return new File([bytes],nome,{type:'application/pdf'});
+  }
   function enviarWhats(l,tipo){
     var tel=window.SGCobrancaRegra.telefoneWhatsApp(clienteDe(l).Telefone);
     if(!tel){ toast('O cliente não tem um celular válido no cadastro.',true); return; }
     if(tipo!=='obrigado'&&!cobravel(l)){ toast('Essa OS não tem cobrança em aberto.',true); return; }
-    var janela=window.open('','_blank');
+    var caixa=el('cb-whatsPronto');
+    if(!caixa)return;
+    caixa.innerHTML='<div class="hint" style="margin-top:8px;">Preparando o link e o PDF da OS…</div>';
     var a=mapaAg[l.idAgendamento]||{},link=a.CobrancaLink;
     var saldo=Math.round(l.saldo*100)/100;
     var precisaLink=tipo!=='obrigado'&&(!link||!a.CobrancaAtiva||Math.abs(window.SGCobrancaRegra.numero(link.Valor)-saldo)>0.009);
     var passo=tipo==='obrigado'?Promise.resolve({ok:true,url:''}):
       precisaLink?chamarServidor('cobrancaCriarLink',{idAgendamento:l.idAgendamento}):Promise.resolve({ok:true,url:link.Url});
-    passo.then(function(r){
+    var passoPdf=tipo==='obrigado'?Promise.resolve(null):
+      chamarServidor('cobrancaPdfOS',{idAgendamento:l.idAgendamento}).catch(function(){ return null; });
+    Promise.all([passo,passoPdf]).then(function(rs){
+      var r=rs[0],pdf=rs[1]&&rs[1].ok?rs[1]:null;
       if(!r||!r.ok)throw new Error((r&&r.erro)||'Não foi possível criar o link de pagamento.');
       var texto=window.SGCobrancaRegra.montarTexto(tipo,{nome:nomeDoCliente(l),servico:nomeServico[l.idServico]||'',data:l.data,valor:r.valor||saldo,pago:l.pago,link:r.url});
-      if(tipo!=='obrigado'&&a.CobrancaPdfFileId)texto+='\n\nOrdem de serviço: https://drive.google.com/file/d/'+a.CobrancaPdfFileId+'/view';
-      var destino='https://wa.me/'+tel+'?text='+encodeURIComponent(texto);
-      if(janela)janela.location.href=destino; else location.href=destino;
-      var s=sessao();
-      window.SGAuth.apiCall('registrarEnvioCobranca',{idAgendamento:l.idAgendamento,envio:{Tipo:tipo,Em:new Date().toISOString(),Por:s.nome||'',PorId:s.idVendedor||''}});
+      var arquivo=null;
+      if(pdf){ try{ arquivo=arquivoDoBase64(pdf.base64,pdf.nome); }catch(e){ arquivo=null; } }
+      var comArquivo=!!(arquivo&&navigator.canShare&&navigator.canShare({files:[arquivo],text:texto}));
+      var textoLink=texto+(pdf?'\n\nOrdem de serviço: '+pdf.link:'');
+      var aviso=pdf?(comArquivo?'No compartilhar, escolha o WhatsApp e a conversa de '+esc(nomeDoCliente(l))+'. Texto e PDF vão juntos.':'Este aparelho não anexa arquivo pelo navegador: o PDF vai como link na mensagem.'):
+        (tipo==='obrigado'?'':'Essa OS não tem PDF gerado: vai só o texto com o link de pagamento.');
+      caixa.innerHTML='<div class="cb-acoes">'+
+        (comArquivo?'<button type="button" class="connect-btn" data-pdf="compartilhar">Enviar com o PDF</button>':'')+
+        '<a class="reset-btn" target="_blank" rel="noopener" data-pdf="conversa" href="https://wa.me/'+tel+'?text='+encodeURIComponent(textoLink)+'">'+(comArquivo?'Abrir a conversa (PDF em link)':'Abrir no WhatsApp')+'</a>'+
+        '</div>'+(aviso?'<div class="hint">'+aviso+'</div>':'');
+      var b=caixa.querySelector('[data-pdf="compartilhar"]');
+      if(b)b.addEventListener('click',function(){
+        navigator.share({files:[arquivo],text:texto}).then(function(){ registrarEnvioWhats(l,tipo); })
+          .catch(function(err){ if(err&&err.name!=='AbortError')toast('Não deu para compartilhar: '+err.message,true); });
+      });
+      caixa.querySelector('[data-pdf="conversa"]').addEventListener('click',function(){ registrarEnvioWhats(l,tipo); });
     }).catch(function(err){
-      if(janela)janela.close();
+      caixa.innerHTML='';
       toast(err.message,true);
     });
   }
@@ -368,7 +395,8 @@
     if(cobravel(l)){
       var tipo=window.SGCobrancaRegra.tipoPelaHora(new Date());
       html+='<div class="cb-acoes"><button type="button" class="connect-btn" data-acao="api" data-tipo="">Enviar cobrança agora</button>'+
-        '<button type="button" class="reset-btn" data-acao="whats" data-tipo="'+tipo+'">Mandar pelo meu WhatsApp</button></div>';
+        '<button type="button" class="reset-btn" data-acao="whats" data-tipo="'+tipo+'">Mandar pelo meu WhatsApp</button></div>'+
+        '<div id="cb-whatsPronto"></div>';
     }else if(l.situacao==='quitada'&&a.CobrancaAgradecer&&!a.CobrancaAgradecidoEm){
       html+='<div class="cb-acoes"><button type="button" class="connect-btn" data-acao="api" data-tipo="obrigado">Enviar agradecimento</button></div>';
     }

@@ -93,6 +93,7 @@ function handleRequest(e) {
     // o aviso de pagamento vem da InfinitePay, com a ação na URL.
     if ((params.action || body.action) === 'cobrancaEnviar')             return jsonOutput(actionCobrancaEnviar(body));
     if ((params.action || body.action) === 'cobrancaCriarLink')          return jsonOutput(actionCobrancaCriarLink(body));
+    if ((params.action || body.action) === 'cobrancaPdfOS')              return jsonOutput(actionCobrancaPdfOS(body));
     if ((params.action || body.action) === 'cobrancaPlanoEnviar')        return jsonOutput(actionCobrancaPlanoEnviar(body));
     if ((params.action || body.action) === 'cobrancaPlanoCriarLink')     return jsonOutput(actionCobrancaPlanoCriarLink(body));
     if ((params.action || body.action) === 'cobrancaPlanoValidar')       return jsonOutput(actionCobrancaPlanoValidar(body));
@@ -5621,6 +5622,21 @@ function cobrancaHandleExemploPdf_(props) {
 
 function cobrancaLinkPdf_(fileId) { return 'https://drive.google.com/file/d/' + fileId + '/view'; }
 
+// PDF da OS: o gravado na assinatura ou, nas OS de antes disso, o mais novo da
+// pasta de Ordens de Serviço (actionGerarPdfOS dá o nome "OS <id> - data").
+// '' se a OS nunca teve PDF.
+function cobrancaPdfDaOS_(c) {
+  if (c.os.CobrancaPdfFileId) return String(c.os.CobrancaPdfFileId);
+  var it = getOrCreatePastaOS_().searchFiles("title contains 'OS " + c.id + " ' and trashed = false");
+  var melhor = null;
+  while (it.hasNext()) {
+    var f = it.next();
+    if (f.getName().indexOf('OS ' + c.id + ' ') !== 0) continue;
+    if (!melhor || f.getDateCreated() > melhor.getDateCreated()) melhor = f;
+  }
+  return melhor ? melhor.getId() : '';
+}
+
 // Manda um modelo da cobrança; dados preenche os campos e url, o botão "Pagar
 // agora"; mediaId, o PDF do cabeçalho nos modelos com documento.
 function cobrancaMandarModelo_(props, tel, modelo, dados, url, mediaId) {
@@ -5686,7 +5702,8 @@ function cobrancaEnviar_(cfg, c, tipo, por) {
     data: data ? data[3] + '/' + data[2] : '',
     valor: cobrancaDinheiro_(c.saldo), pago: cobrancaDinheiro_(c.pago)
   };
-  var pdf = tipo === 'inicio' ? String(c.os.CobrancaPdfFileId || '') : '';
+  var pdf = '';
+  if (tipo === 'inicio') { try { pdf = cobrancaPdfDaOS_(c); } catch (e) { console.error('PDF da OS ' + c.id + ': ' + e.message); } }
   var r = null;
   if (pdf) {
     try {
@@ -5699,7 +5716,7 @@ function cobrancaEnviar_(cfg, c, tipo, por) {
   if (!r.ok) {
     var f = falhar('A Meta recusou (' + r.codigo + '): ' + r.erro);
     var texto = cobrancaTextoReserva_(modelo, dados, url);
-    if (c.os.CobrancaPdfFileId) texto += '\n\nOrdem de serviço: ' + cobrancaLinkPdf_(c.os.CobrancaPdfFileId);
+    if (pdf || c.os.CobrancaPdfFileId) texto += '\n\nOrdem de serviço: ' + cobrancaLinkPdf_(pdf || c.os.CobrancaPdfFileId);
     f.reserva = { tel: tel, texto: texto };
     return f;
   }
@@ -5766,6 +5783,22 @@ function actionCobrancaCriarLink(body) {
   if (c.saldo < 1) return { ok: false, erro: 'Essa OS não tem saldo a cobrar.' };
   try { return { ok: true, url: cobrancaCriarLinkDaOS_(cfg, c, auth.vendedor.IdVendedor), valor: c.saldo }; }
   catch (e) { return { ok: false, erro: e.message }; }
+}
+
+// action: cobrancaPdfOS { idToken, idAgendamento }: o PDF da OS em base64, para
+// o "Mandar pelo meu WhatsApp" anexar o arquivo pelo compartilhar do celular.
+function actionCobrancaPdfOS(body) {
+  var cfg = fbConfig_();
+  if (!cfg) return { ok: false, erro: 'Firebase não configurado no servidor.' };
+  var auth = disparoAutenticar_(cfg, body, false);
+  if (auth.erro) return { ok: false, erro: auth.erro };
+  var c = cobrancaContexto_(cfg, String(body.idAgendamento || ''));
+  if (!c) return { ok: false, erro: 'OS não encontrada.' };
+  if (!cobrancaPermitido_(auth, c)) return { ok: false, erro: 'Só o vendedor do cliente ou a gestão cobram essa OS.' };
+  var id = cobrancaPdfDaOS_(c);
+  if (!id) return { ok: false, erro: 'Essa OS ainda não tem PDF gerado.' };
+  var bytes = DriveApp.getFileById(id).getBlob().getBytes();
+  return { ok: true, nome: COBRANCA_PDF_NOME, base64: Utilities.base64Encode(bytes), link: cobrancaLinkPdf_(id) };
 }
 
 // action: cobrancaWebhook (na URL). Quem chama é a InfinitePay, sem assinatura:
