@@ -103,7 +103,10 @@ function handleRequest(e) {
 
     var chave = params.chave || body.chave || '';
     if (chave !== CONFIG.CHAVE_SECRETA) {
-      return jsonOutput({ ok: false, erro: 'Chave inválida.' });
+      // A ação vai na mensagem para achar quem chama sem a chave (Marcilene, 03/11).
+      var acaoSemChave = String(params.action || body.action || '').slice(0, 40);
+      console.error('Chave inválida na ação ' + acaoSemChave);
+      return jsonOutput({ ok: false, erro: 'Chave inválida (' + (acaoSemChave || 'sem ação') + ').' });
     }
 
     var action = params.action || body.action || '';

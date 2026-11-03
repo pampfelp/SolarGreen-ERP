@@ -553,6 +553,31 @@
     primeiro=primeiro?primeiro.charAt(0).toUpperCase()+primeiro.slice(1).toLowerCase():'';
     return 'Olá'+(primeiro?', '+primeiro:'')+'! Aqui é da Solar Green. Segue o link para o pagamento de '+descricao+', no valor de '+dinheiro(valor)+', por Pix ou cartão:\n\n'+url;
   }
+  // Popup com o link recém-criado (pedido do Felipe, 03/11: a Marcilene não viu
+  // o link aparecer embaixo e criou três iguais).
+  function popupLinkPronto(url,tel,texto,valor,descricao){
+    var m=el('cb-avModal');
+    if(!m){
+      m=document.createElement('div');
+      m.className='modal-overlay';
+      m.id='cb-avModal';
+      document.body.appendChild(m);
+      m.addEventListener('click',function(e){
+        if(e.target===m||(e.target.closest&&e.target.closest('[data-pop="fechar"]'))){ m.classList.add('hidden'); return; }
+        var b=e.target.closest?e.target.closest('[data-pop="copiar"]'):null;
+        if(b)copiar(el('cb-avModalUrl').value);
+      });
+    }
+    m.innerHTML='<div class="modal-card"><h3>Link criado</h3>'+
+      '<div class="hint" style="margin-bottom:10px;">'+esc(descricao)+' · '+dinheiro(valor)+'</div>'+
+      '<input type="text" readonly id="cb-avModalUrl" class="cb-link-pronto" value="'+esc(url)+'" aria-label="Link de pagamento">'+
+      '<div class="modal-actions">'+
+        '<button type="button" class="reset-btn" data-pop="fechar">Fechar</button>'+
+        '<button type="button" class="'+(tel?'reset-btn':'connect-btn')+'" data-pop="copiar">Copiar link</button>'+
+        (tel?'<a class="connect-btn" style="text-decoration:none;" target="_blank" rel="noopener" data-pop="fechar" href="https://wa.me/'+tel+'?text='+encodeURIComponent(texto)+'">Mandar pelo meu WhatsApp</a>':'')+
+      '</div></div>';
+    m.classList.remove('hidden');
+  }
   function htmlLinkPronto(url,tel,texto){
     return '<div class="ad-section"><h4>Link criado</h4>'+
       '<input type="text" readonly id="cb-avUrl" class="cb-link-pronto" value="'+esc(url)+'" aria-label="Link de pagamento">'+
@@ -641,7 +666,12 @@
       if(!r||!r.ok){ toast((r&&r.erro)||'Não foi possível criar o link.',true); return; }
       var cli=mapaClientes[idCliente]||{};
       var tel=window.SGCobrancaRegra.telefoneWhatsApp(cli.Telefone);
-      el('cb-avPronto').innerHTML=htmlLinkPronto(r.url,tel,textoAvulso(cli['Nome Razao Social']||cli.Nome,descricao,r.valor,r.url));
+      var texto=textoAvulso(cli['Nome Razao Social']||cli.Nome,descricao,r.valor,r.url);
+      el('cb-avPronto').innerHTML=htmlLinkPronto(r.url,tel,texto);
+      // Limpa valor e descrição: outro clique em "Criar link" não repete o mesmo.
+      el('cb-avValor').value='';
+      el('cb-avDescricao').value='';
+      popupLinkPronto(r.url,tel,texto,r.valor,descricao);
       carregarAvulsos();
     }).catch(function(err){ b.disabled=false;b.textContent='Criar link'; toast('Erro de conexão: '+err.message,true); });
   }
