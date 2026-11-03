@@ -19,7 +19,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=20261030a">
+<link rel="stylesheet" href="css/app.css?v=20261103a">
 <link rel="stylesheet" href="css/faturamento.css?v=20261001e">
 <link rel="stylesheet" href="css/dashboard-dre.css?v=20261021a">
 </head>
@@ -630,6 +630,7 @@
       <div class="field"><label>Até</label><input type="date" id="cb-dataAte"></div>
       <div class="spacer"></div>
       <button class="reset-btn" id="cb-reset">Limpar filtros</button>
+      <button class="connect-btn" id="cb-avulsoBtn">+ Link avulso</button>
     </div>
     <div class="kpis">
       <div class="kpi accentbar"><div class="tag">Saldo em aberto</div><div class="num" id="cb-kpiAberto">R$ 0,00</div><div class="sub" id="cb-kpiAbertoSub">0 OS</div><div class="bar"></div></div>
@@ -656,6 +657,14 @@
     </div>
     <div id="cb-paginacao" class="paginacao"></div>
     <div class="empty" id="cb-vazio"><p>Carregando…</p></div>
+    <div class="section-head" style="margin-top:28px;"><h2>Mensalidades dos <span>planos</span></h2><div class="hint" id="cb-plHint"></div></div>
+    <div class="table-wrap" id="cb-plTabela" style="display:none;">
+      <table>
+        <thead><tr><th>Cliente</th><th>Vendedor</th><th class="num">Mensalidade</th><th>Vencimento</th><th class="num">Em aberto</th><th>Situação</th></tr></thead>
+        <tbody id="cb-plTbody"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="cb-plVazio" style="display:none;"><p>Nenhum plano na cobrança mensal. Marque "Cobrança mensal pelo WhatsApp" no plano, na tela de Planos.</p></div>
   </div>
 </div>
 </div>
@@ -1383,6 +1392,10 @@
         <label style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px;cursor:pointer;"><input type="checkbox" id="pm-manutencao" style="width:16px;height:16px;"> Manutenção Preventiva</label>
       </div>
     </div>
+    <div class="uform-field" id="pm-campoCobranca">
+      <label style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px;cursor:pointer;"><input type="checkbox" id="pm-cobrancaMensal" style="width:16px;height:16px;"> Cobrança mensal pelo WhatsApp</label>
+      <div class="hint" style="margin-top:4px;">Todo mês, no dia da data de assinatura (sem data, dia 10), o cliente recebe o link de pagamento pela Solar Green.</div>
+    </div>
     <div class="uform-msg" id="pm-msg"></div>
     <div class="modal-actions">
       <button class="reset-btn" id="pm-excluirBtn" style="color:var(--debit);"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></span>Excluir plano</button>
@@ -2083,13 +2096,13 @@
 <script src="js/dre-jev.js?v=20261013a"></script>
 <script src="js/dre-dashboard.js?v=20261014a"></script>
 <script src="js/trafego-dashboard.js?v=20261021a"></script>
-<script src="js/firestore-router.js?v=20261102a"></script>
+<script src="js/firestore-router.js?v=20261103a"></script>
 <script src="js/sg-auth.js?v=20261013a"></script>
 <script src="js/dashboard.js?v=20261021a"></script>
 <script src="js/faturamento.js?v=20261001g"></script>
 <script src="js/ponto.js?v=20260928b"></script>
-<script src="js/cobranca-regra.js?v=20261102a"></script>
-<script src="js/cobranca.js?v=20261102b"></script>
+<script src="js/cobranca-regra.js?v=20261103a"></script>
+<script src="js/cobranca.js?v=20261103a"></script>
 <script src="js/vendas.js?v=20261030a"></script>
 <script src="js/funil.js?v=20261029a"></script>
 <script src="js/agendamentos.js?v=20261102b"></script>
@@ -2100,10 +2113,10 @@
 <script src="js/servicos.js?v=20260831b"></script>
 <script src="js/catalogo.js?v=20260829f"></script>
 <script src="js/metas.js?v=20260829f"></script>
-<script src="js/planos.js?v=20260903a"></script>
+<script src="js/planos.js?v=20261103a"></script>
 <script src="js/leads-site-motor.js?v=20261008a"></script>
 <script src="js/leads-site.js?v=20261019a"></script>
-<script src="js/notificacoes.js?v=20261102a"></script>
+<script src="js/notificacoes.js?v=20261103a"></script>
 <script src="js/usuarios.js?v=20261001d"></script>
 <script src="js/permissoes.js?v=20260829f"></script>
 <script src="js/controller.js?v=20261001b"></script>

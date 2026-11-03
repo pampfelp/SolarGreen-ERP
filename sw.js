@@ -79,6 +79,11 @@ self.addEventListener('notificationclick', function (event) {
   event.notification.close();
   var dados = event.notification.data || {};
   var alvo = new URL(dados.url || 'index.html', self.registration.scope).href;
+  // Endereço de fora do ERP (wa.me da cobrança de reserva) abre direto.
+  if (new URL(alvo).origin !== self.location.origin) {
+    event.waitUntil(self.clients.openWindow(alvo));
+    return;
+  }
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (janelas) {
       // Reaproveita o ERP já aberto (não o Ponto nem o app do técnico).

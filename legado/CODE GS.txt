@@ -93,6 +93,11 @@ function handleRequest(e) {
     // o aviso de pagamento vem da InfinitePay, com a ação na URL.
     if ((params.action || body.action) === 'cobrancaEnviar')             return jsonOutput(actionCobrancaEnviar(body));
     if ((params.action || body.action) === 'cobrancaCriarLink')          return jsonOutput(actionCobrancaCriarLink(body));
+    if ((params.action || body.action) === 'cobrancaPlanoEnviar')        return jsonOutput(actionCobrancaPlanoEnviar(body));
+    if ((params.action || body.action) === 'cobrancaPlanoCriarLink')     return jsonOutput(actionCobrancaPlanoCriarLink(body));
+    if ((params.action || body.action) === 'cobrancaPlanoBaixa')         return jsonOutput(actionCobrancaPlanoBaixa(body));
+    if ((params.action || body.action) === 'cobrancaLinkAvulso')         return jsonOutput(actionCobrancaLinkAvulso(body));
+    if ((params.action || body.action) === 'cobrancaAvulsos')            return jsonOutput(actionCobrancaAvulsos(body));
     if (params.action === 'cobrancaWebhook')                             return jsonOutput(actionCobrancaWebhook(body));
 
     var chave = params.chave || body.chave || '';
@@ -5420,7 +5425,11 @@ var COBRANCA_MODELOS = {
   parcial: { nome: 'cobranca_parcial', pagar: true, campos: ['nome', 'pago', 'servico', 'valor'],
     texto: 'Olá, {{1}}. Recebemos {{2}} do serviço de {{3}}, obrigado! Ficou um saldo de {{4}}, que você pode pagar pelo botão abaixo.' },
   obrigado: { nome: 'cobranca_obrigado', pagar: false, campos: ['nome'],
-    texto: 'Olá, {{1}}! Recebemos o seu pagamento. Muito obrigado pela confiança na Solar Green! Qualquer coisa que precisar da sua usina, é só chamar aqui.' }
+    texto: 'Olá, {{1}}! Recebemos o seu pagamento. Muito obrigado pela confiança na Solar Green! Qualquer coisa que precisar da sua usina, é só chamar aqui.' },
+  // Mensalidade do plano (03/11): o primeiro aviso do mês. Os lembretes usam os
+  // três de cima, com "plano mensal Solar Green (novembro)" no lugar do serviço.
+  plano: { nome: 'cobranca_plano', pagar: true, campos: ['nome', 'mes', 'valor', 'data'],
+    texto: 'Olá, {{1}}! Aqui é da Solar Green. A mensalidade de {{2}} do seu plano, no valor de {{3}}, vence em {{4}}. Você pode pagar por Pix ou cartão pelo botão abaixo.' }
 };
 
 // Parcelas em que a Solar Green assume a taxa da InfinitePay (assured_installments).
@@ -5512,16 +5521,17 @@ function cobrancaContexto_(cfg, id) {
 
 // Cria o link com o saldo de agora (link da InfinitePay não se cancela nem se
 // edita) e grava na OS. Devolve a URL ou lança erro.
-function cobrancaCriarLinkDaOS_(cfg, c, criadoPor) {
-  var orderNsu = 'os-' + c.id + '-' + Date.now();
+// Link de pagamento único na InfinitePay. cliente (opcional) preenche nome e
+// celular na tela de pagamento. Devolve a URL ou lança erro.
+function cobrancaNovoLink_(valor, descricao, orderNsu, cliente) {
   var corpo = {
-    items: [{ quantity: 1, price: Math.round(c.saldo * 100), description: ('Solar Green - ' + (c.nomeServico || 'serviço')).slice(0, 100) }],
+    items: [{ quantity: 1, price: Math.round(valor * 100), description: String(descricao).slice(0, 100) }],
     order_nsu: orderNsu,
     webhook_url: COBRANCA_WEBHOOK,
-    options: { single_payment: true, assured_installments: cobrancaParcelasAssumidas_(c.saldo) }
+    options: { single_payment: true, assured_installments: cobrancaParcelasAssumidas_(valor) }
   };
-  var tel = cobrancaTelefone_(c.cliente.Telefone);
-  var nome = String(c.cliente['Nome Razao Social'] || c.cliente.Nome || '').trim();
+  var tel = cliente ? cobrancaTelefone_(cliente.Telefone) : '';
+  var nome = cliente ? String(cliente['Nome Razao Social'] || cliente.Nome || '').trim() : '';
   if (nome && tel) corpo.customer = { name: nome, phone_number: '+' + tel };
   var r = cobrancaPedir_('/links', corpo);
   var url = cobrancaAcharUrl_(r.json);
@@ -5529,6 +5539,12 @@ function cobrancaCriarLinkDaOS_(cfg, c, criadoPor) {
     console.error('InfinitePay recusou o link (' + r.codigo + '): ' + r.texto.slice(0, 500));
     throw new Error('A InfinitePay não criou o link (' + r.codigo + ').');
   }
+  return url;
+}
+
+function cobrancaCriarLinkDaOS_(cfg, c, criadoPor) {
+  var orderNsu = 'os-' + c.id + '-' + Date.now();
+  var url = cobrancaNovoLink_(c.saldo, 'Solar Green - ' + (c.nomeServico || 'serviço'), orderNsu, c.cliente);
   var agora = new Date().toISOString();
   var campos = { CobrancaLink: { Url: url, OrderNsu: orderNsu, Valor: c.saldo, CriadoEm: agora }, CobrancaAtiva: true, CobrancaAgradecer: false };
   // O começo da cobrança não muda quando o link é refeito (saldo parcial).
@@ -5548,9 +5564,50 @@ function cobrancaAnexar_(cfg, caminho, campo, valor) {
     fieldTransforms: [{ fieldPath: campo, appendMissingElements: { values: [fsValorRico_(valor)] } }] } };
 }
 
+// Cópia de a com os campos de b por cima (sem Object.assign, que o runtime antigo não tem).
+function cobrancaJuntar_(a, b) {
+  var r = {};
+  [a || {}, b || {}].forEach(function (o) { Object.keys(o).forEach(function (k) { r[k] = o[k]; }); });
+  return r;
+}
+
+function cobrancaPrimeiroNome_(cliente) {
+  var p = String(cliente['Nome Razao Social'] || cliente.Nome || '').trim().split(/\s+/)[0] || 'cliente';
+  return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase();
+}
+
+// Manda um modelo da cobrança; dados preenche os campos e url, o botão "Pagar agora".
+function cobrancaMandarModelo_(props, tel, modelo, dados, url) {
+  var componentes = [{ type: 'body', parameters: modelo.campos.map(function (k) { return { type: 'text', text: dados[k] || '-' }; }) }];
+  if (modelo.pagar) componentes.push({ type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: url.slice(COBRANCA_PAGAR_BASE.length) }] });
+  return disparoGraph_(props, { messaging_product: 'whatsapp', to: tel, type: 'template',
+    template: { name: modelo.nome, language: { code: 'pt_BR' }, components: componentes } });
+}
+
+// O mesmo texto do modelo, com o link no fim, para mandar pelo WhatsApp do vendedor.
+function cobrancaTextoReserva_(modelo, dados, url) {
+  var t = modelo.texto.replace(/\{\{(\d+)\}\}/g, function (_, n) { return dados[modelo.campos[n - 1]] || '-'; })
+    .replace(/botão abaixo/g, 'link abaixo');
+  return url ? t + '\n\n' + url : t;
+}
+
+// Reserva (03/11): quando a Meta não entrega o lembrete (modelo ainda em análise,
+// número bloqueado), o vendedor recebe a notificação; o toque abre o WhatsApp
+// dele com o texto e o link prontos.
+function cobrancaPedirReserva_(cfg, cliente, reserva, chave) {
+  var vendedor = String(cliente['Vendedor Responsavel'] || '');
+  var nome = String(cliente['Nome Razao Social'] || cliente.Nome || 'Cliente');
+  enviarPush_(cfg, vendedor ? [vendedor] : cobrancaGestao_(cfg), {
+    titulo: 'Cobrar pelo seu WhatsApp',
+    corpo: nome + ': a mensagem automática não saiu. Toque para enviar o texto e o link.',
+    url: 'https://wa.me/' + reserva.tel + '?text=' + encodeURIComponent(reserva.texto),
+    tag: 'cobranca-reserva-' + chave, notifId: 'cobranca:reserva:' + chave + ':' + Date.now()
+  });
+}
+
 // Manda uma mensagem da cobrança pelo número do disparo. tipo: inicio, 8h, 15h,
 // 18h, parcial ou obrigado. Devolve {ok} ou {ok:false, erro}; a tentativa fica
-// registrada na OS nos dois casos.
+// registrada na OS nos dois casos. Se a Meta recusou, vem também reserva {tel, texto}.
 function cobrancaEnviar_(cfg, c, tipo, por) {
   var modelo = COBRANCA_MODELOS[tipo];
   if (!modelo) return { ok: false, erro: 'Tipo de mensagem desconhecido.' };
@@ -5576,18 +5633,18 @@ function cobrancaEnviar_(cfg, c, tipo, por) {
     if (url.indexOf(COBRANCA_PAGAR_BASE) !== 0) return falhar('O link não começa com ' + COBRANCA_PAGAR_BASE + '; o botão do modelo não serve para ele.');
   }
   var data = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(c.os['Data Inicio'] || ''));
-  var primeiro = String(c.cliente['Nome Razao Social'] || c.cliente.Nome || '').trim().split(/\s+/)[0] || 'cliente';
   var dados = {
-    nome: primeiro.charAt(0).toUpperCase() + primeiro.slice(1).toLowerCase(),
+    nome: cobrancaPrimeiroNome_(c.cliente),
     servico: (c.nomeServico || 'serviço').toLowerCase(),
     data: data ? data[3] + '/' + data[2] : '',
     valor: cobrancaDinheiro_(c.saldo), pago: cobrancaDinheiro_(c.pago)
   };
-  var componentes = [{ type: 'body', parameters: modelo.campos.map(function (k) { return { type: 'text', text: dados[k] || '-' }; }) }];
-  if (modelo.pagar) componentes.push({ type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: url.slice(COBRANCA_PAGAR_BASE.length) }] });
-  var r = disparoGraph_(props, { messaging_product: 'whatsapp', to: tel, type: 'template',
-    template: { name: modelo.nome, language: { code: 'pt_BR' }, components: componentes } });
-  if (!r.ok) return falhar('A Meta recusou (' + r.codigo + '): ' + r.erro);
+  var r = cobrancaMandarModelo_(props, tel, modelo, dados, url);
+  if (!r.ok) {
+    var f = falhar('A Meta recusou (' + r.codigo + '): ' + r.erro);
+    f.reserva = { tel: tel, texto: cobrancaTextoReserva_(modelo, dados, url) };
+    return f;
+  }
   registro.Wamid = r.wamid;
   var writes = [
     cobrancaAnexar_(cfg, 'agendamentos/' + c.id, 'CobrancaEnvios', registro),
@@ -5655,6 +5712,7 @@ function actionCobrancaWebhook(body) {
   var agradecerId = '';
   try {
     if (fsGet_(cfg, 'cobranca_pagamentos/' + transacao)) return { ok: true, acao: 'já lançado' };
+    // Link de OS, de plano (pl-) ou avulso (av-): cobranca_links diz qual.
     var ref = fsGet_(cfg, 'cobranca_links/' + orderNsu);
     if (!ref) return { ok: false, erro: 'pedido desconhecido' };
     console.log('Aviso da InfinitePay: ' + JSON.stringify(body).slice(0, 500));
@@ -5673,6 +5731,8 @@ function actionCobrancaWebhook(body) {
       console.log('Teste confirmado: ' + orderNsu + ' / ' + transacao);
       return { ok: true, acao: 'teste confirmado' };
     }
+    if (ref.dados.avulso === true) return cobrancaPagouAvulso_(cfg, ref.dados, orderNsu, transacao, conf.json, body);
+    if (ref.dados.idPlano) return cobrancaPagouPlano_(cfg, ref.dados, orderNsu, transacao, conf.json, body);
     var id = String(ref.dados.idAgendamento);
     var c = cobrancaContexto_(cfg, id);
     if (!c) return { ok: false, erro: 'OS não encontrada' };
@@ -5754,8 +5814,10 @@ function cobrancaLembretes() {
       if (agradecer) cobrancaEnviar_(cfg, c, 'obrigado');
       return;
     }
-    cobrancaEnviar_(cfg, c, tipo);
+    var r = cobrancaEnviar_(cfg, c, tipo);
+    if (r.reserva) cobrancaPedirReserva_(cfg, c.cliente, r.reserva, 'os-' + c.id);
   });
+  cobrancaPlanos_(cfg, tipo, hoje);
 }
 
 // Mensagem que chega no número do disparo: se a última coisa que o telefone
@@ -5779,16 +5841,20 @@ function cobrancaTratarMensagem_(cfg, m) {
   var tipo = m.type || 'text';
   var info = m[tipo] && typeof m[tipo] === 'object' ? m[tipo] : {};
   var texto = tipo === 'text' ? (m.text || {}).body : (tipo === 'button' ? info.text : info.caption);
-  var ok = fsCommit_(cfg, [fsUpdate_(cfg, 'cobranca_mensagens/in-' + String(m.id || Date.now()).replace(/[^A-Za-z0-9_.=-]/g, ''), {
-    direcao: 'entrada', idAgendamento: String(ref.idAgendamento), telFim8: fim8, em: Date.now(), tipo: tipo, texto: String(texto || '').slice(0, 1000)
-  }, { exists: false })]);
+  // A mensagem é de uma OS ou da mensalidade de um plano.
+  var dono = ref.idPlano ? { idPlano: String(ref.idPlano) } : { idAgendamento: String(ref.idAgendamento) };
+  var ok = fsCommit_(cfg, [fsUpdate_(cfg, 'cobranca_mensagens/in-' + String(m.id || Date.now()).replace(/[^A-Za-z0-9_.=-]/g, ''), cobrancaJuntar_({
+    direcao: 'entrada', telFim8: fim8, em: Date.now(), tipo: tipo, texto: String(texto || '').slice(0, 1000)
+  }, dono), { exists: false })]);
   if (!ok) return true; // a Meta repetiu a entrega
-  var c = cobrancaContexto_(cfg, String(ref.idAgendamento));
+  var c = ref.idPlano ? cobrancaPlanoContexto_(cfg, dono.idPlano) : cobrancaContexto_(cfg, dono.idAgendamento);
   var vendedor = c ? String(c.cliente['Vendedor Responsavel'] || '') : '';
   var nome = c ? String(c.cliente['Nome Razao Social'] || c.cliente.Nome || 'Cliente') : 'Cliente';
+  var chave = ref.idPlano ? 'plano-' + dono.idPlano : dono.idAgendamento;
   enviarPush_(cfg, vendedor ? [vendedor] : cobrancaGestao_(cfg), {
     titulo: 'Cliente respondeu a cobrança', corpo: nome + ': ' + String(texto || '[' + tipo + ']').slice(0, 120),
-    url: 'index.html?cobranca=' + ref.idAgendamento, tag: 'cobranca-' + ref.idAgendamento, notifId: 'cobranca:in:' + String(m.id || '')
+    url: 'index.html?' + (ref.idPlano ? 'cobrancaPlano=' : 'cobranca=') + (dono.idPlano || dono.idAgendamento),
+    tag: 'cobranca-' + chave, notifId: 'cobranca:in:' + String(m.id || '')
   });
   return true;
 }
@@ -5804,15 +5870,333 @@ function cobrancaTratarStatus_(cfg, s) {
   fsCommit_(cfg, [fsUpdate_(cfg, 'cobranca_mensagens/out-' + s.id, campos)]);
 }
 
-// Pelo editor, uma vez: cria os seis modelos na conta do disparo, na categoria
+// ── Mensalidade dos planos (2026-11-03) ─────────────────────────────────
+// Entra o plano Ativo, Mensal e com CobrancaMensal (caixa na tela de Planos; o
+// Felipe escolheu só os de R$ 39,90). Vence no dia da data de assinatura (sem
+// data, dia 10). No vencimento sai o modelo cobranca_plano com o link; do dia
+// seguinte em diante, os lembretes nos horários da OS. Mês sem pagar acumula: o
+// link passa a cobrar os meses em aberto juntos. Plano marcado depois do
+// vencimento começa no mês seguinte (nada retroativo).
+// Campos no plano (planos/{id}): CobrancaMes {Meses [yyyy-MM], Valor, Vencimento,
+// Url, OrderNsu, Ativa, Desde, PagoEm}, CobrancaUltimoMes (último mês posto em
+// cobrança), CobrancaEnvios [{Tipo, Em, Por, Erro}].
+var COBRANCA_PLANO_SERVICO = '9cc549b6'; // "Plano Mensal Monitoramento": serviço da venda lançada
+var COBRANCA_PLANO_DIA = 10;
+var COBRANCA_MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+
+function cobrancaPlanoEntra_(p) {
+  return p.CobrancaMensal === true && String(p.Status || '').trim().toLowerCase() === 'ativo' &&
+    String(p.TipoAssinatura || '').trim().toLowerCase() === 'mensal' && cobrancaNumero_(p.Valor) >= 1;
+}
+
+// Vencimento do mês (yyyy-MM) em yyyy-MM-dd; dia 31 vira o último dia do mês curto.
+function cobrancaPlanoVencimento_(p, mes) {
+  var m = /^(\d{1,2})\//.exec(String(p.DataAssinatura || ''));
+  var dia = m ? Number(m[1]) : COBRANCA_PLANO_DIA;
+  var ultimo = new Date(Number(mes.slice(0, 4)), Number(mes.slice(5, 7)), 0).getDate();
+  return mes + '-' + ('0' + Math.min(dia, ultimo)).slice(-2);
+}
+
+function cobrancaPlanoNomeMeses_(meses) {
+  var nomes = meses.map(function (m) { return COBRANCA_MESES[Number(m.slice(5, 7)) - 1]; });
+  return nomes.length > 1 ? nomes.slice(0, -1).join(', ') + ' e ' + nomes[nomes.length - 1] : (nomes[0] || '');
+}
+
+function cobrancaPlanoContexto_(cfg, idPlano, dados) {
+  var p = dados;
+  if (!p) { var doc = idPlano ? fsGet_(cfg, 'planos/' + idPlano) : null; if (!doc) return null; p = doc.dados; }
+  var cli = fsGet_(cfg, 'clientes/' + String(p.IdCliente || ''));
+  var cm = p.CobrancaMes || {};
+  return { id: idPlano, plano: p, cliente: cli ? cli.dados : {}, valorMes: cobrancaNumero_(p.Valor), cm: cm,
+    meses: cm.Ativa === true && Array.isArray(cm.Meses) ? cm.Meses.slice() : [] };
+}
+
+// Põe o mês na cobrança (mes vazio: só confere) e garante um link com o total
+// dos meses em aberto. Devolve a URL ou lança erro.
+function cobrancaPlanoLink_(cfg, c, mes, por) {
+  var meses = c.meses.slice();
+  if (mes && meses.indexOf(mes) === -1) meses.push(mes);
+  meses.sort();
+  if (!meses.length) throw new Error('Esse plano não tem mensalidade em aberto.');
+  var total = Math.round(c.valorMes * meses.length * 100) / 100;
+  var mesmo = c.cm.Ativa === true && c.cm.Url && Math.abs(cobrancaNumero_(c.cm.Valor) - total) < 0.01 && meses.join() === c.meses.join();
+  if (mesmo) return c.cm.Url;
+  var orderNsu = 'pl-' + c.id + '-' + Date.now();
+  var url = cobrancaNovoLink_(total, 'Solar Green - plano mensal (' + cobrancaPlanoNomeMeses_(meses) + ')', orderNsu, c.cliente);
+  var agora = new Date().toISOString();
+  var cm = { Meses: meses, Valor: total, Vencimento: cobrancaPlanoVencimento_(c.plano, meses[0]), Url: url, OrderNsu: orderNsu,
+    Ativa: true, Desde: c.cm.Ativa === true && c.cm.Desde ? c.cm.Desde : cobrancaHoje_(), CriadoEm: agora };
+  var campos = { CobrancaMes: cm };
+  if (mes && mes > String(c.plano.CobrancaUltimoMes || '')) campos.CobrancaUltimoMes = mes;
+  fsCommit_(cfg, [
+    fsUpdateRico_(cfg, 'planos/' + c.id, campos),
+    fsUpdateRico_(cfg, 'cobranca_links/' + orderNsu, { idPlano: c.id, meses: meses, valor: total, criadoEm: agora, criadoPor: String(por || ''), handle: cobrancaHandle_(url) })
+  ]);
+  c.cm = cm; c.meses = meses;
+  if (campos.CobrancaUltimoMes) c.plano.CobrancaUltimoMes = campos.CobrancaUltimoMes;
+  return url;
+}
+
+// Como cobrancaEnviar_, para a mensalidade. tipo: inicio (modelo cobranca_plano),
+// 8h, 15h, 18h ou obrigado. mes: o mês a abrir junto (só no inicio).
+function cobrancaPlanoEnviar_(cfg, c, tipo, por, mes) {
+  var modelo = COBRANCA_MODELOS[tipo === 'inicio' ? 'plano' : tipo];
+  if (!modelo || tipo === 'parcial' || tipo === 'plano') return { ok: false, erro: 'Tipo de mensagem desconhecido.' };
+  var props = disparoProps_();
+  var registro = { Tipo: tipo, Em: new Date().toISOString(), Por: String(por || 'automático') };
+  function falhar(erro, reserva) {
+    registro.Erro = erro;
+    fsCommit_(cfg, [cobrancaAnexar_(cfg, 'planos/' + c.id, 'CobrancaEnvios', registro)]);
+    console.error('Cobrança do plano ' + c.id + ' (' + tipo + '): ' + erro);
+    return { ok: false, erro: erro, reserva: reserva };
+  }
+  if (!props.token || !props.phoneId) return falhar('Faltam WA_TOKEN ou WA_PHONE_ID nas Propriedades do script.');
+  var tel = cobrancaTelefone_(c.cliente.Telefone);
+  if (!tel) return falhar('O cliente não tem um celular válido no cadastro.');
+  var url = '';
+  if (modelo.pagar) {
+    try { url = cobrancaPlanoLink_(cfg, c, mes, por); } catch (e) { return falhar(e.message); }
+    if (url.indexOf(COBRANCA_PAGAR_BASE) !== 0) return falhar('O link não começa com ' + COBRANCA_PAGAR_BASE + '; o botão do modelo não serve para ele.');
+  }
+  var nomes = cobrancaPlanoNomeMeses_(c.meses);
+  var venc = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(c.cm.Vencimento || ''));
+  var dados = {
+    nome: cobrancaPrimeiroNome_(c.cliente), mes: nomes, servico: 'plano mensal Solar Green (' + nomes + ')',
+    data: venc ? venc[3] + '/' + venc[2] : '', valor: cobrancaDinheiro_(cobrancaNumero_(c.cm.Valor))
+  };
+  var r = cobrancaMandarModelo_(props, tel, modelo, dados, url);
+  if (!r.ok) return falhar('A Meta recusou (' + r.codigo + '): ' + r.erro, { tel: tel, texto: cobrancaTextoReserva_(modelo, dados, url) });
+  registro.Wamid = r.wamid;
+  fsCommit_(cfg, [
+    cobrancaAnexar_(cfg, 'planos/' + c.id, 'CobrancaEnvios', registro),
+    fsUpdate_(cfg, 'cobranca_mensagens/out-' + r.wamid, { direcao: 'saida', idPlano: c.id, tipo: tipo, telFim8: disparoFim8_(tel), em: Date.now(), status: 'enviado' })
+  ]);
+  return { ok: true };
+}
+
+// Do gatilho, nos horários: abre o mês que venceu e lembra quem está em aberto.
+function cobrancaPlanos_(cfg, tipo, hoje) {
+  var mes = hoje.slice(0, 7);
+  fsListar_(cfg, 'planos').forEach(function (p) {
+    if (!cobrancaPlanoEntra_(p)) return;
+    try {
+      var ultimo = String(p.CobrancaUltimoMes || '');
+      var venc = cobrancaPlanoVencimento_(p, mes);
+      if (mes > ultimo && hoje >= venc) {
+        if (!ultimo && hoje > venc) {
+          // Recém-marcado depois do vencimento: começa no mês seguinte.
+          fsCommit_(cfg, [fsUpdate_(cfg, 'planos/' + p._id, { CobrancaUltimoMes: mes })]);
+        } else {
+          var c = cobrancaPlanoContexto_(cfg, p._id, p);
+          var r = cobrancaPlanoEnviar_(cfg, c, 'inicio', '', mes);
+          if (r.reserva) cobrancaPedirReserva_(cfg, c.cliente, r.reserva, 'plano-' + p._id);
+          return;
+        }
+      }
+      var cm = p.CobrancaMes || {};
+      if (cm.Ativa !== true || !cm.Desde || cm.Desde >= hoje) return;
+      var c2 = cobrancaPlanoContexto_(cfg, p._id, p);
+      var r2 = cobrancaPlanoEnviar_(cfg, c2, tipo);
+      if (r2.reserva) cobrancaPedirReserva_(cfg, c2.cliente, r2.reserva, 'plano-' + p._id);
+    } catch (e) {
+      console.error('Mensalidade do plano ' + p._id + ': ' + e.message);
+    }
+  });
+}
+
+// Pagamento de link de plano (chamado pelo aviso, dentro da trava).
+function cobrancaPagouPlano_(cfg, ref, orderNsu, transacao, conf, body) {
+  var c = cobrancaPlanoContexto_(cfg, String(ref.idPlano));
+  if (!c) return { ok: false, erro: 'plano não encontrado' };
+  var valor = cobrancaNumero_(conf.amount) / 100;
+  var pagos = Array.isArray(ref.meses) ? ref.meses : [];
+  var resto = c.meses.filter(function (m) { return pagos.indexOf(m) === -1; });
+  var idVenda = Utilities.getUuid().replace(/-/g, '').substring(0, 8);
+  var venda = {
+    IdVenda: idVenda, IdCliente: String(c.plano.IdCliente || ''), IdServico: COBRANCA_PLANO_SERVICO,
+    IdVendedor: String(c.cliente['Vendedor Responsavel'] || ''), DataVenda: cobrancaHoje_(), Valor: valor,
+    IdPlano: c.id, MesesPlano: pagos, PagamentoInfinitePay: transacao
+  };
+  var nome = String(c.cliente['Nome Razao Social'] || c.cliente.Nome || '');
+  if (nome) venda.NomeCliente = nome;
+  if (c.cliente.Telefone) venda.TelefoneCliente = String(c.cliente.Telefone);
+  // Sobrou mês em aberto (pagou um link antigo): o próximo envio refaz o link com o resto.
+  var cm = cobrancaJuntar_(c.cm, resto.length ? { Meses: resto, Url: '', OrderNsu: '', Valor: 0 } : { Meses: [], Ativa: false, PagoEm: new Date().toISOString() });
+  var writes = [
+    fsUpdateRico_(cfg, 'vendas/' + idVenda, venda, { exists: false }),
+    fsUpdateRico_(cfg, 'cobranca_pagamentos/' + transacao, {
+      orderNsu: orderNsu, idPlano: c.id, meses: pagos, idVenda: idVenda, valor: valor,
+      metodo: String(conf.capture_method || body.capture_method || ''), recibo: String(body.receipt_url || ''),
+      lancadoEm: new Date().toISOString()
+    }, { exists: false }),
+    fsUpdateRico_(cfg, 'planos/' + c.id, { CobrancaMes: cm })
+  ];
+  if (!fsCommit_(cfg, writes)) return { ok: true, acao: 'já lançado' };
+  var vendedor = String(c.cliente['Vendedor Responsavel'] || '');
+  enviarPush_(cfg, vendedor ? [vendedor] : cobrancaGestao_(cfg), {
+    titulo: 'Mensalidade paga pelo link',
+    corpo: (nome || 'Cliente') + ' pagou ' + cobrancaDinheiro_(valor) + ' do plano (' + cobrancaPlanoNomeMeses_(pagos) + ')',
+    url: 'index.html?cobrancaPlano=' + c.id, tag: 'cobranca-plano-' + c.id, notifId: 'cobranca:' + transacao
+  });
+  if (!resto.length && !cobrancaOutrasAbertas_(cfg, { id: '', os: { IdCliente: c.plano.IdCliente } })) {
+    c.cm = cm; c.meses = [];
+    cobrancaPlanoEnviar_(cfg, c, 'obrigado');
+  }
+  return { ok: true, acao: 'lançado' };
+}
+
+// Quem pode mexer na mensalidade: o vendedor do cliente ou a gestão.
+function cobrancaPlanoAuth_(body) {
+  var cfg = fbConfig_();
+  if (!cfg) return { erro: 'Firebase não configurado no servidor.' };
+  var auth = disparoAutenticar_(cfg, body, false);
+  if (auth.erro) return { erro: auth.erro };
+  var c = cobrancaPlanoContexto_(cfg, String(body.idPlano || ''));
+  if (!c) return { erro: 'Plano não encontrado.' };
+  if (!ehGestaoAtivaFs_(auth.vendedor) && String(c.cliente['Vendedor Responsavel'] || '') !== String(auth.vendedor.IdVendedor)) {
+    return { erro: 'Só o vendedor do cliente ou a gestão cobram esse plano.' };
+  }
+  return { cfg: cfg, auth: auth, c: c, por: auth.vendedor.Nome || auth.vendedor.IdVendedor };
+}
+
+// Mês a cobrar pelo botão: sem nada em aberto, adianta o mês corrente.
+function cobrancaPlanoMesDoBotao_(c) {
+  return c.meses.length ? '' : cobrancaHoje_().slice(0, 7);
+}
+
+// action: cobrancaPlanoEnviar { idToken, idPlano, tipo? }. Sem tipo: o primeiro
+// aviso se o mês ainda não estava em cobrança; senão, o lembrete da hora.
+function actionCobrancaPlanoEnviar(body) {
+  var a = cobrancaPlanoAuth_(body);
+  if (a.erro) return { ok: false, erro: a.erro };
+  var mes = cobrancaPlanoMesDoBotao_(a.c);
+  var tipo = String(body.tipo || '') || (mes ? 'inicio' : cobrancaTipoPelaHora_());
+  if (tipo === 'obrigado' && a.c.meses.length) return { ok: false, erro: 'Esse plano ainda tem mensalidade em aberto.' };
+  if (tipo !== 'obrigado' && !cobrancaPlanoEntra_(a.c.plano)) return { ok: false, erro: 'Esse plano não está marcado para cobrança mensal.' };
+  return cobrancaPlanoEnviar_(a.cfg, a.c, tipo, a.por, tipo === 'obrigado' ? '' : mes);
+}
+
+// action: cobrancaPlanoCriarLink { idToken, idPlano }: o link para mandar pelo
+// próprio WhatsApp. Devolve também o texto, já preenchido.
+function actionCobrancaPlanoCriarLink(body) {
+  var a = cobrancaPlanoAuth_(body);
+  if (a.erro) return { ok: false, erro: a.erro };
+  if (!cobrancaPlanoEntra_(a.c.plano)) return { ok: false, erro: 'Esse plano não está marcado para cobrança mensal.' };
+  var mes = cobrancaPlanoMesDoBotao_(a.c);
+  try {
+    var url = cobrancaPlanoLink_(a.cfg, a.c, mes, a.por);
+    var nomes = cobrancaPlanoNomeMeses_(a.c.meses);
+    var venc = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(a.c.cm.Vencimento || ''));
+    var dados = { nome: cobrancaPrimeiroNome_(a.c.cliente), mes: nomes, servico: 'plano mensal Solar Green (' + nomes + ')',
+      data: venc ? venc[3] + '/' + venc[2] : '', valor: cobrancaDinheiro_(cobrancaNumero_(a.c.cm.Valor)) };
+    var modelo = COBRANCA_MODELOS[mes ? 'plano' : cobrancaTipoPelaHora_()];
+    return { ok: true, url: url, texto: cobrancaTextoReserva_(modelo, dados, url) };
+  } catch (e) { return { ok: false, erro: e.message }; }
+}
+
+// action: cobrancaPlanoBaixa { idToken, idPlano }: pago por fora (gestão). Encerra
+// os meses em aberto sem lançar venda.
+function actionCobrancaPlanoBaixa(body) {
+  var a = cobrancaPlanoAuth_(body);
+  if (a.erro) return { ok: false, erro: a.erro };
+  if (!ehGestaoAtivaFs_(a.auth.vendedor)) return { ok: false, erro: 'Só a gestão dá baixa na mensalidade.' };
+  if (!a.c.meses.length) return { ok: false, erro: 'Esse plano não tem mensalidade em aberto.' };
+  var cm = cobrancaJuntar_(a.c.cm, { Meses: [], Ativa: false, PagoEm: new Date().toISOString(), BaixaPor: String(a.por), BaixaMeses: a.c.meses });
+  fsCommit_(a.cfg, [fsUpdateRico_(a.cfg, 'planos/' + a.c.id, { CobrancaMes: cm })]);
+  return { ok: true };
+}
+
+// ── Link avulso (2026-11-03) ───────────────────────────────────────────
+// Qualquer valor, sem OS: o vendedor manda pelo próprio WhatsApp ou copia. Com
+// cliente e serviço escolhidos, o pagamento lança a venda; sem eles, só avisa.
+
+// action: cobrancaLinkAvulso { idToken, valor, descricao, idCliente?, idServico? }
+function actionCobrancaLinkAvulso(body) {
+  var cfg = fbConfig_();
+  if (!cfg) return { ok: false, erro: 'Firebase não configurado no servidor.' };
+  var auth = disparoAutenticar_(cfg, body, false);
+  if (auth.erro) return { ok: false, erro: auth.erro };
+  var valor = Math.round(cobrancaNumero_(body.valor) * 100) / 100;
+  if (valor < 1) return { ok: false, erro: 'O valor mínimo do link é R$ 1,00.' };
+  var descricao = String(body.descricao || '').trim().slice(0, 80);
+  if (!descricao) return { ok: false, erro: 'Escreva o que está sendo cobrado.' };
+  var idCliente = String(body.idCliente || ''), idServico = String(body.idServico || '');
+  var cli = idCliente ? fsGet_(cfg, 'clientes/' + idCliente) : null;
+  if (idCliente && !cli) return { ok: false, erro: 'Cliente não encontrado.' };
+  var orderNsu = 'av-' + Utilities.getUuid().replace(/-/g, '').substring(0, 8) + '-' + Date.now();
+  try {
+    var url = cobrancaNovoLink_(valor, 'Solar Green - ' + descricao, orderNsu, cli ? cli.dados : null);
+    fsCommit_(cfg, [fsUpdate_(cfg, 'cobranca_links/' + orderNsu, {
+      avulso: true, valor: valor, descricao: descricao, idCliente: idCliente, idServico: idServico, url: url,
+      criadoEm: new Date().toISOString(), criadoPor: String(auth.vendedor.IdVendedor), criadoPorNome: String(auth.vendedor.Nome || ''),
+      handle: cobrancaHandle_(url)
+    })]);
+    return { ok: true, url: url, valor: valor };
+  } catch (e) { return { ok: false, erro: e.message }; }
+}
+
+// action: cobrancaAvulsos { idToken }: os 30 últimos (vendedor vê os que criou).
+function actionCobrancaAvulsos(body) {
+  var cfg = fbConfig_();
+  if (!cfg) return { ok: false, erro: 'Firebase não configurado no servidor.' };
+  var auth = disparoAutenticar_(cfg, body, false);
+  if (auth.erro) return { ok: false, erro: auth.erro };
+  var gestao = ehGestaoAtivaFs_(auth.vendedor);
+  var lista = fsConsulta_(cfg, 'cobranca_links', 'avulso', true, 500).filter(function (x) {
+    return gestao || String(x.criadoPor) === String(auth.vendedor.IdVendedor);
+  }).sort(function (a, b) { return String(b.criadoEm).localeCompare(String(a.criadoEm)); }).slice(0, 30).map(function (x) {
+    return { valor: x.valor, descricao: x.descricao, idCliente: x.idCliente || '', criadoEm: x.criadoEm, criadoPorNome: x.criadoPorNome || '',
+      url: x.url, pagoEm: x.pagoEm || '', idVenda: x.idVenda || '' };
+  });
+  return { ok: true, links: lista };
+}
+
+// Pagamento de link avulso (chamado pelo aviso, dentro da trava).
+function cobrancaPagouAvulso_(cfg, ref, orderNsu, transacao, conf, body) {
+  var valor = cobrancaNumero_(conf.amount) / 100;
+  var agora = new Date().toISOString();
+  var cli = ref.idCliente ? fsGet_(cfg, 'clientes/' + ref.idCliente) : null;
+  var idVenda = '', writes = [];
+  if (cli && ref.idServico) {
+    idVenda = Utilities.getUuid().replace(/-/g, '').substring(0, 8);
+    var venda = {
+      IdVenda: idVenda, IdCliente: String(ref.idCliente), IdServico: String(ref.idServico),
+      IdVendedor: String(cli.dados['Vendedor Responsavel'] || ref.criadoPor || ''), DataVenda: cobrancaHoje_(), Valor: valor,
+      PagamentoInfinitePay: transacao
+    };
+    var nomeCli = String(cli.dados['Nome Razao Social'] || cli.dados.Nome || '');
+    if (nomeCli) venda.NomeCliente = nomeCli;
+    if (cli.dados.Telefone) venda.TelefoneCliente = String(cli.dados.Telefone);
+    writes.push(fsUpdateRico_(cfg, 'vendas/' + idVenda, venda, { exists: false }));
+  }
+  writes.push(fsUpdate_(cfg, 'cobranca_pagamentos/' + transacao, {
+    orderNsu: orderNsu, avulso: true, idVenda: idVenda, valor: valor,
+    metodo: String(conf.capture_method || body.capture_method || ''), recibo: String(body.receipt_url || ''), lancadoEm: agora
+  }, { exists: false }));
+  writes.push(fsUpdate_(cfg, 'cobranca_links/' + orderNsu, { pagoEm: agora, idVenda: idVenda }));
+  if (!fsCommit_(cfg, writes)) return { ok: true, acao: 'já lançado' };
+  var avisar = [String(ref.criadoPor || '')];
+  if (cli && cli.dados['Vendedor Responsavel'] && avisar.indexOf(String(cli.dados['Vendedor Responsavel'])) === -1) avisar.push(String(cli.dados['Vendedor Responsavel']));
+  enviarPush_(cfg, avisar.filter(String), {
+    titulo: 'Link avulso pago',
+    corpo: ref.descricao + ': ' + cobrancaDinheiro_(valor) + (idVenda ? ' (venda lançada)' : ' (sem cliente e serviço: lance a venda se for o caso)'),
+    url: 'index.html', tag: 'cobranca-avulso-' + orderNsu, notifId: 'cobranca:' + transacao
+  });
+  return { ok: true, acao: 'lançado' };
+}
+
+// Pelo editor: cria os modelos que faltam na conta do disparo, na categoria
 // utilidade. O log mostra o que a Meta respondeu para cada um. Sem botão para o
 // WhatsApp de atendimento: a Meta recusa botão com link direto do WhatsApp, e a
 // resposta do cliente já vira aviso para o vendedor (cobrancaTratarMensagem_).
 function cobrancaCriarModelos() {
   var props = disparoProps_();
-  var exemplo = { nome: 'Maria', servico: 'limpeza', data: '05/10', valor: 'R$ 400,00', pago: 'R$ 200,00' };
+  var exemplo = { nome: 'Maria', servico: 'limpeza', data: '05/10', valor: 'R$ 400,00', pago: 'R$ 200,00', mes: 'novembro' };
+  // Só os que ainda não existem na conta (o de plano entrou depois dos seis).
+  var existentes = disparoListarModelosMeta_(props, 'name').map(function (t) { return t.name; });
   Object.keys(COBRANCA_MODELOS).forEach(function (k) {
     var m = COBRANCA_MODELOS[k];
+    if (existentes.indexOf(m.nome) !== -1) return;
     var componentes = [{ type: 'BODY', text: m.texto, example: { body_text: [m.campos.map(function (c) { return exemplo[c]; })] } }];
     if (m.pagar) componentes.push({ type: 'BUTTONS', buttons: [{ type: 'URL', text: 'Pagar agora', url: COBRANCA_PAGAR_BASE + '{{1}}', example: [COBRANCA_PAGAR_BASE + 'exemplo'] }] });
     var r = disparoMetaPedir_(props, 'post', props.wabaId + '/message_templates', {
@@ -5822,7 +6206,7 @@ function cobrancaCriarModelos() {
   });
 }
 
-// Pelo editor: a situação dos seis modelos na Meta.
+// Pelo editor: a situação dos modelos da cobrança na Meta.
 function cobrancaConferirModelos() {
   var props = disparoProps_();
   var nomes = Object.keys(COBRANCA_MODELOS).map(function (k) { return COBRANCA_MODELOS[k].nome; });

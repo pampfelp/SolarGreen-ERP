@@ -274,6 +274,7 @@
     if(p.get('notif'))marcarLida([p.get('notif')]);
     if(p.get('lead')||p.get('tela'))abrirDestino({lead:p.get('lead'),tela:p.get('tela')});
     if(p.get('cobranca')&&window.SGCobranca)window.SGCobranca.abrirDaNotificacao(p.get('cobranca'),p.get('msg'));
+    if(p.get('cobrancaPlano')&&window.SGCobranca)window.SGCobranca.abrirPlano(p.get('cobrancaPlano'));
   }
 
   // ── Push neste aparelho ────────────────────────────────────────────────
@@ -373,7 +374,7 @@
     if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',function(e){
       if(e.data&&e.data.tipo==='sg-notif-abrir')tratarLink(e.data.url);
     });
-    if(/[?&](lead|tela|notif|cobranca)=/.test(location.search)){
+    if(/[?&](lead|tela|notif|cobranca|cobrancaPlano)=/.test(location.search)){
       var url=location.href;
       history.replaceState(null,'',location.pathname+location.hash);
       tratarLink(url);

@@ -863,7 +863,7 @@
       IdPlano:id, IdCliente:p.idCliente||'', TipoAssinatura:p.tipoAssinatura||'',
       Valor:paraNumero(p.valor), DataAssinatura:isoParaBR(p.dataAssinatura), DiaVencimento:isoParaBR(p.diaVencimento),
       Status:p.status||'', Monitoramento:!!p.monitoramento, VistoriaDiagnostica:!!p.vistoriaDiagnostica,
-      Limpeza:!!p.limpeza, ManutencaoPreventiva:!!p.manutencaoPreventiva
+      Limpeza:!!p.limpeza, ManutencaoPreventiva:!!p.manutencaoPreventiva, CobrancaMensal:!!p.cobrancaMensal
     };
     return db().collection('planos').doc(id).set(doc,{merge:true})
       .then(function(){ return {ok:true,idPlano:id}; })
