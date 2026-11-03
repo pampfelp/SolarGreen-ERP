@@ -206,23 +206,16 @@
     }).join('')+'<div class="dd-peq2">Clique numa barra para filtrar o dashboard por esse serviço.</div>';
   }
 
-  // Agrupamento aproximado do texto livre de MotivoPerda (mesma regra da análise de setembro).
-  function classificarMotivo(m){
-    var s=String(m==null?'':m).toLowerCase();
-    if(!s.trim())return 'Sem motivo preenchido';
-    if(/errad|ddd|breves|fortaleza|n[ºo]\.?\s|contato err/.test(s))return 'Contato / número errado';
-    if(/j[áa] tem|outra empresa|contratou|fechou com|presta servi|suporte de/.test(s))return 'Já tem empresa / fechou com outra';
-    if(/sem interesse|n[ãa]o tem mas interesse|surtad/.test(s))return 'Sem interesse';
-    if(/bloque|bloqui|n[ãa]o atende|n[ãa]o responde|n[ãa]o retorn|sem resposta|sem retorno|tentativa|visualiz|viaj/.test(s))return 'Bloqueou / não responde';
-    if(/desqualific/.test(s))return 'Lead desqualificado';
-    if(/lgpd|desconfian|processar|bene/.test(s))return 'Desconfiança / LGPD / benefício';
-    if(/dinheiro|condi[çc][õo]es|limite|cart[ãa]o|pagar a taxa/.test(s))return 'Sem condição financeira';
-    return 'Outros';
+  // Tipo da perda: o TipoPerda gravado pelo funil; lead antigo, sem o campo,
+  // cai na regra de palavras de js/perda-categorias.js (vocabulário num lugar só).
+  var SGPerda=(root&&root.SGPerda)||(typeof module!=='undefined'&&module.exports?require('./perda-categorias.js'):null);
+  function classificarMotivo(m,tipo){
+    return SGPerda.rotuloDe(SGPerda.tipoDoLead(tipo,m));
   }
-  /** perdidos: lista de textos de MotivoPerda dos leads perdidos. */
+  /** perdidos: textos de MotivoPerda, ou {motivo, tipo} quando o lead já tem TipoPerda. */
   function agruparMotivos(perdidos){
     var mapa={};
-    perdidos.forEach(function(m){var k=classificarMotivo(m);mapa[k]=(mapa[k]||0)+1;});
+    perdidos.forEach(function(m){var k=(m&&typeof m==='object')?classificarMotivo(m.motivo,m.tipo):classificarMotivo(m);mapa[k]=(mapa[k]||0)+1;});
     return {itens:Object.keys(mapa).map(function(k){return {motivo:k,n:mapa[k]};}).sort(function(a,b){return b.n-a.n;}),total:perdidos.length};
   }
   function htmlMotivos(mo){

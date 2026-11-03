@@ -321,6 +321,9 @@
         IdOportunidade:id, IdCliente:p.idCliente, IdVendedor:p.idVendedor, IdServico:p.idServico||'',
         Etapa:p.etapa, Observacoes:p.observacoes||'', 'Valor Estimado':parseFloat(p.valorEstimado)||0,
         MotivoPerda:p.motivoPerda||'',
+        // Tipo da perda (js/perda-categorias.js, 2026-11-03). Só grava se veio,
+        // para uma gravação de outra tela não apagar o tipo já classificado.
+        TipoPerda:p.tipoPerda, TipoPerdaOrigem:p.tipoPerdaOrigem,
         // Nome/telefone do cliente desnormalizados (2026-09-03) — ver
         // extraNomeCliente lá em cima. undefined quando o cliente não foi
         // achado, e semUndefined tira o campo (nunca grava nome vazio).
@@ -441,6 +444,14 @@
   // gerar uma Transicao nem mexer em Etapa, só marcar/desmarcar.
   function atualizarPrioridadeFunil(p){
     return db().collection('funil').doc(p.idOportunidade).set({Prioridade:!!p.prioridade},{merge:true})
+      .then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+
+  // Tipo da perda que o Jev devolveu depois de o lead já ter sido movido:
+  // só esses dois campos, sem Transicao nem Etapa (mesma ideia da prioridade).
+  function atualizarTipoPerdaFunil(p){
+    return db().collection('funil').doc(p.idOportunidade).set({TipoPerda:p.tipoPerda||'',TipoPerdaOrigem:p.tipoPerdaOrigem||''},{merge:true})
       .then(function(){ return {ok:true}; })
       .catch(function(err){ return {ok:false,erro:err.message}; });
   }
@@ -1040,6 +1051,7 @@
     excluirFunil:comSync('funil',function(p){return 'excluir '+p.idOportunidade;},comAuthPronto(excluirFunil)),
     registrarAtividadeFunil:comSync('funil',function(p){return 'atividade ('+(p.tipo||'')+')';},comAuthPronto(registrarAtividadeFunil)),
     atualizarPrioridadeFunil:comSync('funil',function(p){return 'prioridade';},comAuthPronto(atualizarPrioridadeFunil)),
+    atualizarTipoPerdaFunil:comSync('funil',function(p){return 'tipo da perda';},comAuthPronto(atualizarTipoPerdaFunil)),
     salvarFunilPipeline:comSync('funil_pipelines',function(p){return 'pipeline '+(p.nome||p.idPipeline||'');},comAuthPronto(salvarFunilPipeline)),
     excluirFunilPipeline:comSync('funil_pipelines',function(p){return 'excluir pipeline '+p.idPipeline;},comAuthPronto(excluirFunilPipeline)),
     getProposals:comAuthPronto(getPropostas),
