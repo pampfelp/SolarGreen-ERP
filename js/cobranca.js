@@ -339,6 +339,7 @@
     passo.then(function(r){
       if(!r||!r.ok)throw new Error((r&&r.erro)||'Não foi possível criar o link de pagamento.');
       var texto=window.SGCobrancaRegra.montarTexto(tipo,{nome:nomeDoCliente(l),servico:nomeServico[l.idServico]||'',data:l.data,valor:r.valor||saldo,pago:l.pago,link:r.url});
+      if(tipo!=='obrigado'&&a.CobrancaPdfFileId)texto+='\n\nOrdem de serviço: https://drive.google.com/file/d/'+a.CobrancaPdfFileId+'/view';
       var destino='https://wa.me/'+tel+'?text='+encodeURIComponent(texto);
       if(janela)janela.location.href=destino; else location.href=destino;
       var s=sessao();
@@ -350,9 +351,10 @@
   }
   // Envio pelo número da Solar Green (API oficial, 2026-11-02): o servidor cria o
   // link se precisar e manda o modelo. tipo vazio = texto da hora.
-  function enviarPelaSolarGreen(l,tipo){
+  // pdfFileId: PDF da OS recém-gerado, que vai anexado no primeiro aviso.
+  function enviarPelaSolarGreen(l,tipo,pdfFileId){
     toast('Enviando a mensagem pelo WhatsApp da Solar Green…');
-    chamarServidor('cobrancaEnviar',{idAgendamento:l.idAgendamento,tipo:tipo||''}).then(function(r){
+    chamarServidor('cobrancaEnviar',{idAgendamento:l.idAgendamento,tipo:tipo||'',pdfFileId:pdfFileId||''}).then(function(r){
       if(r&&r.ok)toast('Mensagem enviada pelo WhatsApp da Solar Green.');
       else toast((r&&r.erro)||'Não foi possível enviar a mensagem.',true);
     }).catch(function(err){ toast('Erro de conexão: '+err.message,true); });
@@ -784,8 +786,8 @@
   window.SGCobranca={
     // OS enviada para assinatura: a primeira mensagem, com o link, sai pelo
     // WhatsApp da Solar Green.
-    enviarInicio:function(id){
-      enviarPelaSolarGreen({idAgendamento:id},'inicio');
+    enviarInicio:function(id,pdfFileId){
+      enviarPelaSolarGreen({idAgendamento:id},'inicio',pdfFileId);
     },
     // Clique na notificação (pagamento recebido, cliente respondeu): abre o detalhe da OS.
     abrirDaNotificacao:function(id){

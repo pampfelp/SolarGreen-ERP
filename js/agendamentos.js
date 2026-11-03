@@ -793,7 +793,8 @@
           abrirPainelDetalhe(a.IdAgendamento);
           abrirModalOSEnviada(cliente.Email,resp2.link||'');
           // Cobrança (2026-11-02): a OS enviada já manda o link de pagamento pelo WhatsApp da Solar Green.
-          if(window.SGCobranca)window.SGCobranca.enviarInicio(a.IdAgendamento);
+          // Com o PDF da OS anexado (03/11), para comprovar a execução.
+          if(window.SGCobranca)window.SGCobranca.enviarInicio(a.IdAgendamento,resp.fileId);
         });
       }).catch(function(err){
         btn.disabled=false; btn.innerHTML=textoOriginal;
