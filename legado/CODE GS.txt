@@ -5416,6 +5416,11 @@ var COBRANCA_HORARIOS = {
 var COBRANCA_MODELOS = {
   inicio: { nome: 'cobranca_inicio', pagar: true, campos: ['nome', 'servico', 'data', 'valor'],
     texto: 'Olá, {{1}}! Aqui é da Solar Green. O serviço de {{2}} do dia {{3}} foi concluído, e a ordem de serviço foi enviada para assinatura no seu e-mail. O valor é {{4}} e você pode pagar por Pix ou cartão pelo botão abaixo.' },
+  // O mesmo primeiro aviso com o PDF da OS anexado no topo (pedido do Felipe,
+  // 03/11: comprova a execução e a ciência do cliente). Sai quando a OS tem
+  // CobrancaPdfFileId; se a Meta recusar, cai no de cima, sem o PDF.
+  inicio_pdf: { nome: 'cobranca_inicio_pdf', pagar: true, pdf: true, campos: ['nome', 'servico', 'data', 'valor'],
+    texto: 'Olá, {{1}}! Aqui é da Solar Green. O serviço de {{2}} do dia {{3}} foi concluído, e a ordem de serviço foi enviada para assinatura no seu e-mail. O valor é {{4}} e você pode pagar por Pix ou cartão pelo botão abaixo.' },
   '8h': { nome: 'cobranca_lembrete_manha', pagar: true, campos: ['nome', 'valor', 'servico', 'data'],
     texto: 'Bom dia, {{1}}! Passando para lembrar do pagamento de {{2}}, referente ao serviço de {{3}} do dia {{4}}. É só tocar no botão abaixo para pagar por Pix ou cartão.' },
   '15h': { nome: 'cobranca_lembrete_tarde', pagar: true, campos: ['nome', 'servico', 'valor'],
@@ -5577,9 +5582,50 @@ function cobrancaPrimeiroNome_(cliente) {
   return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase();
 }
 
-// Manda um modelo da cobrança; dados preenche os campos e url, o botão "Pagar agora".
-function cobrancaMandarModelo_(props, tel, modelo, dados, url) {
+// App "Solar Green Disparo" na Meta (não é segredo): o upload do PDF de exemplo
+// do modelo com documento passa por ele.
+var COBRANCA_APP_ID = '3262549660801342';
+var COBRANCA_PDF_NOME = 'Ordem de Serviço.pdf';
+
+// Sobe o PDF da OS (Drive) para a Meta e devolve o id da mídia.
+function cobrancaSubirPdf_(props, fileId) {
+  var blob = DriveApp.getFileById(fileId).getBlob().setName(COBRANCA_PDF_NOME);
+  var resp = UrlFetchApp.fetch('https://graph.facebook.com/' + props.versao + '/' + props.phoneId + '/media', {
+    method: 'post', muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + props.token },
+    payload: { messaging_product: 'whatsapp', type: 'application/pdf', file: blob }
+  });
+  var json = {};
+  try { json = JSON.parse(resp.getContentText()); } catch (e) { /* resposta sem JSON */ }
+  if (resp.getResponseCode() !== 200 || !json.id) throw new Error('A Meta não aceitou o PDF (' + resp.getResponseCode() + '): ' + resp.getContentText().slice(0, 200));
+  return json.id;
+}
+
+// PDF de exemplo exigido para criar modelo com documento no cabeçalho
+// (upload retomável pelo app). Devolve o handle.
+function cobrancaHandleExemploPdf_(props) {
+  var bytes = Utilities.newBlob('<p>Ordem de serviço (exemplo)</p>', 'text/html', 'exemplo.html').getAs('application/pdf').getBytes();
+  var base = 'https://graph.facebook.com/' + props.versao + '/';
+  var s = UrlFetchApp.fetch(base + COBRANCA_APP_ID + '/uploads?file_name=exemplo.pdf&file_length=' + bytes.length + '&file_type=application/pdf', {
+    method: 'post', muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + props.token }
+  });
+  var sessao = (JSON.parse(s.getContentText() || '{}') || {}).id;
+  if (!sessao) throw new Error('A Meta recusou o upload do exemplo: ' + s.getContentText().slice(0, 200));
+  var u = UrlFetchApp.fetch(base + sessao, {
+    method: 'post', muteHttpExceptions: true, contentType: 'application/pdf', payload: bytes,
+    headers: { Authorization: 'OAuth ' + props.token, file_offset: '0' }
+  });
+  var h = (JSON.parse(u.getContentText() || '{}') || {}).h;
+  if (!h) throw new Error('A Meta não devolveu o handle do exemplo: ' + u.getContentText().slice(0, 200));
+  return h;
+}
+
+function cobrancaLinkPdf_(fileId) { return 'https://drive.google.com/file/d/' + fileId + '/view'; }
+
+// Manda um modelo da cobrança; dados preenche os campos e url, o botão "Pagar
+// agora"; mediaId, o PDF do cabeçalho nos modelos com documento.
+function cobrancaMandarModelo_(props, tel, modelo, dados, url, mediaId) {
   var componentes = [{ type: 'body', parameters: modelo.campos.map(function (k) { return { type: 'text', text: dados[k] || '-' }; }) }];
+  if (modelo.pdf) componentes.unshift({ type: 'header', parameters: [{ type: 'document', document: { id: mediaId, filename: COBRANCA_PDF_NOME } }] });
   if (modelo.pagar) componentes.push({ type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: url.slice(COBRANCA_PAGAR_BASE.length) }] });
   return disparoGraph_(props, { messaging_product: 'whatsapp', to: tel, type: 'template',
     template: { name: modelo.nome, language: { code: 'pt_BR' }, components: componentes } });
@@ -5640,10 +5686,21 @@ function cobrancaEnviar_(cfg, c, tipo, por) {
     data: data ? data[3] + '/' + data[2] : '',
     valor: cobrancaDinheiro_(c.saldo), pago: cobrancaDinheiro_(c.pago)
   };
-  var r = cobrancaMandarModelo_(props, tel, modelo, dados, url);
+  var pdf = tipo === 'inicio' ? String(c.os.CobrancaPdfFileId || '') : '';
+  var r = null;
+  if (pdf) {
+    try {
+      r = cobrancaMandarModelo_(props, tel, COBRANCA_MODELOS.inicio_pdf, dados, url, cobrancaSubirPdf_(props, pdf));
+      if (r.ok) registro.Pdf = true;
+      else console.error('Cobrança da OS ' + c.id + ' com PDF recusada (' + r.codigo + '): ' + r.erro + '; vai sem o PDF.');
+    } catch (e) { console.error('PDF da OS ' + c.id + ': ' + e.message + '; vai sem o PDF.'); }
+  }
+  if (!r || !r.ok) r = cobrancaMandarModelo_(props, tel, modelo, dados, url);
   if (!r.ok) {
     var f = falhar('A Meta recusou (' + r.codigo + '): ' + r.erro);
-    f.reserva = { tel: tel, texto: cobrancaTextoReserva_(modelo, dados, url) };
+    var texto = cobrancaTextoReserva_(modelo, dados, url);
+    if (c.os.CobrancaPdfFileId) texto += '\n\nOrdem de serviço: ' + cobrancaLinkPdf_(c.os.CobrancaPdfFileId);
+    f.reserva = { tel: tel, texto: texto };
     return f;
   }
   registro.Wamid = r.wamid;
@@ -5681,6 +5738,18 @@ function actionCobrancaEnviar(body) {
   if (!cobrancaPermitido_(auth, c)) return { ok: false, erro: 'Só o vendedor do cliente ou a gestão cobram essa OS.' };
   var tipo = String(body.tipo || '') || cobrancaTipoPelaHora_();
   if (tipo === 'obrigado' && c.saldo >= 0.01) return { ok: false, erro: 'Essa OS ainda tem saldo; o agradecimento sai depois do pagamento.' };
+  // PDF da OS gerado na assinatura: só vale arquivo da pasta de OS desta OS.
+  var pdf = String(body.pdfFileId || '').replace(/[^A-Za-z0-9_-]/g, '');
+  if (pdf) {
+    var nomePdf = '';
+    try { nomePdf = DriveApp.getFileById(pdf).getName(); } catch (e) { /* sem acesso ou apagado */ }
+    if (nomePdf.indexOf('OS ' + c.id + ' ') === 0) {
+      fsCommit_(cfg, [fsUpdate_(cfg, 'agendamentos/' + c.id, { CobrancaPdfFileId: pdf })]);
+      c.os.CobrancaPdfFileId = pdf;
+    } else {
+      console.error('PDF ' + pdf + ' não é da OS ' + c.id + ' (' + nomePdf + '); ignorado.');
+    }
+  }
   return cobrancaEnviar_(cfg, c, tipo, auth.vendedor.Nome || auth.vendedor.IdVendedor);
 }
 
@@ -6247,6 +6316,7 @@ function cobrancaCriarModelos() {
     var m = COBRANCA_MODELOS[k];
     if (existentes.indexOf(m.nome) !== -1) return;
     var componentes = [{ type: 'BODY', text: m.texto, example: { body_text: [m.campos.map(function (c) { return exemplo[c]; })] } }];
+    if (m.pdf) componentes.unshift({ type: 'HEADER', format: 'DOCUMENT', example: { header_handle: [cobrancaHandleExemploPdf_(props)] } });
     if (m.pagar) componentes.push({ type: 'BUTTONS', buttons: [{ type: 'URL', text: 'Pagar agora', url: COBRANCA_PAGAR_BASE + '{{1}}', example: [COBRANCA_PAGAR_BASE + 'exemplo'] }] });
     var r = disparoMetaPedir_(props, 'post', props.wabaId + '/message_templates', {
       name: m.nome, category: 'UTILITY', language: 'pt_BR', components: componentes
