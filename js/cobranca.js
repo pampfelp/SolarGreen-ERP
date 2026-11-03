@@ -357,17 +357,22 @@
       var texto=window.SGCobrancaRegra.montarTexto(tipo,{nome:nomeDoCliente(l),servico:nomeServico[l.idServico]||'',data:l.data,valor:r.valor||saldo,pago:l.pago,link:r.url});
       var arquivo=null;
       if(pdf){ try{ arquivo=arquivoDoBase64(pdf.base64,pdf.nome); }catch(e){ arquivo=null; } }
-      var comArquivo=!!(arquivo&&navigator.canShare&&navigator.canShare({files:[arquivo],text:texto}));
+      // Arquivo só no celular: no computador o compartilhar do Windows entrega ao
+      // WhatsApp só o texto e o PDF se perde (Leonardo, 03/11). O link do PDF vai
+      // sempre no texto, para nunca chegar sem a OS.
+      var celular=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
       var textoLink=texto+(pdf?'\n\nOrdem de serviço: '+pdf.link:'');
-      var aviso=pdf?(comArquivo?'No compartilhar, escolha o WhatsApp e a conversa de '+esc(nomeDoCliente(l))+'. Texto e PDF vão juntos.':'Este aparelho não anexa arquivo pelo navegador: o PDF vai como link na mensagem.'):
+      var comArquivo=!!(celular&&arquivo&&navigator.canShare&&navigator.canShare({files:[arquivo],text:textoLink}));
+      var aviso=pdf?(comArquivo?'No compartilhar, escolha o WhatsApp e a conversa de '+esc(nomeDoCliente(l))+'. Texto e PDF vão juntos.':'O PDF da OS vai como link no fim da mensagem.'):
         (tipo==='obrigado'?'':'Essa OS não tem PDF gerado: vai só o texto com o link de pagamento.');
       caixa.innerHTML='<div class="cb-acoes">'+
         (comArquivo?'<button type="button" class="connect-btn" data-pdf="compartilhar">Enviar com o PDF</button>':'')+
-        '<a class="reset-btn" target="_blank" rel="noopener" data-pdf="conversa" href="https://wa.me/'+tel+'?text='+encodeURIComponent(textoLink)+'">'+(comArquivo?'Abrir a conversa (PDF em link)':'Abrir no WhatsApp')+'</a>'+
+        '<a class="'+(comArquivo?'reset-btn':'connect-btn')+'" target="_blank" rel="noopener" data-pdf="conversa" href="https://wa.me/'+tel+'?text='+encodeURIComponent(textoLink)+'">'+(comArquivo?'Abrir a conversa (PDF em link)':'Abrir no WhatsApp'+(pdf?' com o PDF':''))+'</a>'+
         '</div>'+(aviso?'<div class="hint">'+aviso+'</div>':'');
+      if(caixa.scrollIntoView)caixa.scrollIntoView({block:'nearest',behavior:'smooth'});
       var b=caixa.querySelector('[data-pdf="compartilhar"]');
       if(b)b.addEventListener('click',function(){
-        navigator.share({files:[arquivo],text:texto}).then(function(){ registrarEnvioWhats(l,tipo); })
+        navigator.share({files:[arquivo],text:textoLink}).then(function(){ registrarEnvioWhats(l,tipo); })
           .catch(function(err){ if(err&&err.name!=='AbortError')toast('Não deu para compartilhar: '+err.message,true); });
       });
       caixa.querySelector('[data-pdf="conversa"]').addEventListener('click',function(){ registrarEnvioWhats(l,tipo); });
