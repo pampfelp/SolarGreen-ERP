@@ -1707,7 +1707,8 @@
       if (!x.telFim8) return;
       var c = pega(x.telFim8), em = paraMs(x.em);
       c.origens[x.campanha === 'cobranca' ? 'cobranca' : x.campanha ? 'campanha' : 'direto'] = true;
-      if (!c.nome && x.nomeLead) c.nome = x.nomeLead;
+      // O nome do cadastro (cobrança) vale mais que o da lista antiga da campanha.
+      if (x.nomeLead && (!c.nome || x.campanha === 'cobranca')) c.nome = x.nomeLead;
       if (!c.idVend && x.idVendedor) c.idVend = String(x.idVendedor);
       if (x.direcao === 'entrada') c.respondeu = true;
       if (em >= c.ult) { c.ult = em; c.dir = x.direcao; c.texto = x.texto || '[' + (x.tipo || 'mensagem') + ']'; }
