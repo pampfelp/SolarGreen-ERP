@@ -77,16 +77,18 @@ const hs=D.htmlTipos(pt,id=>({s1:'Vistoria de Diagnóstico',s2:'Plano Anual'}[id
 assert.ok(hs.includes('Vistoria de Diagnóstico')&&hs.includes('data-servico="s1"')&&hs.includes('2 agendamento(s), 1 concluído(s)'));
 assert.ok(D.htmlTipos(D.calcularProducao([]),String).includes('Sem agendamentos'));
 
-// Motivos de perda: a mesma classificação da análise de setembro
+// Motivos de perda: o vocabulário é o de js/perda-categorias.js
 assert.equal(D.classificarMotivo(''),'Sem motivo preenchido');
-assert.equal(D.classificarMotivo('número errado'),'Contato / número errado');
+assert.equal(D.classificarMotivo('número errado'),'Contato inválido (número errado, sem WhatsApp)');
 assert.equal(D.classificarMotivo('já tem empresa'),'Já tem empresa / fechou com outra');
-assert.equal(D.classificarMotivo('bloqueou o contato'),'Bloqueou / não responde');
-assert.equal(D.classificarMotivo('sem condições financeiras'),'Sem condição financeira');
+assert.equal(D.classificarMotivo('bloqueou o contato'),'Bloqueou');
+assert.equal(D.classificarMotivo('sem condições financeiras'),'Preço ou sem dinheiro');
 assert.equal(D.classificarMotivo('qualquer outra coisa'),'Outros');
-const mo=D.agruparMotivos(['número errado','número errado','','sem interesse']);
-assert.equal(mo.total,4); assert.equal(mo.itens[0].motivo,'Contato / número errado'); assert.equal(mo.itens[0].n,2);
-assert.ok(D.htmlMotivos(mo).includes('4 lead(s) perdido(s)'));
+assert.equal(D.classificarMotivo('qualquer outra coisa','preco'),'Preço ou sem dinheiro','o tipo gravado vence o texto');
+const mo=D.agruparMotivos(['número errado','número errado','','sem interesse',{motivo:'xyz',tipo:'decisor'}]);
+assert.equal(mo.total,5); assert.equal(mo.itens[0].motivo,'Contato inválido (número errado, sem WhatsApp)'); assert.equal(mo.itens[0].n,2);
+assert.ok(mo.itens.some(i=>i.motivo==='Depende de outra pessoa decidir'));
+assert.ok(D.htmlMotivos(mo).includes('5 lead(s) perdido(s)'));
 assert.ok(D.htmlMotivos(D.agruparMotivos([])).includes('Nenhum lead perdido'));
 
 // Texto vindo do banco entra escapado (nome de técnico, motivo, categoria)

@@ -295,6 +295,7 @@
         nomeCliente:(o.NomeCliente||'').trim(),telefoneCliente:(o.TelefoneCliente||'').trim(),
         etapa:(o.Etapa||'').trim(),obs:(o.Observacoes||o.Observacao||o.Observação||'').trim(),
         motivoPerda:(o.MotivoPerda||o['Motivo Perda']||'').trim(),dt:dt,dateKey:dt?dateKey(dt):null,
+        tipoPerda:o.TipoPerda||'',tipoPerdaOrigem:o.TipoPerdaOrigem||'',
         valor:parseFloat(String((o['Valor Estimado']!==undefined&&o['Valor Estimado']!=='')?o['Valor Estimado']:(o.Valor||'0')).replace(',','.'))||0,
         etapasPassadas:o.EtapasPassadas||[],
         transicoes:o.Transicoes||[],
@@ -658,7 +659,7 @@
         '<td><span class="stage-badge '+badgeClass+'">'+escapeHtml(r.etapa)+'</span></td>'+
         '<td class="obs-cell" title="'+escapeHtml(r.obs)+'">'+escapeHtml(r.obs||'—')+'</td>'+
         '<td class="num">'+fmtMoney(r.valor)+'</td>'+
-        '<td style="font-size:12px;color:var(--ink-soft);">'+escapeHtml(r.motivoPerda||'—')+'</td>'+
+        '<td style="font-size:12px;color:var(--ink-soft);">'+(r.motivoPerda&&window.SGPerda?'<strong>'+escapeHtml(window.SGPerda.rotuloDe(window.SGPerda.tipoDoLead(r.tipoPerda,r.motivoPerda)))+'</strong><br>':'')+escapeHtml(r.motivoPerda||'—')+'</td>'+
         '<td style="text-align:right;">'+(r.prioridade?'<span class="kcard-medalha" title="Prioridade" style="position:static;">&#9733;</span>':'')+'</td>'+
         '</tr>';
     });
@@ -1072,11 +1073,12 @@
     var etapasPassadasNovo=etapasPassadasAntes.indexOf(novaEtapa)===-1?etapasPassadasAntes.concat([novaEtapa]):etapasPassadasAntes;
     var transicoesNovo=(leadOriginal.transicoes||[]).concat([{Etapa:novaEtapa,Em:agora.toISOString()}]);
     var novoOrdem=typeof ordemKanban==='number'?ordemKanban:null;
+    var perda=classificarPerda(leadOriginal,novaEtapa,motivoPerda);
     var registroNovo=Object.assign({},leadOriginal,{
       etapa:novaEtapa, dataProcesso:agora, dataProcessoKey:dateKey(agora),
       diasNaEtapa:0, slaColor:'green', temLog:true, etapasPassadas:etapasPassadasNovo, transicoes:transicoesNovo,
       motivoPerda:motivoPerda||'', ordemKanban:novoOrdem
-    });
+    },perda?{tipoPerda:perda.tipo,tipoPerdaOrigem:perda.origem}:{});
     funilRecords[indice]=registroNovo;
     garantirDataVisivelNoFiltro(registroNovo.dataProcessoKey);
     _epoca.marcar();
@@ -1091,6 +1093,7 @@
       observacoes: leadOriginal.obs,
       valorEstimado: leadOriginal.valor,
       motivoPerda: motivoPerda||'',
+      tipoPerda: perda?perda.tipo:undefined, tipoPerdaOrigem: perda?perda.origem:undefined,
       ordemKanban: novoOrdem
     }).then(function(resp){
       if(!resp||!resp.ok){
@@ -1099,7 +1102,9 @@
         _epoca.marcar();
         render();
         mostrarToastFunil((resp&&resp.erro)||'Não foi possível mover — desfeito.',true);
+        return;
       }
+      if(perda&&!perda.tipo)perguntarTipoPerdaAoJev(idLead,motivoPerda);
     }).catch(function(err){
       var idx=funilRecords.findIndex(function(x){return String(x.id)===String(idLead);});
       if(idx!==-1)funilRecords[idx]=registroAnterior;
@@ -1107,6 +1112,35 @@
       render();
       mostrarToastFunil('Erro de conexão — desfeito: '+err.message,true);
     });
+  }
+
+  /**
+   * Tipo da perda (js/perda-categorias.js, 2026-11-03): classificado na hora em
+   * que o vendedor confirma o motivo. null = não é etapa de perda, ou o motivo
+   * e o tipo não mudaram (nada a gravar). tipo '' = nenhuma palavra-chave pegou;
+   * o lead é gravado assim e o Jev responde depois, sem segurar a tela (crença 11).
+   */
+  function classificarPerda(lead,etapa,motivo){
+    if(!window.SGPerda||!ehEtapaPerdido(etapa,lead&&lead.pipeline))return null;
+    if(lead&&lead.tipoPerda&&String(lead.motivoPerda||'')===String(motivo||''))return null;
+    var s=window.SGPerda.sugerir(motivo);
+    return {tipo:s.tipo,origem:s.tipo?s.origem:''};
+  }
+  function perguntarTipoPerdaAoJev(idLead,motivo){
+    var pedido=window.SGPerda.montarPedidoJev(motivo);
+    var aplicar=function(tipo,origem){
+      var idx=funilRecords.findIndex(function(x){return String(x.id)===String(idLead);});
+      if(idx===-1||String(funilRecords[idx].motivoPerda||'')!==String(motivo||''))return; // motivo mudou nesse meio-tempo
+      funilRecords[idx]=Object.assign({},funilRecords[idx],{tipoPerda:tipo,tipoPerdaOrigem:origem});
+      _epoca.marcar();
+      render();
+      apiCall('atualizarTipoPerdaFunil',{idOportunidade:idLead,tipoPerda:tipo,tipoPerdaOrigem:origem});
+    };
+    if(!pedido){ aplicar('outros','palavra'); return; }
+    apiCall('sugerirCategoriaJev',{pedido:pedido}).then(function(resp){
+      var r=(resp&&resp.ok&&resp.resposta)?window.SGPerda.lerRespostaJev(resp.resposta):{tipo:'outros'};
+      aplicar(r.tipo,'jev');
+    }).catch(function(){ aplicar('outros','jev'); });
   }
 
   /**
@@ -1332,6 +1366,7 @@
       '<div class="ad-row"><span class="dl">Serviço</span><span class="dv">'+escapeHtml(nomeServicoFunil(r.idServico))+'</span></div>'+
       '<div class="ad-row"><span class="dl">Valor estimado</span><span class="dv">'+fmtMoney(r.valor)+'</span></div>'+
       (r.atividadeAdm?'<div class="ad-row"><span class="dl">Atividade</span><span class="dv">'+escapeHtml(r.atividadeAdm)+'</span></div>':'')+
+      (r.motivoPerda&&window.SGPerda?'<div class="ad-row"><span class="dl">Tipo da perda</span><span class="dv">'+escapeHtml(window.SGPerda.rotuloDe(window.SGPerda.tipoDoLead(r.tipoPerda,r.motivoPerda)))+(r.tipoPerdaOrigem==='jev'?' (Jev)':'')+'</span></div>':'')+
       (r.motivoPerda?'<div class="ad-row"><span class="dl">Motivo da perda</span><span class="dv">'+escapeHtml(r.motivoPerda)+'</span></div>':'')+
     '</div>';
     // "Copiar para outro pipeline" — só faz sentido se existir outro pipeline.
@@ -1953,9 +1988,12 @@
     var transicoesNovo=etapaMudouLocal?transicoesAntes.concat([{Etapa:etapa,Em:agora.toISOString()}]):transicoesAntes;
     // Lead novo nasce no pipeline da aba aberta; editar preserva o do lead.
     var pipelineDoLead=(leadAtual&&leadAtual.pipeline)||((pipelineCorrente()||{}).IdPipeline||'');
+    var perda=classificarPerda(Object.assign({},leadAtual||{},{pipeline:pipelineDoLead}),etapa,motivoPerda);
     var registroNovo={
       id:id, idCliente:idCliente, idVendedor:idVendedor, idServico:idServico,
       etapa:etapa, obs:obs, valor:parseFloat(valor)||0, motivoPerda:motivoPerda,
+      tipoPerda:perda?perda.tipo:((leadAtual&&leadAtual.tipoPerda)||''),
+      tipoPerdaOrigem:perda?perda.origem:((leadAtual&&leadAtual.tipoPerdaOrigem)||''),
       pipeline:pipelineDoLead,
       atividadeAdm:(leadAtual&&leadAtual.atividadeAdm)||'',
       idVendaOrigem:(leadAtual&&leadAtual.idVendaOrigem)||'',
@@ -1991,9 +2029,11 @@
       observacoes: obs,
       valorEstimado: valor,
       motivoPerda: motivoPerda,
+      tipoPerda: perda?perda.tipo:undefined, tipoPerdaOrigem: perda?perda.origem:undefined,
       pipeline: pipelineDoLead
     }).then(function(resp){
       if(!resp||!resp.ok){ desfazer((resp&&resp.erro)||'Não foi possível salvar — a alteração foi desfeita.'); return; }
+      if(perda&&!perda.tipo)perguntarTipoPerdaAoJev(resp.idOportunidade||id,motivoPerda);
       // Se o servidor devolveu um ID diferente do que o navegador gerou (ex:
       // implantação antiga do Code.gs que ainda ignora o ID enviado), corrige
       // o ID local na hora — senão editar/excluir esse lead depois falharia

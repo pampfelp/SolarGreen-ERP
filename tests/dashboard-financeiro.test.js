@@ -57,6 +57,7 @@ function montar({admin}){
     }
   };
   context.window.SGDre=require('../js/dre-categorias.js');
+  context.window.SGPerda=require('../js/perda-categorias.js');
   context.window.SGDreDash=null; // carregado abaixo, no mesmo contexto
   vm.createContext(context);
   // O módulo do dashboard roda no mesmo contexto (como no navegador) para enxergar window.SGDre.
@@ -103,7 +104,7 @@ function montar({admin}){
   // Produção
   assert.ok(A.el('db-prodTecnicos').innerHTML.includes('Ana')&&A.el('db-prodTecnicos').innerHTML.includes('/ 2'));
   assert.ok(A.el('db-prodServicos').innerHTML.includes('Vistoria')&&A.el('db-prodServicos').innerHTML.includes('data-servico="s1"'));
-  assert.ok(A.el('db-prodMotivos').innerHTML.includes('Contato / número errado'));
+  assert.ok(A.el('db-prodMotivos').innerHTML.includes('Contato inválido (número errado, sem WhatsApp)'));
   // Clique no tipo de serviço filtra o dashboard por ele
   A.el('db-prodServicos').handlers.click[0]({target:{closest:s=>s==='.dd-bar[data-servico]'?{getAttribute:()=>'s1'}:null}});
   assert.equal(A.el('db-selServico').value,'s1');

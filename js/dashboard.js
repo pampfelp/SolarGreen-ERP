@@ -35,7 +35,7 @@
 
   function processVendas(list){var out=[];list.forEach(function(o){if(!o.IdVenda)return;var dt=parseBRDate(o.DataVenda);if(!dt)return;out.push({idVenda:o.IdVenda,idCliente:o.IdCliente,idServico:o.IdServico,idVendedor:o.IdVendedor,dt:dt,dateKey:dateKey(dt),valor:parseBRNumber(o.Valor)});});return out;}
   function processCustosVenda(list){var out=[];list.forEach(function(o){if(!o.IdCusto)return;var dt=parseBRDate(o.Data);out.push({idCusto:o.IdCusto,idVenda:o.IdVenda,status:String(o.Status||''),dt:dt,dateKey:dt?dateKey(dt):null,valor:parseBRNumber(o.Valor),categoria:o.Categoria||''});});return out;}
-  function processFunil(list){var out=[];list.forEach(function(o){var id=o.IdOportunidade||o.IdFunil;if(!id)return;var dt=parseBRDate(o.DataCriacao||o['Data Criacao']||'');out.push({id:id,idCliente:o.IdCliente,idVendedor:o.IdVendedor,idServico:o.IdServico,etapa:o.Etapa,motivo:o.MotivoPerda||'',origem:o.Origem||'',dt:dt,dateKey:dt?dateKey(dt):null,transicoes:o.Transicoes||[],atividades:o.Atividades||[]});});return out;}
+  function processFunil(list){var out=[];list.forEach(function(o){var id=o.IdOportunidade||o.IdFunil;if(!id)return;var dt=parseBRDate(o.DataCriacao||o['Data Criacao']||'');out.push({id:id,idCliente:o.IdCliente,idVendedor:o.IdVendedor,idServico:o.IdServico,etapa:o.Etapa,motivo:o.MotivoPerda||'',tipoPerda:o.TipoPerda||'',origem:o.Origem||'',dt:dt,dateKey:dt?dateKey(dt):null,transicoes:o.Transicoes||[],atividades:o.Atividades||[]});});return out;}
   var ETAPAS_PROPOSTA_VENDAS=['Negociação','Serviço Agendado','Ganho'];
 
   function getFiltered(){
@@ -393,7 +393,7 @@
     var pr=D.calcularProducao(ags);
     document.getElementById('db-prodTecnicos').innerHTML=D.htmlTecnicos(pr,nomeVendedor);
     document.getElementById('db-prodServicos').innerHTML=D.htmlTipos(pr,nomeServico);
-    document.getElementById('db-prodMotivos').innerHTML=D.htmlMotivos(D.agruparMotivos(f.leads.filter(function(l){return l.etapa==='Perdido';}).map(function(l){return l.motivo;})));
+    document.getElementById('db-prodMotivos').innerHTML=D.htmlMotivos(D.agruparMotivos(f.leads.filter(function(l){return l.etapa==='Perdido';}).map(function(l){return {motivo:l.motivo,tipo:l.tipoPerda};})));
   }
   /** Abre Custos da Venda no mesmo recorte da DRE: período do dashboard, só custos Pagos e a categoria clicada
    *  ('__sem__' = a revisar; vazio = todas). Sem isso a lista abria com os filtros próprios dela (período e status) e
