@@ -5693,6 +5693,13 @@ function cobrancaEspelho_(cfg, direcao, wamid, cliente, campos) {
   }, campos));
 }
 
+// O texto como o cliente recebe pela API: o modelo preenchido e, no fim, o botão
+// "Pagar agora" (com o link) — para a tela Conversas mostrar igual.
+function cobrancaTextoModelo_(modelo, dados, url) {
+  var t = modelo.texto.replace(/\{\{(\d+)\}\}/g, function (_, n) { return dados[modelo.campos[n - 1]] || '-'; });
+  return modelo.pagar && url ? t + '\n\n[Pagar agora] ' + url : t;
+}
+
 function cobrancaTextoReserva_(modelo, dados, url) {
   var t = modelo.texto.replace(/\{\{(\d+)\}\}/g, function (_, n) { return dados[modelo.campos[n - 1]] || '-'; })
     .replace(/botão abaixo/g, 'link abaixo');
@@ -5747,13 +5754,14 @@ function cobrancaEnviar_(cfg, c, tipo, por) {
     data: data ? data[3] + '/' + data[2] : '',
     valor: cobrancaDinheiro_(c.saldo), pago: cobrancaDinheiro_(c.pago)
   };
+  registro.Texto = cobrancaTextoModelo_(modelo, dados, url);
   var pdf = '';
   if (tipo === 'inicio') { try { pdf = cobrancaPdfDaOS_(c); } catch (e) { console.error('PDF da OS ' + c.id + ': ' + e.message); } }
   var r = null;
   if (pdf) {
     try {
       r = cobrancaMandarModelo_(props, tel, COBRANCA_MODELOS.inicio_pdf, dados, url, cobrancaSubirPdf_(props, pdf));
-      if (r.ok) registro.Pdf = true;
+      if (r.ok) { registro.Pdf = true; registro.Texto = '[PDF da ordem de serviço anexado]\n\n' + registro.Texto; }
       else console.error('Cobrança da OS ' + c.id + ' com PDF recusada (' + r.codigo + '): ' + r.erro + '; vai sem o PDF.');
     } catch (e) { console.error('PDF da OS ' + c.id + ': ' + e.message + '; vai sem o PDF.'); }
   }
@@ -5771,7 +5779,7 @@ function cobrancaEnviar_(cfg, c, tipo, por) {
     fsUpdate_(cfg, 'cobranca_mensagens/out-' + r.wamid, { direcao: 'saida', idAgendamento: c.id, tipo: tipo, telFim8: disparoFim8_(tel), em: Date.now(), status: 'enviado' }),
     cobrancaEspelho_(cfg, 'saida', r.wamid, c.cliente, {
       telFim8: disparoFim8_(tel), tipo: 'text', cobrancaTipo: tipo, idAgendamento: c.id, status: 'enviado',
-      texto: (registro.Pdf ? '[PDF da ordem de serviço anexado]\n\n' : '') + cobrancaTextoReserva_(modelo, dados, url)
+      texto: registro.Texto
     })
   ];
   if (tipo === 'obrigado') writes.push(fsUpdate_(cfg, 'agendamentos/' + c.id, { CobrancaAgradecer: false, CobrancaAgradecidoEm: registro.Em }));
@@ -6129,6 +6137,7 @@ function cobrancaPlanoEnviar_(cfg, c, tipo, por, mes) {
     nome: cobrancaPrimeiroNome_(c.cliente), mes: nomes, servico: 'plano mensal Solar Green (' + nomes + ')',
     data: venc ? venc[3] + '/' + venc[2] : '', valor: cobrancaDinheiro_(cobrancaNumero_(c.cm.Valor))
   };
+  registro.Texto = cobrancaTextoModelo_(modelo, dados, url);
   var r = cobrancaMandarModelo_(props, tel, modelo, dados, url);
   if (!r.ok) return falhar('A Meta recusou (' + r.codigo + '): ' + r.erro, { tel: tel, texto: cobrancaTextoReserva_(modelo, dados, url) });
   registro.Wamid = r.wamid;
@@ -6136,7 +6145,7 @@ function cobrancaPlanoEnviar_(cfg, c, tipo, por, mes) {
     cobrancaAnexar_(cfg, 'planos/' + c.id, 'CobrancaEnvios', registro),
     fsUpdate_(cfg, 'cobranca_mensagens/out-' + r.wamid, { direcao: 'saida', idPlano: c.id, tipo: tipo, telFim8: disparoFim8_(tel), em: Date.now(), status: 'enviado' }),
     cobrancaEspelho_(cfg, 'saida', r.wamid, c.cliente, {
-      telFim8: disparoFim8_(tel), tipo: 'text', cobrancaTipo: tipo, idPlano: c.id, status: 'enviado', texto: cobrancaTextoReserva_(modelo, dados, url)
+      telFim8: disparoFim8_(tel), tipo: 'text', cobrancaTipo: tipo, idPlano: c.id, status: 'enviado', texto: registro.Texto
     })
   ]);
   return { ok: true };

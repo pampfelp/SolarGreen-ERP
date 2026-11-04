@@ -348,9 +348,10 @@
   // link do PDF no texto.
   var CELULAR=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   var preparoWhats=null;
-  function registrarEnvioWhats(l,tipo){
+  // Texto: o que foi para o WhatsApp, para a subtela Conversas mostrar (04/11).
+  function registrarEnvioWhats(l,tipo,texto){
     var s=sessao();
-    window.SGAuth.apiCall('registrarEnvioCobranca',{idAgendamento:l.idAgendamento,envio:{Tipo:tipo,Em:new Date().toISOString(),Por:s.nome||'',PorId:s.idVendedor||''}});
+    window.SGAuth.apiCall('registrarEnvioCobranca',{idAgendamento:l.idAgendamento,envio:{Tipo:tipo,Em:new Date().toISOString(),Por:s.nome||'',PorId:s.idVendedor||'',Texto:String(texto||'').slice(0,2000)}});
   }
   function arquivoDoBase64(b64,nome){
     var bin=atob(b64),bytes=new Uint8Array(bin.length);
@@ -395,7 +396,7 @@
     if(tipo!=='obrigado'&&!cobravel(l)){ toast('Essa OS não tem cobrança em aberto.',true); return; }
     var p=preparoWhats&&preparoWhats.id===l.idAgendamento&&preparoWhats.tipo===tipo?preparoWhats:null;
     if(p&&p.pronto&&p.pronto.arquivo){
-      navigator.share({files:[p.pronto.arquivo],text:p.pronto.texto}).then(function(){ registrarEnvioWhats(l,tipo); })
+      navigator.share({files:[p.pronto.arquivo],text:p.pronto.texto}).then(function(){ registrarEnvioWhats(l,tipo,p.pronto.texto); })
         .catch(function(err){ if(err&&err.name!=='AbortError')toast('Não deu para compartilhar: '+err.message,true); });
       return;
     }
@@ -407,7 +408,7 @@
     (p?p.promessa:prepararWhats(l,tipo).promessa).then(function(pr){
       var destino='https://wa.me/'+tel+'?text='+encodeURIComponent(pr.texto);
       if(janela)janela.location.href=destino; else location.href=destino;
-      registrarEnvioWhats(l,tipo);
+      registrarEnvioWhats(l,tipo,pr.texto);
       if(!pr.temPdf&&tipo!=='obrigado')toast('Essa OS não tem PDF gerado: foi só o texto com o link de pagamento.',true);
     }).catch(function(err){
       if(janela)janela.close();
@@ -890,8 +891,8 @@
       (Array.isArray(lista)?lista:[]).forEach(function(e){
         if(!e||e.Wamid)return;
         var x={direcao:'saida',em:Date.parse(e.Em)||0,cobrancaTipo:e.Tipo,
-          texto:e.Erro?'Não saiu pelo número da Solar Green: '+e.Erro:'Mandada pelo WhatsApp de '+(e.Por||'um vendedor')+' (o texto não fica guardado).',
-          status:e.Erro?'failed':'manual'};
+          texto:e.Texto||(e.Erro?'(texto não guardado)':'(texto não guardado)'),
+          status:e.Erro?'failed':'manual',erro:e.Erro||'',por:e.Por||'',remontado:!!e.TextoRemontado};
         x[campo]=id;
         extras.push(x);
       });
@@ -955,8 +956,8 @@
     if(x.direcao!=='saida')return '';
     if(x.status==='read')return ' · lida';
     if(x.status==='delivered')return ' · entregue';
-    if(x.status==='failed')return ' · não entregue';
-    if(x.status==='manual')return '';
+    if(x.status==='failed')return ' · não saiu'+(x.erro?' ('+String(x.erro).replace(/^A Meta recusou /,'Meta: ').slice(0,60)+')':'');
+    if(x.status==='manual')return ' · pelo WhatsApp de '+(x.por||'um vendedor');
     return ' · enviada';
   }
   function renderThread(c){
@@ -971,7 +972,7 @@
       html+='<div class="cv-balao '+(x.direcao==='saida'?'saida':'entrada')+'">'+
         (x.direcao==='saida'&&x.cobrancaTipo?'<span class="cv-rotulo">'+esc(COB_ROTULO[x.cobrancaTipo]||'Cobrança')+'</span>':'')+
         esc(x.texto||'['+(x.tipo||'mensagem')+']')+
-        '<span class="cv-meta">'+esc(quando(em))+esc(visto(x))+(os?' · <a href="#" data-cv-os="'+esc(x.idAgendamento)+'">ver OS</a>':'')+'</span></div>';
+        '<span class="cv-meta">'+esc(quando(em))+esc(visto(x))+(x.remontado?' · texto remontado':'')+(os?' · <a href="#" data-cv-os="'+esc(x.idAgendamento)+'">ver OS</a>':'')+'</span></div>';
     });
     box.innerHTML=html+'</div>';
     var linha=box.querySelector('.cv-linha');
