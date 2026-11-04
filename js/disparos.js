@@ -755,7 +755,7 @@
           else if (md && x.tipo === 'image') conteudo = '<span data-foto="' + esc(md.driveId) + '" class="suave pequeno">Carregando foto…</span>';
           else if (md) conteudo = '<button type="button" class="btn btn-fantasma btn-mini" data-abrir="' + esc(md.driveId) + '" data-nome="' + esc(md.nomeArquivo || 'arquivo') + '">' + ico('doc') + ' ' + esc(md.nomeArquivo || 'Abrir arquivo') + '</button>';
           else if (!x.texto) conteudo = '<span class="suave">[' + esc(x.tipo || 'mensagem') + ']</span>';
-          var marca = x.campanha === 'cobranca' && x.direcao === 'saida' ? '<span class="balao-origem">Cobrança</span>' : '';
+          var marca = x.direcao !== 'saida' ? '' : x.campanha === 'cobranca' ? '<span class="balao-origem">Cobrança</span>' : x.campanha === 'confirmacao_os' ? '<span class="balao-origem">Confirmação da OS</span>' : '';
           var visto = x.direcao === 'saida' && x.status ? ' ' + (x.status === 'read' ? '<span class="lido">' + ico('tick2') + '</span>' : x.status === 'delivered' ? ico('tick2') : x.status === 'failed' ? '<span class="suave">não entregue</span>' : ico('tick')) : '';
           html += '<div class="balao-linha ' + (x.direcao === 'saida' ? 'saida' : 'entrada') + '"><div class="balao">' + marca + conteudo + (conteudo && x.texto ? '<br>' : '') + esc(x.texto || '') + '<div class="meta">' + (x.em ? hora(x.em) : '') + visto + '</div></div></div>';
         }
@@ -1706,9 +1706,10 @@
     L('mensagens').forEach(function (x) {
       if (!x.telFim8) return;
       var c = pega(x.telFim8), em = paraMs(x.em);
-      c.origens[x.campanha === 'cobranca' ? 'cobranca' : x.campanha ? 'campanha' : 'direto'] = true;
-      // O nome do cadastro (cobrança) vale mais que o da lista antiga da campanha.
-      if (x.nomeLead && (!c.nome || x.campanha === 'cobranca')) c.nome = x.nomeLead;
+      // Confirmação da OS não é campanha: conta como mensagem direta na lista.
+      c.origens[x.campanha === 'cobranca' ? 'cobranca' : x.campanha && x.campanha !== 'confirmacao_os' ? 'campanha' : 'direto'] = true;
+      // O nome do cadastro (cobrança e confirmação da OS) vale mais que o da lista antiga da campanha.
+      if (x.nomeLead && (!c.nome || x.campanha === 'cobranca' || x.campanha === 'confirmacao_os')) c.nome = x.nomeLead;
       if (!c.idVend && x.idVendedor) c.idVend = String(x.idVendedor);
       if (x.direcao === 'entrada') c.respondeu = true;
       if (em >= c.ult) { c.ult = em; c.dir = x.direcao; c.texto = x.texto || '[' + (x.tipo || 'mensagem') + ']'; }
