@@ -695,6 +695,7 @@
     var id=p.idAgendamento;
     if(!id) return Promise.resolve({ok:false,erro:'idAgendamento é obrigatório.'});
     var ref=db().collection('agendamentos').doc(id);
+    var confirmar=false;
     // Confere se o documento JÁ EXISTE antes de decidir se grava DataCriacao
     // (mesmo padrão de salvarFunil): o front sempre manda idAgendamento —
     // inclusive pra agendamento novo, que já nasce com id gerado no
@@ -716,8 +717,14 @@
         // de semana, saber se foi sábado 23h ou domingo 0h faz diferença.
         DataCriacao: snap.exists?undefined:new Date().toISOString()
       });
+      // Confirmação por WhatsApp (js/confirmacao-os.js): só quando a OS nasce ou
+      // muda dia/horário. O Apps Script lê ConfirmacaoPendente e manda o aviso.
+      if(window.SGConfirmacaoOS){
+        confirmar=window.SGConfirmacaoOS.precisaConfirmar(snap.exists?snap.data():null,doc,window.SGConfirmacaoOS.hojeBelem());
+        if(confirmar) doc.ConfirmacaoPendente=true;
+      }
       return ref.set(doc,{merge:true});
-    }).then(function(){ return {ok:true,idAgendamento:id}; })
+    }).then(function(){ return {ok:true,idAgendamento:id,confirmar:confirmar}; })
       .catch(function(err){ return {ok:false,erro:err.message}; });
   }
   // Cobrança (aba de Vendas): liga uma venda a uma ou mais OS. O array inteiro é
@@ -743,6 +750,13 @@
     var campos={CobrancaEnvios:firebase.firestore.FieldValue.arrayUnion(p.envio)};
     if(p.envio.Tipo==='obrigado'){ campos.CobrancaAgradecer=false; campos.CobrancaAgradecidoEm=p.envio.Em; }
     return db().collection('agendamentos').doc(p.idAgendamento).update(campos)
+      .then(function(){ return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+  // Confirmação da OS enviada pelo WhatsApp do vendedor (botão do painel da OS).
+  function registrarConfirmacaoOS(p){
+    if(!p.idAgendamento||!p.envio) return Promise.resolve({ok:false,erro:'Dados incompletos.'});
+    return db().collection('agendamentos').doc(p.idAgendamento).update({ConfirmacaoEnvios:firebase.firestore.FieldValue.arrayUnion(p.envio)})
       .then(function(){ return {ok:true}; })
       .catch(function(err){ return {ok:false,erro:err.message}; });
   }
@@ -1096,6 +1110,7 @@
     salvarAjusteCobrancaOS:comSync('agendamentos',function(p){return 'ajuste da OS '+p.idAgendamento;},comAuthPronto(salvarAjusteCobrancaOS)),
     definirValorOS:comSync('agendamentos',function(p){return 'valor da OS '+p.idAgendamento;},comAuthPronto(definirValorOS)),
     registrarEnvioCobranca:comSync('agendamentos',function(p){return 'envio de cobrança da OS '+p.idAgendamento;},comAuthPronto(registrarEnvioCobranca)),
+    registrarConfirmacaoOS:comSync('agendamentos',function(p){return 'confirmação da OS '+p.idAgendamento;},comAuthPronto(registrarConfirmacaoOS)),
     pausarCobranca:comSync('agendamentos',function(p){return 'pausa da cobrança da OS '+p.idAgendamento;},comAuthPronto(pausarCobranca)),
     // gerarPdfOS/enviarOSParaAssinatura/verificarStatusOS NÃO entram aqui de
     // propósito — apiCall() cai sozinho no Apps Script antigo pra essas 3

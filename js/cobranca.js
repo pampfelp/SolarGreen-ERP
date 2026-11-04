@@ -896,6 +896,8 @@
 
   function linhaDaOS(id){ return linhas.filter(function(x){ return x.idAgendamento===id; })[0]; }
   window.SGCobranca={
+    // Chamada ao Apps Script com o token do usuário (usada também pela confirmação da OS).
+    chamarServidor:chamarServidor,
     // OS enviada para assinatura: a primeira mensagem, com o link, sai pelo
     // WhatsApp da Solar Green.
     enviarInicio:function(id,pdfFileId){
