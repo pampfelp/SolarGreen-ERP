@@ -93,7 +93,8 @@ function handleRequest(e) {
     // o aviso de pagamento vem da InfinitePay, com a ação na URL.
     if ((params.action || body.action) === 'cobrancaEnviar')             return jsonOutput(actionCobrancaEnviar(body));
     if ((params.action || body.action) === 'cobrancaCriarLink')          return jsonOutput(actionCobrancaCriarLink(body));
-    if ((params.action || body.action) === 'cobrancaPdfOS')              return jsonOutput(actionCobrancaPdfOS(body));
+    if ((params.action || body.action) === 'osConfirmar')                return jsonOutput(actionOsConfirmar(body));
+    if ((params.action || body.action) === 'cobrancaPdfOS')           return jsonOutput(actionCobrancaPdfOS(body));
     if ((params.action || body.action) === 'cobrancaPlanoEnviar')        return jsonOutput(actionCobrancaPlanoEnviar(body));
     if ((params.action || body.action) === 'cobrancaPlanoCriarLink')     return jsonOutput(actionCobrancaPlanoCriarLink(body));
     if ((params.action || body.action) === 'cobrancaPlanoValidar')       return jsonOutput(actionCobrancaPlanoValidar(body));
@@ -5456,6 +5457,17 @@ var COBRANCA_MODELOS = {
     texto: 'Olá, {{1}}! Aqui é da Solar Green. A mensalidade de {{2}} do seu plano, no valor de {{3}}, vence em {{4}}. Você pode pagar por Pix ou cartão pelo botão abaixo.' }
 };
 
+// Confirmação de OS por WhatsApp (03/11). Textos aprovados pelo Felipe em 03/11/2026.
+// horas: usado quando a OS tem Hora inicio e Hora Fim; dia: quando falta uma delas.
+// campos: o que vai em {{1}}, {{2}}... na ordem. A regra de quando sai está em
+// js/confirmacao-os.js (e espelhada em osConfirmacaoEnviar_).
+var OS_MODELOS = {
+  horas: { nome: 'os_confirmacao', campos: ['nome', 'servico', 'data', 'inicio', 'fim'],
+    texto: 'Tudo certo, {{1}}! Seu agendamento de {{2}} foi confirmado e está marcado para o dia {{3}}, das {{4}} às {{5}}. Se precisar remarcar ou tiver qualquer dúvida, é só responder essa mensagem.' },
+  dia: { nome: 'os_confirmacao_dia', campos: ['nome', 'servico', 'data'],
+    texto: 'Tudo certo, {{1}}! Seu agendamento de {{2}} foi confirmado e está marcado para o dia {{3}}. Se precisar remarcar ou tiver qualquer dúvida, é só responder essa mensagem.' }
+};
+
 // Parcelas em que a Solar Green assume a taxa da InfinitePay (assured_installments).
 // Mesma tabela do gerador de propostas (legado/proposta.html, INSTALLMENT_TABLE);
 // abaixo de R$ 400 fica no máximo 2x (pedido do Felipe, 02/11/2026).
@@ -5934,6 +5946,8 @@ function cobrancaGestao_(cfg) {
 function cobrancaLembretes() {
   var cfg = fbConfig_();
   if (!cfg) return;
+  // Reserva da confirmação de OS (o front não conseguiu chamar na hora); erro aqui não derruba a cobrança.
+  try { osConfirmacaoVarrer_(cfg); } catch (e) { console.error('Varredura das confirmações de OS: ' + e.message); }
   var partes = Utilities.formatDate(new Date(), 'America/Belem', 'u H').split(' ');
   var dia = Number(partes[0]), hora = Number(partes[1]);
   var tabela = dia === 6 ? COBRANCA_HORARIOS.sabado : (dia === 7 ? {} : COBRANCA_HORARIOS.semana);
@@ -5995,8 +6009,11 @@ function cobrancaTratarMensagem_(cfg, m) {
   fsCommit_(cfg, [cobrancaEspelho_(cfg, 'entrada', m.id, c ? c.cliente : null, cobrancaJuntar_({
     telFim8: fim8, tipo: tipo, texto: String(texto || '').slice(0, 1000)
   }, dono))]);
+  // Resposta à confirmação da OS não é conversa de cobrança: texto neutro no aviso.
+  var daConfirmacao = !ref.idPlano && ref.tipo === 'confirmacao';
   enviarPush_(cfg, vendedor ? [vendedor] : cobrancaGestao_(cfg), {
-    titulo: 'Cliente respondeu a cobrança', corpo: nome + ': ' + String(texto || '[' + tipo + ']').slice(0, 120),
+    titulo: daConfirmacao ? 'Cliente respondeu a confirmação da OS' : 'Cliente respondeu a cobrança',
+    corpo: nome + ': ' + String(texto || '[' + tipo + ']').slice(0, 120),
     url: 'index.html?' + (ref.idPlano ? 'cobrancaPlano=' : 'cobranca=') + (dono.idPlano || dono.idAgendamento),
     tag: 'cobranca-' + chave, notifId: 'cobranca:in:' + String(m.id || '')
   });
@@ -6408,6 +6425,152 @@ function cobrancaCriarModelos() {
 function cobrancaConferirModelos() {
   var props = disparoProps_();
   var nomes = Object.keys(COBRANCA_MODELOS).map(function (k) { return COBRANCA_MODELOS[k].nome; });
+  disparoListarModelosMeta_(props, 'name,status,category,rejected_reason').filter(function (t) {
+    return nomes.indexOf(t.name) !== -1;
+  }).forEach(function (t) { console.log(t.name + ': ' + t.status + ' / ' + t.category + (t.rejected_reason && t.rejected_reason !== 'NONE' ? ' / ' + t.rejected_reason : '')); });
+}
+
+// ── Confirmação de OS por WhatsApp (2026-11-03) ─────────────────────────
+// A OS nova ou remarcada sai do front com ConfirmacaoPendente: true (salvarAgendamento
+// em js/firestore-router.js) e o front chama osConfirmar. Se essa chamada não chegar,
+// a varredura do gatilho de 1 h manda. O resultado fica em agendamentos/{id}:
+// ConfirmacaoEnvios [{Em, Por, Canal, Modelo, Wamid, Erro}].
+
+function osDataIso_(v) {
+  var s = String(v == null ? '' : v).trim();
+  var iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (iso) return iso[1] + '-' + iso[2] + '-' + iso[3];
+  var br = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(s);
+  return br ? br[3] + '-' + ('0' + br[2]).slice(-2) + '-' + ('0' + br[1]).slice(-2) : '';
+}
+
+// "08:00" -> "8h", "08:30" -> "8h30", "14:00" -> "14h"; hora inválida vira ''.
+function osFormatarHora_(h) {
+  var m = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(String(h == null ? '' : h).trim());
+  if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) return '';
+  return Number(m[1]) + 'h' + (Number(m[2]) === 0 ? '' : m[2]);
+}
+
+// Espelha js/confirmacao-os.js (precisaConfirmar) no que o servidor consegue
+// conferir: não cancelada, não concluída e com dia de hoje (Belém) em diante. Se
+// mudar lá, mude aqui.
+function osConfirmacaoAindaVale_(os) {
+  var status = String(os['Status Agendamento'] || 'Agendado').trim().toLowerCase();
+  if (status === 'cancelado' || status === 'concluído' || status === 'concluido') return false;
+  var dia = osDataIso_(os['Data Inicio']);
+  return !!dia && dia >= cobrancaHoje_();
+}
+
+// Aviso de reserva quando a Meta recusa: o toque abre o WhatsApp do vendedor com o texto pronto.
+function osPedirReserva_(cfg, cliente, reserva, chave) {
+  var vendedor = String(cliente['Vendedor Responsavel'] || '');
+  var nome = String(cliente['Nome Razao Social'] || cliente.Nome || 'Cliente');
+  enviarPush_(cfg, vendedor ? [vendedor] : cobrancaGestao_(cfg), {
+    titulo: 'Confirmar pelo seu WhatsApp',
+    corpo: nome + ': a confirmação automática da OS não saiu. Toque para enviar pelo seu WhatsApp.',
+    url: 'https://wa.me/' + reserva.tel + '?text=' + encodeURIComponent(reserva.texto),
+    tag: 'os-reserva-' + chave, notifId: 'os:reserva:' + chave + ':' + Date.now()
+  });
+}
+
+// Manda a confirmação da OS pelo número da Solar Green. Fica dentro de um lock para
+// o front e a varredura não mandarem duas vezes: quem chega depois vê
+// ConfirmacaoPendente já falso e não faz nada. Devolve {ok} ou {ok:false, erro}.
+function osConfirmacaoEnviar_(cfg, id, por) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var c = cobrancaContexto_(cfg, id);
+    if (!c) return { ok: false, erro: 'OS não encontrada.' };
+    if (c.os.ConfirmacaoPendente !== true) return { ok: true, acao: 'nada a confirmar' };
+    var caminho = 'agendamentos/' + c.id;
+    var encerrar = fsUpdate_(cfg, caminho, { ConfirmacaoPendente: false });
+    // Cancelada, concluída ou com data que já passou: encerra sem avisar o cliente.
+    if (!osConfirmacaoAindaVale_(c.os)) { fsCommit_(cfg, [encerrar]); return { ok: true, acao: 'não vale mais' }; }
+    var registro = { Em: new Date().toISOString(), Por: String(por || 'automático'), Canal: 'solargreen' };
+    function falhar(erro) {
+      registro.Erro = erro;
+      fsCommit_(cfg, [encerrar, cobrancaAnexar_(cfg, caminho, 'ConfirmacaoEnvios', registro)]);
+      console.error('Confirmação da OS ' + c.id + ': ' + erro);
+      return { ok: false, erro: erro };
+    }
+    var props = disparoProps_();
+    if (!props.token || !props.phoneId) return falhar('Faltam WA_TOKEN ou WA_PHONE_ID nas Propriedades do script.');
+    var tel = cobrancaTelefone_(c.cliente.Telefone);
+    if (!tel) return falhar('O cliente não tem um celular válido no cadastro.');
+    var dia = osDataIso_(c.os['Data Inicio']);
+    var inicio = osFormatarHora_(c.os['Hora inicio']), fim = osFormatarHora_(c.os['Hora Fim']);
+    var modelo = inicio && fim ? OS_MODELOS.horas : OS_MODELOS.dia;
+    var dados = {
+      nome: cobrancaPrimeiroNome_(c.cliente), servico: (c.nomeServico || 'serviço').toLowerCase(),
+      data: dia.slice(8, 10) + '/' + dia.slice(5, 7), inicio: inicio, fim: fim
+    };
+    var r = cobrancaMandarModelo_(props, tel, modelo, dados); // só corpo, sem botão nem anexo
+    if (!r.ok) {
+      var f = falhar('A Meta recusou (' + r.codigo + '): ' + r.erro);
+      osPedirReserva_(cfg, c.cliente, { tel: tel, texto: cobrancaTextoReserva_(modelo, dados, '') }, c.id);
+      return f;
+    }
+    registro.Modelo = modelo.nome;
+    registro.Wamid = r.wamid;
+    fsCommit_(cfg, [
+      encerrar,
+      cobrancaAnexar_(cfg, caminho, 'ConfirmacaoEnvios', registro),
+      // Com esta linha, a resposta do cliente vira aviso para o vendedor (cobrancaTratarMensagem_).
+      fsUpdate_(cfg, 'cobranca_mensagens/out-' + r.wamid, { direcao: 'saida', idAgendamento: c.id, tipo: 'confirmacao', telFim8: disparoFim8_(tel), em: Date.now(), status: 'enviado' }),
+      cobrancaEspelho_(cfg, 'saida', r.wamid, c.cliente, {
+        campanha: 'confirmacao_os', telFim8: disparoFim8_(tel), tipo: 'text', idAgendamento: c.id, status: 'enviado',
+        texto: cobrancaTextoReserva_(modelo, dados, '')
+      })
+    ]);
+    return { ok: true };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Varredura de reserva, no gatilho de 1 h: OS com ConfirmacaoPendente que o front
+// não conseguiu mandar. Só entre 7h e 20h de Belém, para não acordar o cliente.
+function osConfirmacaoVarrer_(cfg) {
+  var hora = Number(Utilities.formatDate(new Date(), 'America/Belem', 'H'));
+  if (hora < 7 || hora >= 20) return;
+  fsConsulta_(cfg, 'agendamentos', 'ConfirmacaoPendente', true, 100).forEach(function (os) {
+    try { osConfirmacaoEnviar_(cfg, os._id, 'automático'); }
+    catch (e) { console.error('Confirmação da OS ' + os._id + ': ' + e.message); }
+  });
+}
+
+// action: osConfirmar { idToken, idAgendamento }. Qualquer usuário ativo: a OS
+// só sai se estiver marcada como pendente, e uma vez só.
+function actionOsConfirmar(body) {
+  var cfg = fbConfig_();
+  if (!cfg) return { ok: false, erro: 'Firebase não configurado no servidor.' };
+  var auth = disparoAutenticar_(cfg, body, false);
+  if (auth.erro) return { ok: false, erro: auth.erro };
+  return osConfirmacaoEnviar_(cfg, String(body.idAgendamento || ''), auth.vendedor.IdVendedor);
+}
+
+// Pelo editor: cria os modelos da confirmação que faltam na conta do disparo
+// (utilidade, sem botão). Mesmo molde de cobrancaCriarModelos.
+function osCriarModelos() {
+  var props = disparoProps_();
+  var exemplo = { nome: 'Maria', servico: 'limpeza', data: '05/11', inicio: '8h', fim: '10h' };
+  var existentes = disparoListarModelosMeta_(props, 'name').map(function (t) { return t.name; });
+  Object.keys(OS_MODELOS).forEach(function (k) {
+    var m = OS_MODELOS[k];
+    if (existentes.indexOf(m.nome) !== -1) return;
+    var r = disparoMetaPedir_(props, 'post', props.wabaId + '/message_templates', {
+      name: m.nome, category: 'UTILITY', language: 'pt_BR',
+      components: [{ type: 'BODY', text: m.texto, example: { body_text: [m.campos.map(function (c) { return exemplo[c]; })] } }]
+    });
+    console.log(m.nome + ' (' + r.codigo + '): ' + JSON.stringify(r.json).slice(0, 400));
+  });
+}
+
+// Pelo editor: a situação dos modelos da confirmação na Meta.
+function osConferirModelos() {
+  var props = disparoProps_();
+  var nomes = Object.keys(OS_MODELOS).map(function (k) { return OS_MODELOS[k].nome; });
   disparoListarModelosMeta_(props, 'name,status,category,rejected_reason').filter(function (t) {
     return nomes.indexOf(t.name) !== -1;
   }).forEach(function (t) { console.log(t.name + ': ' + t.status + ' / ' + t.category + (t.rejected_reason && t.rejected_reason !== 'NONE' ? ' / ' + t.rejected_reason : '')); });
