@@ -5457,16 +5457,18 @@ var COBRANCA_MODELOS = {
     texto: 'Olá, {{1}}! Aqui é da Solar Green. A mensalidade de {{2}} do seu plano, no valor de {{3}}, vence em {{4}}. Você pode pagar por Pix ou cartão pelo botão abaixo.' }
 };
 
-// Confirmação de OS por WhatsApp (03/11). Textos aprovados pelo Felipe em 03/11/2026.
+// Confirmação de OS por WhatsApp (03/11). Textos aprovados pelo Felipe em 04/11/2026 (trocam os de 03/11).
 // horas: usado quando a OS tem Hora inicio e Hora Fim; dia: quando falta uma delas.
 // campos: o que vai em {{1}}, {{2}}... na ordem. A regra de quando sai está em
 // js/confirmacao-os.js (e espelhada em osConfirmacaoEnviar_).
 var OS_MODELOS = {
-  horas: { nome: 'os_confirmacao', campos: ['nome', 'servico', 'data', 'inicio', 'fim'],
-    texto: 'Tudo certo, {{1}}! Seu agendamento de {{2}} foi confirmado e está marcado para o dia {{3}}, das {{4}} às {{5}}. Se precisar remarcar ou tiver qualquer dúvida, é só responder essa mensagem.' },
-  dia: { nome: 'os_confirmacao_dia', campos: ['nome', 'servico', 'data'],
-    texto: 'Tudo certo, {{1}}! Seu agendamento de {{2}} foi confirmado e está marcado para o dia {{3}}. Se precisar remarcar ou tiver qualquer dúvida, é só responder essa mensagem.' }
+  horas: { nome: 'os_confirmacao_v2', campos: ['nome', 'servico', 'data', 'inicio', 'fim', 'tecnico', 'valor', 'endereco'],
+    texto: 'Tudo certo, {{1}}! Seu agendamento de {{2}} foi confirmado e está marcado para o dia {{3}}.\n\n* Horário: de {{4}} até {{5}}\n* Técnico: {{6}}\n* Valor do serviço: {{7}}\n* Endereço do serviço: {{8}}\n\nSe precisar remarcar ou tiver qualquer dúvida, é só responder essa mensagem.' },
+  dia: { nome: 'os_confirmacao_v2_dia', campos: ['nome', 'servico', 'data', 'tecnico', 'valor', 'endereco'],
+    texto: 'Tudo certo, {{1}}! Seu agendamento de {{2}} foi confirmado e está marcado para o dia {{3}}.\n\n* Técnico: {{4}}\n* Valor do serviço: {{5}}\n* Endereço do serviço: {{6}}\n\nSe precisar remarcar ou tiver qualquer dúvida, é só responder essa mensagem.' }
 };
+// Modelos da primeira versão (03/11), trocados pelos de cima. osApagarModelosAntigos os remove da Meta.
+var OS_MODELOS_ANTIGOS = ['os_confirmacao', 'os_confirmacao_dia'];
 
 // Parcelas em que a Solar Green assume a taxa da InfinitePay (assured_installments).
 // Mesma tabela do gerador de propostas (legado/proposta.html, INSTALLMENT_TABLE);
@@ -6501,9 +6503,14 @@ function osConfirmacaoEnviar_(cfg, id, por) {
     var dia = osDataIso_(c.os['Data Inicio']);
     var inicio = osFormatarHora_(c.os['Hora inicio']), fim = osFormatarHora_(c.os['Hora Fim']);
     var modelo = inicio && fim ? OS_MODELOS.horas : OS_MODELOS.dia;
+    var tecDoc = c.os.TecnicoResponsavel ? fsGet_(cfg, 'vendedores/' + c.os.TecnicoResponsavel) : null;
+    var valorOs = cobrancaNumero_(c.os.Valor);
     var dados = {
       nome: cobrancaPrimeiroNome_(c.cliente), servico: (c.nomeServico || 'serviço').toLowerCase(),
-      data: dia.slice(8, 10) + '/' + dia.slice(5, 7), inicio: inicio, fim: fim
+      data: dia.slice(8, 10) + '/' + dia.slice(5, 7), inicio: inicio, fim: fim,
+      tecnico: (tecDoc && String(tecDoc.dados.Nome || '').trim()) || 'equipe Solar Green',
+      valor: valorOs < 2 ? 'gratuito' : cobrancaDinheiro_(valorOs),
+      endereco: String(c.cliente.Endereco || c.cliente['Endereço'] || '').trim() || '-'
     };
     var r = cobrancaMandarModelo_(props, tel, modelo, dados); // só corpo, sem botão nem anexo
     if (!r.ok) {
@@ -6554,7 +6561,7 @@ function actionOsConfirmar(body) {
 // (utilidade, sem botão). Mesmo molde de cobrancaCriarModelos.
 function osCriarModelos() {
   var props = disparoProps_();
-  var exemplo = { nome: 'Maria', servico: 'limpeza', data: '05/11', inicio: '8h', fim: '10h' };
+  var exemplo = { nome: 'Maria', servico: 'limpeza', data: '05/11', inicio: '8h', fim: '10h', tecnico: 'João', valor: 'R$ 150,00', endereco: 'Rua das Flores, 100, Marco' };
   var existentes = disparoListarModelosMeta_(props, 'name').map(function (t) { return t.name; });
   Object.keys(OS_MODELOS).forEach(function (k) {
     var m = OS_MODELOS[k];
@@ -6567,10 +6574,21 @@ function osCriarModelos() {
   });
 }
 
-// Pelo editor: a situação dos modelos da confirmação na Meta.
+// Pelo editor: apaga na Meta os modelos da primeira versão da confirmação
+// (os_confirmacao e os_confirmacao_dia), já trocados pelos _v2. Apaga o modelo
+// pelo nome, em todos os idiomas. Rodar só depois dos _v2 aprovados.
+function osApagarModelosAntigos() {
+  var props = disparoProps_();
+  OS_MODELOS_ANTIGOS.forEach(function (nome) {
+    var r = disparoMetaPedir_(props, 'delete', props.wabaId + '/message_templates?name=' + encodeURIComponent(nome));
+    console.log(nome + ' (' + r.codigo + '): ' + JSON.stringify(r.json).slice(0, 400));
+  });
+}
+
+// Pelo editor: a situação dos modelos da confirmação na Meta (novos e antigos).
 function osConferirModelos() {
   var props = disparoProps_();
-  var nomes = Object.keys(OS_MODELOS).map(function (k) { return OS_MODELOS[k].nome; });
+  var nomes = Object.keys(OS_MODELOS).map(function (k) { return OS_MODELOS[k].nome; }).concat(OS_MODELOS_ANTIGOS);
   disparoListarModelosMeta_(props, 'name,status,category,rejected_reason').filter(function (t) {
     return nomes.indexOf(t.name) !== -1;
   }).forEach(function (t) { console.log(t.name + ': ' + t.status + ' / ' + t.category + (t.rejected_reason && t.rejected_reason !== 'NONE' ? ' / ' + t.rejected_reason : '')); });
