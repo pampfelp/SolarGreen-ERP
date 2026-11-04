@@ -50,6 +50,10 @@
         if(badge){ badge.className='ag-status-tag '+statusSlug(novoStatus); badge.textContent=novoStatus; }
         var sel=document.getElementById('ad-statusSelect');
         if(sel)sel.value=novoStatus;
+        // O Apps Script grava o resultado da confirmação segundos depois de salvar.
+        var txtConf=textoConfirmacaoEnvio(dados);
+        var rowConf=document.getElementById('ad-confirmacaoRow'), valConf=document.getElementById('ad-confirmacaoValor');
+        if(rowConf&&valConf){ valConf.textContent=txtConf; rowConf.style.display=txtConf?'':'none'; }
     },'agendamento (detalhe)');
     unsubDetalheAoVivo=function(){ unsubRespostas(); unsubAgendamento(); };
   }
@@ -375,6 +379,18 @@
     el._t=setTimeout(function(){ el.style.opacity='0'; },2800);
   }
 
+  // Confirmação da OS por WhatsApp: texto do último aviso gravado em ConfirmacaoEnvios
+  // (quem mandou, quando, ou por que não saiu). Vazio se nunca houve tentativa.
+  function textoConfirmacaoEnvio(a){
+    var lista=a&&Array.isArray(a.ConfirmacaoEnvios)?a.ConfirmacaoEnvios:[];
+    var u=lista[lista.length-1];
+    if(!u)return '';
+    if(u.Erro)return 'não saiu: '+u.Erro;
+    var d=new Date(u.Em), quando='';
+    if(!isNaN(d.getTime()))quando=' em '+String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+' às '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+    return (u.Canal==='solargreen'?'enviada pela Solar Green':'enviada pelo vendedor')+quando;
+  }
+
   function abrirPainelDetalhe(idAgendamento){
     var a=agendamentos.filter(function(x){return String(x.IdAgendamento)===String(idAgendamento);})[0];
     if(!a)return;
@@ -408,6 +424,7 @@
       '<div class="ad-row"><span class="dl">Técnico</span><span class="dv">'+escapeHtml(nomeVendedor(a.TecnicoResponsavel))+'</span></div>'+
       '<div class="ad-row"><span class="dl">Data</span><span class="dv">'+dataFmt+'</span></div>'+
       '<div class="ad-row"><span class="dl">Horário</span><span class="dv">'+escapeHtml((a['Hora inicio']||'—')+' – '+(a['Hora Fim']||'—'))+'</span></div>'+
+      '<div class="ad-row" id="ad-confirmacaoRow" style="'+(textoConfirmacaoEnvio(a)?'':'display:none;')+'"><span class="dl">Confirmação</span><span class="dv" id="ad-confirmacaoValor">'+escapeHtml(textoConfirmacaoEnvio(a))+'</span></div>'+
       '<div class="ad-row" id="ad-motivoRow" style="'+(a['Motivo Cancelamento']?'':'display:none;')+'"><span class="dl">Motivo do cancelamento</span><span class="dv" id="ad-motivoValor">'+escapeHtml(a['Motivo Cancelamento']||'')+'</span></div>'+
       '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line);">'+
         '<label style="display:block;font-size:11px;font-weight:700;color:var(--ink-soft);margin-bottom:6px;">Editar status manualmente</label>'+
@@ -509,6 +526,7 @@
     document.getElementById('ad-pdfBtn').disabled=!concluido;
     document.getElementById('ad-assinaturaBtn').disabled=!concluido;
     document.getElementById('ad-osIndisponivelHint').style.display=concluido?'none':'';
+    document.getElementById('ad-confirmarWhatsBtn').style.display=normalizaTexto(status)==='cancelado'?'none':'';
 
     document.getElementById('ad-statusSelect').value=status;
     document.getElementById('ad-statusSalvarBtn').addEventListener('click',function(){
@@ -552,6 +570,25 @@
     document.getElementById('adBackdrop').classList.remove('active');
     pararEscutaAoVivo();
     agendamentoAtual=null;
+  }
+
+  // Reserva/atalho: abre o WhatsApp de quem tocou com o texto da confirmação e
+  // registra o envio na OS. O texto vem de js/confirmacao-os.js (o mesmo dos modelos).
+  function confirmarPeloWhatsApp(){
+    if(!agendamentoAtual)return;
+    var a=agendamentoAtual;
+    var cliente=clientesMap[a.IdCliente]||{};
+    var tel=window.SGCobrancaRegra.telefoneWhatsApp(cliente.Telefone);
+    if(!tel){ showAgToast('O cliente não tem um celular válido no cadastro.',true); return; }
+    var texto=window.SGConfirmacaoOS.textoConfirmacao({nome:nomeCliente(a.IdCliente),servico:nomeServico(a.IdServico),data:a['Data Inicio'],horaInicio:a['Hora inicio'],horaFim:a['Hora Fim']});
+    window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(texto),'_blank','noopener');
+    var envio={Em:new Date().toISOString(),Por:meuId(),Canal:'vendedor'};
+    apiCall('registrarConfirmacaoOS',{idAgendamento:a.IdAgendamento,envio:envio}).then(function(resp){
+      if(!resp||!resp.ok){ showAgToast((resp&&resp.erro)||'Não foi possível registrar o envio.',true); return; }
+      a.ConfirmacaoEnvios=(Array.isArray(a.ConfirmacaoEnvios)?a.ConfirmacaoEnvios:[]).concat([envio]);
+      var rowConf=document.getElementById('ad-confirmacaoRow'), valConf=document.getElementById('ad-confirmacaoValor');
+      if(rowConf&&valConf){ valConf.textContent=textoConfirmacaoEnvio(a); rowConf.style.display=''; }
+    }).catch(function(err){ showAgToast('Erro de conexão: '+err.message,true); });
   }
 
   function excluirAgendamento(){
@@ -1303,6 +1340,13 @@
           var idx2=agendamentos.findIndex(function(a){return String(a.IdAgendamento)===String(idAlvo);});
           if(idx2!==-1){ agendamentos[idx2].IdAgendamento=resp.idAgendamento; render(); }
         }
+        // Confirmação por WhatsApp pelo número da Solar Green: não trava a tela, o
+        // resultado aparece no painel da OS. Se falhar aqui, a varredura do Apps Script
+        // pega a OS (ConfirmacaoPendente) na próxima hora.
+        if(resp.confirmar&&window.SGCobranca&&window.SGCobranca.chamarServidor){
+          window.SGCobranca.chamarServidor('osConfirmar',{idAgendamento:resp.idAgendamento||idAlvo})
+            .catch(function(err){ console.error('osConfirmar falhou:',err); });
+        }
       }).catch(function(err){ desfazer('Erro de conexão — a alteração foi desfeita: '+err.message); });
     }
   }
@@ -1369,6 +1413,7 @@
     document.getElementById('adBackdrop').addEventListener('click',fecharPainelDetalhe);
     document.getElementById('ad-pdfBtn').addEventListener('click',gerarPdfRespostas);
     document.getElementById('ad-assinaturaBtn').addEventListener('click',enviarOSParaAssinatura);
+    document.getElementById('ad-confirmarWhatsBtn').addEventListener('click',confirmarPeloWhatsApp);
     document.getElementById('ad-editarBtn').addEventListener('click',function(){
       if(agendamentoAtual)openModal(agendamentoAtual.IdAgendamento);
     });
