@@ -10,11 +10,16 @@
 (function (root) {
   'use strict';
 
-  // Textos aprovados pelo Felipe em 03/11/2026. Os mesmos dos modelos da Meta
-  // (OS_MODELOS no Apps Script), com {{n}} no lugar de cada campo.
+  // Textos aprovados pelo Felipe em 04/11/2026 (trocam os de 03/11). Os mesmos dos
+  // modelos da Meta (OS_MODELOS no Apps Script). CAMPOS: o que vai em {{1}}, {{2}}...
+  // na ordem de cada modelo.
+  var CAMPOS = {
+    os_confirmacao_v2: ['nome', 'servico', 'data', 'inicio', 'fim', 'tecnico', 'valor', 'endereco'],
+    os_confirmacao_v2_dia: ['nome', 'servico', 'data', 'tecnico', 'valor', 'endereco']
+  };
   var TEXTOS = {
-    os_confirmacao: 'Tudo certo, {{1}}! Seu agendamento de {{2}} foi confirmado e está marcado para o dia {{3}}, das {{4}} às {{5}}. Se precisar remarcar ou tiver qualquer dúvida, é só responder essa mensagem.',
-    os_confirmacao_dia: 'Tudo certo, {{1}}! Seu agendamento de {{2}} foi confirmado e está marcado para o dia {{3}}. Se precisar remarcar ou tiver qualquer dúvida, é só responder essa mensagem.'
+    os_confirmacao_v2: 'Tudo certo, {{1}}! Seu agendamento de {{2}} foi confirmado e está marcado para o dia {{3}}.\n\n* Horário: de {{4}} até {{5}}\n* Técnico: {{6}}\n* Valor do serviço: {{7}}\n* Endereço do serviço: {{8}}\n\nSe precisar remarcar ou tiver qualquer dúvida, é só responder essa mensagem.',
+    os_confirmacao_v2_dia: 'Tudo certo, {{1}}! Seu agendamento de {{2}} foi confirmado e está marcado para o dia {{3}}.\n\n* Técnico: {{4}}\n* Valor do serviço: {{5}}\n* Endereço do serviço: {{6}}\n\nSe precisar remarcar ou tiver qualquer dúvida, é só responder essa mensagem.'
   };
 
   function normalizar(s) {
@@ -71,22 +76,47 @@
       hora(anterior, 'Hora Fim') !== hora(novo, 'Hora Fim');
   }
 
+  // Mesma leitura de cobrancaNumero_ no Apps Script: número, ou texto "R$ 1.234,50".
+  function numeroValor(v) {
+    if (typeof v === 'number') return isFinite(v) ? v : 0;
+    var t = String(v == null ? '' : v).trim().replace(/R\$\s?/g, '');
+    if (!t) return 0;
+    if (t.indexOf(',') !== -1) t = t.replace(/\./g, '').replace(',', '.');
+    var n = parseFloat(t);
+    return isNaN(n) ? 0 : n;
+  }
+
+  // Menos de R$ 2 (inclui 0 e vazio) vira "gratuito"; senão "R$ 1.234,50"
+  // (igual a cobrancaDinheiro_ no Apps Script).
+  function formatarValor(v) {
+    var n = numeroValor(v);
+    if (n < 2) return 'gratuito';
+    return 'R$ ' + (Math.round(n * 100) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+
   // Sem hora de início ou de fim válida, vale o modelo só com o dia.
   function modeloConfirmacao(dados) {
     var d = dados || {};
-    return formatarHora(d.horaInicio) && formatarHora(d.horaFim) ? 'os_confirmacao' : 'os_confirmacao_dia';
+    return formatarHora(d.horaInicio) && formatarHora(d.horaFim) ? 'os_confirmacao_v2' : 'os_confirmacao_v2_dia';
   }
 
-  // dados: {nome, servico, data, horaInicio, horaFim}. Usa só o primeiro nome.
+  // dados: {nome, servico, data, horaInicio, horaFim, tecnico, valor, endereco}.
+  // Usa só o primeiro nome. Nenhum campo vai vazio: a Meta recusa.
   function textoConfirmacao(dados) {
     var d = dados || {};
     var nome = String(d.nome || '').trim().split(/\s+/)[0] || '';
     nome = nome ? nome.charAt(0).toUpperCase() + nome.slice(1).toLowerCase() : '';
-    var valores = [nome, String(d.servico || '').toLowerCase(), dataDiaMes(d.data), formatarHora(d.horaInicio), formatarHora(d.horaFim)];
-    return TEXTOS[modeloConfirmacao(d)].replace(/\{\{(\d)\}\}/g, function (m, n) { return valores[Number(n) - 1]; });
+    var campos = {
+      nome: nome, servico: String(d.servico || '').toLowerCase(), data: dataDiaMes(d.data),
+      inicio: formatarHora(d.horaInicio), fim: formatarHora(d.horaFim),
+      tecnico: String(d.tecnico || '').trim() || 'equipe Solar Green',
+      valor: formatarValor(d.valor), endereco: String(d.endereco || '').trim() || '-'
+    };
+    var modelo = modeloConfirmacao(d);
+    return TEXTOS[modelo].replace(/\{\{(\d)\}\}/g, function (m, n) { return campos[CAMPOS[modelo][Number(n) - 1]]; });
   }
 
-  var api = { TEXTOS: TEXTOS, dataISO: dataISO, hojeBelem: hojeBelem, formatarHora: formatarHora,
+  var api = { TEXTOS: TEXTOS, CAMPOS: CAMPOS, formatarValor: formatarValor, dataISO: dataISO, hojeBelem: hojeBelem, formatarHora: formatarHora,
     precisaConfirmar: precisaConfirmar, modeloConfirmacao: modeloConfirmacao, textoConfirmacao: textoConfirmacao };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.SGConfirmacaoOS = api;

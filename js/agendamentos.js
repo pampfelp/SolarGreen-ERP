@@ -580,8 +580,18 @@
     var cliente=clientesMap[a.IdCliente]||{};
     var tel=window.SGCobrancaRegra.telefoneWhatsApp(cliente.Telefone);
     if(!tel){ showAgToast('O cliente não tem um celular válido no cadastro.',true); return; }
-    var texto=window.SGConfirmacaoOS.textoConfirmacao({nome:nomeCliente(a.IdCliente),servico:nomeServico(a.IdServico),data:a['Data Inicio'],horaInicio:a['Hora inicio'],horaFim:a['Hora Fim']});
-    window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(texto),'_blank','noopener');
+    // O endereço só vem no cadastro completo. O painel já o busca ao abrir, mas se
+    // o clique vier antes, a janela abre agora (senão o navegador bloqueia) e o
+    // link entra quando o cliente chegar.
+    var janela=window.open('about:blank','_blank');
+    if(janela)janela.opener=null;
+    garantirClienteCarregadoAg(a.IdCliente).then(function(full){
+      full=full||cliente;
+      var tecnico=(vendedoresMap[a.TecnicoResponsavel]||{}).Nome;
+      var texto=window.SGConfirmacaoOS.textoConfirmacao({nome:nomeCliente(a.IdCliente),servico:nomeServico(a.IdServico),data:a['Data Inicio'],horaInicio:a['Hora inicio'],horaFim:a['Hora Fim'],tecnico:tecnico,valor:a.Valor,endereco:full.Endereco||full['Endereço']});
+      var url='https://wa.me/'+tel+'?text='+encodeURIComponent(texto);
+      if(janela)janela.location.href=url; else window.open(url,'_blank','noopener');
+    });
     var envio={Em:new Date().toISOString(),Por:meuId(),Canal:'vendedor'};
     apiCall('registrarConfirmacaoOS',{idAgendamento:a.IdAgendamento,envio:envio}).then(function(resp){
       if(!resp||!resp.ok){ showAgToast((resp&&resp.erro)||'Não foi possível registrar o envio.',true); return; }
