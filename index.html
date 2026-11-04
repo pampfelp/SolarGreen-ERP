@@ -19,7 +19,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=20261103b">
+<link rel="stylesheet" href="css/app.css?v=20261103c">
 <link rel="stylesheet" href="css/faturamento.css?v=20261001e">
 <link rel="stylesheet" href="css/dashboard-dre.css?v=20261021a">
 </head>
@@ -514,6 +514,7 @@
   <div class="sub-tabs" role="tablist" aria-label="Seções de Vendas">
     <button type="button" class="sub-tab" role="tab" id="v-tabRelatorio" aria-selected="true" aria-controls="v-painelRelatorio" tabindex="0">Relatório</button>
     <button type="button" class="sub-tab" role="tab" id="v-tabCobranca" aria-selected="false" aria-controls="v-painelCobranca" tabindex="-1">Cobrança</button>
+    <button type="button" class="sub-tab" role="tab" id="v-tabConversas" aria-selected="false" aria-controls="v-painelConversas" tabindex="-1">Conversas</button>
   </div>
   <div id="v-painelRelatorio" role="tabpanel" aria-labelledby="v-tabRelatorio">
   <div id="v-mainContent" style="display:none;">
@@ -616,6 +617,18 @@
   </div>
   <div class="empty" id="v-emptyState"><div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 7-8"/><path d="M15 7h5v5"/></svg></div><p>Carregando o relatório de vendas…</p></div>
   </div>
+  <div id="v-painelConversas" role="tabpanel" aria-labelledby="v-tabConversas" style="display:none;">
+    <div class="filters">
+      <div class="field" id="cv-campoVendedor" style="display:none;"><label>Vendedor</label><select id="cv-selVendedor"><option value="__all__">Todos os vendedores</option></select></div>
+      <div class="field"><label>Cliente</label><input type="text" id="cv-busca" placeholder="Buscar cliente ou telefone…" autocomplete="off"></div>
+      <div class="field"><label>Mostrar</label><select id="cv-selFiltro"><option value="">Todos</option><option value="respondeu">Só quem respondeu</option></select></div>
+    </div>
+    <p class="hint" style="margin:0 0 12px;">Mensagens de cobrança enviadas pelo número da Solar Green e o que o cliente respondeu. Só leitura.</p>
+    <div class="cv-grid">
+      <div class="cv-lista" id="cv-lista" role="list"><div class="hint" style="padding:14px;">Carregando…</div></div>
+      <div class="cv-conversa" id="cv-conversa"><div class="hint" style="padding:14px;">Escolha um cliente para ver as mensagens.</div></div>
+    </div>
+  </div>
   <div id="v-painelCobranca" role="tabpanel" aria-labelledby="v-tabCobranca" style="display:none;">
     <div class="filters">
       <div class="field" id="cb-campoVendedor" style="display:none;"><label>Vendedor</label><select id="cb-selVendedor"><option value="__all__">Todos os vendedores</option></select></div>
@@ -630,7 +643,6 @@
       <div class="field"><label>Até</label><input type="date" id="cb-dataAte"></div>
       <div class="spacer"></div>
       <button class="reset-btn" id="cb-reset">Limpar filtros</button>
-      <a class="reset-btn" href="disparos.html#/conversas" style="text-decoration:none;">Conversas</a>
       <button class="connect-btn" id="cb-avulsoBtn">+ Link avulso</button>
     </div>
     <div class="kpis">

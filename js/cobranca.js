@@ -28,28 +28,32 @@
   function toast(msg,erro){ window.SGToast.mostrar(msg,erro); }
 
   // ── Abas ──
-  function lerAba(){ try{ return localStorage.getItem(ABA_KEY)==='cobranca'?'cobranca':'relatorio'; }catch(e){ return 'relatorio'; } }
+  function lerAba(){ try{ var a=localStorage.getItem(ABA_KEY); return a==='cobranca'||a==='conversas'?a:'relatorio'; }catch(e){ return 'relatorio'; } }
   function guardarAba(aba){ try{ localStorage.setItem(ABA_KEY,aba); }catch(e){} }
   function mostrarAba(aba,foco){
-    var cob=aba==='cobranca';
-    el('v-painelRelatorio').style.display=cob?'none':'';
+    var cob=aba==='cobranca',conv=aba==='conversas';
+    el('v-painelRelatorio').style.display=cob||conv?'none':'';
     el('v-painelCobranca').style.display=cob?'':'none';
-    [['v-tabRelatorio',!cob],['v-tabCobranca',cob]].forEach(function(p){
+    el('v-painelConversas').style.display=conv?'':'none';
+    [['v-tabRelatorio',!cob&&!conv],['v-tabCobranca',cob],['v-tabConversas',conv]].forEach(function(p){
       var b=el(p[0]);
       b.setAttribute('aria-selected',p[1]?'true':'false');
       b.tabIndex=p[1]?0:-1;
       if(p[1]&&foco)b.focus();
     });
     guardarAba(aba);
-    if(cob)iniciarSePreciso();
+    if(cob||conv)iniciarSePreciso();
   }
   function viewVendasAtiva(){ return el('view-vendas').classList.contains('active'); }
   // Só assina as coleções na primeira vez que a Cobrança aparece de verdade na
   // tela (cota do Firestore): aba lembrada do localStorage não conta se a tela de
   // Vendas ainda nem foi aberta.
   function iniciarSePreciso(){
-    if(!viewVendasAtiva()||el('v-painelCobranca').style.display==='none')return;
+    if(!viewVendasAtiva())return;
+    var conv=el('v-painelConversas').style.display!=='none';
+    if(el('v-painelCobranca').style.display==='none'&&!conv)return;
     assinar();
+    if(conv)assinarConversas();
   }
   function assinar(){
     if(iniciado)return;
@@ -103,6 +107,7 @@
     planosLinhas.forEach(function(p){ mapaPlanos[p.IdPlano]=p; });
     popularSelects();
     renderTudo();
+    renderConversas();
     esperando.forEach(function(f){ f(); });
   }
   // Para quem chega de fora da aba (assinatura da OS, notificação): assina as
@@ -853,18 +858,152 @@
     });
   }
 
+  // ── Conversas (03/11) ──
+  // Mensagens da cobrança pelo número da API, por cliente. Lê mensagens_disparo
+  // com campanha 'cobranca' (o Apps Script copia ali o que envia e recebe).
+  var msgsCob=null,cvIniciado=false,cvSelecionado='';
+  var COB_ROTULO={inicio:'Primeiro aviso','8h':'Lembrete da manhã','15h':'Lembrete da tarde','18h':'Lembrete da noite',parcial:'Saldo após pagamento parcial',obrigado:'Agradecimento',plano:'Mensalidade do plano'};
+  function assinarConversas(){
+    if(cvIniciado)return;
+    cvIniciado=true;
+    window.SGFireReady.then(function(){
+      firebase.firestore().collection('mensagens_disparo').where('campanha','==','cobranca').onSnapshot(function(snap){
+        var l=[];
+        snap.forEach(function(d){ var x=d.data(); x._id=d.id; l.push(x); });
+        msgsCob=l;
+        renderConversas();
+      },function(err){
+        console.error('Conversas da cobrança:',err);
+        el('cv-lista').innerHTML='<div class="hint" style="padding:14px;">Não consegui carregar as mensagens: '+esc(err.message)+'</div>';
+      });
+    });
+  }
+  function emMs(v){ return typeof v==='number'?v:(v&&v.toMillis?v.toMillis():Number(v)||0); }
+  // Agrupa por cliente (pela OS ou pelo plano da mensagem); sem cliente, pelo telefone.
+  function gruposConversa(){
+    var g={},meu=String(sessao().idVendedor||'');
+    var planoCli={};(bruto.planos||[]).forEach(function(p){ planoCli[p.IdPlano]=p.IdCliente; });
+    // Envios sem mensagem da API (WhatsApp do vendedor ou recusados pela Meta)
+    // só existem em CobrancaEnvios: entram sem o texto.
+    var extras=[];
+    function envios(lista,campo,id){
+      (Array.isArray(lista)?lista:[]).forEach(function(e){
+        if(!e||e.Wamid)return;
+        var x={direcao:'saida',em:Date.parse(e.Em)||0,cobrancaTipo:e.Tipo,
+          texto:e.Erro?'Não saiu pelo número da Solar Green: '+e.Erro:'Mandada pelo WhatsApp de '+(e.Por||'um vendedor')+' (o texto não fica guardado).',
+          status:e.Erro?'failed':'manual'};
+        x[campo]=id;
+        extras.push(x);
+      });
+    }
+    Object.keys(mapaAg).forEach(function(id){ envios(mapaAg[id].CobrancaEnvios,'idAgendamento',id); });
+    (bruto.planos||[]).forEach(function(p){ envios(p.CobrancaEnvios,'idPlano',p.IdPlano); });
+    (msgsCob||[]).concat(extras).forEach(function(x){
+      var idCli=x.idAgendamento?(mapaAg[x.idAgendamento]||{}).IdCliente:(x.idPlano?planoCli[x.idPlano]:'');
+      var k=idCli?'c:'+idCli:'t:'+x.telFim8;
+      var cli=idCli?mapaClientes[idCli]||{}:{};
+      var c=g[k]||(g[k]={chave:k,idCliente:idCli||'',nome:cli['Nome Razao Social']||cli.Nome||x.nomeLead||'Sem nome',tel:cli.Telefone||'',
+        idVend:String(cli['Vendedor Responsavel']||x.idVendedor||''),msgs:[],ult:0,respondeu:false});
+      c.msgs.push(x);
+      var em=emMs(x.em);
+      if(em>=c.ult){ c.ult=em; c.ultima=x; }
+      if(x.direcao==='entrada')c.respondeu=true;
+    });
+    return Object.keys(g).map(function(k){ return g[k]; })
+      .filter(function(c){ return souAdmin()||c.idVend===meu; })
+      .sort(function(a,b){ return b.ult-a.ult; });
+  }
+  function quando(ms){
+    if(!ms)return '';
+    var d=new Date(ms),hoje=new Date();
+    var h=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
+    return d.toDateString()===hoje.toDateString()?h:fmtData(d)+' '+h;
+  }
+  function previa(x){
+    if(!x)return '';
+    var t=x.direcao==='saida'&&!/^Cobrança: /.test(x.texto||'')&&x.cobrancaTipo?(COB_ROTULO[x.cobrancaTipo]||'Cobrança'):String(x.texto||'['+(x.tipo||'mensagem')+']');
+    t=t.replace(/\s+/g,' ');
+    return (x.direcao==='entrada'?'Cliente: ':'')+(t.length>70?t.slice(0,70)+'…':t);
+  }
+  function renderConversas(){
+    var lista=el('cv-lista');
+    if(!lista||el('v-painelConversas').style.display==='none')return;
+    if(!msgsCob||!Object.keys(bruto).every(function(k){ return bruto[k]; })){ lista.innerHTML='<div class="hint" style="padding:14px;">Carregando…</div>'; return; }
+    var selV=el('cv-selVendedor'),admin=souAdmin();
+    el('cv-campoVendedor').style.display=admin?'':'none';
+    if(admin&&selV.options.length<=1){
+      Object.keys(nomeVendedor).sort(function(a,b){ return String(nomeVendedor[a]).localeCompare(String(nomeVendedor[b]),'pt-BR'); })
+        .forEach(function(id){ var o=document.createElement('option'); o.value=id; o.textContent=nomeVendedor[id]; selV.appendChild(o); });
+    }
+    var b=norm(el('cv-busca').value),bd=el('cv-busca').value.replace(/\D/g,''),f=el('cv-selFiltro').value,v=selV.value;
+    var grupos=gruposConversa().filter(function(c){
+      if(f==='respondeu'&&!c.respondeu)return false;
+      if(admin&&v!=='__all__'&&c.idVend!==v)return false;
+      if(b&&norm(c.nome).indexOf(b)===-1&&!(bd.length>=3&&String(c.tel).replace(/\D/g,'').indexOf(bd)!==-1))return false;
+      return true;
+    });
+    lista.innerHTML=grupos.length?grupos.map(function(c){
+      return '<button type="button" role="listitem" class="cv-item'+(c.chave===cvSelecionado?' ativo':'')+'" data-cv="'+esc(c.chave)+'">'+
+        '<span class="cv-item-topo"><b>'+esc(c.nome)+'</b><small>'+esc(quando(c.ult))+'</small></span>'+
+        '<span class="cv-item-prev">'+esc(previa(c.ultima))+'</span>'+
+        (c.respondeu?'<span class="cb-tag a_conferir">Respondeu</span>':'')+'</button>';
+    }).join(''):'<div class="hint" style="padding:14px;">Nenhuma mensagem de cobrança'+(b||f||(admin&&v!=='__all__')?' com esse filtro.':' ainda.')+'</div>';
+    var atual=grupos.filter(function(c){ return c.chave===cvSelecionado; })[0];
+    renderThread(atual);
+  }
+  function visto(x){
+    if(x.direcao!=='saida')return '';
+    if(x.status==='read')return ' · lida';
+    if(x.status==='delivered')return ' · entregue';
+    if(x.status==='failed')return ' · não entregue';
+    if(x.status==='manual')return '';
+    return ' · enviada';
+  }
+  function renderThread(c){
+    var box=el('cv-conversa');
+    if(!c){ box.innerHTML='<div class="hint" style="padding:14px;">Escolha um cliente para ver as mensagens.</div>'; return; }
+    var msgs=c.msgs.slice().sort(function(a,b){ return emMs(a.em)-emMs(b.em); });
+    var dia='',html='<div class="cv-cabeca"><b>'+esc(c.nome)+'</b><span class="hint">'+esc(c.tel||'')+(c.idVend&&nomeVendedor[c.idVend]?' · '+esc(nomeVendedor[c.idVend]):'')+'</span></div><div class="cv-linha">';
+    msgs.forEach(function(x){
+      var em=emMs(x.em),d=em?fmtData(new Date(em)):'';
+      if(d&&d!==dia){ html+='<div class="cv-dia">'+esc(d)+'</div>'; dia=d; }
+      var os=x.idAgendamento&&linhas.some(function(l){ return l.idAgendamento===x.idAgendamento; });
+      html+='<div class="cv-balao '+(x.direcao==='saida'?'saida':'entrada')+'">'+
+        (x.direcao==='saida'&&x.cobrancaTipo?'<span class="cv-rotulo">'+esc(COB_ROTULO[x.cobrancaTipo]||'Cobrança')+'</span>':'')+
+        esc(x.texto||'['+(x.tipo||'mensagem')+']')+
+        '<span class="cv-meta">'+esc(quando(em))+esc(visto(x))+(os?' · <a href="#" data-cv-os="'+esc(x.idAgendamento)+'">ver OS</a>':'')+'</span></div>';
+    });
+    box.innerHTML=html+'</div>';
+    var linha=box.querySelector('.cv-linha');
+    if(linha)linha.scrollTop=linha.scrollHeight;
+  }
+
   // ── Eventos ──
   function ligar(){
-    var tabs=[el('v-tabRelatorio'),el('v-tabCobranca')];
-    tabs[0].addEventListener('click',function(){ mostrarAba('relatorio'); });
-    tabs[1].addEventListener('click',function(){ mostrarAba('cobranca'); });
+    var tabs=[el('v-tabRelatorio'),el('v-tabCobranca'),el('v-tabConversas')],abas=['relatorio','cobranca','conversas'];
+    tabs.forEach(function(t,i){ t.addEventListener('click',function(){ mostrarAba(abas[i]); }); });
     tabs.forEach(function(t,i){
       t.addEventListener('keydown',function(e){
         if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight'&&e.key!=='Home'&&e.key!=='End')return;
         e.preventDefault();
-        var alvo=e.key==='Home'?0:e.key==='End'?1:1-i;
-        mostrarAba(alvo===1?'cobranca':'relatorio',true);
+        var alvo=e.key==='Home'?0:e.key==='End'?2:(i+(e.key==='ArrowRight'?1:2))%3;
+        mostrarAba(abas[alvo],true);
       });
+    });
+    ['cv-busca','cv-selFiltro','cv-selVendedor'].forEach(function(id){ el(id).addEventListener(id==='cv-busca'?'input':'change',renderConversas); });
+    el('cv-lista').addEventListener('click',function(e){
+      var b=e.target.closest('[data-cv]');
+      if(!b)return;
+      cvSelecionado=b.getAttribute('data-cv');
+      renderConversas();
+      var box=el('cv-conversa');
+      if(window.innerWidth<800&&box.scrollIntoView)box.scrollIntoView({behavior:'smooth',block:'start'});
+    });
+    el('cv-conversa').addEventListener('click',function(e){
+      var a=e.target.closest('[data-cv-os]');
+      if(!a)return;
+      e.preventDefault();
+      abrirDetalhe(a.getAttribute('data-cv-os'));
     });
     ['cb-selVendedor','cb-selServico','cb-selSituacao','cb-dataDe','cb-dataAte'].forEach(function(id){
       el(id).addEventListener('change',function(){ pagina=1; renderTudo(); });
@@ -890,7 +1029,7 @@
     });
     // A aba lembrada só assina quando a tela de Vendas vira a tela ativa.
     new MutationObserver(iniciarSePreciso).observe(el('view-vendas'),{attributes:true,attributeFilter:['class']});
-    if(lerAba()==='cobranca')mostrarAba('cobranca');
+    if(lerAba()!=='relatorio')mostrarAba(lerAba());
   }
   ligar();
 
