@@ -908,6 +908,25 @@
   .cb-tag.diferenca{background:var(--warn-soft);color:var(--warn);}
   .cb-tag.a_conferir{background:var(--info-soft);color:var(--info);}
   #v-painelCobranca td.num{white-space:nowrap;}
+  .cv-grid{display:grid;grid-template-columns:minmax(260px,340px) 1fr;gap:14px;align-items:start;}
+  .cv-lista{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);max-height:70vh;overflow-y:auto;}
+  .cv-item{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:11px 14px;cursor:pointer;font:inherit;color:var(--ink);}
+  .cv-item:last-child{border-bottom:none;}
+  .cv-item:hover{background:var(--bg);}
+  .cv-item.ativo{background:var(--accent-soft);}
+  .cv-item-topo{display:flex;justify-content:space-between;gap:8px;font-size:13px;}
+  .cv-item-topo small{color:var(--ink-faint);white-space:nowrap;font-size:11px;}
+  .cv-item-prev{display:block;font-size:12px;color:var(--ink-soft);margin:3px 0 4px;}
+  .cv-conversa{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);min-height:200px;}
+  .cv-cabeca{display:flex;flex-direction:column;gap:2px;padding:12px 16px;border-bottom:1px solid var(--line);font-size:14px;}
+  .cv-linha{display:flex;flex-direction:column;gap:8px;padding:14px 16px;max-height:62vh;overflow-y:auto;background:var(--bg);border-radius:0 0 var(--radius) var(--radius);}
+  .cv-dia{align-self:center;font-size:11px;color:var(--ink-soft);background:var(--panel);padding:3px 10px;border-radius:20px;}
+  .cv-balao{max-width:78%;padding:9px 12px;border-radius:12px;font-size:13px;line-height:1.45;white-space:pre-wrap;word-break:break-word;}
+  .cv-balao.saida{align-self:flex-end;background:#d9fdd3;}
+  .cv-balao.entrada{align-self:flex-start;background:var(--panel);border:1px solid var(--line);}
+  .cv-rotulo{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);margin-bottom:4px;white-space:normal;}
+  .cv-meta{display:block;text-align:right;font-size:10px;color:var(--ink-faint);margin-top:4px;white-space:normal;}
+  @media (max-width:800px){ .cv-grid{grid-template-columns:1fr;} .cv-lista{max-height:45vh;} .cv-balao{max-width:90%;} }
   .cb-pausa{margin-top:10px;}
   .cb-pausa label{font-size:12px;color:var(--ink-soft);font-weight:600;}
   .cb-pausa input[type=date]{padding:8px 10px;border:1px solid var(--line);border-radius:9px;font-size:13px;background:#fff;}
