@@ -337,6 +337,18 @@
     return { titulo: 'Supervisor de vendas', corpo: n + ' clientes para chamar agora. Abra o sininho: cada um tem a mensagem pronta.' };
   }
 
+  // Cópia do resumo para a gestão (pedido do Felipe, 05/11): ele acompanha os
+  // avisos de todos os vendedores numa tela própria, fora do sininho dele.
+  function textoDaCopia(nomeVendedor, tipos) {
+    var quem = primeiroNome(nomeVendedor) || 'Vendedor';
+    var n = tipos.length;
+    var soPerguntas = tipos.every(function (t) { return t === TIPOS_AVISO.pergunta; });
+    return {
+      titulo: 'Supervisão: ' + quem,
+      corpo: quem + (soPerguntas ? ' tem ' + n + ' clientes esperando a próxima data de contato.' : ' tem ' + n + ' clientes para chamar agora.')
+    };
+  }
+
   var api = {
     LIMITE_POR_VENDEDOR: LIMITE_POR_VENDEDOR, HORAS_LEMBRETE: HORAS_LEMBRETE, PERGUNTA_DEPOIS_MS: PERGUNTA_DEPOIS_MS,
     ETAPAS_FORA: ETAPAS_FORA, PAPEIS_FORA: PAPEIS_FORA, TIPO_TENTATIVA: TIPO_TENTATIVA, TIPOS_CONVERSA: TIPOS_CONVERSA,
@@ -352,7 +364,7 @@
     dataProcessoMs: dataProcessoMs, inicioDoPrazoMs: inicioDoPrazoMs, corDoPrazo: corDoPrazo,
     temDataValida: temDataValida, situacaoDoLead: situacaoDoLead, montarFila: montarFila,
     idAviso: idAviso, lerIdAviso: lerIdAviso, contatoNaHora: contatoNaHora, avisoAindaVale: avisoAindaVale, perguntaPendente: perguntaPendente,
-    textoDoAviso: textoDoAviso, textoDoResumo: textoDoResumo
+    textoDoAviso: textoDoAviso, textoDoResumo: textoDoResumo, textoDaCopia: textoDaCopia
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.SupervisorRegras = api;
