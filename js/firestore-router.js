@@ -695,7 +695,7 @@
     var id=p.idAgendamento;
     if(!id) return Promise.resolve({ok:false,erro:'idAgendamento é obrigatório.'});
     var ref=db().collection('agendamentos').doc(id);
-    var confirmar=false;
+    var confirmar=false, anterior=null, mesclado=null;
     // Confere se o documento JÁ EXISTE antes de decidir se grava DataCriacao
     // (mesmo padrão de salvarFunil): o front sempre manda idAgendamento —
     // inclusive pra agendamento novo, que já nasce com id gerado no
@@ -723,8 +723,14 @@
         confirmar=window.SGConfirmacaoOS.precisaConfirmar(snap.exists?snap.data():null,doc,window.SGConfirmacaoOS.hojeBelem());
         if(confirmar) doc.ConfirmacaoPendente=true;
       }
+      anterior=snap.exists?snap.data():null;
+      mesclado=Object.assign({},anterior||{},doc);
       return ref.set(doc,{merge:true});
-    }).then(function(){ return {ok:true,idAgendamento:id,confirmar:confirmar}; })
+    }).then(function(){
+      // Aviso ao técnico (sininho do app dele + push): não espera nem derruba o salvamento.
+      if(window.SGNotifAgendamento) window.SGNotifAgendamento.avisar(anterior,mesclado,id);
+      return {ok:true,idAgendamento:id,confirmar:confirmar};
+    })
       .catch(function(err){ return {ok:false,erro:err.message}; });
   }
   // Cobrança (aba de Vendas): liga uma venda a uma ou mais OS. O array inteiro é
@@ -783,14 +789,25 @@
     var id=p.idAgendamento;
     if(!id||!p.status) return Promise.resolve({ok:false,erro:'Dados incompletos.'});
     var patch={'Status Agendamento':p.status,'Motivo Cancelamento':p.status==='Cancelado'?(p.motivoCancelamento||''):''};
-    return db().collection('agendamentos').doc(id).update(patch)
-      .then(function(){ return {ok:true}; })
-      .catch(function(err){ return {ok:false,erro:err.message}; });
+    var ref=db().collection('agendamentos').doc(id), anterior=null;
+    return ref.get().then(function(snap){
+      anterior=snap.exists?snap.data():null;
+      return ref.update(patch);
+    }).then(function(){
+      if(anterior&&window.SGNotifAgendamento) window.SGNotifAgendamento.avisar(anterior,Object.assign({},anterior,patch),id);
+      return {ok:true};
+    }).catch(function(err){ return {ok:false,erro:err.message}; });
   }
   function excluirAgendamento(p){
-    return db().collection('agendamentos').doc(p.idAgendamento).delete()
-      .then(function(){ return {ok:true}; })
-      .catch(function(err){ return {ok:false,erro:err.message}; });
+    var ref=db().collection('agendamentos').doc(p.idAgendamento), anterior=null;
+    // Lê antes de apagar: depois não sobra o técnico para avisar.
+    return ref.get().then(function(snap){
+      anterior=snap.exists?snap.data():null;
+      return ref.delete();
+    }).then(function(){
+      if(anterior&&window.SGNotifAgendamento) window.SGNotifAgendamento.avisar(anterior,null,p.idAgendamento);
+      return {ok:true};
+    }).catch(function(err){ return {ok:false,erro:err.message}; });
   }
   // PDF (gerarPdfOS) e assinatura digital (enviarOSParaAssinatura/
   // verificarStatusOS) continuam batendo no Apps Script antigo de propósito

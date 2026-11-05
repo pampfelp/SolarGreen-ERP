@@ -1445,6 +1445,14 @@
     });
   }
 
+  // Usado pelo sininho (js/tecnico-notificacoes.js) para abrir a OS do aviso. Devolve false
+  // enquanto a OS não está na lista (a lista chega depois do app abrir).
+  window.TecnicoApp={abrirAgendamento:function(id){
+    var existe=agendamentos.some(function(x){return String(x.IdAgendamento)===String(id);});
+    if(existe)abrirDetalhe(id);
+    return existe;
+  }};
+
   carregar();
   // Espera o Firebase Auth confirmar a sessão restaurada antes de abrir o
   // listener — senão dá "permission-denied" (request.auth ainda null) e,

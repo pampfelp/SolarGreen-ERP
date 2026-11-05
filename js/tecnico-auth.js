@@ -169,8 +169,10 @@ var SGAuth=(function(){
   });
 
   document.getElementById('btn-logout').addEventListener('click',function(){
-    SGAuth.clearSession();
-    location.reload();
+    // Antes de sair, este aparelho deixa de receber os avisos do técnico que saiu.
+    var sair=function(){ SGAuth.clearSession(); location.reload(); };
+    if(window.TecnicoNotificacoes)window.TecnicoNotificacoes.esquecerAparelho().then(sair,sair);
+    else sair();
   });
 
   // Decide qual tela mostrar ao carregar

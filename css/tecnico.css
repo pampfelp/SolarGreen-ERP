@@ -446,3 +446,43 @@
   #extra-card .sheet-actions .btn-remover{background:#fff;color:var(--debit);border:1px solid var(--line)!important;}
   #extra-card .extra-erro{font-size:12px;color:var(--debit);margin:-6px 0 10px;min-height:0;}
   #extra-card .extra-foto-prev{width:100%;max-height:260px;object-fit:contain;border-radius:10px;margin-bottom:12px;background:#f3f6f3;}
+
+  /* ── Sininho e popup de notificações (2026-11-05) ──
+     Copiado de css/app.css (#sg-notif-*), que este app não carrega. O sino é um
+     .icon-btn da barra de cima; o painel e os avisos descem do topo. */
+  #sg-notif-sino{position:relative;}
+  #sg-notif-sino svg{width:19px;height:19px;}
+  .sg-notif-badge{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--debit);color:#fff;font-size:10.5px;font-weight:700;display:none;align-items:center;justify-content:center;box-shadow:0 0 0 2px var(--sidebar-bg);}
+  #sg-notif-painel{position:fixed;top:calc(62px + env(safe-area-inset-top));left:10px;right:10px;z-index:250;max-height:min(520px,calc(100vh - 80px));overflow-y:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 34px rgba(0,0,0,.16);display:none;}
+  #sg-notif-painel.active{display:block;}
+  .sg-notif-cab{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);}
+  .sg-notif-cab h4{font-family:var(--unbounded);font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-faint);}
+  .sg-notif-cab button{background:none;border:none;color:var(--accent-deep);font-size:11.5px;font-weight:600;cursor:pointer;padding:0;font-family:var(--sans);}
+  .sg-notif-push{margin:10px 14px 4px;padding:10px 12px;border-radius:9px;background:var(--bg);font-size:12px;color:var(--ink-soft);line-height:1.45;display:flex;flex-direction:column;gap:8px;}
+  .sg-notif-push.acao{background:var(--accent-soft);color:var(--ink);}
+  .sg-notif-push button{align-self:flex-start;background:var(--accent);color:#003122;border:none;border-radius:8px;padding:8px 12px;font-weight:700;font-size:12px;cursor:pointer;font-family:var(--sans);}
+  .sg-notif-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);cursor:pointer;}
+  .sg-notif-item:last-child{border-bottom:none;}
+  .sg-notif-item.nova{background:var(--accent-soft);}
+  .sg-notif-item:not(.nova) .sg-notif-ico{opacity:.55;}
+  .sg-notif-vazio{font-size:12.5px;color:var(--ink-faint);text-align:center;padding:22px 14px;}
+  .sg-notif-ico{width:34px;height:34px;border-radius:50%;flex:none;background:var(--sidebar-bg);color:var(--accent);display:flex;align-items:center;justify-content:center;}
+  .sg-notif-ico svg{width:17px;height:17px;}
+  .atencao .sg-notif-ico{background:var(--warn-soft);color:var(--warn);}
+  .sg-notif-txt{min-width:0;flex:1;}
+  .sg-notif-txt .tag{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-faint);font-weight:600;}
+  .sg-notif-txt .principal{font-size:13px;font-weight:600;color:var(--ink);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .sg-notif-txt .sub{font-size:11.5px;color:var(--ink-soft);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  #sg-notif-pilha{position:fixed;left:12px;right:12px;top:calc(64px + env(safe-area-inset-top));z-index:450;max-width:400px;margin-left:auto;display:flex;flex-direction:column;gap:10px;pointer-events:none;}
+  .sg-notif-pop{pointer-events:auto;position:relative;overflow:hidden;display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:9px 10px 11px 9px;box-shadow:0 10px 30px rgba(0,49,34,.18);cursor:pointer;animation:sgNotifDesce .28s ease-out;}
+  .sg-notif-x{flex:none;width:30px;height:30px;border-radius:50%;border:none;background:none;color:var(--ink-faint);display:flex;align-items:center;justify-content:center;cursor:pointer;}
+  .sg-notif-x svg{width:15px;height:15px;}
+  .sg-notif-tempo{position:absolute;left:0;bottom:0;height:3px;width:100%;background:var(--accent);transform-origin:left;animation:sgNotifTempo linear forwards;}
+  .sg-notif-pop.atencao .sg-notif-tempo{background:var(--warn);}
+  @keyframes sgNotifDesce{from{transform:translateY(-18px);opacity:0;}}
+  @keyframes sgNotifTempo{to{transform:scaleX(0);}}
+  @media(min-width:761px){ #sg-notif-painel{left:auto;right:14px;width:370px;} }
+  #notif-ativar-overlay{z-index:600;}
+  .notif-ativar-txt{font-size:14px;line-height:1.5;color:var(--ink);margin-bottom:12px;}
+  .notif-ativar-erro{font-size:12px;color:var(--debit);margin-bottom:10px;}
+  .notif-ativar-erro:empty{display:none;}
