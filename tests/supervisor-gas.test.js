@@ -35,7 +35,8 @@ C.fbConfig_=()=>({projeto:'p',base:BASE});
 C.vendedoresFs_=()=>[
   {IdVendedor:'v1',Nome:'Marcilene Rodrigues',Tipo:'Vendedor',Status:'Ativo'},
   {IdVendedor:'v2',Nome:'Leonardo Lins',Tipo:'Vendedor',Status:'Inativo'},
-  {IdVendedor:'ceo',Nome:'Felipe',Tipo:'CEO',Status:'Ativo'}
+  {IdVendedor:'ceo',Nome:'Felipe',Tipo:'CEO',Status:'Ativo'},
+  {IdVendedor:'adm',Nome:'Juliana',Tipo:'Admin',Status:'Ativo'}           // Admin: não recebe a cópia
 ];
 C.fsListar_=(cfg,col)=>Object.keys(db[col]||{}).map(id=>Object.assign({_id:id},JSON.parse(JSON.stringify(db[col][id]))));
 C.fsApagar_=(cfg,caminho)=>{ const [col,id]=caminho.split('/'); apagados.push(caminho); delete db[col][id]; };
@@ -148,7 +149,7 @@ assert.equal(resumos.length,2);
 assert.deepEqual(JSON.parse(JSON.stringify(resumos[0].para)),['v1']);
 assert.equal(resumos[0].corpo,'3 clientes para chamar agora. Toque para abrir a lista com a mensagem pronta.');
 assert.equal(resumos[0].url,'index.html?supervisao=1');
-// Cópia para a gestão (05/11): só o CEO ativo, com o nome do vendedor, tag por vendedor e a tela de supervisão.
+// Cópia (05/11, "Só para mim"): só o CEO ativo, não o Admin, com o nome do vendedor, tag por vendedor e a tela de supervisão.
 assert.deepEqual(JSON.parse(JSON.stringify(resumos[1].para)),['ceo']);
 assert.equal(resumos[1].titulo,'Supervisão: Marcilene');
 assert.equal(resumos[1].corpo,'Marcilene tem 3 clientes para chamar agora.');
