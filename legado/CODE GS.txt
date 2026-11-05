@@ -7180,6 +7180,18 @@ function cobrancaInstalarGatilho() {
     return { titulo: 'Supervisor de vendas', corpo: n + ' clientes para chamar agora. Abra o sininho: cada um tem a mensagem pronta.' };
   }
 
+  // Cópia do resumo para a gestão (pedido do Felipe, 05/11): ele acompanha os
+  // avisos de todos os vendedores numa tela própria, fora do sininho dele.
+  function textoDaCopia(nomeVendedor, tipos) {
+    var quem = primeiroNome(nomeVendedor) || 'Vendedor';
+    var n = tipos.length;
+    var soPerguntas = tipos.every(function (t) { return t === TIPOS_AVISO.pergunta; });
+    return {
+      titulo: 'Supervisão: ' + quem,
+      corpo: quem + (soPerguntas ? ' tem ' + n + ' clientes esperando a próxima data de contato.' : ' tem ' + n + ' clientes para chamar agora.')
+    };
+  }
+
   var api = {
     LIMITE_POR_VENDEDOR: LIMITE_POR_VENDEDOR, HORAS_LEMBRETE: HORAS_LEMBRETE, PERGUNTA_DEPOIS_MS: PERGUNTA_DEPOIS_MS,
     ETAPAS_FORA: ETAPAS_FORA, PAPEIS_FORA: PAPEIS_FORA, TIPO_TENTATIVA: TIPO_TENTATIVA, TIPOS_CONVERSA: TIPOS_CONVERSA,
@@ -7195,7 +7207,7 @@ function cobrancaInstalarGatilho() {
     dataProcessoMs: dataProcessoMs, inicioDoPrazoMs: inicioDoPrazoMs, corDoPrazo: corDoPrazo,
     temDataValida: temDataValida, situacaoDoLead: situacaoDoLead, montarFila: montarFila,
     idAviso: idAviso, lerIdAviso: lerIdAviso, contatoNaHora: contatoNaHora, avisoAindaVale: avisoAindaVale, perguntaPendente: perguntaPendente,
-    textoDoAviso: textoDoAviso, textoDoResumo: textoDoResumo
+    textoDoAviso: textoDoAviso, textoDoResumo: textoDoResumo, textoDaCopia: textoDaCopia
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.SupervisorRegras = api;
@@ -7405,10 +7417,46 @@ function supervisorCriarAvisos_(ctx, pedidos) {
 // cliente. O clique abre o ERP com o sininho aberto.
 function supervisorResumoPush_(cfg, idVendedor, tipos, agora) {
   var t = SupervisorRegras.textoDoResumo(tipos);
-  return notifMandarPush_(cfg, [String(idVendedor)], {
+  var r = notifMandarPush_(cfg, [String(idVendedor)], {
     titulo: t.titulo, corpo: t.corpo, url: 'index.html?sininho=1',
     tag: 'supervisor-resumo', notifId: 'supervisor_resumo:' + idVendedor + ':' + agora
   });
+  try { supervisorCopiaPush_(cfg, idVendedor, tipos, agora); }
+  catch (e) { console.error('Supervisor: cópia para a gestão falhou: ' + e.message); }
+  return r;
+}
+
+// Cópia do resumo para a gestão (pedido do Felipe, 05/11), sem documento: não
+// entra no sininho dele, só no push e na tela de supervisão. Tag por vendedor
+// para um não substituir o outro na bandeja do celular.
+function supervisorCopiaPush_(cfg, idVendedor, tipos, agora) {
+  var vendedores = vendedoresFs_(cfg);
+  var gestao = vendedores.filter(ehGestaoAtivaFs_).map(function (v) { return String(v.IdVendedor); })
+    .filter(function (id) { return id !== String(idVendedor); });
+  if (!gestao.length) return { enviados: 0, aparelhos: 0 };
+  var dono = vendedores.filter(function (v) { return String(v.IdVendedor) === String(idVendedor); })[0] || {};
+  var c = SupervisorRegras.textoDaCopia(dono.Nome || '', tipos);
+  return notifMandarPush_(cfg, gestao, {
+    titulo: c.titulo, corpo: c.corpo, url: 'index.html?supervisao=1',
+    tag: 'supervisor-copia-' + idVendedor, notifId: 'supervisor_copia:' + idVendedor + ':' + agora
+  });
+}
+
+// Pelo editor: manda para a gestão os dois pushes de exemplo (o que o vendedor
+// recebe e a cópia da supervisão), com 25 lembretes, e mostra quantos aparelhos receberam.
+function supervisorTestarPush() {
+  var cfg = fbConfig_();
+  var vendedores = vendedoresFs_(cfg);
+  var gestao = vendedores.filter(ehGestaoAtivaFs_).map(function (v) { return String(v.IdVendedor); });
+  var tipos = [];
+  for (var i = 0; i < 25; i++) tipos.push(SupervisorRegras.TIPOS_AVISO.lembrete);
+  var agora = Date.now();
+  var t = SupervisorRegras.textoDoResumo(tipos);
+  var r1 = notifMandarPush_(cfg, gestao, { titulo: t.titulo + ' (teste)', corpo: t.corpo, url: 'index.html?sininho=1', tag: 'supervisor-teste-1', notifId: 'supervisor_teste:1:' + agora });
+  var exemplo = vendedores.filter(function (v) { return !ehGestaoAtivaFs_(v) && ehVendedorAtivoFs_(v); })[0] || { Nome: 'Vendedor' };
+  var c = SupervisorRegras.textoDaCopia(exemplo.Nome, tipos);
+  var r2 = notifMandarPush_(cfg, gestao, { titulo: c.titulo + ' (teste)', corpo: c.corpo, url: 'index.html?supervisao=1', tag: 'supervisor-teste-2', notifId: 'supervisor_teste:2:' + agora });
+  console.log('Gestão: ' + gestao.join(', ') + '. Push do vendedor: ' + r1.enviados + ' de ' + r1.aparelhos + ' aparelhos. Cópia: ' + r2.enviados + ' de ' + r2.aparelhos + '.');
 }
 
 // Pelo editor: mostra a fila que sairia agora, sem gravar nem mandar nada.

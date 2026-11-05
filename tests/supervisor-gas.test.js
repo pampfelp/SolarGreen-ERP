@@ -144,10 +144,16 @@ assert.equal(JSON.parse(props.SUPERVISOR_FILA).dia,'2026-11-05');
 // próprio e saem num push só de resumo; o contato agendado (a) segue com o seu.
 assert.deepEqual(pushes.filter(p=>p.semPush).map(p=>p.acao.idOportunidade).sort(),['b','c','e']);
 assert.equal(pa.semPush,undefined);
-assert.equal(resumos.length,1);
+assert.equal(resumos.length,2);
 assert.deepEqual(JSON.parse(JSON.stringify(resumos[0].para)),['v1']);
 assert.equal(resumos[0].corpo,'3 clientes para chamar agora. Abra o sininho: cada um tem a mensagem pronta.');
 assert.equal(resumos[0].url,'index.html?sininho=1');
+// Cópia para a gestão (05/11): só o CEO ativo, com o nome do vendedor, tag por vendedor e a tela de supervisão.
+assert.deepEqual(JSON.parse(JSON.stringify(resumos[1].para)),['ceo']);
+assert.equal(resumos[1].titulo,'Supervisão: Marcilene');
+assert.equal(resumos[1].corpo,'Marcilene tem 3 clientes para chamar agora.');
+assert.equal(resumos[1].tag,'supervisor-copia-v1');
+assert.equal(resumos[1].url,'index.html?supervisao=1');
 // c entrou na fila, mas na mesma volta recebeu a pergunta (um aviso por lead); às 13h fica fora.
 assert.deepEqual(JSON.parse(props.SUPERVISOR_FILA).porVendedor,{v1:['b','c','e']});
 
