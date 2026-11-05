@@ -56,10 +56,12 @@ self.addEventListener('push', function (event) {
     var j = event.data ? event.data.json() : {};
     d = j.data || j.notification || j;
   } catch (e) { d = {}; }
+  // Aviso de agendamento do app do técnico: o clique leva ao app dele, não ao ERP.
+  var ehTecnico = /indexdotecnico\.html/.test(d.url || '');
   var opcoes = {
     body: d.corpo || d.body || '',
-    icon: 'icons/icon-192-admin.png',
-    badge: 'icons/icon-192-admin.png',
+    icon: ehTecnico ? 'icons/icon-192-tecnico.png' : 'icons/icon-192-admin.png',
+    badge: ehTecnico ? 'icons/icon-192-tecnico.png' : 'icons/icon-192-admin.png',
     tag: d.tag || undefined,
     data: { url: d.url || 'index.html', notifId: d.notifId || '' }
   };
@@ -82,6 +84,20 @@ self.addEventListener('notificationclick', function (event) {
   // Endereço de fora do ERP (wa.me da cobrança de reserva) abre direto.
   if (new URL(alvo).origin !== self.location.origin) {
     event.waitUntil(self.clients.openWindow(alvo));
+    return;
+  }
+  // App do técnico: reaproveita a janela dele, senão abre (o ERP não entra nisso).
+  if (/\/indexdotecnico\.html$/.test(new URL(alvo).pathname)) {
+    event.waitUntil(
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (janelas) {
+        var app = janelas.filter(function (c) { return /\/indexdotecnico\.html$/.test(new URL(c.url).pathname); })[0];
+        if (app) {
+          app.postMessage({ tipo: 'sg-notif-abrir', url: alvo });
+          return app.focus();
+        }
+        return self.clients.openWindow(alvo);
+      })
+    );
     return;
   }
   event.waitUntil(
