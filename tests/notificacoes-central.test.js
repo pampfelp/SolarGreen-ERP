@@ -100,7 +100,7 @@ context.notificacoesVarrer();
 const resumos=pushes.filter(p=>/^supervisor_resumo:V1:/.test(p.data.notifId));
 assert.equal(resumos.length,1);
 assert.match(resumos[0].data.corpo,/^3 clientes esperam a próxima data/);
-assert.equal(resumos[0].data.url,'index.html?sininho=1');
+assert.equal(resumos[0].data.url,'index.html?supervisao=1');
 assert.deepEqual(pushes.map(p=>p.data.notifId).filter(id=>!/^supervisor_resumo/.test(id)),['outro']);
 assert.equal(commits.filter(w=>w.updateMask.fieldPaths[0]==='pushEnviadoEm').length,4);
 

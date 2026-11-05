@@ -333,8 +333,8 @@
   function textoDoResumo(tipos) {
     var n = tipos.length;
     var soPerguntas = tipos.every(function (t) { return t === TIPOS_AVISO.pergunta; });
-    if (soPerguntas) return { titulo: 'Supervisor de vendas', corpo: n + ' clientes esperam a próxima data de contato. Abra o sininho para marcar.' };
-    return { titulo: 'Supervisor de vendas', corpo: n + ' clientes para chamar agora. Abra o sininho: cada um tem a mensagem pronta.' };
+    if (soPerguntas) return { titulo: 'Supervisor de vendas', corpo: n + ' clientes esperam a próxima data de contato. Toque para marcar.' };
+    return { titulo: 'Supervisor de vendas', corpo: n + ' clientes para chamar agora. Toque para abrir a lista com a mensagem pronta.' };
   }
 
   // Cópia do resumo para a gestão (pedido do Felipe, 05/11): ele acompanha os

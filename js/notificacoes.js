@@ -190,7 +190,7 @@
       if(e.target.closest('.sg-notif-x')){ fecharPopup(id); return; }
       fecharPopup(id);
       // Resumo abre o sininho (sem deixar o clique fora do painel fechá-lo de novo).
-      if(id.indexOf(ID_RESUMO)===0){ e.stopPropagation(); painel.classList.add('active'); renderPush(); return; }
+      if(id.indexOf(ID_RESUMO)===0){ e.stopPropagation(); abrirSupervisao(); return; }
       var n=_todas.filter(function(x){ return x.id===id; })[0];
       if(n)abrir(n);
     });
@@ -227,7 +227,7 @@
       var agora=Date.now();
       doSupervisor.forEach(function(n){ _mostrados[n.id]=agora; });
       novos=novos.filter(function(n){ return doSupervisor.indexOf(n)===-1; });
-      novos.unshift({id:ID_RESUMO+agora,tipo:'supervisor_resumo',doc:true,ms:agora,titulo:'Supervisor de vendas',corpo:doSupervisor.length+' avisos novos no sininho. Toque para ver.',url:''});
+      novos.unshift({id:ID_RESUMO+agora,tipo:'supervisor_resumo',doc:true,ms:agora,titulo:'Supervisor de vendas',corpo:doSupervisor.length+' clientes para chamar. Toque para abrir a lista.',url:''});
     }
     // Mais antigo primeiro, pra o mais novo ficar no topo da pilha.
     novos.slice(0,MAX_POPUPS).reverse().forEach(function(n){ _fila.push(n); });
@@ -336,6 +336,18 @@
     if(p.get('lead')||p.get('tela'))abrirDestino({lead:p.get('lead'),tela:p.get('tela')});
     if(p.get('cobranca')&&window.SGCobranca)window.SGCobranca.abrirDaNotificacao(p.get('cobranca'),p.get('msg'));
     if(p.get('cobrancaPlano')&&window.SGCobranca)window.SGCobranca.abrirPlano(p.get('cobrancaPlano'));
+    // Push de resumo do supervisor (05/11): com o ERP já aberto, o clique chega
+    // por aqui; antes não abria nada.
+    if(p.get('supervisao')==='1')abrirSupervisao();
+    else if(p.get('sininho')==='1')abrirSininho();
+  }
+  function abrirSininho(){
+    var painel=el('sg-notif-painel');
+    if(!painel)return;
+    painel.classList.add('active'); renderPush();
+  }
+  function abrirSupervisao(){
+    if(window.SGSupervisao)window.SGSupervisao.abrir(); else abrirSininho();
   }
 
   // ── Push neste aparelho ────────────────────────────────────────────────
