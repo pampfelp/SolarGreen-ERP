@@ -314,6 +314,10 @@
         // Posição manual do drag-and-drop (millis) — quando presente, o Kanban
         // ordena por isso em vez de dataProcesso, pra arrastar não mudar de lugar.
         ordemKanban:typeof o.OrdemKanban==='number'?o.OrdemKanban:null,
+        // Supervisor de vendas (2026-11-05): data e hora do próximo contato (ms)
+        // e o aviso do sininho ainda pendente para este lead (gravado pelo Apps Script).
+        proximoContatoEm:typeof o.ProximoContatoEm==='number'?o.ProximoContatoEm:null,
+        supervisorAvisoId:String(o.SupervisorAvisoId||''),
         // Campos calculados após enriquecimento com log/SLA
         dataProcesso:null,dataProcessoKey:null,diasNaEtapa:0,slaColor:'green',temLog:false
       };
@@ -343,8 +347,42 @@
       r.dataProcessoKey = r.dataProcesso ? dateKey(r.dataProcesso) : r.dateKey; // ← chave usada para o filtro de período
       r.temLog = r.dataProcesso !== r.dt; // se diverge de dt, veio do log
       r.diasNaEtapa = getDiasNaEtapa(r.dataProcesso);
-      r.slaColor = getSLAColor(r.diasNaEtapa,r.etapa,r.pipeline);
+      // A Tentativa de Contato zera só a bolinha (2026-11-05): a cor conta a
+      // partir dela; Data, dias na etapa, KPIs e gráfico seguem dataProcesso.
+      var inicioCor=SR()?new Date(SR().inicioDoPrazoMs(r.dataProcesso.getTime(),r.atividades)):r.dataProcesso;
+      r.slaColor = getSLAColor(getDiasNaEtapa(inicioCor),r.etapa,r.pipeline);
     });
+  }
+
+  // ── Próximo contato (supervisor de vendas, 2026-11-05) ──
+  // Regra em js/supervisor-regras.js: data e hora obrigatórias ao mover para
+  // etapa do supervisor, ao registrar Conversa no WhatsApp ou Ligação e ao
+  // criar o lead fora das etapas excluídas.
+  function SR(){ return window.SupervisorRegras||null; }
+  function SR_TENTATIVA(){ return SR()?SR().TIPO_TENTATIVA:'Tentativa de Contato'; }
+  function pedeProximoContato(etapa,idPipeline){ return !!(SR()&&SR().etapaNoSupervisor(etapa,idPipeline,funilPipelines)); }
+  function htmlCampoProximoContato(prefixo){
+    return '<div class="uform-field" id="'+prefixo+'-proximoWrap" style="display:none;">'+
+      '<label>Próximo contato <span class="req">*</span></label>'+
+      '<div style="display:flex;gap:6px;">'+
+        '<input type="date" id="'+prefixo+'-proximoData" style="flex:1;min-width:0;">'+
+        '<input type="time" id="'+prefixo+'-proximoHora" style="flex:none;width:112px;">'+
+      '</div>'+
+    '</div>';
+  }
+  function preencherCampoProximoContato(prefixo,ms){
+    var c=SR()?SR().camposDoMs(SR().temDataValida(ms,Date.now())?ms:null):{data:'',hora:''};
+    document.getElementById(prefixo+'-proximoData').value=c.data;
+    document.getElementById(prefixo+'-proximoHora').value=c.hora;
+  }
+  function mostrarCampoProximoContato(prefixo,mostrar){ document.getElementById(prefixo+'-proximoWrap').style.display=mostrar?'block':'none'; }
+  function lerCampoProximoContato(prefixo){
+    return SR()?SR().msDosCampos(document.getElementById(prefixo+'-proximoData').value,document.getElementById(prefixo+'-proximoHora').value):null;
+  }
+  // O aviso pendente do sininho deixa de valer quando o lead ganha data ou sai do supervisor.
+  function avisoParaResolver(lead,proximoMs,etapaNova){
+    if(!lead||!lead.supervisorAvisoId)return undefined;
+    return (typeof proximoMs==='number'||!pedeProximoContato(etapaNova,lead.pipeline))?lead.supervisorAvisoId:undefined;
   }
 
   function updateSortHeaders(){
@@ -1059,10 +1097,23 @@
       });
       return;
     }
+    // Etapa do supervisor pede a data e a hora do próximo contato antes de mover.
+    if(pedeProximoContato(novaEtapa,leadOriginal.pipeline)&&window.SGSupervisor){
+      window.SGSupervisor.pedirProximoContato({
+        titulo:'Próximo contato',
+        mensagem:'Quando falar de novo com "'+tituloDoCard(leadOriginal)+'" em "'+novaEtapa+'"?',
+        valorInicial:leadOriginal.proximoContatoEm,
+        textoConfirmar:'Mover para '+novaEtapa
+      }).then(function(ms){
+        if(ms===null){ if(aoCancelar)aoCancelar(); return; }
+        executarMovimentoEtapa(idLead,novaEtapa,leadOriginal.motivoPerda,ordemKanban,ms);
+      });
+      return;
+    }
     executarMovimentoEtapa(idLead,novaEtapa,leadOriginal.motivoPerda,ordemKanban);
   }
 
-  function executarMovimentoEtapa(idLead,novaEtapa,motivoPerda,ordemKanban){
+  function executarMovimentoEtapa(idLead,novaEtapa,motivoPerda,ordemKanban,proximoContatoEm){
     var indice=funilRecords.findIndex(function(x){return String(x.id)===String(idLead);});
     if(indice===-1)return;
     var leadOriginal=funilRecords[indice];
@@ -1078,7 +1129,8 @@
       etapa:novaEtapa, dataProcesso:agora, dataProcessoKey:dateKey(agora),
       diasNaEtapa:0, slaColor:'green', temLog:true, etapasPassadas:etapasPassadasNovo, transicoes:transicoesNovo,
       motivoPerda:motivoPerda||'', ordemKanban:novoOrdem
-    },perda?{tipoPerda:perda.tipo,tipoPerdaOrigem:perda.origem}:{});
+    },perda?{tipoPerda:perda.tipo,tipoPerdaOrigem:perda.origem}:{},
+      typeof proximoContatoEm==='number'?{proximoContatoEm:proximoContatoEm}:{});
     funilRecords[indice]=registroNovo;
     garantirDataVisivelNoFiltro(registroNovo.dataProcessoKey);
     _epoca.marcar();
@@ -1094,7 +1146,10 @@
       valorEstimado: leadOriginal.valor,
       motivoPerda: motivoPerda||'',
       tipoPerda: perda?perda.tipo:undefined, tipoPerdaOrigem: perda?perda.origem:undefined,
-      ordemKanban: novoOrdem
+      ordemKanban: novoOrdem,
+      proximoContatoEm: typeof proximoContatoEm==='number'?proximoContatoEm:undefined,
+      supervisorPerguntaEm: typeof proximoContatoEm==='number'?null:undefined,
+      resolverAviso: avisoParaResolver(leadOriginal,proximoContatoEm,novaEtapa)
     }).then(function(resp){
       if(!resp||!resp.ok){
         var idx=funilRecords.findIndex(function(x){return String(x.id)===String(idLead);});
@@ -1187,6 +1242,14 @@
     document.getElementById('fat-msg').textContent='';
     var agora=new Date();
     document.getElementById('fat-quando').textContent='Registrado agora: '+agora.toLocaleDateString('pt-BR')+' às '+agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    // Conversa no WhatsApp e Ligação em etapa do supervisor pedem o próximo contato.
+    var leadDoModal=funilRecords.filter(function(x){return String(x.id)===String(idLead);})[0]||{};
+    function pedeDataNoModal(){
+      return TIPOS_ATIVIDADE_CONVERSA.indexOf(document.getElementById('fat-tipo').value)!==-1&&pedeProximoContato(leadDoModal.etapa,leadDoModal.pipeline);
+    }
+    preencherCampoProximoContato('fat',leadDoModal.proximoContatoEm);
+    mostrarCampoProximoContato('fat',pedeDataNoModal());
+    document.getElementById('fat-tipo').onchange=function(){ mostrarCampoProximoContato('fat',pedeDataNoModal()); };
     modal.classList.remove('hidden');
 
     function fechar(){ modal.classList.add('hidden'); }
@@ -1198,9 +1261,18 @@
       var obs=document.getElementById('fat-obs').value.trim();
       var indice=funilRecords.findIndex(function(x){return String(x.id)===String(idLead);});
       if(indice===-1){ fechar(); return; }
+      var pedeData=pedeDataNoModal();
+      var proximoMs=pedeData?lerCampoProximoContato('fat'):null;
+      var erroData=pedeData?SR().erroDaData(proximoMs,Date.now()):'';
+      if(erroData){ document.getElementById('fat-msg').textContent=erroData; return; }
+      var proximoAntes=funilRecords[indice].proximoContatoEm;
+      // Tentativa zera a cor: o lembrete de vermelho pendente deixa de valer.
+      var avisoPendente=funilRecords[indice].supervisorAvisoId;
+      var resolverNaTentativa=(tipo===SR_TENTATIVA()&&avisoPendente&&avisoPendente.indexOf('supervisor_lembrete:')===0)?avisoPendente:undefined;
       var novaAtividade={Tipo:tipo,Em:new Date().toISOString(),Observacao:obs};
       var atividadesAntes=funilRecords[indice].atividades||[];
       funilRecords[indice].atividades=atividadesAntes.concat([novaAtividade]);
+      if(pedeData)funilRecords[indice].proximoContatoEm=proximoMs;
       // Recalcula dataProcesso/dataProcessoKey/diasNaEtapa/slaColor NA HORA
       // (mesmo padrão de moverLeadParaEtapa) — sem isso, uma Conversa no
       // WhatsApp/Ligação só aparecia no gráfico "Movimentações por dia" e no
@@ -1215,7 +1287,15 @@
       mostrarToastFunil('Atividade registrada.');
       if(leadAtual&&String(leadAtual.id)===String(idLead))abrirVisualizacaoLead(idLead);
 
-      apiCall('registrarAtividadeFunil',{idOportunidade:idLead,tipo:tipo,observacao:obs}).then(function(resp){
+      if(pedeData){
+        apiCall('atualizarProximoContatoFunil',{idOportunidade:idLead,proximoContatoEm:proximoMs,supervisorPerguntaEm:null,resolverAviso:avisoPendente||undefined}).then(function(resp){
+          if(resp&&resp.ok)return;
+          var idx=funilRecords.findIndex(function(x){return String(x.id)===String(idLead);});
+          if(idx!==-1)funilRecords[idx].proximoContatoEm=proximoAntes;
+          mostrarToastFunil((resp&&resp.erro)||'Não foi possível salvar o próximo contato.',true);
+        }).catch(function(err){ mostrarToastFunil('Erro de conexão — próximo contato não salvo: '+err.message,true); });
+      }
+      apiCall('registrarAtividadeFunil',{idOportunidade:idLead,tipo:tipo,observacao:obs,resolverAviso:resolverNaTentativa}).then(function(resp){
         if(!resp||!resp.ok){
           var idx=funilRecords.findIndex(function(x){return String(x.id)===String(idLead);});
           if(idx!==-1){
@@ -1354,6 +1434,7 @@
         '<span class="dl">Etapa</span>'+
         '<select id="fv-etapaSelect" style="font-family:var(--sans);font-size:12px;font-weight:600;border:1px solid var(--line);border-radius:20px;padding:4px 10px;background:#fff;color:var(--ink);cursor:pointer;">'+etapasOpts+'</select>'+
       '</div>'+
+      (r.proximoContatoEm&&SR()?'<div class="ad-row"><span class="dl">Próximo contato</span><span class="dv">'+escapeHtml(SR().textoDataHora(r.proximoContatoEm))+'</span></div>':'')+
       '<div class="ad-row" style="align-items:center;"><span class="dl">Prioridade</span><label class="switch"><input type="checkbox" id="fv-prioridadeToggle" '+(r.prioridade?'checked':'')+'><span class="slider"></span></label></div>'+
       '<div class="ad-row" style="margin-top:10px;"><span class="dl">Cliente</span><span class="dv"><button type="button" id="fv-clienteLink" class="link-btn">'+escapeHtml(nomeClienteFor(r.idCliente))+'</button></span></div>'+
       (c.Telefone?'<div class="ad-row"><span class="dl">Telefone</span><span class="dv">'+escapeHtml(c.Telefone)+'</span></div>':'')+
@@ -1537,6 +1618,7 @@
         '<label>Etapa <span class="req">*</span></label>'+
         '<select id="fd-etapa">'+etapasOpts+'</select>'+
       '</div>'+
+      htmlCampoProximoContato('fd')+
       '<div class="uform-field" id="fd-motivoPerdaWrap" style="display:none;"><label>Motivo da perda</label><input type="text" id="fd-motivoPerda" placeholder="Ex: Contratou outra empresa"></div>'+
       '<div class="uform-field"><label>Valor estimado <span class="req">*</span></label><input type="number" id="fd-valor" step="0.01" min="0"></div>'+
       '<div class="uform-field"><label>Observações</label><textarea id="fd-obs" rows="4" style="width:100%;font-family:var(--sans);font-size:13px;border:1px solid var(--line);border-radius:7px;padding:9px 12px;background:#fff;color:var(--ink);resize:vertical;"></textarea></div>'+
@@ -1601,6 +1683,9 @@
     document.getElementById('fd-motivoPerda').value=r?(r.motivoPerda||''):'';
     atualizarVisibilidadeMotivoPerda();
     document.getElementById('fd-etapa').addEventListener('change',atualizarVisibilidadeMotivoPerda);
+    preencherCampoProximoContato('fd',r?r.proximoContatoEm:null);
+    atualizarVisibilidadeProximoContato();
+    document.getElementById('fd-etapa').addEventListener('change',atualizarVisibilidadeProximoContato);
 
     document.getElementById('funilDetalhe').classList.add('active');
     document.getElementById('adBackdrop').classList.add('active');
@@ -1952,6 +2037,11 @@
     document.getElementById('fd-motivoPerdaWrap').style.display=ehEtapaPerdido(etapa,idPipe)?'block':'none';
   }
 
+  function pipelineDoPainel(){ return (leadAtual&&leadAtual.pipeline)||((pipelineCorrente()||{}).IdPipeline||''); }
+  function atualizarVisibilidadeProximoContato(){
+    mostrarCampoProximoContato('fd',pedeProximoContato(document.getElementById('fd-etapa').value,pipelineDoPainel()));
+  }
+
   function fecharPainelLead(){
     document.getElementById('funilDetalhe').classList.remove('active');
     document.getElementById('adBackdrop').classList.remove('active');
@@ -1970,6 +2060,16 @@
     if(!idServico){ mostrarToastFunil('Selecione o serviço.',true); return; }
     if(!etapa){ mostrarToastFunil('Selecione a etapa.',true); return; }
     if(!valor){ mostrarToastFunil('Informe o valor estimado.',true); return; }
+    // Próximo contato: obrigatório ao criar ou mover para etapa do supervisor.
+    // Editando sem mudar de etapa, só grava se a data mudou.
+    var pedeData=pedeProximoContato(etapa,pipelineDoPainel());
+    var proximoMs=pedeData?lerCampoProximoContato('fd'):null;
+    var exigeData=pedeData&&(!leadAtual||leadAtual.etapa!==etapa);
+    if(!exigeData&&leadAtual&&proximoMs===leadAtual.proximoContatoEm)proximoMs=null; // sem mudança
+    if(exigeData||proximoMs!==null){
+      var erroData=SR().erroDaData(proximoMs,Date.now());
+      if(erroData){ mostrarToastFunil(erroData,true); return; }
+    }
 
     var obs=document.getElementById('fd-obs').value;
     var motivoPerda=document.getElementById('fd-motivoPerda').value;
@@ -2001,8 +2101,11 @@
       dataProcesso:agora, dataProcessoKey:dateKey(agora),
       diasNaEtapa:(leadAtual&&leadAtual.etapa===etapa)?leadAtual.diasNaEtapa:0,
       slaColor:(leadAtual&&leadAtual.etapa===etapa)?leadAtual.slaColor:'green',
-      temLog:true, etapasPassadas:etapasPassadasNovo, transicoes:transicoesNovo
+      temLog:true, etapasPassadas:etapasPassadasNovo, transicoes:transicoesNovo,
+      proximoContatoEm:proximoMs!==null?proximoMs:((leadAtual&&leadAtual.proximoContatoEm)||null),
+      supervisorAvisoId:(leadAtual&&leadAtual.supervisorAvisoId)||''
     };
+    var avisoResolver=avisoParaResolver(leadAtual,proximoMs===null?undefined:proximoMs,etapa);
     if(indiceExistente===-1)funilRecords.push(registroNovo);
     else funilRecords[indiceExistente]=registroNovo;
     garantirDataVisivelNoFiltro(registroNovo.dataProcessoKey);
@@ -2030,7 +2133,10 @@
       valorEstimado: valor,
       motivoPerda: motivoPerda,
       tipoPerda: perda?perda.tipo:undefined, tipoPerdaOrigem: perda?perda.origem:undefined,
-      pipeline: pipelineDoLead
+      pipeline: pipelineDoLead,
+      proximoContatoEm: proximoMs!==null?proximoMs:undefined,
+      supervisorPerguntaEm: proximoMs!==null?null:undefined,
+      resolverAviso: avisoResolver
     }).then(function(resp){
       if(!resp||!resp.ok){ desfazer((resp&&resp.erro)||'Não foi possível salvar — a alteração foi desfeita.'); return; }
       if(perda&&!perda.tipo)perguntarTipoPerdaAoJev(resp.idOportunidade||id,motivoPerda);
