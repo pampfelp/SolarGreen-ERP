@@ -7176,8 +7176,8 @@ function cobrancaInstalarGatilho() {
   function textoDoResumo(tipos) {
     var n = tipos.length;
     var soPerguntas = tipos.every(function (t) { return t === TIPOS_AVISO.pergunta; });
-    if (soPerguntas) return { titulo: 'Supervisor de vendas', corpo: n + ' clientes esperam a próxima data de contato. Abra o sininho para marcar.' };
-    return { titulo: 'Supervisor de vendas', corpo: n + ' clientes para chamar agora. Abra o sininho: cada um tem a mensagem pronta.' };
+    if (soPerguntas) return { titulo: 'Supervisor de vendas', corpo: n + ' clientes esperam a próxima data de contato. Toque para marcar.' };
+    return { titulo: 'Supervisor de vendas', corpo: n + ' clientes para chamar agora. Toque para abrir a lista com a mensagem pronta.' };
   }
 
   // Cópia do resumo para a gestão (pedido do Felipe, 05/11): ele acompanha os
@@ -7414,11 +7414,11 @@ function supervisorCriarAvisos_(ctx, pedidos) {
 }
 
 // Push único de resumo, sem documento próprio: o sininho já tem um item por
-// cliente. O clique abre o ERP com o sininho aberto.
+// cliente. O clique abre o ERP na tela Supervisão (js/supervisao.js).
 function supervisorResumoPush_(cfg, idVendedor, tipos, agora) {
   var t = SupervisorRegras.textoDoResumo(tipos);
   var r = notifMandarPush_(cfg, [String(idVendedor)], {
-    titulo: t.titulo, corpo: t.corpo, url: 'index.html?sininho=1',
+    titulo: t.titulo, corpo: t.corpo, url: 'index.html?supervisao=1',
     tag: 'supervisor-resumo', notifId: 'supervisor_resumo:' + idVendedor + ':' + agora
   });
   try { supervisorCopiaPush_(cfg, idVendedor, tipos, agora); }
@@ -7452,7 +7452,7 @@ function supervisorTestarPush() {
   for (var i = 0; i < 25; i++) tipos.push(SupervisorRegras.TIPOS_AVISO.lembrete);
   var agora = Date.now();
   var t = SupervisorRegras.textoDoResumo(tipos);
-  var r1 = notifMandarPush_(cfg, gestao, { titulo: t.titulo + ' (teste)', corpo: t.corpo, url: 'index.html?sininho=1', tag: 'supervisor-teste-1', notifId: 'supervisor_teste:1:' + agora });
+  var r1 = notifMandarPush_(cfg, gestao, { titulo: t.titulo + ' (teste)', corpo: t.corpo, url: 'index.html?supervisao=1', tag: 'supervisor-teste-1', notifId: 'supervisor_teste:1:' + agora });
   var exemplo = vendedores.filter(function (v) { return !ehGestaoAtivaFs_(v) && ehVendedorAtivoFs_(v); })[0] || { Nome: 'Vendedor' };
   var c = SupervisorRegras.textoDaCopia(exemplo.Nome, tipos);
   var r2 = notifMandarPush_(cfg, gestao, { titulo: c.titulo + ' (teste)', corpo: c.corpo, url: 'index.html?supervisao=1', tag: 'supervisor-teste-2', notifId: 'supervisor_teste:2:' + agora });

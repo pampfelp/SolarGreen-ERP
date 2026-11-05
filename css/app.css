@@ -897,6 +897,38 @@
     #sg-notif-pilha{left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));width:auto;}
   }
 
+  /* ── Supervisão (js/supervisao.js, 2026-11-05): botão ao lado do sininho e
+     painel com os clientes de hoje. Mesma linguagem do sininho. */
+  #sg-sup-btn{position:fixed;top:14px;right:66px;z-index:121;height:40px;padding:0 14px;border-radius:20px;background:var(--panel);border:1px solid var(--line);color:var(--sidebar-bg);display:flex;align-items:center;gap:7px;cursor:pointer;box-shadow:0 4px 14px rgba(0,49,34,.10);font:700 12.5px var(--sans);}
+  #sg-sup-btn:hover{border-color:var(--accent);}
+  #sg-sup-btn svg{width:17px;height:17px;}
+  #sg-sup-btn .sg-sup-badge{min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--debit);color:#fff;font-size:10.5px;display:none;align-items:center;justify-content:center;}
+  #sg-sup-painel{position:fixed;top:62px;right:18px;z-index:250;width:400px;max-height:min(600px,calc(100vh - 80px));overflow-y:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 34px rgba(0,0,0,.16);display:none;}
+  #sg-sup-painel.active{display:block;}
+  .sg-sup-bloco{padding:12px 14px;border-bottom:1px solid var(--line);}
+  .sg-sup-bloco:last-child{border-bottom:none;}
+  .sg-sup-topo{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
+  .sg-sup-nome{font-weight:700;font-size:14px;color:var(--ink);}
+  .sg-sup-num{font-size:12px;color:var(--ink-faint);white-space:nowrap;}
+  .sg-sup-barra{height:6px;border-radius:4px;background:var(--line);margin:8px 0 6px;overflow:hidden;}
+  .sg-sup-barra i{display:block;height:100%;background:var(--accent);}
+  .sg-sup-leg{font-size:12px;color:var(--ink-soft);}
+  .sg-sup-feito{color:var(--accent-deep);font-weight:700;}
+  .sg-sup-pend{color:var(--warn);font-weight:700;}
+  .sg-sup-hora{color:var(--ink-soft);font-weight:700;}
+  .sg-sup-cli{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px dashed var(--line);font-size:12.5px;}
+  .sg-sup-cli .quem{min-width:0;flex:1;}
+  .sg-sup-cli .quem b{display:block;font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .sg-sup-cli .quem span{display:block;color:var(--ink-soft);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .sg-sup-cli button{flex:none;background:var(--accent);color:#003122;border:none;border-radius:8px;padding:7px 11px;font-weight:700;font-size:12px;cursor:pointer;font-family:var(--sans);}
+  .sg-sup-lista{margin-top:6px;}
+  .sg-sup-ver{background:none;border:none;padding:0;margin-top:6px;color:var(--accent-deep);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--sans);}
+  .sg-sup-vazio{font-size:12.5px;color:var(--ink-faint);text-align:center;padding:22px 14px;}
+  @media(max-width:760px){
+    #sg-sup-btn{top:13px;right:62px;height:36px;padding:0 11px;border-radius:9px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;box-shadow:none;}
+    #sg-sup-painel{top:58px;left:10px;right:10px;width:auto;}
+  }
+
   /* ── Vendas: abas Relatório/Cobrança e tela de Cobrança ── */
   .sub-tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:20px;}
   .sub-tab{background:none;border:none;border-bottom:3px solid transparent;margin-bottom:-1px;padding:10px 16px;font-family:var(--sans);font-size:13px;font-weight:700;color:var(--ink-faint);cursor:pointer;}

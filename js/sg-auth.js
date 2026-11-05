@@ -1088,6 +1088,7 @@
     if(navFunilSite&&isAdmin()) navFunilSite.style.display='';
     if(window.SGPermissoes)window.SGPermissoes.carregar();
     if(window.SGNotificacoes)window.SGNotificacoes.init();
+    if(window.SGSupervisao)window.SGSupervisao.init();
     aquecerAbasEmSegundoPlano();
   }
 
