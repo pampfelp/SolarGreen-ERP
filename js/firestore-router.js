@@ -439,7 +439,9 @@
   // direto no doc, sem subcoleção) — Tipo/Em/Observacao por registro.
   function registrarAtividadeFunil(p){
     return db().collection('funil').doc(p.idOportunidade).update({
-      Atividades: firebase.firestore.FieldValue.arrayUnion({Tipo:p.tipo,Em:new Date().toISOString(),Observacao:p.observacao||''})
+      // Origem (2026-11-05): 'supervisor' na tentativa do Enviar do aviso, ver
+      // TENTATIVA_ZERA_PRAZO em js/supervisor-regras.js. Sem origem, igual a antes.
+      Atividades: firebase.firestore.FieldValue.arrayUnion(semUndefined({Tipo:p.tipo,Em:new Date().toISOString(),Observacao:p.observacao||'',Origem:p.origem||undefined}))
     }).then(function(){ resolverAvisoSupervisor(p.resolverAviso); return {ok:true}; })
       .catch(function(err){ return {ok:false,erro:err.message}; });
   }

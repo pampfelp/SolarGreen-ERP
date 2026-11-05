@@ -87,7 +87,7 @@
 
     var pergunta=R().horarioDaPergunta(Date.now());
     apiCall('registrarAtividadeFunil',{
-      idOportunidade:a.idOportunidade, tipo:R().TIPO_TENTATIVA,
+      idOportunidade:a.idOportunidade, tipo:R().TIPO_TENTATIVA, origem:R().ORIGEM_SUPERVISOR,
       observacao:'Mensagem da etapa '+(a.etapa||'')+' aberta no WhatsApp pelo aviso do supervisor.',
       resolverAviso:notif.id
     }).then(function(resp){

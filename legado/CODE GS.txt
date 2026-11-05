@@ -6690,6 +6690,12 @@ function cobrancaInstalarGatilho() {
 
   var TIPO_TENTATIVA = 'Tentativa de Contato';
   var TIPOS_CONVERSA = ['Conversa no WhatsApp', 'Ligação'];
+  // Qual Tentativa de Contato deixa a bolinha verde: 'todas' (também a
+  // registrada à mão no Funil) ou 'supervisor' (só a do Enviar do aviso, que
+  // grava Origem: 'supervisor'). O Felipe decidiu pela do supervisor; a manual
+  // ainda espera a palavra dele (2026-11-05). Trocar só aqui.
+  var TENTATIVA_ZERA_PRAZO = 'todas';
+  var ORIGEM_SUPERVISOR = 'supervisor';
 
   var LIMITE_POR_VENDEDOR = 25;
   var HORAS_LEMBRETE = [9, 13, 16];      // seg a sex
@@ -6846,8 +6852,17 @@ function cobrancaInstalarGatilho() {
   }
   // A Tentativa de Contato zera só a cor do prazo: a bolinha conta a partir
   // dela, e a data da etapa (KPIs, gráfico de movimentações) não muda.
-  function inicioDoPrazoMs(dataProcesso, atividades) {
-    var tentativa = ultimaAtividadeMs(atividades, [TIPO_TENTATIVA]);
+  function tentativaZeraPrazo(atividade, modo) {
+    if (!atividade || atividade.Tipo !== TIPO_TENTATIVA) return false;
+    return (modo || TENTATIVA_ZERA_PRAZO) === 'todas' || atividade.Origem === ORIGEM_SUPERVISOR;
+  }
+  function inicioDoPrazoMs(dataProcesso, atividades, modo) {
+    var tentativa = null;
+    (atividades || []).forEach(function (a) {
+      if (!tentativaZeraPrazo(a, modo)) return;
+      var t = emMs(a.Em);
+      if (t !== null && (tentativa === null || t > tentativa)) tentativa = t;
+    });
     if (tentativa !== null && (dataProcesso == null || tentativa > dataProcesso)) return tentativa;
     return dataProcesso;
   }
@@ -6973,6 +6988,7 @@ function cobrancaInstalarGatilho() {
   var api = {
     LIMITE_POR_VENDEDOR: LIMITE_POR_VENDEDOR, HORAS_LEMBRETE: HORAS_LEMBRETE, PERGUNTA_DEPOIS_MS: PERGUNTA_DEPOIS_MS,
     ETAPAS_FORA: ETAPAS_FORA, PAPEIS_FORA: PAPEIS_FORA, TIPO_TENTATIVA: TIPO_TENTATIVA, TIPOS_CONVERSA: TIPOS_CONVERSA,
+    TENTATIVA_ZERA_PRAZO: TENTATIVA_ZERA_PRAZO, ORIGEM_SUPERVISOR: ORIGEM_SUPERVISOR, tentativaZeraPrazo: tentativaZeraPrazo,
     TIPOS_AVISO: TIPOS_AVISO,
     normalizar: normalizar, primeiroNome: primeiroNome, telefoneWa: telefoneWa,
     partes: partes, msBelem: msBelem, chaveDia: chaveDia, inicioDoDia: inicioDoDia, ehDiaUtil: ehDiaUtil,

@@ -348,7 +348,8 @@
       r.temLog = r.dataProcesso !== r.dt; // se diverge de dt, veio do log
       r.diasNaEtapa = getDiasNaEtapa(r.dataProcesso);
       // A Tentativa de Contato zera só a bolinha (2026-11-05): a cor conta a
-      // partir dela; Data, dias na etapa, KPIs e gráfico seguem dataProcesso.
+      // partir dela (qual tentativa: TENTATIVA_ZERA_PRAZO em js/supervisor-regras.js);
+      // Data, dias na etapa, KPIs e gráfico seguem dataProcesso.
       var inicioCor=SR()?new Date(SR().inicioDoPrazoMs(r.dataProcesso.getTime(),r.atividades)):r.dataProcesso;
       r.slaColor = getSLAColor(getDiasNaEtapa(inicioCor),r.etapa,r.pipeline);
     });
@@ -359,7 +360,6 @@
   // etapa do supervisor, ao registrar Conversa no WhatsApp ou Ligação e ao
   // criar o lead fora das etapas excluídas.
   function SR(){ return window.SupervisorRegras||null; }
-  function SR_TENTATIVA(){ return SR()?SR().TIPO_TENTATIVA:'Tentativa de Contato'; }
   function pedeProximoContato(etapa,idPipeline){ return !!(SR()&&SR().etapaNoSupervisor(etapa,idPipeline,funilPipelines)); }
   function htmlCampoProximoContato(prefixo){
     return '<div class="uform-field" id="'+prefixo+'-proximoWrap" style="display:none;">'+
@@ -1266,9 +1266,10 @@
       var erroData=pedeData?SR().erroDaData(proximoMs,Date.now()):'';
       if(erroData){ document.getElementById('fat-msg').textContent=erroData; return; }
       var proximoAntes=funilRecords[indice].proximoContatoEm;
-      // Tentativa zera a cor: o lembrete de vermelho pendente deixa de valer.
+      // Tentativa que zera a cor (TENTATIVA_ZERA_PRAZO): o lembrete de vermelho pendente deixa de valer.
       var avisoPendente=funilRecords[indice].supervisorAvisoId;
-      var resolverNaTentativa=(tipo===SR_TENTATIVA()&&avisoPendente&&avisoPendente.indexOf('supervisor_lembrete:')===0)?avisoPendente:undefined;
+      var zera=SR()?SR().tentativaZeraPrazo({Tipo:tipo}):false;
+      var resolverNaTentativa=(zera&&avisoPendente&&avisoPendente.indexOf('supervisor_lembrete:')===0)?avisoPendente:undefined;
       var novaAtividade={Tipo:tipo,Em:new Date().toISOString(),Observacao:obs};
       var atividadesAntes=funilRecords[indice].atividades||[];
       funilRecords[indice].atividades=atividadesAntes.concat([novaAtividade]);
