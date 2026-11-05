@@ -72,6 +72,9 @@ C.fsPedir_=(cfg,metodo,url,corpo)=>{
 };
 // enviarPush_ da sessão A grava o documento em notificacoes; aqui só registra.
 C.enviarPush_=(cfg,ids,msg)=>{ pushes.push(Object.assign({para:ids},msg)); db.notificacoes[msg.notifId]=Object.assign({para:ids,criadoEmMs:agoraMs},JSON.parse(JSON.stringify(msg))); return 1; };
+// Push de resumo (sem documento): só registra.
+let resumos=[];
+C.notifMandarPush_=(cfg,ids,msg)=>{ resumos.push(Object.assign({para:ids},msg)); return {enviados:1,aparelhos:1}; };
 
 // ── Dados ──
 const B=(a,m,d,h,mi)=>S.msBelem(a,m,d,h,mi), DIA=86400000;
@@ -89,7 +92,7 @@ function lead(id,o){
     DataCriacao:'2026-09-01',Transicoes:[{Etapa:'Tentativa de Contato',Em:iso(B(2026,10,20,10))}]},o);
 }
 function reset(){
-  pushes=[]; apagados=[];
+  pushes=[]; apagados=[]; resumos=[];
   Object.keys(props).forEach(k=>delete props[k]);
   db={
     funil_pipelines:{com:{IdPipeline:'com',Nome:'Comercial',Ordem:1,Etapas:etapas}},
@@ -137,6 +140,14 @@ assert.equal(db.funil.f.SupervisorPerguntaEm,undefined);            // já tinha
 assert.equal(db.funil.d.SupervisorAvisoId,undefined);               // Perdido: aviso resolvido
 assert.ok(db.notificacoes['supervisor_contato:d:1'].resolvidaEm);
 assert.equal(JSON.parse(props.SUPERVISOR_FILA).dia,'2026-11-05');
+// Queixa de 05/11: os três avisos de agora do v1 (b, e, c) vão para o sininho sem push
+// próprio e saem num push só de resumo; o contato agendado (a) segue com o seu.
+assert.deepEqual(pushes.filter(p=>p.semPush).map(p=>p.acao.idOportunidade).sort(),['b','c','e']);
+assert.equal(pa.semPush,undefined);
+assert.equal(resumos.length,1);
+assert.deepEqual(JSON.parse(JSON.stringify(resumos[0].para)),['v1']);
+assert.equal(resumos[0].corpo,'3 clientes para chamar agora. Abra o sininho: cada um tem a mensagem pronta.');
+assert.equal(resumos[0].url,'index.html?sininho=1');
 // c entrou na fila, mas na mesma volta recebeu a pergunta (um aviso por lead); às 13h fica fora.
 assert.deepEqual(JSON.parse(props.SUPERVISOR_FILA).porVendedor,{v1:['b','c','e']});
 

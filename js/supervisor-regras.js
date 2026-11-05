@@ -327,6 +327,16 @@
     return { titulo: 'Qual a próxima data para falar com ' + nome + '?', corpo: 'Toque para marcar o próximo contato.' };
   }
 
+  // Push único quando o mesmo vendedor tem vários avisos de uma vez (lembretes
+  // das 9h, 13h e 16h, lote das 17h30): um push por cliente enchia o celular
+  // (queixa de 05/11). Cada cliente continua no sininho com o seu botão.
+  function textoDoResumo(tipos) {
+    var n = tipos.length;
+    var soPerguntas = tipos.every(function (t) { return t === TIPOS_AVISO.pergunta; });
+    if (soPerguntas) return { titulo: 'Supervisor de vendas', corpo: n + ' clientes esperam a próxima data de contato. Abra o sininho para marcar.' };
+    return { titulo: 'Supervisor de vendas', corpo: n + ' clientes para chamar agora. Abra o sininho: cada um tem a mensagem pronta.' };
+  }
+
   var api = {
     LIMITE_POR_VENDEDOR: LIMITE_POR_VENDEDOR, HORAS_LEMBRETE: HORAS_LEMBRETE, PERGUNTA_DEPOIS_MS: PERGUNTA_DEPOIS_MS,
     ETAPAS_FORA: ETAPAS_FORA, PAPEIS_FORA: PAPEIS_FORA, TIPO_TENTATIVA: TIPO_TENTATIVA, TIPOS_CONVERSA: TIPOS_CONVERSA,
@@ -342,7 +352,7 @@
     dataProcessoMs: dataProcessoMs, inicioDoPrazoMs: inicioDoPrazoMs, corDoPrazo: corDoPrazo,
     temDataValida: temDataValida, situacaoDoLead: situacaoDoLead, montarFila: montarFila,
     idAviso: idAviso, lerIdAviso: lerIdAviso, contatoNaHora: contatoNaHora, avisoAindaVale: avisoAindaVale, perguntaPendente: perguntaPendente,
-    textoDoAviso: textoDoAviso
+    textoDoAviso: textoDoAviso, textoDoResumo: textoDoResumo
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.SupervisorRegras = api;
