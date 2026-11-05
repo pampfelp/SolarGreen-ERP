@@ -58,6 +58,26 @@
   </div>
 </div>
 
+<!-- supervisor-vendas: data e hora do próximo contato (js/supervisor.js) -->
+<div class="modal-overlay hidden" id="supProximoModal">
+  <div class="modal-card">
+    <h3 id="sup-titulo">Próximo contato</h3>
+    <div id="sup-mensagem"></div>
+    <div class="uform-field" style="margin-top:12px;">
+      <label>Data e hora <span class="req">*</span></label>
+      <div style="display:flex;gap:6px;">
+        <input type="date" id="sup-data" style="flex:1;min-width:0;">
+        <input type="time" id="sup-hora" style="flex:none;width:112px;">
+      </div>
+    </div>
+    <div id="sup-msg" class="uform-msg"></div>
+    <div class="modal-actions">
+      <button class="reset-btn" id="sup-cancelarBtn">Cancelar</button>
+      <button class="connect-btn" id="sup-confirmarBtn">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay hidden" id="sgListaModal">
   <div class="modal-card" style="max-width:600px;">
     <h3 id="sgl-titulo">Detalhes</h3>
@@ -84,6 +104,14 @@
         <option value="Conversa no WhatsApp">Conversa no WhatsApp</option>
         <option value="Ligação">Ligação</option>
       </select>
+    </div>
+    <!-- supervisor-vendas: próximo contato, pedido em Conversa no WhatsApp e Ligação (js/funil.js) -->
+    <div class="uform-field" id="fat-proximoWrap" style="display:none;">
+      <label>Próximo contato <span class="req">*</span></label>
+      <div style="display:flex;gap:6px;">
+        <input type="date" id="fat-proximoData" style="flex:1;min-width:0;">
+        <input type="time" id="fat-proximoHora" style="flex:none;width:112px;">
+      </div>
     </div>
     <div class="uform-field">
       <label>Observação</label>
@@ -2113,7 +2141,7 @@
 <script src="js/trafego-dashboard.js?v=20261021a"></script>
 <script src="js/confirmacao-os.js?v=20261104a"></script>
 <script src="js/notif-agendamento.js?v=20261105a"></script>
-<script src="js/firestore-router.js?v=20261105a"></script>
+<script src="js/firestore-router.js?v=20261105d"></script>
 <script src="js/sg-auth.js?v=20261013a"></script>
 <script src="js/dashboard.js?v=20261103a"></script>
 <script src="js/faturamento.js?v=20261001g"></script>
@@ -2121,7 +2149,10 @@
 <script src="js/cobranca-regra.js?v=20261103b"></script>
 <script src="js/cobranca.js?v=20261104a"></script>
 <script src="js/vendas.js?v=20261030a"></script>
-<script src="js/funil.js?v=20261103a"></script>
+<!-- supervisor-vendas -->
+<script src="js/supervisor-regras.js?v=20261105c"></script>
+<script src="js/supervisor-mensagens.js?v=20261105c"></script>
+<script src="js/funil.js?v=20261105c"></script>
 <script src="js/agendamentos.js?v=20261104a"></script>
 <script src="js/clientes.js?v=20261029a"></script>
 <script src="js/relatorios.js?v=20260829f"></script>
@@ -2134,6 +2165,8 @@
 <script src="js/leads-site-motor.js?v=20261008a"></script>
 <script src="js/leads-site.js?v=20261019a"></script>
 <script src="js/notificacoes.js?v=20261105a"></script>
+<!-- supervisor-vendas -->
+<script src="js/supervisor.js?v=20261105c"></script>
 <script src="js/usuarios.js?v=20261001d"></script>
 <script src="js/permissoes.js?v=20260829f"></script>
 <script src="js/controller.js?v=20261001b"></script>

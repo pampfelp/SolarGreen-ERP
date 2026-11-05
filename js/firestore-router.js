@@ -367,10 +367,14 @@
         Transicoes: etapaMudou?firebase.firestore.FieldValue.arrayUnion({Etapa:p.etapa,Em:agora.toISOString()}):undefined,
         // Posição manual de drag-and-drop (millis) — preserva onde o card
         // foi solto no kanban; null limpa (nunca foi arrastado manualmente).
-        OrdemKanban: (typeof p.ordemKanban==='number')?p.ordemKanban:undefined
+        OrdemKanban: (typeof p.ordemKanban==='number')?p.ordemKanban:undefined,
+        // Supervisor de vendas (2026-11-05, js/supervisor-regras.js): data e hora
+        // do próximo contato e a hora da pergunta "qual a próxima data?".
+        ProximoContatoEm: campoSupervisor(p.proximoContatoEm),
+        SupervisorPerguntaEm: campoSupervisor(p.supervisorPerguntaEm)
       });
       return ref.set(doc,{merge:true});
-    }).then(function(){ return {ok:true,idOportunidade:id}; })
+    }).then(function(){ resolverAvisoSupervisor(p.resolverAviso); return {ok:true,idOportunidade:id}; })
       .catch(function(err){ return {ok:false,erro:err.message}; });
   }
 
@@ -435,8 +439,36 @@
   // direto no doc, sem subcoleção) — Tipo/Em/Observacao por registro.
   function registrarAtividadeFunil(p){
     return db().collection('funil').doc(p.idOportunidade).update({
-      Atividades: firebase.firestore.FieldValue.arrayUnion({Tipo:p.tipo,Em:new Date().toISOString(),Observacao:p.observacao||''})
-    }).then(function(){ return {ok:true}; })
+      // Origem (2026-11-05): 'supervisor' na tentativa do Enviar do aviso, ver
+      // TENTATIVA_ZERA_PRAZO em js/supervisor-regras.js. Sem origem, igual a antes.
+      Atividades: firebase.firestore.FieldValue.arrayUnion(semUndefined({Tipo:p.tipo,Em:new Date().toISOString(),Observacao:p.observacao||'',Origem:p.origem||undefined}))
+    }).then(function(){ resolverAvisoSupervisor(p.resolverAviso); return {ok:true}; })
+      .catch(function(err){ return {ok:false,erro:err.message}; });
+  }
+
+  // Supervisor de vendas (2026-11-05). Campo em ms: número grava, null apaga,
+  // ausente não mexe (outra tela que salva o lead não zera a data).
+  function campoSupervisor(v){
+    if(v===null)return firebase.firestore.FieldValue.delete();
+    return typeof v==='number'&&isFinite(v)?v:undefined;
+  }
+  // Marca o aviso do sininho como resolvido na hora, para sumir da contagem.
+  // Se a escrita falhar, a varredura do Apps Script resolve na próxima volta
+  // (ela confere o lead), então o erro não volta para a tela.
+  function resolverAvisoSupervisor(idAviso){
+    if(!idAviso)return;
+    db().collection('notificacoes').doc(String(idAviso)).set({resolvidaEm:Date.now()},{merge:true}).catch(function(err){
+      console.warn('Aviso '+idAviso+' fica para a varredura resolver: '+err.message);
+    });
+  }
+  // Data do próximo contato sem mexer na etapa (pergunta do sininho e Enviar).
+  function atualizarProximoContatoFunil(p){
+    var campos=semUndefined({
+      ProximoContatoEm:campoSupervisor(p.proximoContatoEm),
+      SupervisorPerguntaEm:campoSupervisor(p.supervisorPerguntaEm)
+    });
+    return db().collection('funil').doc(p.idOportunidade).update(campos)
+      .then(function(){ resolverAvisoSupervisor(p.resolverAviso); return {ok:true}; })
       .catch(function(err){ return {ok:false,erro:err.message}; });
   }
 
@@ -1094,6 +1126,7 @@
     excluirFunil:comSync('funil',function(p){return 'excluir '+p.idOportunidade;},comAuthPronto(excluirFunil)),
     registrarAtividadeFunil:comSync('funil',function(p){return 'atividade ('+(p.tipo||'')+')';},comAuthPronto(registrarAtividadeFunil)),
     atualizarPrioridadeFunil:comSync('funil',function(p){return 'prioridade';},comAuthPronto(atualizarPrioridadeFunil)),
+    atualizarProximoContatoFunil:comSync('funil',function(p){return 'próximo contato';},comAuthPronto(atualizarProximoContatoFunil)),
     atualizarTipoPerdaFunil:comSync('funil',function(p){return 'tipo da perda';},comAuthPronto(atualizarTipoPerdaFunil)),
     salvarFunilPipeline:comSync('funil_pipelines',function(p){return 'pipeline '+(p.nome||p.idPipeline||'');},comAuthPronto(salvarFunilPipeline)),
     excluirFunilPipeline:comSync('funil_pipelines',function(p){return 'excluir pipeline '+p.idPipeline;},comAuthPronto(excluirFunilPipeline)),

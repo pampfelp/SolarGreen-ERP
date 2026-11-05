@@ -223,26 +223,18 @@ service cloud.firestore {
     // recebe (o mesmo id de push_tokens e de notificacoes_lidas). O Apps Script
     // grava com a conta de serviço (fora destas regras); o navegador cria os
     // avisos dele (técnico, supervisor) sem pushEnviadoEm.
-    // IdVendedor ao lado do login: vendedores/{uid}.IdVendedor. Cadastro vindo da
-    // planilha tem o id antigo como id do documento (não o uid): para quem não tem
-    // vendedores/{uid} a regra não consegue saber o IdVendedor, então ele lê e
-    // resolve como qualquer logado, igual ao resto das coleções do piloto.
-    function temCadastroPorUid() {
-      return exists(/databases/$(database)/documents/vendedores/$(request.auth.uid));
-    }
-    function souDestinatario(para) {
-      return get(/databases/$(database)/documents/vendedores/$(request.auth.uid)).data.IdVendedor in para;
-    }
+    // Leitura e "resolver" para qualquer logado, igual ao resto das coleções do
+    // piloto: quem filtra por destinatário é a consulta (para array-contains).
+    // Uma regra por destinatário dependeria do cadastro por uid, que o vendedor
+    // vindo da planilha não tem, e podia recusar a consulta inteira (2026-11-05).
     match /notificacoes/{id} {
-      allow read: if isSignedIn()
-        && (!temCadastroPorUid() || isAdmin() || souDestinatario(resource.data.para));
+      allow read: if isSignedIn();
       allow create: if isSignedIn()
         && request.resource.data.para is list
         && request.resource.data.para.size() > 0 && request.resource.data.para.size() <= 50
         && request.resource.data.titulo is string;
-      // Quem está em `para` só resolve o aviso (resolvidaEm); o resto é do servidor.
+      // O navegador só resolve o aviso (resolvidaEm); o resto é do servidor.
       allow update: if isSignedIn()
-        && (!temCadastroPorUid() || isAdmin() || souDestinatario(resource.data.para))
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['resolvidaEm']);
       allow delete: if false;
     }
