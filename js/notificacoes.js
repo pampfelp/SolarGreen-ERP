@@ -35,6 +35,7 @@
   var JANELA_LISTA_MS=30*24*60*60*1000;   // o sininho mostra os últimos 30 dias
   var JANELA_POPUP_MS=24*60*60*1000;      // popup só pra aviso de até 24 h atrás
   var MAX_LISTA=50;
+  var ID_RESUMO='supervisor-resumo-';     // popup que junta vários avisos do supervisor
   var KEY_MOSTRADOS='sg_notif_mostrados'; // popups já mostrados neste aparelho
   var KEY_TOKEN='sg_push_token';
 
@@ -188,9 +189,13 @@
       var id=pop.getAttribute('data-notif');
       if(e.target.closest('.sg-notif-x')){ fecharPopup(id); return; }
       fecharPopup(id);
+      // Resumo abre o sininho (sem deixar o clique fora do painel fechá-lo de novo).
+      if(id.indexOf(ID_RESUMO)===0){ e.stopPropagation(); painel.classList.add('active'); renderPush(); return; }
       var n=_todas.filter(function(x){ return x.id===id; })[0];
       if(n)abrir(n);
     });
+    // Push de resumo do supervisor abre o ERP com o sininho aberto.
+    if(/[?&]sininho=1(&|$)/.test(location.search)){ painel.classList.add('active'); renderPush(); }
   }
 
   function atualizarTela(){
@@ -215,6 +220,15 @@
     var corte=Date.now()-JANELA_POPUP_MS;
     var novos=_todas.filter(function(n){ return n.ms>=corte&&!lida(n.id)&&!_mostrados[n.id]&&!_abertos[n.id]&&!_fila.some(function(f){ return f.id===n.id; }); });
     if(!novos.length)return;
+    // Vários avisos do supervisor de uma vez (lembretes das 9h, 13h e 16h,
+    // lote das 17h30) viram um popup só; cada um continua no sininho (05/11).
+    var doSupervisor=novos.filter(function(n){ return n.doc&&/^supervisor_/.test(n.tipo); });
+    if(doSupervisor.length>1){
+      var agora=Date.now();
+      doSupervisor.forEach(function(n){ _mostrados[n.id]=agora; });
+      novos=novos.filter(function(n){ return doSupervisor.indexOf(n)===-1; });
+      novos.unshift({id:ID_RESUMO+agora,tipo:'supervisor_resumo',doc:true,ms:agora,titulo:'Supervisor de vendas',corpo:doSupervisor.length+' avisos novos no sininho. Toque para ver.',url:''});
+    }
     // Mais antigo primeiro, pra o mais novo ficar no topo da pilha.
     novos.slice(0,MAX_POPUPS).reverse().forEach(function(n){ _fila.push(n); });
     esvaziarFila();

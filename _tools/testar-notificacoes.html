@@ -32,6 +32,10 @@
     {id:'cobranca:T1',para:['V1','G1'],tipo:'cobranca',titulo:'Pagamento recebido pelo link',corpo:'Maria das Graças pagou R$ 450,00',url:'index.html?cobranca=os1',criadoEmMs:_agora-120000,pushEnviadoEm:_agora-119000},
     {id:'cobranca:envio:w1',para:['V1'],tipo:'cobranca',titulo:'Mensagem ao cliente',corpo:'Cobrança enviada para Raimundo Costa',url:'index.html?cobranca=os2',criadoEmMs:_agora-300000},
     {id:'os:reserva:os3:1',para:['V1'],tipo:'os',titulo:'Confirmar pelo seu WhatsApp',corpo:'Carla Souza: a confirmação automática da OS não saiu.',url:'https://wa.me/5591999999999?text=Oi',criadoEmMs:_agora-600000},
+    // Lembretes das 13h (05/11): vários de uma vez viram um popup só de resumo.
+    {id:'supervisor_lembrete:op21:hoje-13',para:['V1'],tipo:'supervisor_lembrete',titulo:'João está sem próximo contato',corpo:'Negociação, prazo vencido há 3 dias.',url:'index.html',criadoEmMs:_agora-60000,pushEnviadoEm:_agora-60000},
+    {id:'supervisor_lembrete:op22:hoje-13',para:['V1'],tipo:'supervisor_lembrete',titulo:'Rita está sem próximo contato',corpo:'Retomar Contato, prazo vencido.',url:'index.html',criadoEmMs:_agora-60000,pushEnviadoEm:_agora-60000},
+    {id:'supervisor_lembrete:op23:hoje-13',para:['V1'],tipo:'supervisor_lembrete',titulo:'Paulo está sem próximo contato',corpo:'Gerar Proposta, prazo vencido.',url:'index.html',criadoEmMs:_agora-60000,pushEnviadoEm:_agora-60000},
     {id:'sup:1',para:['V1'],tipo:'supervisor_contato',titulo:'Falar com Ana Paula hoje',corpo:'Mensagem pronta para a etapa Proposta',url:'index.html',acao:{tipo:'supervisor_enviar',lead:'op000010'},criadoEmMs:_agora-900000,enviarEmMs:_agora-800000},
     {id:'sup:agendado',para:['V1'],tipo:'supervisor_lembrete',titulo:'Lembrete agendado',corpo:'Aparece sozinho em instantes',url:'index.html',criadoEmMs:_agora-1000,enviarEmMs:_agora+8000},
     {id:'sup:resolvida',para:['V1'],tipo:'supervisor_pergunta',titulo:'Qual a próxima data?',corpo:'Já respondida',url:'index.html',criadoEmMs:_agora-2*3600000,resolvidaEm:_agora-3600000},
@@ -67,7 +71,7 @@
   window.leadsSiteApp={init:function(){},aoAtualizar:function(fn){ ouvintes.push(fn); fn(window.__leads); }};
   window.__chegar=function(l){ window.__leads=window.__leads.concat([l]); ouvintes.forEach(function(f){ f(window.__leads); }); };
 </script>
-<script src="../js/notificacoes.js?v=20261105a"></script>
+<script src="../js/notificacoes.js?v=20261105b"></script>
 <script>
   fetch('../index.html').then(function(r){ return r.text(); }).then(function(html){
     var doc=new DOMParser().parseFromString(html,'text/html');

@@ -4195,12 +4195,15 @@ function vendedoresFs_(cfg) {
 //   tipo        lead | disparo | cobranca | os | agendamento | supervisor_*
 //   acao        opcional { tipo: '<nome>', ... }: o sininho repassa o clique
 //   enviarEmMs  no futuro, só grava; notificacoesVarrer manda o push na hora
+//   semPush     só grava, já marcado como enviado: quem chama manda um push
+//               único de resumo (supervisor, 05/11)
 // Chamar de novo com o mesmo notifId junta as pessoas em `para` (vendedor e
 // gestão recebem o mesmo aviso). Falha ao gravar não impede o push.
 function enviarPush_(cfg, idsVendedores, msg) {
   if (!idsVendedores.length) return 0;
   var agora = Date.now();
   var docId = notifGravar_(cfg, idsVendedores, msg, agora);
+  if (msg.semPush) return 0;
   if (Number(msg.enviarEmMs || 0) > agora) return 0;
   var r = notifMandarPush_(cfg, idsVendedores, msg);
   if (docId && (r.enviados > 0 || !r.aparelhos)) notifMarcarEnviado_(cfg, docId);
@@ -4222,6 +4225,7 @@ function notifGravar_(cfg, idsVendedores, msg, agora) {
     };
     if (Number(msg.enviarEmMs || 0) > 0) campos.enviarEmMs = Number(msg.enviarEmMs);
     if (msg.acao) campos.acao = msg.acao;
+    if (msg.semPush) campos.pushEnviadoEm = agora;
     var w = fsUpdateRico_(cfg, 'notificacoes/' + id, campos);
     w.updateTransforms = [{ fieldPath: 'para', appendMissingElements: { values: idsVendedores.map(function (i) { return { stringValue: String(i) }; }) } }];
     fsCommit_(cfg, [w]);
@@ -4323,8 +4327,25 @@ function notificacoesVarrer() {
       vistos[d._id] = true;
       devidos.push(d);
     });
-    var enviados = 0;
+    // Vários avisos do supervisor para o mesmo vendedor (lote das 17h30) viram
+    // um push só; cada um continua no sininho.
+    var grupos = {}, soltos = [];
     devidos.forEach(function (d) {
+      var para = (d.para || []).map(String);
+      if (/^supervisor_/.test(String(d.tipo || '')) && para.length === 1) (grupos[para[0]] = grupos[para[0]] || []).push(d);
+      else soltos.push(d);
+    });
+    var enviados = 0;
+    Object.keys(grupos).forEach(function (idV) {
+      var lista = grupos[idV];
+      if (lista.length === 1) { soltos.push(lista[0]); return; }
+      try {
+        var r = supervisorResumoPush_(cfg, idV, lista.map(function (d) { return String(d.tipo); }), agora);
+        if (r.enviados > 0 || !r.aparelhos) lista.forEach(function (d) { notifMarcarEnviado_(cfg, d._id); });
+        enviados += r.enviados;
+      } catch (e) { console.error('Resumo do supervisor para ' + idV + ': ' + e.message); }
+    });
+    soltos.forEach(function (d) {
       try { enviados += notifEnviarDoc_(cfg, d); }
       catch (e) { console.error('Notificação ' + d._id + ': ' + e.message); }
     });
@@ -7149,6 +7170,16 @@ function cobrancaInstalarGatilho() {
     return { titulo: 'Qual a próxima data para falar com ' + nome + '?', corpo: 'Toque para marcar o próximo contato.' };
   }
 
+  // Push único quando o mesmo vendedor tem vários avisos de uma vez (lembretes
+  // das 9h, 13h e 16h, lote das 17h30): um push por cliente enchia o celular
+  // (queixa de 05/11). Cada cliente continua no sininho com o seu botão.
+  function textoDoResumo(tipos) {
+    var n = tipos.length;
+    var soPerguntas = tipos.every(function (t) { return t === TIPOS_AVISO.pergunta; });
+    if (soPerguntas) return { titulo: 'Supervisor de vendas', corpo: n + ' clientes esperam a próxima data de contato. Abra o sininho para marcar.' };
+    return { titulo: 'Supervisor de vendas', corpo: n + ' clientes para chamar agora. Abra o sininho: cada um tem a mensagem pronta.' };
+  }
+
   var api = {
     LIMITE_POR_VENDEDOR: LIMITE_POR_VENDEDOR, HORAS_LEMBRETE: HORAS_LEMBRETE, PERGUNTA_DEPOIS_MS: PERGUNTA_DEPOIS_MS,
     ETAPAS_FORA: ETAPAS_FORA, PAPEIS_FORA: PAPEIS_FORA, TIPO_TENTATIVA: TIPO_TENTATIVA, TIPOS_CONVERSA: TIPOS_CONVERSA,
@@ -7164,7 +7195,7 @@ function cobrancaInstalarGatilho() {
     dataProcessoMs: dataProcessoMs, inicioDoPrazoMs: inicioDoPrazoMs, corDoPrazo: corDoPrazo,
     temDataValida: temDataValida, situacaoDoLead: situacaoDoLead, montarFila: montarFila,
     idAviso: idAviso, lerIdAviso: lerIdAviso, contatoNaHora: contatoNaHora, avisoAindaVale: avisoAindaVale, perguntaPendente: perguntaPendente,
-    textoDoAviso: textoDoAviso
+    textoDoAviso: textoDoAviso, textoDoResumo: textoDoResumo
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.SupervisorRegras = api;
@@ -7332,27 +7363,51 @@ function supervisorCriarAvisos_(ctx, pedidos) {
   var clientes = faltam.length ? fsBatchGet_(cfg, faltam, ['Telefone', fsCampoMascara_('Nome Razao Social')]) : {};
   // Um aviso por lead por volta, na ordem contato, pergunta, lembrete.
   var vistos = {};
+  pedidos = pedidos.filter(function (p) {
+    if (vistos[p.lead.id] || !p.lead.idVendedor) return false;
+    vistos[p.lead.id] = true;
+    return true;
+  });
+  // Vendedor com mais de um aviso para agora recebe um push só, de resumo
+  // (queixa de 05/11: 25 pushes de uma vez às 13h). Cada aviso fica no sininho.
+  function agora_(p) { return !(p.enviarEmMs && p.enviarEmMs > ctx.agora); }
+  var imediatos = {}, resumo = {};
+  pedidos.forEach(function (p) { if (agora_(p)) imediatos[p.lead.idVendedor] = (imediatos[p.lead.idVendedor] || 0) + 1; });
   pedidos.forEach(function (p) {
     var l = p.lead, c = clientes['clientes/' + l.idCliente] || {};
-    if (vistos[l.id]) return;
-    vistos[l.id] = true;
     var nome = l.nome || c['Nome Razao Social'] || '';
     var tel = S.telefoneWa(l.telefone || c.Telefone || '');
-    if (!l.idVendedor) return;
     var texto = S.textoDoAviso(p.tipo, { nome: nome, etapa: l.etapa, temTelefone: !!tel, atrasoDias: p.atrasoDias || 0 });
+    var agrupar = agora_(p) && imediatos[l.idVendedor] > 1;
     try {
       enviarPush_(cfg, [l.idVendedor], {
         titulo: texto.titulo, corpo: texto.corpo,
         url: 'index.html?lead=' + encodeURIComponent(l.id) + '&notif=' + encodeURIComponent(p.id),
         tag: SUPERVISOR_TAGS[p.tipo], notifId: p.id, tipo: p.tipo,
         enviarEmMs: p.enviarEmMs && p.enviarEmMs > ctx.agora ? p.enviarEmMs : undefined,
+        semPush: agrupar || undefined,
         acao: { tipo: p.tipo, idOportunidade: l.id, etapa: l.etapa, nome: nome, telefone: tel, nomeVendedor: nomes[l.idVendedor] || '' }
       });
+      if (agrupar) (resumo[l.idVendedor] = resumo[l.idVendedor] || []).push(p.tipo);
       if (l.avisoId && l.avisoId !== p.id) supervisorEncerrarAviso_(cfg, l.avisoId, true);
       supervisorGravarLead_(cfg, l.id, { SupervisorAvisoId: p.id }, p.apagar);
     } catch (e) {
       console.error('Supervisor: aviso ' + p.id + ' falhou: ' + e.message);
     }
+  });
+  Object.keys(resumo).forEach(function (idV) {
+    try { supervisorResumoPush_(cfg, idV, resumo[idV], ctx.agora); }
+    catch (e) { console.error('Supervisor: resumo para ' + idV + ' falhou: ' + e.message); }
+  });
+}
+
+// Push único de resumo, sem documento próprio: o sininho já tem um item por
+// cliente. O clique abre o ERP com o sininho aberto.
+function supervisorResumoPush_(cfg, idVendedor, tipos, agora) {
+  var t = SupervisorRegras.textoDoResumo(tipos);
+  return notifMandarPush_(cfg, [String(idVendedor)], {
+    titulo: t.titulo, corpo: t.corpo, url: 'index.html?sininho=1',
+    tag: 'supervisor-resumo', notifId: 'supervisor_resumo:' + idVendedor + ':' + agora
   });
 }
 

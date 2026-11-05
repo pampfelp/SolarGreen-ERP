@@ -86,12 +86,29 @@ context.fsPedir_=pedirOriginal;
 reiniciar();
 const agora=Date.now();
 const doc=(id,extra)=>({id,fields:Object.assign({para:{arrayValue:{values:[str('V1')]}},titulo:str('T '+id),corpo:str('C'),url:str('index.html'),tag:str('t'),tipo:str('supervisor_contato'),criadoEmMs:num(agora-600000)},extra)});
-docs=[doc('devido',{enviarEmMs:num(agora-1000)}),doc('futuro',{enviarEmMs:num(agora+600000)}),doc('jaEnviado',{enviarEmMs:num(agora-1000),pushEnviadoEm:num(agora-500)}),doc('imediato',{})];
+docs=[doc('devido',{enviarEmMs:num(agora-1000)}),doc('futuro',{enviarEmMs:num(agora+600000)}),doc('jaEnviado',{enviarEmMs:num(agora-1000),pushEnviadoEm:num(agora-500)}),doc('imediato',{tipo:str('cobranca')})];
 context.notificacoesVarrer();
 assert.deepEqual(consultas,['enviarEmMs','criadoEmMs']);
 // as duas consultas devolvem os mesmos documentos: cada um sai uma vez só
 assert.deepEqual(pushes.map(p=>p.data.notifId).sort(),['devido','imediato']);
 assert.equal(commits.filter(w=>w.updateMask.fieldPaths[0]==='pushEnviadoEm').length,2);
+
+// 6b) Vários avisos do supervisor para o mesmo vendedor (lote das 17h30): um push de resumo, todos marcados.
+reiniciar();
+docs=[doc('p1',{tipo:str('supervisor_pergunta'),enviarEmMs:num(agora-1000)}),doc('p2',{tipo:str('supervisor_pergunta'),enviarEmMs:num(agora-1000)}),doc('p3',{tipo:str('supervisor_pergunta'),enviarEmMs:num(agora-1000)}),doc('outro',{tipo:str('cobranca')})];
+context.notificacoesVarrer();
+const resumos=pushes.filter(p=>/^supervisor_resumo:V1:/.test(p.data.notifId));
+assert.equal(resumos.length,1);
+assert.match(resumos[0].data.corpo,/^3 clientes esperam a próxima data/);
+assert.equal(resumos[0].data.url,'index.html?sininho=1');
+assert.deepEqual(pushes.map(p=>p.data.notifId).filter(id=>!/^supervisor_resumo/.test(id)),['outro']);
+assert.equal(commits.filter(w=>w.updateMask.fieldPaths[0]==='pushEnviadoEm').length,4);
+
+// 6c) semPush: grava já marcado como enviado e não manda push.
+reiniciar();
+n=context.enviarPush_(cfg,['V1'],{titulo:'a',corpo:'b',url:'u',tag:'t',notifId:'sup:2',tipo:'supervisor_lembrete',semPush:true});
+assert.equal(n,0); assert.equal(pushes.length,0); assert.equal(commits.length,1);
+assert.ok(campo(commits[0],'pushEnviadoEm'));
 
 // 7) notifPush: autenticação, id inválido, já enviado, agendado e envio.
 reiniciar();
