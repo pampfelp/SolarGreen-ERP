@@ -101,6 +101,14 @@ assert.equal(R.dataProcessoMs(l),B(2026,11,2,15));            // conversa contin
 assert.equal(R.situacaoDoLead(l,PIPES,agora).cor,'yellow');
 assert.equal(R.situacaoDoLead(lead({}),PIPES,agora).cor,'red');               // sem transição: conta da criação
 assert.equal(R.situacaoDoLead(lead({etapa:'Gerar Proposta',transicoes:[entrou('Gerar Proposta',B(2026,11,4))]}),PIPES,agora).cor,'green');
+// Qual tentativa zera: hoje 'todas'; no modo 'supervisor' só a com Origem: 'supervisor'.
+assert.equal(R.TENTATIVA_ZERA_PRAZO,'todas');
+const manual=ativ('Tentativa de Contato',B(2026,11,4,15)), doSup=Object.assign(ativ('Tentativa de Contato',B(2026,11,3,15)),{Origem:'supervisor'});
+assert.equal(R.inicioDoPrazoMs(B(2026,10,30),[manual]),B(2026,11,4,15));
+assert.equal(R.inicioDoPrazoMs(B(2026,10,30),[manual],'supervisor'),B(2026,10,30));
+assert.equal(R.inicioDoPrazoMs(B(2026,10,30),[manual,doSup],'supervisor'),B(2026,11,3,15));
+assert.equal(R.tentativaZeraPrazo({Tipo:'Ligação',Origem:'supervisor'}),false);
+assert.equal(R.tentativaZeraPrazo({Tipo:'Tentativa de Contato'},'supervisor'),false);
 assert.equal(R.corDoPrazo(0,{DiasAmarelo:0,DiasVermelho:''}),'yellow');
 assert.equal(R.corDoPrazo(99,{DiasAmarelo:'',DiasVermelho:''}),'green');
 assert.equal(R.corDoPrazo(99,null),'green');
