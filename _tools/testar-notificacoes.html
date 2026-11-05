@@ -26,13 +26,33 @@
       ]);
     }
   };
+  // Coleção `notificacoes` (2026-11-05): só o que tem o id da pessoa em `para`.
+  var _agora=Date.now();
+  window.__notifs=[
+    {id:'cobranca:T1',para:['V1','G1'],tipo:'cobranca',titulo:'Pagamento recebido pelo link',corpo:'Maria das Graças pagou R$ 450,00',url:'index.html?cobranca=os1',criadoEmMs:_agora-120000,pushEnviadoEm:_agora-119000},
+    {id:'cobranca:envio:w1',para:['V1'],tipo:'cobranca',titulo:'Mensagem ao cliente',corpo:'Cobrança enviada para Raimundo Costa',url:'index.html?cobranca=os2',criadoEmMs:_agora-300000},
+    {id:'os:reserva:os3:1',para:['V1'],tipo:'os',titulo:'Confirmar pelo seu WhatsApp',corpo:'Carla Souza: a confirmação automática da OS não saiu.',url:'https://wa.me/5591999999999?text=Oi',criadoEmMs:_agora-600000},
+    {id:'sup:1',para:['V1'],tipo:'supervisor_contato',titulo:'Falar com Ana Paula hoje',corpo:'Mensagem pronta para a etapa Proposta',url:'index.html',acao:{tipo:'supervisor_enviar',lead:'op000010'},criadoEmMs:_agora-900000,enviarEmMs:_agora-800000},
+    {id:'sup:agendado',para:['V1'],tipo:'supervisor_lembrete',titulo:'Lembrete agendado',corpo:'Aparece sozinho em instantes',url:'index.html',criadoEmMs:_agora-1000,enviarEmMs:_agora+8000},
+    {id:'sup:resolvida',para:['V1'],tipo:'supervisor_pergunta',titulo:'Qual a próxima data?',corpo:'Já respondida',url:'index.html',criadoEmMs:_agora-2*3600000,resolvidaEm:_agora-3600000},
+    {id:'L1:lead',para:['V1'],tipo:'lead',titulo:'Novo lead do site pra você',corpo:'Maria das Graças · Limpeza',url:'index.html?lead=op000001&notif=L1:lead',criadoEmMs:_agora-3*60000},
+    {id:'outra:pessoa',para:['V2'],tipo:'cobranca',titulo:'De outra pessoa',corpo:'Não deve aparecer',url:'index.html',criadoEmMs:_agora-1000}
+  ];
+  window.__acoesClicadas=[];
+  window.SGUtil.escutarComRetry=function(criarQuery,cb){
+    criarQuery();   // confere a cadeia where().where() da consulta real
+    var me=window.SG_SESSION.idVendedor;
+    var docs=window.__notifs.filter(function(x){ return x.para.indexOf(me)!==-1; });
+    cb({forEach:function(f){ docs.forEach(function(x){ var c=Object.assign({},x); delete c.id; f({id:x.id,data:function(){ return Object.assign({},c); }}); }); }});
+    return function(){};
+  };
   window.SGFireReady=Promise.resolve();
   window.SGToast={mostrar:function(t){ console.log('toast:',t); }};
   window.SGControllerSwitchTo=function(n){ window.__tela=n; };
   window.funilApp={abrirLead:function(id){ window.__lead=id; }};
   window.__gravacoes=[];
   var lidas={};
-  window.firebase={firestore:function(){ return {collection:function(c){ return {doc:function(id){ return {
+  window.firebase={firestore:function(){ return {collection:function(c){ return {where:function(){ return this; },doc:function(id){ return {
     onSnapshot:function(cb){ cb({exists:true,data:function(){ return {lidas:lidas}; }}); },
     set:function(o){ window.__gravacoes.push({colecao:c,id:id,dados:o}); Object.assign(lidas,o.lidas||{}); return Promise.resolve(); },
     delete:function(){ return Promise.resolve(); }
@@ -47,7 +67,7 @@
   window.leadsSiteApp={init:function(){},aoAtualizar:function(fn){ ouvintes.push(fn); fn(window.__leads); }};
   window.__chegar=function(l){ window.__leads=window.__leads.concat([l]); ouvintes.forEach(function(f){ f(window.__leads); }); };
 </script>
-<script src="../js/notificacoes.js?v=20261026a"></script>
+<script src="../js/notificacoes.js?v=20261105a"></script>
 <script>
   fetch('../index.html').then(function(r){ return r.text(); }).then(function(html){
     var doc=new DOMParser().parseFromString(html,'text/html');
@@ -57,6 +77,7 @@
     var f=document.getElementById('view-funil'); f.classList.add('active');
     document.getElementById('f-lastUpdate').textContent='Atualizado 14:32';
     var mc=document.getElementById('f-mainContent'); if(mc)mc.style.display='block';
+    window.SGNotificacoes.registrarAcao('supervisor_enviar',{botao:'Enviar',aoClicar:function(n){ window.__acoesClicadas.push({id:n.id,acao:n.acao}); }});
     window.SGNotificacoes.init();
   });
 </script>

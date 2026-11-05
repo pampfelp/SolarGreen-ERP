@@ -15,6 +15,15 @@
 // cada toque no botão ou resposta vira um documento em `interacoes_disparo`
 // (gravado pelo Apps Script) e aparece aqui como "Fulano interagiu com o
 // disparo", pro vendedor do lead e pra gestão.
+//
+// Desde 2026-11-05 todo aviso que o Apps Script manda por push (cobrança,
+// resposta de cobrança, link pago, OS, e os do supervisor de vendas) também fica
+// guardado em `notificacoes/{notifId}` e aparece aqui. Cada pessoa escuta só os
+// documentos com o próprio id em `para`. Aviso com `enviarEmMs` no futuro fica
+// escondido e aparece sozinho na hora. `resolvidaEm` conta como lido. Lead do
+// site e disparo continuam montados das coleções de origem; o documento deles em
+// `notificacoes` não entra de novo. Quem quiser um botão no item registra a ação
+// com SGNotificacoes.registrarAcao(tipo, {botao, aoClicar}).
 (function(){
   // Chave pública do certificado Web Push (Firebase > Configurações do
   // projeto > Cloud Messaging > Certificados push da Web). Vazia, o push fica
@@ -30,6 +39,7 @@
   var KEY_TOKEN='sg_push_token';
 
   var _iniciado=false, _leads=null, _interacoes=[], _lidas=null, _todas=[], _vendedores={};
+  var _notifs=[], _resolvidas={}, _acoes={};   // coleção `notificacoes`, resolvidas por id e ações registradas
   var _mostrados=lerLocal(KEY_MOSTRADOS)||{};
   var _abertos={};   // popups na tela, por id
   var _fila=[];      // popups esperando a aba ficar visível
@@ -71,22 +81,43 @@
     });
     return out;
   }
+  // Avisos da coleção `notificacoes`. Lead e disparo já vêm montados acima.
+  // Agendado (enviarEmMs no futuro) fica escondido até a hora; a tela é
+  // remontada a cada minuto, então ele aparece sozinho.
+  function montarNotificacoes(lista, jaMontados){
+    var agora=Date.now(), corte=agora-JANELA_LISTA_MS, out=[];
+    _resolvidas={};
+    lista.forEach(function(x){
+      if(x.tipo==='lead'||x.tipo==='disparo'||jaMontados[x.id])return;
+      if(x.enviarEmMs&&x.enviarEmMs>agora)return;
+      var ms=x.enviarEmMs||x.criadoEmMs||0;
+      if(ms<corte)return;
+      if(x.resolvidaEm)_resolvidas[x.id]=true;
+      out.push({id:x.id,tipo:x.tipo||'aviso',doc:true,ms:ms,titulo:x.titulo||'Aviso',corpo:x.corpo||'',url:x.url||'',acao:x.acao||null});
+    });
+    return out;
+  }
   function recombinar(){
-    _todas=montar(_leads||[]).concat(montarDisparo(_interacoes)).sort(function(a,b){ return b.ms-a.ms; }).slice(0,MAX_LISTA);
+    var base=montar(_leads||[]).concat(montarDisparo(_interacoes)), ids={};
+    base.forEach(function(n){ ids[n.id]=true; });
+    _todas=base.concat(montarNotificacoes(_notifs,ids)).sort(function(a,b){ return b.ms-a.ms; }).slice(0,MAX_LISTA);
   }
 
   function ehAtencao(n){ return n.tipo==='suspeito'||n.tipo==='erro'; }
   function titulo(n){
+    if(n.doc)return n.titulo;
     if(n.tipo==='suspeito')return 'Contato suspeito no site';
     if(n.tipo==='erro')return 'Contato do site não virou lead';
     if(n.tipo==='disparo')return 'Disparo de reativação';
     return 'Novo lead do site';
   }
   function linhaPrincipal(n){
+    if(n.doc)return n.corpo;
     if(n.tipo==='disparo')return n.nome+' interagiu com o disparo';
     return n.nome+(n.servico?' · '+n.servico:'');
   }
   function linhaDetalhe(n){
+    if(n.doc)return quando(n.ms);
     var partes=[];
     if(n.tipo==='disparo'){
       partes.push(n.acao==='toque'?'tocou no botão':'"'+n.texto.slice(0,60)+'"');
@@ -107,7 +138,8 @@
     function z(n){ return String(n).padStart(2,'0'); }
     return z(t.getDate())+'/'+z(t.getMonth()+1)+' '+z(t.getHours())+':'+z(t.getMinutes());
   }
-  function lida(id){ return !!(_lidas&&_lidas[id]); }
+  function lida(id){ return !!(_lidas&&_lidas[id])||!!_resolvidas[id]; }
+  function acaoRegistrada(n){ return n.acao&&n.acao.tipo&&_acoes[n.acao.tipo]; }
 
   // ── Lida / não lida (sincronizado entre aparelhos) ────────────────────
   function refLidas(){ return db().collection('notificacoes_lidas').doc(meuId()); }
@@ -170,7 +202,8 @@
     el('sg-notif-lista').innerHTML=_todas.length?_todas.map(function(n){
       return '<div class="sg-notif-item'+(lida(n.id)?'':' nova')+(ehAtencao(n)?' atencao':'')+'" data-notif="'+esc(n.id)+'">'+
         '<span class="sg-notif-ico">'+(ehAtencao(n)?ICONE_ALERTA:ICONE_SINO)+'</span>'+
-        '<div class="sg-notif-txt"><div class="tag">'+esc(titulo(n))+'</div><div class="principal">'+esc(linhaPrincipal(n))+'</div><div class="sub">'+esc(linhaDetalhe(n))+'</div></div></div>';
+        '<div class="sg-notif-txt"><div class="tag">'+esc(titulo(n))+'</div><div class="principal">'+esc(linhaPrincipal(n))+'</div><div class="sub">'+esc(linhaDetalhe(n))+'</div></div>'+
+        (acaoRegistrada(n)?'<span class="sg-notif-acao">'+esc(_acoes[n.acao.tipo].botao||'Abrir')+'</span>':'')+'</div>';
     }).join(''):'<div class="sg-notif-vazio">Nenhuma notificação nos últimos 30 dias.</div>';
     // Lido em outro aparelho: o popup daqui some também.
     Object.keys(_abertos).forEach(function(id){ if(lida(id))fecharPopup(id); });
@@ -254,8 +287,22 @@
   // ── Abrir o que a notificação aponta ──────────────────────────────────
   function abrir(n){
     marcarLida([n.id]);
+    if(acaoRegistrada(n)){
+      try{ _acoes[n.acao.tipo].aoClicar(n); }catch(err){ console.error('Notificações: a ação '+n.acao.tipo+' falhou',err); }
+      return;
+    }
+    if(n.doc){ abrirUrl(n.url); return; }
     if(n.tipo==='disparo'){ if(n.idOportunidade)abrirDestino({lead:n.idOportunidade}); return; }
     abrirDestino(n.tipo==='lead'?{lead:n.idOportunidade}:{tela:'leadssite'});
+  }
+  // Link de aviso do sistema: do próprio ERP vira navegação interna; de fora
+  // (wa.me da reserva de cobrança) abre em outra aba.
+  function abrirUrl(url){
+    if(!url)return;
+    var u;
+    try{ u=new URL(url,location.href); }catch(e){ return; }
+    if(u.origin!==location.origin)window.open(u.href,'_blank','noopener');
+    else tratarLink(u.href);
   }
   function abrirDestino(d){
     if(!window.SGControllerSwitchTo)return;
@@ -357,6 +404,16 @@
         atualizarTela(); mostrarPopups();
       },function(err){ console.error('Notificações: escuta de lidas caiu',err); _lidas=_lidas||{}; mostrarPopups(); });
     });
+    // Só as pessoas em `para` e só os últimos 30 dias (índice composto em
+    // firestore.indexes.json: para array-contains + criadoEmMs).
+    window.SGFireReady.then(function(){
+      window.SGUtil.escutarComRetry(function(){
+        return db().collection('notificacoes').where('para','array-contains',meuId()).where('criadoEmMs','>=',Date.now()-JANELA_LISTA_MS);
+      },function(snap){
+        _notifs=[]; snap.forEach(function(doc){ var x=doc.data(); x.id=doc.id; _notifs.push(x); });
+        recombinar(); atualizarTela(); mostrarPopups();
+      },'notificacoes');
+    });
     window.leadsSiteApp.aoAtualizar(function(lista){
       _leads=lista; recombinar();
       atualizarTela(); mostrarPopups();
@@ -368,8 +425,8 @@
       atualizarTela(); mostrarPopups();
     },{chave:'recentes',construirQuery:function(ref){ return ref.where('criadoEmMs','>=',Date.now()-JANELA_LISTA_MS); }});
     window.leadsSiteApp.init();
-    // Texto de "há 5 min" envelhece; redesenha a cada minuto.
-    setInterval(atualizarTela,60000);
+    // Texto de "há 5 min" envelhece e aviso agendado vence; remonta a cada minuto.
+    setInterval(function(){ recombinar(); atualizarTela(); mostrarPopups(); },60000);
 
     if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',function(e){
       if(e.data&&e.data.tipo==='sg-notif-abrir')tratarLink(e.data.url);
@@ -382,5 +439,14 @@
     registrarAparelho(false).catch(function(){});
   }
 
-  window.SGNotificacoes={init:init,esquecerAparelho:esquecerAparelho};
+  // Quem quer botão no item registra o tipo da ação: o documento traz
+  // acao:{tipo,...} e o clique (no item ou no botão) vai para aoClicar(notif),
+  // com notif.id, notif.acao, notif.url etc. Sem registro, o clique abre a url.
+  function registrarAcao(tipo,config){
+    if(!tipo||!config||typeof config.aoClicar!=='function')throw new Error('registrarAcao: informe o tipo e aoClicar');
+    _acoes[tipo]={botao:config.botao||'',aoClicar:config.aoClicar};
+    if(_iniciado){ atualizarTela(); }
+  }
+
+  window.SGNotificacoes={init:init,esquecerAparelho:esquecerAparelho,registrarAcao:registrarAcao};
 })();

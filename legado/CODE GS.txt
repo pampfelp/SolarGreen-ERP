@@ -101,6 +101,8 @@ function handleRequest(e) {
     if ((params.action || body.action) === 'cobrancaLinkAvulso')         return jsonOutput(actionCobrancaLinkAvulso(body));
     if ((params.action || body.action) === 'cobrancaAvulsos')            return jsonOutput(actionCobrancaAvulsos(body));
     if (params.action === 'cobrancaWebhook')                             return jsonOutput(actionCobrancaWebhook(body));
+    // Sininho (2026-11-05): o navegador grava o aviso em notificacoes e pede o push com o idToken.
+    if ((params.action || body.action) === 'notifPush')                  return jsonOutput(actionNotifPush(body));
 
     var chave = params.chave || body.chave || '';
     if (chave !== CONFIG.CHAVE_SECRETA) {
@@ -4130,7 +4132,7 @@ function avisarLeadSiteUmaVez_(cfg, id) {
       titulo: tipo === 'erro' ? 'Contato do site não virou lead' : 'Contato suspeito no site',
       corpo: resumo + ' · confira em Leads do site',
       url: 'index.html?tela=leadssite&notif=' + id + ':' + tipo,
-      tag: 'lead-' + id, notifId: id + ':' + tipo
+      tag: 'lead-' + id, notifId: id + ':' + tipo, tipo: 'lead'
     });
     fsCommit_(cfg, [fsUpdate_(cfg, 'leads_site/' + id, { avisoAtencaoEm: agora })]);
     return { ok: true, acao: tipo };
@@ -4166,10 +4168,10 @@ function avisarLeadSiteUmaVez_(cfg, id) {
   if (!vendedor || (l.status !== 'promovido' && l.status !== 'novo' && l.status !== 'processando')) return { ok: true, acao: 'nada a avisar' };
   if (l.avisoLeadEm) return { ok: true, acao: 'já avisado' };
   var url = 'index.html?lead=' + (l.idOportunidade || '') + '&notif=' + id + ':lead';
-  enviarPush_(cfg, [vendedor], { titulo: 'Novo lead do site pra você', corpo: resumo, url: url, tag: 'lead-' + id, notifId: id + ':lead' });
+  enviarPush_(cfg, [vendedor], { titulo: 'Novo lead do site pra você', corpo: resumo, url: url, tag: 'lead-' + id, notifId: id + ':lead', tipo: 'lead' });
   enviarPush_(cfg, gestao.filter(function (g) { return g !== vendedor; }), {
     titulo: 'Novo lead do site', corpo: resumo + ' · para ' + (nomes[vendedor] || 'vendedor da vez'),
-    url: url, tag: 'lead-' + id, notifId: id + ':lead'
+    url: url, tag: 'lead-' + id, notifId: id + ':lead', tipo: 'lead'
   });
   fsCommit_(cfg, [fsUpdate_(cfg, 'leads_site/' + id, { avisoLeadEm: agora })]);
   return { ok: true, acao: 'lead', vendedor: vendedor };
@@ -4188,14 +4190,61 @@ function vendedoresFs_(cfg) {
   return lista;
 }
 
-// Manda pelo Firebase Cloud Messaging pra todos os aparelhos das pessoas da
-// lista. Aparelho que o Firebase diz que não existe mais sai de push_tokens.
+// Guarda o aviso em notificacoes/{notifId} (o sininho do ERP lê dali) e manda o
+// push. msg: { titulo, corpo, url, tag, notifId, tipo, acao, enviarEmMs }.
+//   tipo        lead | disparo | cobranca | os | agendamento | supervisor_*
+//   acao        opcional { tipo: '<nome>', ... }: o sininho repassa o clique
+//   enviarEmMs  no futuro, só grava; notificacoesVarrer manda o push na hora
+// Chamar de novo com o mesmo notifId junta as pessoas em `para` (vendedor e
+// gestão recebem o mesmo aviso). Falha ao gravar não impede o push.
 function enviarPush_(cfg, idsVendedores, msg) {
   if (!idsVendedores.length) return 0;
+  var agora = Date.now();
+  var docId = notifGravar_(cfg, idsVendedores, msg, agora);
+  if (Number(msg.enviarEmMs || 0) > agora) return 0;
+  var r = notifMandarPush_(cfg, idsVendedores, msg);
+  if (docId && (r.enviados > 0 || !r.aparelhos)) notifMarcarEnviado_(cfg, docId);
+  return r.enviados;
+}
+
+// O id do documento é o notifId (o sininho usa o mesmo id em notificacoes_lidas).
+function notifDocId_(notifId) {
+  return String(notifId).replace(/\//g, '_').slice(0, 300);
+}
+
+function notifGravar_(cfg, idsVendedores, msg, agora) {
+  if (!msg.notifId) return '';
+  var id = notifDocId_(msg.notifId);
+  try {
+    var campos = {
+      titulo: String(msg.titulo || ''), corpo: String(msg.corpo || ''), url: String(msg.url || ''),
+      tag: String(msg.tag || ''), tipo: String(msg.tipo || ''), criadoEmMs: agora
+    };
+    if (Number(msg.enviarEmMs || 0) > 0) campos.enviarEmMs = Number(msg.enviarEmMs);
+    if (msg.acao) campos.acao = msg.acao;
+    var w = fsUpdateRico_(cfg, 'notificacoes/' + id, campos);
+    w.updateTransforms = [{ fieldPath: 'para', appendMissingElements: { values: idsVendedores.map(function (i) { return { stringValue: String(i) }; }) } }];
+    fsCommit_(cfg, [w]);
+    return id;
+  } catch (e) {
+    console.error('Não gravou a notificação ' + id + ': ' + e.message);
+    return '';
+  }
+}
+
+function notifMarcarEnviado_(cfg, docId) {
+  try { fsCommit_(cfg, [fsUpdate_(cfg, 'notificacoes/' + docId, { pushEnviadoEm: Date.now() }, { exists: true })]); }
+  catch (e) { console.error('Não marcou o push da notificação ' + docId + ': ' + e.message); }
+}
+
+// Manda pelo Firebase Cloud Messaging pra todos os aparelhos das pessoas da
+// lista. Aparelho que o Firebase diz que não existe mais sai de push_tokens.
+// Devolve { enviados, aparelhos }.
+function notifMandarPush_(cfg, idsVendedores, msg) {
   var aparelhos = fsListar_(cfg, 'push_tokens').filter(function (t) {
     return idsVendedores.indexOf(String(t.idVendedor)) !== -1 && t.token;
   });
-  if (!aparelhos.length) return 0;
+  if (!aparelhos.length) return { enviados: 0, aparelhos: 0 };
   var tok = fbAccessToken_(cfg);
   var pedidos = aparelhos.map(function (t) {
     return {
@@ -4220,7 +4269,104 @@ function enviarPush_(cfg, idsVendedores, msg) {
       console.error('Push recusado (' + cod + '): ' + texto.slice(0, 300));
     }
   });
-  return enviados;
+  return { enviados: enviados, aparelhos: aparelhos.length };
+}
+
+// ── Sininho: push dos avisos agendados e dos gravados pelo navegador ───────
+
+// Consulta por faixa de um campo numérico (índice automático de campo único).
+function notifConsultarFaixa_(cfg, campo, de, ate) {
+  var resp = fsPedir_(cfg, 'post', cfg.base + ':runQuery', { structuredQuery: {
+    from: [{ collectionId: 'notificacoes' }],
+    where: { compositeFilter: { op: 'AND', filters: [
+      { fieldFilter: { field: { fieldPath: campo }, op: 'GREATER_THAN_OR_EQUAL', value: fsValor_(de) } },
+      { fieldFilter: { field: { fieldPath: campo }, op: 'LESS_THAN_OR_EQUAL', value: fsValor_(ate) } }
+    ] } },
+    limit: 300
+  } });
+  if (resp.getResponseCode() !== 200) throw new Error('Firestore recusou a consulta das notificações: ' + resp.getContentText().slice(0, 200));
+  return JSON.parse(resp.getContentText()).filter(function (r) { return r.document; }).map(function (r) {
+    var item = fsLerCampos_(r.document.fields || {});
+    item._id = r.document.name.split('/').pop();
+    return item;
+  });
+}
+
+// Manda o push de um documento de notificacoes e marca pushEnviadoEm.
+function notifEnviarDoc_(cfg, d) {
+  var ids = (d.para || []).map(String);
+  if (!ids.length) return 0;
+  var r = notifMandarPush_(cfg, ids, { titulo: d.titulo, corpo: d.corpo, url: d.url, tag: d.tag, notifId: d._id });
+  if (r.enviados > 0 || !r.aparelhos) notifMarcarEnviado_(cfg, d._id);
+  return r.enviados;
+}
+
+// Gatilho de 15 minutos (notificacoesInstalarGatilho). Manda o push do que já
+// venceu e ainda não tem pushEnviadoEm: avisos agendados (enviarEmMs chegou) e
+// avisos que o navegador gravou e cuja chamada de notifPush não completou.
+// Janelas curtas para não reler a coleção toda: agendado vale até 3 h depois da
+// hora; aviso imediato vale até 1 h depois de criado, e só depois de 2 min para
+// não disputar com quem acabou de criar.
+function notificacoesVarrer() {
+  var cfg = fbConfig_();
+  if (!cfg) return;
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) return;
+  try {
+    var agora = Date.now();
+    var vistos = {}, devidos = [];
+    notifConsultarFaixa_(cfg, 'enviarEmMs', agora - 3 * 3600 * 1000, agora).concat(
+      notifConsultarFaixa_(cfg, 'criadoEmMs', agora - 3600 * 1000, agora - 2 * 60 * 1000)
+    ).forEach(function (d) {
+      if (vistos[d._id] || d.pushEnviadoEm) return;
+      if (Number(d.enviarEmMs || 0) > agora) return;
+      vistos[d._id] = true;
+      devidos.push(d);
+    });
+    var enviados = 0;
+    devidos.forEach(function (d) {
+      try { enviados += notifEnviarDoc_(cfg, d); }
+      catch (e) { console.error('Notificação ' + d._id + ': ' + e.message); }
+    });
+    console.log('Varredura das notificações: ' + devidos.length + ' devidas, ' + enviados + ' pushes.');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Rodar uma vez pelo editor.
+function notificacoesInstalarGatilho() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'notificacoesVarrer') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('notificacoesVarrer').timeBased().everyMinutes(15).create();
+  Logger.log('Gatilho das notificações instalado: a cada 15 minutos.');
+}
+
+// action: notifPush { idToken, notifId }. O navegador gravou o documento em
+// notificacoes (sem pushEnviadoEm) e pede o push na hora. Qualquer usuário
+// ativo, como osConfirmar: só sai o que já está gravado, uma vez só, e aviso
+// agendado (enviarEmMs no futuro) fica para a varredura.
+function actionNotifPush(body) {
+  var cfg = fbConfig_();
+  if (!cfg) return { ok: false, erro: 'Firebase não configurado no servidor.' };
+  var auth = disparoAutenticar_(cfg, body, false);
+  if (auth.erro) return { ok: false, erro: auth.erro };
+  var notifId = String(body.notifId || '');
+  if (!notifId || notifId.length > 300 || notifId.indexOf('/') !== -1) return { ok: false, erro: 'notifId inválido' };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var doc = fsGet_(cfg, 'notificacoes/' + encodeURIComponent(notifId));
+    if (!doc) return { ok: false, erro: 'notificação não encontrada' };
+    var d = doc.dados;
+    d._id = notifId;
+    if (d.pushEnviadoEm) return { ok: true, acao: 'já enviado' };
+    if (Number(d.enviarEmMs || 0) > Date.now()) return { ok: true, acao: 'agendada' };
+    return { ok: true, acao: 'enviado', enviados: notifEnviarDoc_(cfg, d) };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // ── Firestore por REST, com a conta de serviço ─────────────────────────
@@ -4923,9 +5069,9 @@ function disparoRegistrar_(cfg, d, tipo, texto, idInteracao) {
     (d.segmento ? ' · ' + d.segmento : '');
   var url = 'index.html?lead=' + (d.idOportunidade || '') + '&notif=disparo:' + idInteracao;
   var vendedor = String(d.idVendedor);
-  enviarPush_(cfg, [vendedor], { titulo: titulo, corpo: corpo, url: url, tag: 'disparo-' + d._id, notifId: 'disparo:' + idInteracao });
+  enviarPush_(cfg, [vendedor], { titulo: titulo, corpo: corpo, url: url, tag: 'disparo-' + d._id, notifId: 'disparo:' + idInteracao, tipo: 'disparo' });
   enviarPush_(cfg, gestao.filter(function (g) { return g !== vendedor; }), {
-    titulo: titulo, corpo: corpo + ' · para ' + (nomes[vendedor] || 'vendedor'), url: url, tag: 'disparo-' + d._id, notifId: 'disparo:' + idInteracao
+    titulo: titulo, corpo: corpo + ' · para ' + (nomes[vendedor] || 'vendedor'), url: url, tag: 'disparo-' + d._id, notifId: 'disparo:' + idInteracao, tipo: 'disparo'
   });
   return { ok: true, acao: 'registrado' };
 }
@@ -5716,7 +5862,7 @@ function cobrancaPedirReserva_(cfg, cliente, reserva, chave) {
     titulo: 'Cobrar pelo seu WhatsApp',
     corpo: nome + ': a mensagem automática não saiu. Toque para enviar o texto e o link.',
     url: 'https://wa.me/' + reserva.tel + '?text=' + encodeURIComponent(reserva.texto),
-    tag: 'cobranca-reserva-' + chave, notifId: 'cobranca:reserva:' + chave + ':' + Date.now()
+    tag: 'cobranca-reserva-' + chave, notifId: 'cobranca:reserva:' + chave + ':' + Date.now(), tipo: 'cobranca'
   });
 }
 
@@ -5784,7 +5930,21 @@ function cobrancaEnviar_(cfg, c, tipo, por) {
   ];
   if (tipo === 'obrigado') writes.push(fsUpdate_(cfg, 'agendamentos/' + c.id, { CobrancaAgradecer: false, CobrancaAgradecidoEm: registro.Em }));
   fsCommit_(cfg, writes);
+  cobrancaAvisarEnvio_(cfg, c.cliente, tipo === 'obrigado' ? 'Agradecimento enviado para' : 'Cobrança enviada para',
+    'index.html?cobranca=' + c.id, 'cobranca-' + c.id, 'cobranca:envio:' + r.wamid, 'cobranca');
   return { ok: true };
+}
+
+// Aviso ao vendedor do cliente (ou à gestão, sem vendedor) de que a API mandou uma
+// mensagem de cobrança ou de confirmação de OS ao cliente. Nunca derruba o envio.
+function cobrancaAvisarEnvio_(cfg, cliente, texto, url, tag, notifId, tipo) {
+  try {
+    var vendedor = String(cliente['Vendedor Responsavel'] || '');
+    var nome = String(cliente['Nome Razao Social'] || cliente.Nome || 'Cliente');
+    enviarPush_(cfg, vendedor ? [vendedor] : cobrancaGestao_(cfg), {
+      titulo: 'Mensagem ao cliente', corpo: texto + ' ' + nome, url: url, tag: tag, notifId: notifId, tipo: tipo
+    });
+  } catch (e) { console.error('Aviso de envio (' + notifId + '): ' + e.message); }
 }
 
 // Texto pela hora de Belém, para o envio feito pelo botão (mesma regra de
@@ -5926,7 +6086,7 @@ function actionCobrancaWebhook(body) {
     enviarPush_(cfg, vendedor ? [vendedor] : cobrancaGestao_(cfg), {
       titulo: 'Pagamento recebido pelo link',
       corpo: (nome || 'Cliente') + ' pagou ' + cobrancaDinheiro_(valor) + (quitou ? '' : ' (ainda resta saldo)'),
-      url: 'index.html?cobranca=' + id, tag: 'cobranca-' + id, notifId: 'cobranca:' + transacao
+      url: 'index.html?cobranca=' + id, tag: 'cobranca-' + id, notifId: 'cobranca:' + transacao, tipo: 'cobranca'
     });
     if (agradecer) agradecerId = id;
   } finally {
@@ -6025,7 +6185,7 @@ function cobrancaTratarMensagem_(cfg, m) {
     titulo: daConfirmacao ? 'Cliente respondeu a confirmação da OS' : 'Cliente respondeu a cobrança',
     corpo: nome + ': ' + String(texto || '[' + tipo + ']').slice(0, 120),
     url: 'index.html?' + (ref.idPlano ? 'cobrancaPlano=' : 'cobranca=') + (dono.idPlano || dono.idAgendamento),
-    tag: 'cobranca-' + chave, notifId: 'cobranca:in:' + String(m.id || '')
+    tag: 'cobranca-' + chave, notifId: 'cobranca:in:' + String(m.id || ''), tipo: daConfirmacao ? 'os' : 'cobranca'
   });
   return true;
 }
@@ -6148,6 +6308,8 @@ function cobrancaPlanoEnviar_(cfg, c, tipo, por, mes) {
       telFim8: disparoFim8_(tel), tipo: 'text', cobrancaTipo: tipo, idPlano: c.id, status: 'enviado', texto: registro.Texto
     })
   ]);
+  cobrancaAvisarEnvio_(cfg, c.cliente, tipo === 'obrigado' ? 'Agradecimento enviado para' : 'Mensalidade enviada para',
+    'index.html?cobrancaPlano=' + c.id, 'cobranca-plano-' + c.id, 'cobranca:envio:' + r.wamid, 'cobranca');
   return { ok: true };
 }
 
@@ -6210,7 +6372,7 @@ function cobrancaPagouPlano_(cfg, ref, orderNsu, transacao, conf, body) {
   enviarPush_(cfg, repetido ? cobrancaGestao_(cfg) : (vendedor ? [vendedor] : cobrancaGestao_(cfg)), {
     titulo: repetido ? 'Mensalidade paga de novo pelo link' : 'Mensalidade paga pelo link',
     corpo: (nome || 'Cliente') + ' pagou ' + cobrancaDinheiro_(valor) + ' do plano (' + cobrancaPlanoNomeMeses_(pagos) + ')' + (repetido ? '; esses meses já estavam quitados, confira' : ''),
-    url: 'index.html?cobrancaPlano=' + c.id, tag: 'cobranca-plano-' + c.id, notifId: 'cobranca:' + transacao
+    url: 'index.html?cobrancaPlano=' + c.id, tag: 'cobranca-plano-' + c.id, notifId: 'cobranca:' + transacao, tipo: 'cobranca'
   });
   if (!repetido && !resto.length && !cobrancaOutrasAbertas_(cfg, { id: '', os: { IdCliente: c.plano.IdCliente } })) {
     c.cm = cm; c.meses = [];
@@ -6405,7 +6567,7 @@ function cobrancaPagouAvulso_(cfg, ref, orderNsu, transacao, conf, body) {
   enviarPush_(cfg, avisar.filter(String), {
     titulo: 'Link avulso pago',
     corpo: ref.descricao + ': ' + cobrancaDinheiro_(valor) + (idVenda ? ' (venda lançada)' : ' (sem cliente e serviço: lance a venda se for o caso)'),
-    url: 'index.html', tag: 'cobranca-avulso-' + orderNsu, notifId: 'cobranca:' + transacao
+    url: 'index.html', tag: 'cobranca-avulso-' + orderNsu, notifId: 'cobranca:' + transacao, tipo: 'cobranca'
   });
   return { ok: true, acao: 'lançado' };
 }
@@ -6480,7 +6642,7 @@ function osPedirReserva_(cfg, cliente, reserva, chave) {
     titulo: 'Confirmar pelo seu WhatsApp',
     corpo: nome + ': a confirmação automática da OS não saiu. Toque para enviar pelo seu WhatsApp.',
     url: 'https://wa.me/' + reserva.tel + '?text=' + encodeURIComponent(reserva.texto),
-    tag: 'os-reserva-' + chave, notifId: 'os:reserva:' + chave + ':' + Date.now()
+    tag: 'os-reserva-' + chave, notifId: 'os:reserva:' + chave + ':' + Date.now(), tipo: 'os'
   });
 }
 
@@ -6539,6 +6701,8 @@ function osConfirmacaoEnviar_(cfg, id, por) {
         texto: cobrancaTextoReserva_(modelo, dados, '')
       })
     ]);
+    cobrancaAvisarEnvio_(cfg, c.cliente, 'Confirmação da OS enviada para',
+      'index.html?cobranca=' + c.id, 'os-' + c.id, 'os:envio:' + r.wamid, 'os');
     return { ok: true };
   } finally {
     lock.releaseLock();
