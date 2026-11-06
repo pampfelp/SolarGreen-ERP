@@ -541,6 +541,18 @@
       return {ok:true, vendedores:vendedores};
     }).catch(function(err){ return {ok:false, erro:err.message}; });
   }
+  // Lista liberada da notificação obrigatória (2026-11-06): a gestão decide na
+  // tela Usuários quem pode usar o ERP e o app do técnico sem notificação
+  // (ex.: o navegador do Claude, que não recebe push). Só esse campo.
+  function atualizarLiberadoNotificacao(p){
+    var id=p.idVendedor;
+    if(!id) return Promise.resolve({ok:false,erro:'idVendedor é obrigatório.'});
+    // Acha o cadastro pelo IdVendedor (não cria documento novo se não achar).
+    return db().collection('vendedores').where('IdVendedor','==',String(id)).limit(1).get().then(function(snap){
+      if(snap.empty)return {ok:false,erro:'Cadastro não encontrado.'};
+      return snap.docs[0].ref.update({LiberadoNotificacao:!!p.liberado}).then(function(){ return {ok:true}; });
+    }).catch(function(err){ return {ok:false,erro:err.message}; });
+  }
   function salvarVendedor(p){
     var id=p.idVendedor;
     if(!id) return Promise.resolve({ok:false,erro:'idVendedor é obrigatório.'});
@@ -1135,6 +1147,7 @@
 
     listVendedoresAdmin:comAuthPronto(listVendedoresAdmin),
     salvarVendedor:comSync('vendedores',function(p){return p.nome||p.idVendedor;},comAuthPronto(salvarVendedor)),
+    atualizarLiberadoNotificacao:comSync('vendedores',function(p){return 'notificação ('+(p.liberado?'liberado':'obrigatória')+')';},comAuthPronto(atualizarLiberadoNotificacao)),
 
     getServicosData:comAuthPronto(getServicosData),
     salvarServico:comSync('servicos',function(p){return p.nomeServico||p.idServico;},comAuthPronto(salvarServico)),

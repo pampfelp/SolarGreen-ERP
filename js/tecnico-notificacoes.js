@@ -283,8 +283,22 @@
   // Permissão já dada e só o registro do endereço pendente não trava (o
   // registro tenta de novo em silêncio). Sem internet no campo também não
   // trava: o pedido precisa de rede e o técnico precisa trabalhar offline.
+  // Lista liberada (tela Usuários do ERP, 2026-11-06): vendedores/{id}.LiberadoNotificacao.
+  // null = ainda não leu o cadastro; a trava espera.
+  var _liberado=null;
+  function escutarLiberado(){
+    var limite=setTimeout(function(){ if(_liberado===null){ _liberado=false; dialogoAtivacao(); } },6000);
+    window.TecnicoFireReady.then(function(){
+      db().collection('vendedores').where('IdVendedor','==',meuId()).limit(1).onSnapshot(function(snap){
+        clearTimeout(limite);
+        _liberado=!snap.empty&&!!snap.docs[0].data().LiberadoNotificacao;
+        if(_liberado){ var ov=el('notif-ativar-overlay'); if(ov)ov.remove(); } else dialogoAtivacao();
+      },function(err){ clearTimeout(limite); console.error('Notificações: não leu a lista liberada',err); _liberado=false; dialogoAtivacao(); });
+    });
+  }
   function precisaAtivar(){
     var s=situacao();
+    if(_liberado!==false)return false;
     if(s==='ativo')return false;
     if(pushPossivel()&&Notification.permission==='granted')return false;
     if(s==='ativar'&&navigator.onLine===false)return false;
@@ -366,7 +380,7 @@
       history.replaceState(null,'',location.pathname+location.hash);
       abrirLink(url);
     }
-    registrarAparelho(false).catch(function(){}).then(dialogoAtivacao);
+    registrarAparelho(false).catch(function(){}).then(escutarLiberado);
     // Voltou a internet no campo: agora a ativação pode sair.
     window.addEventListener('online',dialogoAtivacao);
   }

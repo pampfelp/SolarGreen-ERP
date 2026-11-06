@@ -436,9 +436,23 @@
     bloqueado:'As notificações estão bloqueadas neste navegador. Toque no cadeado ao lado do endereço do site, libere as notificações e depois toque em Já liberei.',
     inviavel:'Este navegador não recebe notificações. Abra o ERP no Chrome para continuar.'
   };
+  // Lista liberada (tela Usuários, 2026-11-06): vendedores/{id}.LiberadoNotificacao.
+  // Até ler o cadastro, não mostra a trava (null = ainda não sabe).
+  var _liberado=null;
+  function escutarLiberado(){
+    var limite=setTimeout(function(){ if(_liberado===null){ _liberado=false; exigirAtivacao(); } },6000);
+    window.SGFireReady.then(function(){
+      db().collection('vendedores').where('IdVendedor','==',meuId()).limit(1).onSnapshot(function(snap){
+        clearTimeout(limite);
+        _liberado=!snap.empty&&!!snap.docs[0].data().LiberadoNotificacao;
+        exigirAtivacao();
+      },function(err){ clearTimeout(limite); console.error('Notificações: não leu a lista liberada',err); _liberado=false; exigirAtivacao(); });
+    });
+  }
   function exigirAtivacao(){
     var s=situacaoPush(), ov=el('sg-push-obrig');
-    if(s==='ativo'){ if(ov)ov.remove(); return; }
+    if(_liberado===null)return;
+    if(s==='ativo'||_liberado){ if(ov)ov.remove(); return; }
     if(ov)return;
     ov=document.createElement('div');
     ov.id='sg-push-obrig'; ov.className='modal-overlay';
@@ -472,7 +486,7 @@
     _iniciado=true;
     construir();
     atualizarTela();
-    exigirAtivacao();
+    escutarLiberado();
     // Liberou nas configurações e voltou para a aba: confere sem precisar recarregar.
     document.addEventListener('visibilitychange',function(){ if(!document.hidden)exigirAtivacao(); });
     if(souGestao())window.SGUtil.assinarColecao('vendedores',function(lista){
