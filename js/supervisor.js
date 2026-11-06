@@ -80,7 +80,10 @@
       abrirLead(a.idOportunidade);
       return;
     }
-    var vendedor=a.nomeVendedor||((window.SG_SESSION||{}).nome)||'';
+    // Quem manda assina: a gestão mandando pelo lead de um vendedor (tela
+    // Supervisão, 06/11) usa o próprio nome, não o do dono do lead.
+    var sessao=window.SG_SESSION||{}, dono=(notif.para&&notif.para[0])||'';
+    var vendedor=(dono&&dono!==String(sessao.idVendedor||''))?(sessao.nome||''):(a.nomeVendedor||sessao.nome||'');
     var texto=window.SupervisorMensagens.mensagem(a.etapa,{nome:a.nome,vendedor:vendedor});
     // Abre antes de qualquer espera, senão o navegador bloqueia a janela.
     window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(texto),'_blank','noopener');
@@ -122,8 +125,8 @@
     var N=window.SGNotificacoes;
     if(_registrado||!N||typeof N.registrarAcao!=='function'||!R())return;
     var T=R().TIPOS_AVISO;
-    N.registrarAcao(T.contato,{botao:'Enviar',aoClicar:enviar});
-    N.registrarAcao(T.lembrete,{botao:'Enviar',aoClicar:enviar});
+    N.registrarAcao(T.contato,{botao:'Enviar mensagem',aoClicar:enviar});
+    N.registrarAcao(T.lembrete,{botao:'Enviar mensagem',aoClicar:enviar});
     N.registrarAcao(T.pergunta,{botao:'Marcar data',aoClicar:perguntar});
     _registrado=true;
   }

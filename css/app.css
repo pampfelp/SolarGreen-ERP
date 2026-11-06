@@ -925,7 +925,9 @@
   .sg-sup-ver{background:none;border:none;padding:0;margin-top:6px;color:var(--accent-deep);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--sans);}
   .sg-sup-vazio{font-size:12.5px;color:var(--ink-faint);text-align:center;padding:22px 14px;}
   @media(max-width:760px){
-    #sg-sup-btn{top:13px;right:62px;height:36px;padding:0 11px;border-radius:9px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;box-shadow:none;}
+    /* Compacto para não encostar no logo do topo (06/11). */
+    #sg-sup-btn{top:13px;right:60px;height:36px;padding:0 8px;gap:5px;border-radius:9px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;box-shadow:none;font-size:11.5px;}
+    #sg-sup-btn svg{width:15px;height:15px;}
     #sg-sup-painel{top:58px;left:10px;right:10px;width:auto;}
   }
 
