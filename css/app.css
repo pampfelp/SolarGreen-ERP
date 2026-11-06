@@ -897,6 +897,13 @@
     #sg-notif-pilha{left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));width:auto;}
   }
 
+  /* ── Ativação obrigatória das notificações (js/notificacoes.js, 2026-11-06):
+     cobre o ERP inteiro, acima de qualquer modal. */
+  #sg-push-obrig{z-index:3000;}
+  .sg-push-obrig-txt{font-size:14px;line-height:1.5;color:var(--ink);margin:10px 0 14px;}
+  .sg-push-obrig-erro{font-size:12.5px;color:var(--debit);margin-bottom:10px;}
+  .sg-push-obrig-erro:empty{display:none;}
+
   /* ── Supervisão (js/supervisao.js, 2026-11-05): botão ao lado do sininho e
      painel com os clientes de hoje. Mesma linguagem do sininho. */
   #sg-sup-btn{position:fixed;top:14px;right:66px;z-index:121;height:40px;padding:0 14px;border-radius:20px;background:var(--panel);border:1px solid var(--line);color:var(--sidebar-bg);display:flex;align-items:center;gap:7px;cursor:pointer;box-shadow:0 4px 14px rgba(0,49,34,.10);font:700 12.5px var(--sans);}

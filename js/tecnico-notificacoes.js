@@ -25,7 +25,6 @@
   var _docs=null, _lidas=null, _todas=[];
   var _mostrados=lerLocal(KEY_MOSTRADOS)||{};
   var _abertos={}, _fila=[];
-  var _adiado=false;   // "Agora não" vale até o app abrir de novo
 
   function el(id){ return document.getElementById(id); }
   function esc(s){ var d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
@@ -278,31 +277,47 @@
     return Promise.race([apagar,new Promise(function(r){ setTimeout(r,1500); })]);
   }
 
-  // ── Diálogo de ativação ────────────────────────────────────────────────
-  // Aparece a cada abertura do app enquanto o push não está ativo neste aparelho.
-  // "Agora não" só adia até a próxima abertura, para não travar quem tem aparelho sem push.
+  // ── Diálogo de ativação (obrigatório desde 2026-11-06) ─────────────────
+  // Pedido do Felipe: sem notificação ligada no aparelho, o app não deixa
+  // trabalhar. A tela cobre o app até a permissão sair; não tem "Agora não".
+  // Permissão já dada e só o registro do endereço pendente não trava (o
+  // registro tenta de novo em silêncio). Sem internet no campo também não
+  // trava: o pedido precisa de rede e o técnico precisa trabalhar offline.
+  function precisaAtivar(){
+    var s=situacao();
+    if(s==='ativo')return false;
+    if(pushPossivel()&&Notification.permission==='granted')return false;
+    if(s==='ativar'&&navigator.onLine===false)return false;
+    return true;
+  }
+  var TEXTO_BOTAO={ ativar:'Ativar', bloqueado:'Já liberei', ios:'Conferir de novo', inviavel:'Conferir de novo' };
   function dialogoAtivacao(){
     var s=situacao();
-    if(_adiado||s==='ativo'||s==='inviavel'||el('notif-ativar-overlay'))return;
-    if(s==='ativar'&&navigator.onLine===false)return;   // offline no campo: não incomoda
+    if(!precisaAtivar()||el('notif-ativar-overlay'))return;
     var ov=document.createElement('div');
-    ov.id='notif-ativar-overlay'; ov.className='sheet-overlay';
+    ov.id='notif-ativar-overlay'; ov.className='sheet-overlay notif-obrigatorio';
     ov.innerHTML='<div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="notif-ativar-titulo">'+
       '<h3 id="notif-ativar-titulo">Notificações de agendamentos</h3>'+
       '<p class="notif-ativar-txt">'+esc(TEXTO_ATIVAR)+'</p>'+
       (TEXTO_SITUACAO[s]?'<p class="notif-ativar-txt">'+esc(TEXTO_SITUACAO[s])+'</p>':'')+
       '<div class="notif-ativar-erro" id="notif-ativar-erro"></div>'+
       '<div class="sheet-actions">'+
-        '<button type="button" class="btn-limpar" id="notif-ativar-depois">'+(s==='ativar'?'Agora não':'Entendi')+'</button>'+
-        (s==='ativar'?'<button type="button" class="btn-aplicar" id="notif-ativar-ok">Ativar</button>':'')+
+        '<button type="button" class="btn-limpar" id="notif-ativar-sair">Sair</button>'+
+        '<button type="button" class="btn-aplicar" id="notif-ativar-ok">'+TEXTO_BOTAO[s]+'</button>'+
       '</div></div>';
     document.body.appendChild(ov);
     function fechar(){ ov.remove(); }
-    el('notif-ativar-depois').addEventListener('click',function(){ _adiado=true; fechar(); });
+    // Sair pelo mesmo botão do topo (esquece o aparelho e volta ao login).
+    el('notif-ativar-sair').addEventListener('click',function(){ var b=el('btn-logout'); if(b)b.click(); });
+    // Bloqueado, iPhone sem instalar ou navegador sem push: a pessoa resolve fora
+    // do app e confere de novo (recarregar relê a permissão).
+    if(s!=='ativar')el('notif-ativar-ok').addEventListener('click',function(){ location.reload(); });
     if(s==='ativar')el('notif-ativar-ok').addEventListener('click',function(){
       var botao=this;
       ativar(botao,function(ok){
         if(ok){ fechar(); renderPush(); aviso('Notificações ativadas neste aparelho.'); return; }
+        // Permissão dada mas o endereço não registrou (rede): libera; o registro tenta de novo depois.
+        if(!precisaAtivar()){ fechar(); renderPush(); return; }
         if(situacao()==='bloqueado'){ fechar(); renderPush(); dialogoAtivacao(); return; }
         botao.disabled=false; botao.textContent='Ativar';
         el('notif-ativar-erro').textContent='Não foi possível ativar agora. Confira a conexão e tente de novo.';
@@ -352,6 +367,8 @@
       abrirLink(url);
     }
     registrarAparelho(false).catch(function(){}).then(dialogoAtivacao);
+    // Voltou a internet no campo: agora a ativação pode sair.
+    window.addEventListener('online',dialogoAtivacao);
   }
 
   window.TecnicoNotificacoes={esquecerAparelho:esquecerAparelho};
