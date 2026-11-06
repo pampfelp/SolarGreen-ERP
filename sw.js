@@ -25,6 +25,9 @@ self.addEventListener('fetch', function (event) {
   // Só GET, só mesma origem — POST (todas as chamadas de API) e recursos de
   // terceiros (fontes do Google, etc.) passam direto pela rede, sem cache.
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
+  // Conferência de versão nova (js/sg-atualizar.js, 2026-11-06): vai direto à
+  // rede e não entra no cache, senão cada conferência viraria uma cópia guardada.
+  if (new URL(req.url).searchParams.has('sgv')) return;
 
   event.respondWith(
     // {cache:'no-store'} é o que garante "network-first" de verdade — sem

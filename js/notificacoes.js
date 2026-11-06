@@ -418,11 +418,63 @@
   }
 
   // ── Início ─────────────────────────────────────────────────────────────
+  // ── Ativação obrigatória (2026-11-06) ──────────────────────────────────
+  // Pedido do Felipe: sem notificação ligada no aparelho, não dá para mexer no
+  // ERP. Uma tela cobre tudo até a permissão sair; só tem Sair como escape.
+  // Permissão dada e endereço ainda não registrado não trava (registrarAparelho
+  // tenta de novo a cada abertura).
+  function situacaoPush(){
+    if(!VAPID_KEY)return 'ativo';
+    if(ehIOS()&&!instalado())return 'ios';
+    if(!pushPossivel())return 'inviavel';
+    if(Notification.permission==='denied')return 'bloqueado';
+    return Notification.permission==='granted'?'ativo':'ativar';
+  }
+  var TEXTO_OBRIGATORIO={
+    ativar:'Para usar o ERP, ative as notificações neste aparelho. É por elas que chegam os leads, os lembretes de clientes, os pagamentos e as respostas no WhatsApp.',
+    ios:'No iPhone, as notificações só funcionam com o ERP instalado na tela de início: toque em Compartilhar, depois em Adicionar à Tela de Início, e abra o ERP pelo ícone novo.',
+    bloqueado:'As notificações estão bloqueadas neste navegador. Toque no cadeado ao lado do endereço do site, libere as notificações e depois toque em Já liberei.',
+    inviavel:'Este navegador não recebe notificações. Abra o ERP no Chrome para continuar.'
+  };
+  function exigirAtivacao(){
+    var s=situacaoPush(), ov=el('sg-push-obrig');
+    if(s==='ativo'){ if(ov)ov.remove(); return; }
+    if(ov)return;
+    ov=document.createElement('div');
+    ov.id='sg-push-obrig'; ov.className='modal-overlay';
+    ov.innerHTML='<div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="sg-push-obrig-titulo">'+
+      '<h3 id="sg-push-obrig-titulo">Ative as notificações</h3>'+
+      '<p class="sg-push-obrig-txt">'+esc(TEXTO_OBRIGATORIO[s])+'</p>'+
+      '<p class="sg-push-obrig-erro" id="sg-push-obrig-erro"></p>'+
+      '<div class="modal-actions"><button type="button" class="reset-btn" id="sg-push-obrig-sair">Sair</button>'+
+      '<button type="button" class="connect-btn" id="sg-push-obrig-ok">'+(s==='ativar'?'Ativar notificações':(s==='bloqueado'?'Já liberei':'Conferir de novo'))+'</button></div></div>';
+    document.body.appendChild(ov);
+    el('sg-push-obrig-sair').addEventListener('click',function(){ var b=el('sg-logout-btn'); if(b)b.click(); });
+    el('sg-push-obrig-ok').addEventListener('click',function(){
+      if(s!=='ativar'){ location.reload(); return; }
+      var botao=this;
+      botao.disabled=true; botao.textContent='Ativando';
+      // O pedido de permissão sai direto do clique (exigência do iPhone).
+      Notification.requestPermission().then(function(perm){
+        if(perm==='granted')return registrarAparelho(true).catch(function(err){ console.error('Notificações: permissão dada, registro fica para depois',err); });
+      }).catch(function(err){ console.error('Notificações: falha ao ativar',err); }).then(function(){
+        var agora=situacaoPush();
+        if(agora==='ativo'){ ov.remove(); renderPush(); if(window.SGToast)window.SGToast.mostrar('Notificações ativadas neste aparelho.'); return; }
+        if(agora!==s){ ov.remove(); exigirAtivacao(); return; }   // virou bloqueado: mostra o caminho
+        botao.disabled=false; botao.textContent='Ativar notificações';
+        el('sg-push-obrig-erro').textContent='A permissão não foi dada. Toque em Ativar notificações e escolha Permitir.';
+      });
+    });
+  }
+
   function init(){
     if(_iniciado||!window.SG_SESSION||!meuId()||!window.leadsSiteApp||!window.SGUtil)return;
     _iniciado=true;
     construir();
     atualizarTela();
+    exigirAtivacao();
+    // Liberou nas configurações e voltou para a aba: confere sem precisar recarregar.
+    document.addEventListener('visibilitychange',function(){ if(!document.hidden)exigirAtivacao(); });
     if(souGestao())window.SGUtil.assinarColecao('vendedores',function(lista){
       _vendedores={}; lista.forEach(function(v){ _vendedores[v.IdVendedor]=v; });
       atualizarTela();
