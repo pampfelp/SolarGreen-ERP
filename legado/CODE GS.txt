@@ -4851,6 +4851,21 @@ function disparoSalvarMidia_(props, info) {
   return { driveId: disparoPastaMidia_().createFile(blob).getId(), mime: mime, nomeArquivo: nome };
 }
 
+// Áudio, foto ou arquivo que o contato mandou vai pro Drive e fica na mensagem
+// (midia), que as telas Conversas tocam. Vale para campanha, cobrança,
+// confirmação de OS e mensagem solta: até 06/11 só a campanha guardava, e o
+// áudio respondendo a confirmação aparecia como "[audio]" sem tocar.
+// Erro na mídia não derruba o registro: a mensagem fica com midiaErro e midiaId.
+function disparoAnexarMidia_(cfg, props, info, idMsg) {
+  if (!info || !info.id || !idMsg) return;
+  var anexo = { midiaId: String(info.id) };
+  try { anexo.midia = disparoSalvarMidia_(props, info); } catch (e) {
+    anexo.midiaErro = String(e.message).slice(0, 300);
+    console.error('Mídia recebida: ' + anexo.midiaErro);
+  }
+  fsCommit_(cfg, [fsUpdateRico_(cfg, 'mensagens_disparo/' + idMsg, anexo)]);
+}
+
 // ── Toque no botão ─────────────────────────────────────────────────────
 
 function actionDisparoToque(body) {
@@ -4911,8 +4926,9 @@ function disparoTratarMensagem_(cfg, props, m) {
     // Sem campanha nem cobrança: guarda assim mesmo, para a tela Conversas (03/11).
     var tipoSolto = m.type || 'text';
     var infoSolta = m[tipoSolto] && typeof m[tipoSolto] === 'object' ? m[tipoSolto] : {};
-    disparoGravarMensagem_(cfg, { telFim8: fim8, telLead: m.from, campanha: '', _id: '', idVendedor: '' }, 'entrada', m.id, tipoSolto,
+    var idSolto = disparoGravarMensagem_(cfg, { telFim8: fim8, telLead: m.from, campanha: '', _id: '', idVendedor: '' }, 'entrada', m.id, tipoSolto,
       tipoSolto === 'text' ? (m.text || {}).body : tipoSolto === 'button' ? infoSolta.text : infoSolta.caption);
+    if (idSolto) disparoAnexarMidia_(cfg, props, infoSolta, idSolto);
     console.log('Mensagem no número do disparo sem disparo correspondente (final ' + fim8.slice(-4) + ').');
     return false;
   }
@@ -4928,14 +4944,7 @@ function disparoTratarMensagem_(cfg, props, m) {
   var texto = tipo === 'text' ? (m.text || {}).body : tipo === 'button' ? info.text : info.caption;
   var idMsg = disparoGravarMensagem_(cfg, d, 'entrada', m.id, tipo, texto);
   if (!idMsg) return false; // a Meta repetiu a entrega: já foi tratada
-  if (info.id) {
-    var anexo = {};
-    try { anexo.midia = disparoSalvarMidia_(props, info); } catch (e) {
-      anexo.midiaErro = String(e.message).slice(0, 300);
-      console.error('Mídia do disparo: ' + anexo.midiaErro);
-    }
-    fsCommit_(cfg, [fsUpdateRico_(cfg, 'mensagens_disparo/' + idMsg, anexo)]);
-  }
+  disparoAnexarMidia_(cfg, props, info, idMsg);
 
   // Robô de atendimento do outro lado (Chumber Contabilidade, 28/10): ele responde
   // a nossa resposta e os dois ficavam conversando sem parar. Antes isso era cortado
@@ -6200,6 +6209,7 @@ function cobrancaTratarMensagem_(cfg, m) {
   fsCommit_(cfg, [cobrancaEspelho_(cfg, 'entrada', m.id, c ? c.cliente : null, cobrancaJuntar_({
     telFim8: fim8, tipo: tipo, texto: String(texto || '').slice(0, 1000)
   }, dono))]);
+  disparoAnexarMidia_(cfg, disparoProps_(), info, cobrancaIdEspelho_('entrada', m.id));
   // Resposta à confirmação da OS não é conversa de cobrança: texto neutro no aviso.
   var daConfirmacao = !ref.idPlano && ref.tipo === 'confirmacao';
   enviarPush_(cfg, vendedor ? [vendedor] : cobrancaGestao_(cfg), {

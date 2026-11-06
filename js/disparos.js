@@ -754,7 +754,7 @@
           if (md && x.tipo === 'audio') conteudo = '<button type="button" class="btn btn-fantasma btn-mini" data-ouvir="' + esc(md.driveId) + '">' + ico('play') + ' Ouvir</button>';
           else if (md && x.tipo === 'image') conteudo = '<span data-foto="' + esc(md.driveId) + '" class="suave pequeno">Carregando foto…</span>';
           else if (md) conteudo = '<button type="button" class="btn btn-fantasma btn-mini" data-abrir="' + esc(md.driveId) + '" data-nome="' + esc(md.nomeArquivo || 'arquivo') + '">' + ico('doc') + ' ' + esc(md.nomeArquivo || 'Abrir arquivo') + '</button>';
-          else if (!x.texto) conteudo = '<span class="suave">[' + esc(x.tipo || 'mensagem') + ']</span>';
+          else if (!x.texto) conteudo = '<span class="suave">[' + esc(x.tipo || 'mensagem') + ']' + (/^(audio|image|video|document|sticker)$/.test(x.tipo || '') ? ' · arquivo não guardado' : '') + '</span>';
           var marca = x.direcao !== 'saida' ? '' : x.campanha === 'cobranca' ? '<span class="balao-origem">Cobrança</span>' : x.campanha === 'confirmacao_os' ? '<span class="balao-origem">Confirmação da OS</span>' : '';
           var visto = x.direcao === 'saida' && x.status ? ' ' + (x.status === 'read' ? '<span class="lido">' + ico('tick2') + '</span>' : x.status === 'delivered' ? ico('tick2') : x.status === 'failed' ? '<span class="suave">não entregue</span>' : ico('tick')) : '';
           html += '<div class="balao-linha ' + (x.direcao === 'saida' ? 'saida' : 'entrada') + '"><div class="balao">' + marca + conteudo + (conteudo && x.texto ? '<br>' : '') + esc(x.texto || '') + '<div class="meta">' + (x.em ? hora(x.em) : '') + visto + '</div></div></div>';
