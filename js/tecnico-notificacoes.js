@@ -46,9 +46,13 @@
 
   // ── Montagem dos avisos ────────────────────────────────────────────────
   // Aviso agendado para o futuro (enviarEmMs) só aparece na hora; resolvido sai da contagem.
+  // Só entra aviso de serviço técnico (tipo 'agendamento', js/notif-agendamento.js).
+  // Quem também é vendedor ou gestão (o CEO, por exemplo) recebe em `notificacoes`
+  // disparo, lead, cobrança e supervisor; esses ficam no sininho do ERP (06/11).
   function montar(docs){
     var agora=Date.now(), corte=agora-JANELA_LISTA_MS, me=meuId(), out=[];
     docs.forEach(function(d){
+      if(d.tipo!=='agendamento')return;
       var ms=d.criadoEmMs||0;
       if(ms<corte||(d.enviarEmMs&&d.enviarEmMs>agora)||!(d.para||[]).some(function(p){ return String(p)===me; }))return;
       out.push({id:d.id,ms:d.enviarEmMs||ms,titulo:d.titulo||'Aviso',corpo:d.corpo||'',url:d.url||'',tipo:d.tipo||'',resolvida:!!d.resolvidaEm});
@@ -80,8 +84,14 @@
     var gravar=total>300?refLidas().set({lidas:podar(_lidas),atualizadoEm:Date.now()}):refLidas().set({lidas:patch,atualizadoEm:Date.now()},{merge:true});
     gravar.catch(function(err){ console.error('Notificações: não salvou a leitura',err); });
   }
+  // Poda quando passa de 300: fica o que está na lista desta tela e tudo que foi
+  // lido nos últimos 30 dias. O documento é o mesmo no ERP e no app do técnico,
+  // e cada um mostra avisos diferentes; podar só pela lista de uma tela apagava a
+  // leitura da outra, e o aviso voltava como não lido (06/11).
   function podar(lidas){
-    var vivos={}; _todas.forEach(function(n){ if(lidas[n.id])vivos[n.id]=lidas[n.id]; });
+    var vivos={}, corte=Date.now()-JANELA_LISTA_MS;
+    Object.keys(lidas).forEach(function(id){ if(lidas[id]>=corte)vivos[id]=lidas[id]; });
+    _todas.forEach(function(n){ if(lidas[n.id])vivos[n.id]=lidas[n.id]; });
     return vivos;
   }
 
