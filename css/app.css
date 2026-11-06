@@ -968,6 +968,9 @@
   .cv-balao.entrada{align-self:flex-start;background:var(--panel);border:1px solid var(--line);}
   .cv-rotulo{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);margin-bottom:4px;white-space:normal;}
   .cv-meta{display:block;text-align:right;font-size:10px;color:var(--ink-faint);margin-top:4px;white-space:normal;}
+  .cv-midia{display:block;white-space:normal;margin:2px 0 4px;}
+  .cv-midia audio{display:block;width:260px;max-width:100%;height:40px;}
+  .cv-midia img{display:block;max-width:240px;max-height:320px;width:auto;border-radius:8px;}
   @media (max-width:800px){ .cv-grid{grid-template-columns:1fr;} .cv-lista{max-height:45vh;} .cv-balao{max-width:90%;} }
   .cb-pausa{margin-top:10px;}
   .cb-pausa label{font-size:12px;color:var(--ink-soft);font-weight:600;}

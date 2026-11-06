@@ -962,21 +962,74 @@
   }
   function renderThread(c){
     var box=el('cv-conversa');
-    if(!c){ box.innerHTML='<div class="hint" style="padding:14px;">Escolha um cliente para ver as mensagens.</div>'; return; }
+    if(!c){ cvUltimoHtml=''; box.innerHTML='<div class="hint" style="padding:14px;">Escolha um cliente para ver as mensagens.</div>'; return; }
     var msgs=c.msgs.slice().sort(function(a,b){ return emMs(a.em)-emMs(b.em); });
     var dia='',html='<div class="cv-cabeca"><b>'+esc(c.nome)+'</b><span class="hint">'+esc(c.tel||'')+(c.idVend&&nomeVendedor[c.idVend]?' · '+esc(nomeVendedor[c.idVend]):'')+'</span></div><div class="cv-linha">';
     msgs.forEach(function(x){
       var em=emMs(x.em),d=em?fmtData(new Date(em)):'';
       if(d&&d!==dia){ html+='<div class="cv-dia">'+esc(d)+'</div>'; dia=d; }
       var os=x.idAgendamento&&linhas.some(function(l){ return l.idAgendamento===x.idAgendamento; });
+      var md=x.midia&&x.midia.driveId?x.midia:null;
       html+='<div class="cv-balao '+(x.direcao==='saida'?'saida':'entrada')+'">'+
         (x.direcao==='saida'&&x.cobrancaTipo?'<span class="cv-rotulo">'+esc(COB_ROTULO[x.cobrancaTipo]||'Cobrança')+'</span>':'')+
-        esc(x.texto||'['+(x.tipo||'mensagem')+']')+
+        (md?'<span class="cv-midia" data-midia="'+esc(md.driveId)+'" data-tipo="'+esc(x.tipo||'')+'" data-nome="'+esc(md.nomeArquivo||'arquivo')+'"></span>':'')+
+        esc(x.texto||(md?'':'['+(x.tipo||'mensagem')+']'+(TIPO_ARQUIVO[x.tipo]?' · arquivo não guardado':'')))+
         '<span class="cv-meta">'+esc(quando(em))+esc(visto(x))+(x.remontado?' · texto remontado':'')+(os?' · <a href="#" data-cv-os="'+esc(x.idAgendamento)+'">ver OS</a>':'')+'</span></div>';
     });
-    box.innerHTML=html+'</div>';
+    html+='</div>';
+    // Sem mudança, não redesenha: o áudio que está tocando não para a cada snapshot.
+    if(html===cvUltimoHtml&&box.querySelector('.cv-linha'))return;
+    cvUltimoHtml=html;
+    box.innerHTML=html;
+    preencherMidias(box);
     var linha=box.querySelector('.cv-linha');
     if(linha)linha.scrollTop=linha.scrollHeight;
+  }
+  // Áudio, foto e arquivo do cliente (06/11): o Apps Script guarda no Drive e
+  // devolve pelo disparoMidia, o mesmo da tela Conversas do disparos.
+  var TIPO_ARQUIVO={audio:1,image:1,video:1,document:1,sticker:1};
+  var MIDIA={},MIDIA_URL={},cvUltimoHtml='';
+  function buscarMidia(id){
+    if(!MIDIA[id]){
+      MIDIA[id]=chamarServidor('disparoMidia',{driveId:id}).then(function(r){
+        if(!r||r.ok===false)throw new Error((r&&r.erro)||'O servidor recusou o pedido.');
+        var bin=atob(r.base64||''),b=new Uint8Array(bin.length);
+        for(var i=0;i<bin.length;i++)b[i]=bin.charCodeAt(i);
+        return (MIDIA_URL[id]=URL.createObjectURL(new Blob([b],{type:r.mime||'application/octet-stream'})));
+      });
+      MIDIA[id].catch(function(){ delete MIDIA[id]; });
+    }
+    return MIDIA[id];
+  }
+  function mostrarMidia(s,url,tocar){
+    var tipo=s.getAttribute('data-tipo'),m;
+    if(tipo==='audio'){ m=document.createElement('audio'); m.controls=true; m.preload='metadata'; m.autoplay=!!tocar; }
+    else { m=document.createElement('img'); m.alt='Foto enviada pelo cliente'; }
+    m.src=url;
+    s.innerHTML='';
+    s.appendChild(m);
+  }
+  function preencherMidias(box){
+    box.querySelectorAll('[data-midia]').forEach(function(s){
+      var id=s.getAttribute('data-midia'),tipo=s.getAttribute('data-tipo');
+      if((tipo==='audio'||tipo==='image')&&MIDIA_URL[id]){ mostrarMidia(s,MIDIA_URL[id],false); return; }
+      var rotulo=tipo==='audio'?'Ouvir áudio':tipo==='image'?'Ver foto':'Baixar '+(s.getAttribute('data-nome')||'arquivo');
+      s.innerHTML='<button type="button" class="reset-btn" data-midia-abrir>'+esc(rotulo)+'</button>';
+    });
+  }
+  function abrirMidia(btn){
+    var s=btn.closest('[data-midia]'),tipo=s.getAttribute('data-tipo'),rotulo=btn.textContent;
+    btn.disabled=true; btn.textContent='Carregando…';
+    buscarMidia(s.getAttribute('data-midia')).then(function(url){
+      if(tipo==='audio'||tipo==='image'){ mostrarMidia(s,url,true); return; }
+      btn.disabled=false; btn.textContent=rotulo;
+      var a=document.createElement('a');
+      a.href=url; a.download=s.getAttribute('data-nome')||'arquivo';
+      document.body.appendChild(a); a.click(); a.remove();
+    },function(err){
+      btn.disabled=false; btn.textContent=rotulo;
+      toast('Não consegui buscar o arquivo: '+err.message,true);
+    });
   }
 
   // ── Eventos ──
@@ -1001,6 +1054,8 @@
       if(window.innerWidth<800&&box.scrollIntoView)box.scrollIntoView({behavior:'smooth',block:'start'});
     });
     el('cv-conversa').addEventListener('click',function(e){
+      var mid=e.target.closest('[data-midia-abrir]');
+      if(mid){ abrirMidia(mid); return; }
       var a=e.target.closest('[data-cv-os]');
       if(!a)return;
       e.preventDefault();
