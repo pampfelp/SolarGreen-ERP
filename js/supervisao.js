@@ -1,13 +1,15 @@
 // ════ SUPERVISÃO (2026-11-05) ════
-// Botão "Supervisão" ao lado do sininho, com os clientes de hoje do
-// supervisor de vendas (avisos supervisor_* da coleção `notificacoes`).
+// Botão ao lado do sininho com os clientes de hoje do supervisor de vendas
+// (avisos supervisor_* da coleção `notificacoes`). Nome do botão (06/11):
+// "Lembretes" para o vendedor, "Supervisão" para a gestão.
 //
-//   Vendedor: a lista dele, com Enviar (abre o WhatsApp com a mensagem da
-//     etapa, pelo js/supervisor.js) e Marcar data. É para onde leva o push de
-//     resumo (index.html?supervisao=1).
-//   Gestão: além da própria lista, um bloco por vendedor com feitos e
-//     pendentes do dia. A cópia do resumo (push "Supervisão: Fulano") leva
-//     para cá, sem passar pelo sininho dela (pedido do Felipe, 05/11).
+//   Vendedor: a lista dele, com Enviar mensagem (abre o WhatsApp com a
+//     mensagem da etapa, pelo js/supervisor.js) e Marcar data. É para onde
+//     leva o push de resumo (index.html?supervisao=1). O sininho dele também
+//     tem um aviso por cliente, com o mesmo botão.
+//   Gestão: a própria lista e um bloco por vendedor com o avanço do dia, e o
+//     mesmo Enviar mensagem em cada cliente (assinado com o nome de quem manda).
+//     Os avisos do supervisor não entram no sininho da gestão (06/11).
 //
 // Feito = o aviso tem resolvidaEm (o vendedor enviou, marcou data ou o lead
 // saiu do supervisor). Contato marcado para mais tarde aparece com a hora.
@@ -89,7 +91,7 @@
     var s=situacao(n);
     if(s==='feito')return '<span class="sg-sup-feito">'+(n.resolvidaEm?'Feito '+hora(n.resolvidaEm):'Enviado')+'</span>';
     if(!comBotao)return s==='depois'?'<span class="sg-sup-hora">Às '+hora(n.enviarEmMs)+'</span>':'<span class="sg-sup-pend">Pendente</span>';
-    var texto=n.tipo==='supervisor_pergunta'?'Marcar data':'Enviar';
+    var texto=n.tipo==='supervisor_pergunta'?'Marcar data':'Enviar mensagem';
     return '<button type="button" data-sup-acao="'+esc(n.id)+'">'+texto+'</button>';
   }
   function linhas(lista,chave,comBotao){
@@ -127,8 +129,8 @@
     var html='';
     if(mine.length)html+=bloco('Seus clientes de hoje',mine,'meus',true,true);
     ids.sort(function(a,b){ return String((_vendedores[a]||{}).Nome||a).localeCompare(String((_vendedores[b]||{}).Nome||b)); });
-    ids.forEach(function(id){ html+=bloco((_vendedores[id]||{}).Nome||'Vendedor',grupos[id],id,false,false); });
-    if(!html)html='<div class="sg-sup-vazio">Nenhum cliente do supervisor para hoje.</div>';
+    ids.forEach(function(id){ html+=bloco((_vendedores[id]||{}).Nome||'Vendedor',grupos[id],id,true,false); });
+    if(!html)html='<div class="sg-sup-vazio">Nenhum cliente para chamar hoje.</div>';
     el('sg-sup-conteudo').innerHTML=html;
     el('sg-sup-hora').textContent='Atualizado '+hora(Date.now());
   }
@@ -154,11 +156,12 @@
 
   function construir(){
     var btn=document.createElement('button');
-    btn.type='button'; btn.id='sg-sup-btn'; btn.setAttribute('aria-label','Supervisão');
-    btn.innerHTML=ICONE+'<span>Supervisão</span><span class="sg-sup-badge" id="sg-sup-badge"></span>';
+    var rotulo=souGestao()?'Supervisão':'Lembretes';
+    btn.type='button'; btn.id='sg-sup-btn'; btn.setAttribute('aria-label',rotulo);
+    btn.innerHTML=ICONE+'<span>'+rotulo+'</span><span class="sg-sup-badge" id="sg-sup-badge"></span>';
     var painel=document.createElement('div');
     painel.id='sg-sup-painel';
-    painel.innerHTML='<div class="sg-notif-cab"><h4>Supervisão · hoje</h4><button type="button" id="sg-sup-hora"></button></div><div id="sg-sup-conteudo"></div>';
+    painel.innerHTML='<div class="sg-notif-cab"><h4>'+rotulo+' · hoje</h4><button type="button" id="sg-sup-hora"></button></div><div id="sg-sup-conteudo"></div>';
     document.body.appendChild(btn); document.body.appendChild(painel);
     btn.addEventListener('click',function(e){ e.stopPropagation(); if(painel.classList.contains('active'))fechar(); else abrir(); });
     // O painel se redesenha no clique (Enviar, Ver todos): o alvo some do DOM e

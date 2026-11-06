@@ -86,10 +86,13 @@
   // Agendado (enviarEmMs no futuro) fica escondido até a hora; a tela é
   // remontada a cada minuto, então ele aparece sozinho.
   function montarNotificacoes(lista, jaMontados){
-    var agora=Date.now(), corte=agora-JANELA_LISTA_MS, out=[];
+    var agora=Date.now(), corte=agora-JANELA_LISTA_MS, out=[], gestao=souGestao();
     _resolvidas={};
     lista.forEach(function(x){
       if(x.tipo==='lead'||x.tipo==='disparo'||jaMontados[x.id])return;
+      // Gestão acompanha o supervisor de vendas só na tela Supervisão
+      // (js/supervisao.js); o sininho dela fica com o resto (06/11).
+      if(gestao&&/^supervisor_/.test(String(x.tipo||'')))return;
       if(x.enviarEmMs&&x.enviarEmMs>agora)return;
       var ms=x.enviarEmMs||x.criadoEmMs||0;
       if(ms<corte)return;
