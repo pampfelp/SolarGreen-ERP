@@ -19,7 +19,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=20261106d">
+<link rel="stylesheet" href="css/app.css?v=20261106e">
 <link rel="stylesheet" href="css/faturamento.css?v=20261001e">
 <link rel="stylesheet" href="css/dashboard-dre.css?v=20261021a">
 </head>
@@ -1617,7 +1617,8 @@
       </div>
       <div class="uform-field">
         <label>Status</label>
-        <select id="u-status"><option value="Ativo">Ativo</option><option value="Inativo">Inativo</option></select>
+        <select id="u-status"><option value="Ativo">Ativo</option><option value="Aviso">Aviso</option><option value="Inativo">Inativo</option></select>
+        <p class="modal-note" id="u-notaAviso" style="display:none;">Técnico em Aviso não recebe agendamento novo e, no app dele, só mexe nas OS de até 3 dias atrás. Para vendedor e os demais, Aviso funciona como Ativo.</p>
       </div>
       <p class="modal-note" id="u-notaSenha">A senha não é editada aqui — cada pessoa cria a própria pelo login (senha padrão ou "Esqueci minha senha").</p>
       <div class="modal-actions">
@@ -2141,20 +2142,21 @@
 <script src="js/dre-dashboard.js?v=20261103a"></script>
 <script src="js/trafego-dashboard.js?v=20261021a"></script>
 <script src="js/confirmacao-os.js?v=20261104a"></script>
+<script src="js/usuario-status.js?v=20261106a"></script>
 <script src="js/notif-agendamento.js?v=20261105a"></script>
-<script src="js/firestore-router.js?v=20261106a"></script>
+<script src="js/firestore-router.js?v=20261106b"></script>
 <script src="js/sg-auth.js?v=20261105a"></script>
 <script src="js/dashboard.js?v=20261103a"></script>
-<script src="js/faturamento.js?v=20261001g"></script>
+<script src="js/faturamento.js?v=20261106a"></script>
 <script src="js/ponto.js?v=20260928b"></script>
 <script src="js/cobranca-regra.js?v=20261103b"></script>
 <script src="js/cobranca.js?v=20261106a"></script>
-<script src="js/vendas.js?v=20261030a"></script>
+<script src="js/vendas.js?v=20261106a"></script>
 <!-- supervisor-vendas -->
 <script src="js/supervisor-regras.js?v=20261105f"></script>
 <script src="js/supervisor-mensagens.js?v=20261105c"></script>
 <script src="js/funil.js?v=20261105c"></script>
-<script src="js/agendamentos.js?v=20261104a"></script>
+<script src="js/agendamentos.js?v=20261106a"></script>
 <script src="js/clientes.js?v=20261029a"></script>
 <script src="js/relatorios.js?v=20260829f"></script>
 <script src="js/custos-venda.js?v=20261027a"></script>
@@ -2169,7 +2171,7 @@
 <!-- supervisor-vendas -->
 <script src="js/supervisor.js?v=20261106a"></script>
 <script src="js/supervisao.js?v=20261106a"></script>
-<script src="js/usuarios.js?v=20261106a"></script>
+<script src="js/usuarios.js?v=20261106b"></script>
 <script src="js/permissoes.js?v=20260829f"></script>
 <script src="js/controller.js?v=20261001b"></script>
 

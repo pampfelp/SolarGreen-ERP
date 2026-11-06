@@ -18,7 +18,9 @@
   }
   function vendedoresAtivos(){
     return dados.vendedores.filter(function(v){
-      return (v.Tipo||'').trim().toLowerCase()==='vendedor'&&(v.Status||'').trim().toLowerCase()==='ativo';
+      // Aviso vale como Ativo para vendedor (js/usuario-status.js, 2026-11-06).
+      var st=(v.Status||'').trim().toLowerCase();
+      return (v.Tipo||'').trim().toLowerCase()==='vendedor'&&(st==='ativo'||st==='aviso');
     });
   }
   function metaDoMes(ano,mes,idVendedor){
@@ -173,7 +175,7 @@
   function vendedoresRanking(vendas){
     var totais={};vendas.forEach(function(v){totais[v.vendedor]=(totais[v.vendedor]||0)+v.valor;});
     return dados.vendedores.filter(function(v){return v.IdVendedor&&(v.Tipo||'').trim().toLowerCase()==='vendedor'&&
-      (filtro.vendedor==='__all__'||v.IdVendedor===filtro.vendedor)&&((v.Status||'').trim().toLowerCase()==='ativo'||totais[v.IdVendedor]>0);})
+      (filtro.vendedor==='__all__'||v.IdVendedor===filtro.vendedor)&&(['ativo','aviso'].indexOf((v.Status||'').trim().toLowerCase())!==-1||totais[v.IdVendedor]>0);})
       .map(function(v){return {id:v.IdVendedor,nome:v.Nome||'Sem nome',foto:fotoSegura(v.FotoPerfil),valor:totais[v.IdVendedor]||0};})
       .sort(function(a,b){return b.valor-a.valor||a.nome.localeCompare(b.nome,'pt-BR');});
   }

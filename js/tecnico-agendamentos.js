@@ -59,6 +59,13 @@
     t._timer=setTimeout(function(){ t.classList.add('hidden'); },2600);
   }
 
+  // Status Aviso (js/usuario-status.js, 2026-11-06): técnico em Aviso só mexe nas OS
+  // de até 3 dias atrás; as mais antigas abrem só para consulta. O router recusa a
+  // escrita pelo mesmo critério (tecnico-router.js · travaAviso).
+  function osSomenteLeitura(a){
+    return !!(window.SGUsuarioStatus&&a&&!window.SGUsuarioStatus.tecnicoPodeEditarOS(vendedoresMap[session.idVendedor],a));
+  }
+
   function nomeCliente(id){var c=clientesMap[id];return c?(c['Nome Razao Social']||c.Nome||id):id||'—';}
   function nomeVendedor(id){var v=vendedoresMap[id];return v?(v.Nome||id):id||'—';}
   function nomeServico(id){var s=servicosMap[id];return s?(s['Nome Servico']||id):id||'—';}
@@ -836,7 +843,7 @@
 
     var htmlRespondidas=templatesRespondidos.length
       ? templatesRespondidos.map(function(t){return respostaRowHtml(t,a);}).join('')
-      : '<p style="font-size:12.5px;color:var(--ink-faint);padding:6px 0 2px;">Nenhuma resposta preenchida ainda. Toque em "+ Add" pra começar.</p>';
+      : '<p style="font-size:12.5px;color:var(--ink-faint);padding:6px 0 2px;">'+(osSomenteLeitura(a)?'Nenhuma resposta preenchida.':'Nenhuma resposta preenchida ainda. Toque em "+ Add" pra começar.')+'</p>';
 
     var htmlPendentes=pendentes.length
       ? '<div id="pendentes-wrap" class="hidden" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line);">'+
@@ -1030,6 +1037,11 @@
         '<button class="btn-aplicar" id="ex-fechar">Fechar</button>'+
       '</div>');
     document.getElementById('ex-fechar').onclick=extraFecharModal;
+    if(osSomenteLeitura(a)){
+      document.getElementById('ex-remover').remove();
+      document.getElementById('ex-editar').remove();
+      return;
+    }
     document.getElementById('ex-editar').onclick=function(){extraModalForm(a,e.ExtraTipo,e);};
     document.getElementById('ex-remover').onclick=function(){
       // confirmação inline (sem confirm() nativo)
@@ -1065,8 +1077,11 @@
     var dataFmt=dt?String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0')+'/'+dt.getFullYear():'—';
 
     document.getElementById('det-title').textContent=nomeCliente(a.IdCliente);
+    var somenteLeitura=osSomenteLeitura(a);
+    document.getElementById('screen-detalhe').classList.toggle('os-somente-leitura',somenteLeitura);
 
     var html='';
+    if(somenteLeitura)html+='<div class="os-aviso-banner">Seu cadastro está em Aviso. Esta OS tem mais de 3 dias e fica só para consulta.</div>';
     html+='<div class="det-section">'+
       '<span class="status-badge st-'+statusSlug(status)+'">'+escapeHtml(statusLabelDisplay(status))+'</span>'+
       '<div class="det-row" style="margin-top:12px;"><span class="dl">Cliente</span><span class="dv">'+escapeHtml(nomeCliente(a.IdCliente))+'</span></div>'+
@@ -1084,7 +1099,7 @@
       '<div class="det-row"><span class="dl">Data</span><span class="dv">'+dataFmt+'</span></div>'+
       '<div class="det-row"><span class="dl">Horário</span><span class="dv">'+escapeHtml((a['Hora inicio']||'—')+' – '+(a['Hora Fim']||'—'))+'</span></div>'+
       '<div class="det-row" id="det-motivoRow" style="'+(a['Motivo Cancelamento']?'':'display:none;')+'"><span class="dl">Motivo do cancelamento</span><span class="dv" id="det-motivoValor">'+escapeHtml(a['Motivo Cancelamento']||'')+'</span></div>'+
-      '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--bg);">'+
+      (somenteLeitura?'':'<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--bg);">'+
         '<label style="display:block;font-size:11px;font-weight:700;color:var(--ink-soft);margin-bottom:6px;">Editar status manualmente</label>'+
         '<div style="display:flex;gap:8px;">'+
           '<select id="status-manual" style="flex:1;font-size:13px;border:1px solid var(--line);border-radius:9px;padding:9px 10px;background:#fff;color:var(--ink);">'+
@@ -1095,7 +1110,7 @@
           '</select>'+
           '<button type="button" id="btn-salvar-status" style="flex:none;background:var(--sidebar-bg);color:#fff;border:none;border-radius:9px;padding:0 16px;font-weight:700;font-size:12.5px;cursor:pointer;">Salvar</button>'+
         '</div>'+
-      '</div>'+
+      '</div>')+
     '</div>';
 
     if(a['Quantidade de Modulos']||a['Modelo Modulos']||a['Quantidade Inversores']||a['Modelo Inversores']){
@@ -1122,6 +1137,7 @@
 
     html+='<div id="extras-slot"></div>';
     document.getElementById('det-body').innerHTML=html;
+    if(!somenteLeitura){
     document.getElementById('status-manual').value=(a['Status Agendamento']||'Agendado').trim();
     document.getElementById('btn-salvar-status').addEventListener('click',function(){
       var novoStatus=document.getElementById('status-manual').value;
@@ -1142,6 +1158,7 @@
       }
       salvarStatusOtimista(a,novoStatus,btnStatus);
     });
+    }
     wireCampoEvents(a.IdAgendamento);
     wireRespostasCard(a.IdAgendamento);
     if(jaTemDados)renderExtras(a);
@@ -1204,6 +1221,7 @@
   function montarAcoes(a,statusNorm){
     var actions=document.querySelector('.det-actions');
     if(actions)actions.remove();
+    if(osSomenteLeitura(a))return; // OS fora do prazo do Aviso: sem botões de ação
     var div=document.createElement('div');
     div.className='det-actions';
 

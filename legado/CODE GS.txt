@@ -4071,12 +4071,18 @@ function actionExcluirInversor(body) {
 // Depois de configurar, rode "conferirNotificacoes" pelo editor pra ver se a
 // conta de serviço entra no Firestore e quantos aparelhos estão cadastrados.
 
+// Status Aviso (2026-11-06) vale como Ativo aqui: a trava do técnico em Aviso
+// (agendamento novo e OS antiga) fica no site, em js/usuario-status.js.
+function statusContaComoAtivoFs_(v) {
+  var s = String((v && v.Status) || '').trim();
+  return s === 'Ativo' || s === 'Aviso';
+}
 // Regra de vendedor no rodízio: igual a isVendedorAtivo em js/vendas.js.
 function ehVendedorAtivoFs_(v) {
-  return String(v.Tipo || '').trim() === 'Vendedor' && String(v.Status || '').trim() === 'Ativo';
+  return String(v.Tipo || '').trim() === 'Vendedor' && statusContaComoAtivoFs_(v);
 }
 function ehGestaoAtivaFs_(v) {
-  return ADMIN_ROLES.indexOf(String(v.Tipo || '').trim().toLowerCase()) !== -1 && String(v.Status || '').trim() === 'Ativo';
+  return ADMIN_ROLES.indexOf(String(v.Tipo || '').trim().toLowerCase()) !== -1 && statusContaComoAtivoFs_(v);
 }
 
 function actionAvisarLeadSite(body) {
@@ -5221,7 +5227,7 @@ function disparoAutenticar_(cfg, body, exigirGestao) {
   var doc = fsGet_(cfg, 'vendedores/' + uid);
   var v = doc ? doc.dados : fsConsulta_(cfg, 'vendedores', 'IdVendedor', uid, 1)[0];
   if (!v && email) v = fsConsulta_(cfg, 'vendedores', 'Email', email, 1)[0];
-  if (!v || String(v.Status || '').trim() !== 'Ativo') return { erro: 'não autorizado' };
+  if (!v || !statusContaComoAtivoFs_(v)) return { erro: 'não autorizado' };
   if (exigirGestao && !ehGestaoAtivaFs_(v)) return { erro: 'sem permissão' };
   return { vendedor: v, uid: uid };
 }
