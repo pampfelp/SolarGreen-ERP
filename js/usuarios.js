@@ -61,12 +61,31 @@
         '<td>'+escapeHtml(u.Telefone||'—')+'</td>'+
         '<td>'+escapeHtml(u.Tipo||'—')+'</td>'+
         '<td><span class="u-status-tag '+statusCls+'">'+escapeHtml(u.Status||'—')+'</span></td>'+
+        '<td><button type="button" class="u-notif-btn'+(u.LiberadoNotificacao?' liberado':'')+'" data-id="'+escapeHtml(u.IdVendedor)+'" title="Toque para trocar">'+(u.LiberadoNotificacao?'Liberado':'Obrigatória')+'</button></td>'+
         '<td class="u-row-actions"><button data-id="'+escapeHtml(u.IdVendedor)+'" class="u-editar-btn">editar</button></td>'+
       '</tr>';
     }).join('');
     tbody.querySelectorAll('.u-editar-btn').forEach(function(btn){
       btn.addEventListener('click',function(){ openModal(btn.getAttribute('data-id')); });
     });
+    tbody.querySelectorAll('.u-notif-btn').forEach(function(btn){
+      btn.addEventListener('click',function(){ trocarLiberado(btn.getAttribute('data-id')); });
+    });
+  }
+
+  // Notificação obrigatória (2026-11-06): "Liberado" deixa a pessoa usar o ERP
+  // e o app do técnico sem ativar notificações. Otimista, como o resto da tela.
+  function trocarLiberado(idAlvo){
+    var u=usuarios.filter(function(x){return String(x.IdVendedor)===String(idAlvo);})[0];
+    if(!u)return;
+    var antes=!!u.LiberadoNotificacao, depois=!antes;
+    u.LiberadoNotificacao=depois; _epoca.marcar(); render();
+    var toast=window.SGToast?window.SGToast.mostrar:function(){};
+    function desfazer(msg){ u.LiberadoNotificacao=antes; _epoca.marcar(); render(); toast(msg,true); }
+    apiCall('atualizarLiberadoNotificacao',{idVendedor:idAlvo,liberado:depois}).then(function(resp){
+      if(!resp||!resp.ok){ desfazer((resp&&resp.erro)||'Não foi possível salvar — a alteração foi desfeita.'); return; }
+      toast((u.Nome||'Usuário')+(depois?' liberado das notificações obrigatórias.':' volta a precisar ativar as notificações.'));
+    }).catch(function(err){ desfazer('Erro de conexão — a alteração foi desfeita: '+err.message); });
   }
 
   function carregar(){

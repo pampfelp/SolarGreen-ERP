@@ -315,6 +315,9 @@
   .u-status-tag{font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.04em;}
   .u-status-tag.ativo{background:var(--accent-soft);color:var(--accent-deep);}
   .u-status-tag.inativo{background:#f2f2f2;color:var(--ink-faint);}
+  /* Chave da notificação obrigatória (2026-11-06): Obrigatória (padrão) ou Liberado. */
+  .u-notif-btn{font-size:10px;font-weight:700;padding:4px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink-soft);font-family:var(--sans);}
+  .u-notif-btn.liberado{background:var(--warn-soft);color:var(--warn);border-color:transparent;}
   .ag-status-tag{font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}
   .ag-status-tag.agendado{background:#eef2fb;color:#3a5cc4;}
   .ag-status-tag.em-andamento{background:#fff4de;color:#a5680a;}
