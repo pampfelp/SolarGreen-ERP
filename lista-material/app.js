@@ -222,7 +222,8 @@ async function getVendor(user) {
   if (!doc?.exists) throw new Error('Seu login existe, mas não há cadastro de usuário no ERP.');
   const vendor = doc.data();
   if (vendor.SenhaTemporaria) throw new Error('Troque a senha temporária no ERP antes de entrar aqui.');
-  if (String(vendor.Status || 'Ativo').toLowerCase() !== 'ativo') throw new Error('Usuário inativo no ERP.');
+  // Aviso (2026-11-06) entra como Ativo: a trava do técnico em Aviso é só de agendamento.
+  if (['ativo', 'aviso'].indexOf(String(vendor.Status || 'Ativo').trim().toLowerCase()) === -1) throw new Error('Usuário inativo no ERP.');
   return vendor;
 }
 async function loadSavedList() {

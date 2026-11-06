@@ -746,8 +746,17 @@
     // navegador — então "veio id?" não serve pra saber se é criação.
     // semUndefined tira o campo quando é edição, então editar um agendamento
     // existente nunca sobrescreve a data de criação original.
-    return Promise.all([ref.get(),extraNomeCliente(p.idCliente)]).then(function(r){
-      var snap=r[0], extraCli=r[1]||{};
+    // Técnico em Aviso (js/usuario-status.js, 2026-11-06) não recebe OS nova:
+    // recusa a criação e a troca de técnico para ele. Lê o cadastro aqui para
+    // valer mesmo com a tela aberta antes da mudança de status.
+    var idTec=String(p.tecnicoResponsavel||'');
+    var tecnicoP=idTec?db().collection('vendedores').where('IdVendedor','==',idTec).limit(1).get()
+      .then(function(q){ return q.empty?null:q.docs[0].data(); }):Promise.resolve(null);
+    return Promise.all([ref.get(),extraNomeCliente(p.idCliente),tecnicoP]).then(function(r){
+      var snap=r[0], extraCli=r[1]||{}, tecnico=r[2];
+      if(window.SGUsuarioStatus&&!window.SGUsuarioStatus.podeReceberAgendamento(tecnico,idTec,snap.exists?snap.data():null)){
+        throw new Error((tecnico.Nome||'Este técnico')+' está em Aviso e não recebe agendamento novo. Escolha outro técnico.');
+      }
       var doc=semUndefined({
         IdAgendamento:id, IdCliente:p.idCliente||'', IdServico:p.idServico||'',
         NomeCliente:extraCli.NomeCliente, TelefoneCliente:extraCli.TelefoneCliente,

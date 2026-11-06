@@ -151,6 +151,14 @@
   .os-status-badge.st-concluido{background:var(--accent-soft);color:var(--accent-deep);}
   .os-status-badge.st-cancelado{background:#fdecea;color:#c0392b;}
 
+  /* Status Aviso (2026-11-06): OS com mais de 3 dias abre só para consulta */
+  .os-aviso-banner{background:var(--warn-soft);color:#92400e;border:1px solid #fcd34d;border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:12.5px;line-height:1.45;font-weight:600;}
+  #screen-detalhe.os-somente-leitura .resp-edit-btn,
+  #screen-detalhe.os-somente-leitura .resp-edit-slot,
+  #screen-detalhe.os-somente-leitura #btn-add-pendentes,
+  #screen-detalhe.os-somente-leitura #pendentes-wrap,
+  #screen-detalhe.os-somente-leitura #btn-extra-add,
+  #screen-detalhe.os-somente-leitura .extra-tile.ghost{display:none;}
   .det-actions{position:sticky;bottom:0;background:var(--bg);padding:0 14px calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px;flex-direction:column;box-shadow:0 -6px 16px -8px rgba(0,0,0,.15);}
   .det-actions button{width:100%;border:none;border-radius:11px;padding:14px;font-weight:800;font-size:14px;cursor:pointer;}
   .btn-start{background:var(--accent);color:#003122;}

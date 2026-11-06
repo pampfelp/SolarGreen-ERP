@@ -52,7 +52,8 @@
   function escapeHtml(s){ return window.SGUtil.escapeHtml(s); }
   function isDiaUtil(d){var dow=d.getDay();return dow!==0&&dow!==6;}
   function countDiasUteis(start,end){var count=0,cursor=new Date(start.getTime());while(cursor<=end){if(isDiaUtil(cursor))count++;cursor.setDate(cursor.getDate()+1);}return count;}
-  function isVendedorAtivo(v){return(v.Tipo||'').trim()==='Vendedor'&&(v.Status||'').trim()==='Ativo';}
+  // Aviso vale como Ativo para vendedor (js/usuario-status.js, 2026-11-06).
+  function isVendedorAtivo(v){var st=(v.Status||'').trim();return(v.Tipo||'').trim()==='Vendedor'&&(st==='Ativo'||st==='Aviso');}
   window.SGUtil.ehVendedorAtivo=isVendedorAtivo; // o rodízio dos leads do site (js/leads-site-motor.js) usa a mesma regra
   // Vendas feitas pelo CEO não entram nos indicadores/meta agregados da
   // empresa (ele já não conta como "vendedor ativo" pra divisão de meta, mas

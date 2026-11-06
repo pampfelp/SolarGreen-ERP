@@ -255,6 +255,29 @@
       .catch(function(err){ return {ok:false,erro:err.message}; });
   }
 
+  // Técnico em Aviso (js/usuario-status.js, 2026-11-06): OS com data de mais de
+  // 3 dias fica só para consulta no app dele. Lê do cache local, porque o app já
+  // escuta ao vivo a lista de OS e o próprio cadastro: assim a escrita não espera
+  // a rede no campo. Sem o dado no cache, deixa passar; a tela trava pelo mesmo
+  // critério (tecnico-agendamentos.js · osSomenteLeitura).
+  var ERRO_AVISO='Seu cadastro está em Aviso: OS com mais de 3 dias fica só para consulta.';
+  function lerCache(ref){ return ref.get({source:'cache'}).catch(function(){ return null; }); }
+  function travaAviso(p){
+    if(isAdminSessao()||!window.SGUsuarioStatus||!p||!p.idAgendamento)return Promise.resolve(null);
+    return Promise.all([
+      lerCache(db().collection('vendedores').where('IdVendedor','==',String(p.solicitanteId||'')).limit(1)),
+      lerCache(db().collection('agendamentos').doc(String(p.idAgendamento)))
+    ]).then(function(r){
+      var tecnico=r[0]&&!r[0].empty?r[0].docs[0].data():null;
+      var ag=r[1]&&r[1].exists?r[1].data():null;
+      if(!tecnico||!ag)return null;
+      return window.SGUsuarioStatus.tecnicoPodeEditarOS(tecnico,ag)?null:{ok:false,erro:ERRO_AVISO};
+    });
+  }
+  function comTravaAviso(fn){
+    return function(p){ return travaAviso(p).then(function(bloqueio){ return bloqueio||fn(p); }); };
+  }
+
   // Espera o Firebase Auth confirmar a sessão restaurada (ver
   // tecnico-firebase-init.js) antes de tocar no Firestore.
   function comAuthPronto(fn){
@@ -279,12 +302,12 @@
   window.TecnicoFireActions={
     getAgendamentosTecnico:comAuthPronto(getAgendamentosTecnico),
     getRespostasAgendamentos:comAuthPronto(getRespostasAgendamentos),
-    salvarRespostasAgendamento:comSync('agendamentos_respostas',function(p){return 'checklist da OS '+p.idAgendamento;},comAuthPronto(salvarRespostasAgendamento)),
-    uploadFotoResposta:comSync('agendamentos_respostas',function(p){return 'foto da OS '+p.idAgendamento;},comAuthPronto(uploadFotoResposta)),
-    removerFotoResposta:comSync('agendamentos_respostas',function(p){return 'remover foto da OS '+p.idAgendamento;},comAuthPronto(removerFotoResposta)),
-    salvarExtraAgendamento:comSync('agendamentos_respostas',function(p){return 'informação adicional da OS '+p.idAgendamento;},comAuthPronto(salvarExtraAgendamento)),
-    removerExtraAgendamento:comSync('agendamentos_respostas',function(p){return 'remover informação adicional da OS '+p.idAgendamento;},comAuthPronto(removerExtraAgendamento)),
-    atualizarStatusAgendamento:comSync('agendamentos',function(p){return 'status da OS '+p.idAgendamento+' → '+p.status;},comAuthPronto(atualizarStatusAgendamento)),
+    salvarRespostasAgendamento:comSync('agendamentos_respostas',function(p){return 'checklist da OS '+p.idAgendamento;},comAuthPronto(comTravaAviso(salvarRespostasAgendamento))),
+    uploadFotoResposta:comSync('agendamentos_respostas',function(p){return 'foto da OS '+p.idAgendamento;},comAuthPronto(comTravaAviso(uploadFotoResposta))),
+    removerFotoResposta:comSync('agendamentos_respostas',function(p){return 'remover foto da OS '+p.idAgendamento;},comAuthPronto(comTravaAviso(removerFotoResposta))),
+    salvarExtraAgendamento:comSync('agendamentos_respostas',function(p){return 'informação adicional da OS '+p.idAgendamento;},comAuthPronto(comTravaAviso(salvarExtraAgendamento))),
+    removerExtraAgendamento:comSync('agendamentos_respostas',function(p){return 'remover informação adicional da OS '+p.idAgendamento;},comAuthPronto(comTravaAviso(removerExtraAgendamento))),
+    atualizarStatusAgendamento:comSync('agendamentos',function(p){return 'status da OS '+p.idAgendamento+' → '+p.status;},comAuthPronto(comTravaAviso(atualizarStatusAgendamento))),
     getCatalogoProdutos:comAuthPronto(getCatalogoProdutos),
     salvarModulo:comSync('produtos_modulos',function(p){return p.modelo||p.idModulo;},comAuthPronto(salvarModulo)),
     salvarInversor:comSync('produtos_inversores',function(p){return p.modelo||p.idInversor;},comAuthPronto(salvarInversor))

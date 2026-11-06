@@ -81,9 +81,10 @@
   }
 
   // Vendedores que podem receber lead: tipo vendedor, ativos e com WhatsApp. Ordem fixa por id.
+  // Aviso vale como Ativo para vendedor (js/usuario-status.js, 2026-11-06).
   function vendedoresAtivos(vendedores) {
     return (vendedores || []).filter(function (v) {
-      return String(v.Tipo || '').trim().toLowerCase() === 'vendedor' && v.Status === 'Ativo' && !!e164(v.Telefone);
+      return String(v.Tipo || '').trim().toLowerCase() === 'vendedor' && (v.Status === 'Ativo' || v.Status === 'Aviso') && !!e164(v.Telefone);
     }).sort(function (a, b) { return String(a.id).localeCompare(String(b.id)); });
   }
 

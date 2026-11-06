@@ -54,7 +54,8 @@
     document.getElementById('u-emptyState').style.display='none';
     var ordenados=usuarios.slice().sort(function(a,b){return (a.Nome||'').localeCompare(b.Nome||'','pt-BR');});
     tbody.innerHTML=ordenados.map(function(u){
-      var statusCls=(u.Status||'').trim().toLowerCase()==='inativo'?'inativo':'ativo';
+      var st=(u.Status||'').trim().toLowerCase();
+      var statusCls=st==='inativo'?'inativo':(st==='aviso'?'aviso':'ativo');
       return '<tr>'+
         '<td>'+escapeHtml(u.Nome)+'</td>'+
         '<td>'+escapeHtml(u.Email)+'</td>'+
@@ -126,10 +127,15 @@
     document.getElementById('u-telefone').value=u?(u.Telefone||''):'';
     document.getElementById('u-tipo').value=u?(u.Tipo||''):'';
     document.getElementById('u-status').value=(u&&u.Status)||'Ativo';
+    mostrarNotaAviso();
     document.getElementById('u-foto').value='';
     mostrarFoto(u&&u.FotoPerfil, u&&u.Nome);
     document.getElementById('u-notaSenha').style.display=u?'block':'none';
     document.getElementById('usuarioModal').classList.remove('hidden');
+  }
+  // Status Aviso (2026-11-06): a regra mora em js/usuario-status.js; aqui só explica.
+  function mostrarNotaAviso(){
+    document.getElementById('u-notaAviso').style.display=document.getElementById('u-status').value==='Aviso'?'block':'none';
   }
   function closeModal(){ document.getElementById('usuarioModal').classList.add('hidden'); editandoId=null; fotoEpoca++; }
 
@@ -248,6 +254,7 @@
     document.getElementById('u-novoBtn').addEventListener('click',function(){ openModal(null); });
     document.getElementById('u-cancelBtn').addEventListener('click',closeModal);
     document.getElementById('u-salvarBtn').addEventListener('click',salvar);
+    document.getElementById('u-status').addEventListener('change',mostrarNotaAviso);
     document.getElementById('u-foto').addEventListener('change',function(){
       var file=this.files&&this.files[0];if(!file)return;
       if(!/^image\//.test(file.type)){showMsg('Escolha um arquivo de imagem.','error');this.value='';return;}

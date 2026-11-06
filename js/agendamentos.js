@@ -1029,10 +1029,13 @@
       .map(function(s){return {id:s.IdServico,label:s['Nome Servico']||s.IdServico};});
   }
   // Só quem tem Tipo = "Tecnico" (sem diferenciar maiúscula/acento) pode ser
-  // escolhido como responsável por uma ordem de serviço em campo.
+  // escolhido como responsável por uma ordem de serviço em campo. Técnico em
+  // Aviso (2026-11-06) também sai: não recebe agendamento novo. Na edição de
+  // uma OS que já é dele, o nome continua no campo (valorInicial).
   function opcoesTecnicoAg(){
     return Object.keys(vendedoresMap).map(function(id){return vendedoresMap[id];})
       .filter(function(v){return (v.Status||'').trim().toLowerCase()!=='inativo';})
+      .filter(function(v){return !(window.SGUsuarioStatus&&window.SGUsuarioStatus.tecnicoEmAviso(v));})
       .filter(ehTecnico)
       .sort(function(a,b){return (a.Nome||'').localeCompare(b.Nome||'','pt-BR');})
       .map(function(v){return {id:v.IdVendedor,label:v.Nome};});
@@ -1280,6 +1283,10 @@
     if(!document.getElementById('ag-horaInicio').value||!document.getElementById('ag-horaFim').value){ showMsg('Escolha o horário de início e fim.','error'); return; }
     if(!validarCliente()){ showMsg('Corrija o cadastro do cliente antes de continuar.','error'); return; }
     if(!validarHorario()){ showMsg('Corrija o horário antes de continuar.','error'); return; }
+    var anteriorTec=editandoId?agendamentos.filter(function(a){return String(a.IdAgendamento)===String(editandoId);})[0]:null;
+    if(window.SGUsuarioStatus&&!window.SGUsuarioStatus.podeReceberAgendamento(vendedoresMap[tecnico],tecnico,anteriorTec)){
+      showMsg(nomeVendedor(tecnico)+' está em Aviso e não recebe agendamento novo. Escolha outro técnico.','error'); return;
+    }
 
     var horaInicio=document.getElementById('ag-horaInicio').value;
     var horaFim=document.getElementById('ag-horaFim').value;
