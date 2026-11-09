@@ -480,10 +480,15 @@
    * colunas, não só da antiga) até a página recarregar e o filtro padrão
    * ser recalculado. Chamar antes do render() sempre que dataProcessoKey
    * mudar por uma ação do usuário — nunca deixa a própria ação escondida.
+   *
+   * Só vale no período padrão. Com período escolhido à mão (datas, 7/30 dias,
+   * mês, clique no gráfico), o filtro fica como ele deixou e o card movido
+   * sai da tela — decisão do Felipe em 2026-11-09.
    */
+  var periodoEscolhido=false;
   function garantirDataVisivelNoFiltro(dataProcessoKey){
     var toEl=document.getElementById('f-dateTo'),fromEl=document.getElementById('f-dateFrom');
-    if(!toEl||!fromEl||!dataProcessoKey)return;
+    if(periodoEscolhido||!toEl||!fromEl||!dataProcessoKey)return;
     if(toEl.value&&dataProcessoKey>toEl.value)toEl.value=dataProcessoKey;
     if(fromEl.value&&dataProcessoKey<fromEl.value)fromEl.value=dataProcessoKey;
   }
@@ -2245,6 +2250,7 @@
     var fi=document.getElementById('f-dateFrom'),ti=document.getElementById('f-dateTo');
     if(isShift&&chartAnchorDay){var lo=dayKey<chartAnchorDay?dayKey:chartAnchorDay,hi=dayKey<chartAnchorDay?chartAnchorDay:dayKey;fi.value=lo;ti.value=hi;}
     else{chartAnchorDay=dayKey;fi.value=dayKey;ti.value=dayKey;}
+    periodoEscolhido=true;
     document.querySelectorAll('#view-funil .qr-btn[data-frange]').forEach(function(b){b.classList.remove('active');});
     refreshKpisAndTable();highlightChartSelection();
   }
@@ -2277,6 +2283,7 @@
 
   // ← usa dataProcessoKey pra definir o range padrão também
   function setDefaultRange(){
+    periodoEscolhido=false;
     if(!funilRecords.length)return;
     // Período padrão cobre só os cards do pipeline ABERTO — senão, trocar
     // pra um pipeline novo (cards recentes) herdaria o período do Comercial
@@ -2345,7 +2352,10 @@
     enriquecerComSLA(funilRecords); // calcula dataProcesso/dataProcessoKey/dias/slaColor
     vendasRecords=processVendasFunil(fVendas);
 
-    populateVendedorSelect();renderAbasPipeline();renderStagePills();setDefaultRange();
+    // Cada snapshot (inclusive o que volta depois de mover um card) passava
+    // aqui e zerava o período escolhido. O padrão só se recalcula sem escolha.
+    populateVendedorSelect();renderAbasPipeline();renderStagePills();
+    if(!periodoEscolhido)setDefaultRange();
     document.getElementById('f-emptyState').style.display='none';document.getElementById('f-mainContent').style.display='block';
     document.getElementById('f-appVersion').textContent='v'+APP_VERSION;
     render();
@@ -2654,9 +2664,10 @@
       // Filtrou pra antes da janela carregada → precisa da coleção inteira.
       var v=this.value;
       if(v&&_usouJanelaFunil&&new Date(v+'T00:00:00')<_desdeJanelaFunil().toDate())garantirFunilCompleto();
+      periodoEscolhido=true;
       render();
     });
-    document.getElementById('f-dateTo').addEventListener('change',render);
+    document.getElementById('f-dateTo').addEventListener('change',function(){periodoEscolhido=true;render();});
     document.getElementById('f-selVendedor').addEventListener('change',render);
     document.getElementById('f-selOrigem').addEventListener('focus',garantirClientesCarregados);
     document.getElementById('f-selOrigem').addEventListener('change',function(){
@@ -2706,6 +2717,7 @@
         var range=btn.getAttribute('data-frange'),now=new Date();
         function dk(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
         if(range==='all'){garantirFunilCompleto();setDefaultRange();}else if(range==='month'){document.getElementById('f-dateFrom').value=dk(new Date(now.getFullYear(),now.getMonth(),1));document.getElementById('f-dateTo').value=dk(new Date(now.getFullYear(),now.getMonth()+1,0));}else{var n=parseInt(range,10),from=new Date(now);from.setDate(from.getDate()-(n-1));document.getElementById('f-dateFrom').value=dk(from);document.getElementById('f-dateTo').value=dk(now);}
+        if(range!=='all')periodoEscolhido=true;
         render();
       });
     });

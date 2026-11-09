@@ -263,7 +263,9 @@
   function buildReportFrom(vMap,pRecords,ov){
     vendedoresMap=vMap;pontoRecords=pRecords;
     if(ov){overrides=ov;saveOverridesLocalCache();}
-    buildDailyRecords();populateColaboradorSelect();setDefaultDateRange();
+    buildDailyRecords();populateColaboradorSelect();
+    // Período padrão só enquanto vazio: cada snapshot zerava o filtro (correção de 10-13 perdida ao separar o arquivo).
+    if(!document.getElementById('p-dateFrom').value||!document.getElementById('p-dateTo').value)setDefaultDateRange();
     document.getElementById('p-emptyState').style.display='none';document.getElementById('p-mainContent').style.display='block';
     render();setUpdateClock();
   }
