@@ -1711,6 +1711,8 @@
       // O nome do cadastro (cobrança e confirmação da OS) vale mais que o da lista antiga da campanha.
       if (x.nomeLead && (!c.nome || x.campanha === 'cobranca' || x.campanha === 'confirmacao_os')) c.nome = x.nomeLead;
       if (!c.idVend && x.idVendedor) c.idVend = String(x.idVendedor);
+      // Número completo de quem escreveu sem campanha (gravado desde 09/11).
+      if (!c.tel && x.telLead) c.tel = x.telLead;
       if (x.direcao === 'entrada') c.respondeu = true;
       if (em >= c.ult) { c.ult = em; c.dir = x.direcao; c.texto = x.texto || '[' + (x.tipo || 'mensagem') + ']'; }
     });

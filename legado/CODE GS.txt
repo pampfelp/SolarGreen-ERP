@@ -4579,6 +4579,8 @@ var DISPARO_ETAPA_RETORNO = 'Retomar Contato';
 var DISPARO_ETAPAS_QUE_FICAM = ['Gerar Proposta'];
 var DISPARO_TEXTO_VENDEDOR = 'Oi, recebi a mensagem da Solar Green sobre a minha usina.';
 var DISPARO_TEXTO_SAIDA = 'Pronto, você não vai receber mais essas mensagens. Se um dia precisar, é só chamar a Solar Green.';
+// Quem escreve sem campanha nem cobrança (09/11, texto aprovado por ele).
+var DISPARO_TEXTO_SOLTO_VENDEDOR = 'Oi, mandei mensagem pro número da Solar Green e quero atendimento.';
 var DISPARO_MOTIVO_PERDA = 'Disparo: não tem interesse agora';
 // Lead criado pelo disparo (cliente sem funil): mesmo serviço e valor do _tools/preparar-disparo.js.
 var DISPARO_SERVICO_NOVO = 'c2ad6230';
@@ -4821,7 +4823,7 @@ function disparoMetaPedir_(props, metodo, caminho, corpo) {
 function disparoGravarMensagem_(cfg, d, direcao, wamid, tipo, texto) {
   var id = (direcao === 'entrada' ? 'in-' : 'out-') + String(wamid || Utilities.getUuid()).replace(/[^A-Za-z0-9_-]/g, '');
   var criou = fsCommit_(cfg, [fsUpdateRico_(cfg, 'mensagens_disparo/' + id, {
-    telFim8: d.telFim8 || disparoFim8_(d.telLead), campanha: d.campanha || '', disparo: d._id, idVendedor: String(d.idVendedor || ''),
+    telFim8: d.telFim8 || disparoFim8_(d.telLead), telLead: String(d.telLead || ''), campanha: d.campanha || '', disparo: d._id, idVendedor: String(d.idVendedor || ''),
     nomeLead: d.nomeLeadCompleto || d.nomeLead || '', direcao: direcao, tipo: tipo || 'text',
     texto: String(texto || '').slice(0, 2000), em: Date.now()
   }, { exists: false })]);
@@ -4924,11 +4926,23 @@ function disparoTratarMensagem_(cfg, props, m) {
   }
   if (!d) {
     // Sem campanha nem cobrança: guarda assim mesmo, para a tela Conversas (03/11).
+    // Desde 09/11 o contato ganha um vendedor (disparoVendedorSolto_) e, na
+    // primeira mensagem, a resposta com o link do WhatsApp desse vendedor.
     var tipoSolto = m.type || 'text';
     var infoSolta = m[tipoSolto] && typeof m[tipoSolto] === 'object' ? m[tipoSolto] : {};
-    var idSolto = disparoGravarMensagem_(cfg, { telFim8: fim8, telLead: m.from, campanha: '', _id: '', idVendedor: '' }, 'entrada', m.id, tipoSolto,
+    // Erro na escolha do vendedor não pode perder a mensagem: ela é gravada sem dono.
+    var solto = null;
+    try { solto = disparoVendedorSolto_(cfg, fim8); } catch (e) { console.error('Vendedor do contato sem campanha: ' + e.message); }
+    var dSolto = { telFim8: fim8, telLead: m.from, campanha: '', _id: '', idVendedor: solto ? solto.dados.idVendedor : '' };
+    var idSolto = disparoGravarMensagem_(cfg, dSolto, 'entrada', m.id, tipoSolto,
       tipoSolto === 'text' ? (m.text || {}).body : tipoSolto === 'button' ? infoSolta.text : infoSolta.caption);
     if (idSolto) disparoAnexarMidia_(cfg, props, infoSolta, idSolto);
+    if (solto && solto.responder) {
+      var linkSolto = 'https://wa.me/' + solto.dados.telVendedor + '?text=' + encodeURIComponent(DISPARO_TEXTO_SOLTO_VENDEDOR);
+      var rSolto = disparoEnviarTexto_(cfg, props, dSolto, m.from, 'Oi! Aqui é da Solar Green. Quem vai te atender é ' +
+        solto.dados.nomeVendedor + '. Toque aqui pra falar direto: ' + linkSolto);
+      if (!rSolto.ok) console.error('Resposta ao contato sem campanha (final ' + fim8.slice(-4) + ') não saiu.');
+    }
     console.log('Mensagem no número do disparo sem disparo correspondente (final ' + fim8.slice(-4) + ').');
     return false;
   }
@@ -4979,6 +4993,78 @@ function disparoTratarMensagem_(cfg, props, m) {
       ', da Solar Green. Toque aqui pra falar direto: ' + link);
   }
   return true;
+}
+
+// Vendedor de quem escreve sem campanha nem cobrança (09/11), guardado em
+// disparo_solto/{fim8}: o primeiro contato escolhe e os seguintes repetem. Vale o
+// vendedor do cadastro, se o número é de cliente e o vendedor está ativo; senão o
+// rodízio entre os vendedores ativos (config/rodizio_whatsapp, separado do site).
+// Devolve { dados, responder }, com responder = true só na chamada que criou o
+// doc: duas mensagens seguidas ("Olá", "Boa tarde") não geram duas respostas.
+function disparoVendedorSolto_(cfg, fim8) {
+  if (!/^\d{8}$/.test(fim8)) return null;
+  var doc = fsGet_(cfg, 'disparo_solto/' + fim8);
+  if (doc) return { dados: doc.dados, responder: false };
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(25000)) return null;
+  try {
+    doc = fsGet_(cfg, 'disparo_solto/' + fim8);
+    if (doc) return { dados: doc.dados, responder: false };
+    var ativos = fsListar_(cfg, 'vendedores').filter(function (v) {
+      return ehVendedorAtivoFs_(v) && cobrancaTelefone_(v.Telefone);
+    }).sort(function (a, b) { return String(a.IdVendedor).localeCompare(String(b.IdVendedor)); });
+    if (!ativos.length) return null;
+    var dono = disparoDonoDoCliente_(cfg, fim8);
+    var v = ativos.filter(function (x) { return String(x.IdVendedor) === dono; })[0];
+    var rod = null, pelaVez = !v;
+    if (pelaVez) {
+      rod = fsGet_(cfg, 'config/rodizio_whatsapp');
+      var ultimo = rod ? String(rod.dados.ultimoIdVendedor || '') : '', idx = -1;
+      ativos.forEach(function (x, i) { if (String(x.IdVendedor) === ultimo) idx = i; });
+      v = ativos[(idx + 1) % ativos.length];
+    }
+    var agora = Date.now();
+    var dados = {
+      idVendedor: String(v.IdVendedor), nomeVendedor: String(v.Nome || '').trim().split(/\s+/)[0],
+      telVendedor: cobrancaTelefone_(v.Telefone), origem: pelaVez ? 'rodizio' : 'cadastro', em: agora
+    };
+    var writes = [fsUpdate_(cfg, 'disparo_solto/' + fim8, dados, { exists: false })];
+    if (pelaVez) writes.push(fsUpdate_(cfg, 'config/rodizio_whatsapp', { ultimoIdVendedor: dados.idVendedor, atualizadoEm: agora },
+      rod ? { updateTime: rod.updateTime } : { exists: false }));
+    if (!fsCommit_(cfg, writes)) {
+      doc = fsGet_(cfg, 'disparo_solto/' + fim8);
+      return doc ? { dados: doc.dados, responder: false } : null;
+    }
+    return { dados: dados, responder: true };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Vendedor Responsavel do cliente com esse final de telefone, ou ''. A lista
+// (só telefone e vendedor) fica 6 h no cache: é lida só quando aparece um
+// número novo sem campanha.
+function disparoDonoDoCliente_(cfg, fim8) {
+  var cache = CacheService.getScriptCache();
+  var guardado = cache.get('sg_cliente_fim8');
+  var mapa = guardado ? JSON.parse(guardado) : null;
+  if (!mapa) {
+    mapa = {};
+    var pagina = '', campoVend = encodeURIComponent('`Vendedor Responsavel`');
+    do {
+      var resp = fsPedir_(cfg, 'get', cfg.base + '/clientes?pageSize=300&mask.fieldPaths=Telefone&mask.fieldPaths=' + campoVend +
+        (pagina ? '&pageToken=' + encodeURIComponent(pagina) : ''));
+      if (resp.getResponseCode() !== 200) throw new Error('Firestore recusou a lista de clientes: ' + resp.getContentText().slice(0, 200));
+      var d = JSON.parse(resp.getContentText());
+      (d.documents || []).forEach(function (doc) {
+        var c = fsLerCampos_(doc.fields || {}), k = disparoFim8_(c.Telefone);
+        if (k.length === 8 && !mapa[k] && c['Vendedor Responsavel']) mapa[k] = String(c['Vendedor Responsavel']);
+      });
+      pagina = d.nextPageToken || '';
+    } while (pagina);
+    try { cache.put('sg_cliente_fim8', JSON.stringify(mapa), 21600); } catch (e) { /* acima de 100 KB: lê de novo na próxima */ }
+  }
+  return mapa[fim8] || '';
 }
 
 // Mais de DISPARO_ROBO_MENSAGENS mensagens do mesmo telefone em 2 minutos: marca
