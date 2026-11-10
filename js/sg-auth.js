@@ -455,7 +455,14 @@
       var trashBtn=document.getElementById('vw-excluirBtn');
       editBtn.style.display=(config&&config.onEditar)?'flex':'none';
       trashBtn.style.display=(config&&config.onExcluir)?'flex':'none';
-      editBtn.onclick=function(){ fechar(); if(config&&config.onEditar)config.onEditar(); };
+      editBtn.onclick=function(){
+        fechar();
+        if(config&&config.onEditar){
+          config.onEditar();
+          // Voltar do celular no formulário reabre esta visualização (2026-11-10).
+          if(window.SGVoltar)window.SGVoltar.aoVoltarReabrir(function(){ abrir(config); });
+        }
+      };
       trashBtn.onclick=function(){ if(config&&config.onExcluir)config.onExcluir(); };
       document.getElementById('vw-fecharBtn').onclick=fechar;
       document.getElementById('adBackdrop').onclick=fechar;

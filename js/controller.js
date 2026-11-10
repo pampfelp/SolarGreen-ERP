@@ -7,6 +7,7 @@
     if(name==='faturamento'&&(!window.SGAuth||!window.SGAuth.podeVerFaturamento()))name='ponto';
     Object.keys(views).forEach(function(k){if(!views[k]||!navLinks[k])return;views[k].classList.toggle('active',k===name);navLinks[k].classList.toggle('active',k===name);});
     window.SGLocal.guardar('sg_active_view',name);
+    if(window.SGVoltar)window.SGVoltar.telaMudou(name); // botão voltar do celular (js/sg-voltar.js)
     if(name==='dashboard'&&window.dashboardApp)window.dashboardApp.init();
     if(name==='faturamento'&&window.faturamentoApp)window.faturamentoApp.init();
     if(name==='funil'&&window.funilApp)window.funilApp.init();

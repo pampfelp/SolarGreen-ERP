@@ -534,7 +534,7 @@
     });
     if(/[?&](lead|tela|notif|cobranca|cobrancaPlano)=/.test(location.search)){
       var url=location.href;
-      history.replaceState(null,'',location.pathname+location.hash);
+      history.replaceState(history.state,'',location.pathname+location.hash); // mantém o estado do botão voltar (js/sg-voltar.js)
       tratarLink(url);
     }
     registrarAparelho(false).catch(function(){});
