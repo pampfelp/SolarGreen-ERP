@@ -176,6 +176,7 @@
     sino.innerHTML=ICONE_SINO+'<span class="sg-notif-badge" id="sg-notif-badge"></span>';
     var painel=document.createElement('div');
     painel.id='sg-notif-painel';
+    painel.setAttribute('data-sg-camada',''); // voltar do celular fecha a gaveta (js/sg-voltar.js)
     painel.innerHTML='<div class="sg-notif-cab"><h4>Notificações</h4><button type="button" id="sg-notif-todas">Marcar todas como lidas</button></div>'+
       '<div id="sg-notif-push"></div><div id="sg-notif-lista"></div>';
     var pilha=document.createElement('div');

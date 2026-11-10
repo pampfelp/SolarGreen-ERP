@@ -104,6 +104,7 @@
     acoes.insertBefore(sino,acoes.firstChild);
     var painel=document.createElement('div');
     painel.id='sg-notif-painel';
+    painel.setAttribute('data-sg-camada',''); // voltar do celular fecha a gaveta (js/sg-voltar.js)
     painel.innerHTML='<div class="sg-notif-cab"><h4>Notificações</h4><button type="button" id="sg-notif-todas">Marcar todas como lidas</button></div>'+
       '<div id="sg-notif-push"></div><div id="sg-notif-lista"></div>';
     var pilha=document.createElement('div');
@@ -387,7 +388,7 @@
     // Clique na notificação do sistema com o app fechado: o endereço traz ?agendamento=.
     if(/[?&](agendamento|notif)=/.test(location.search)){
       var url=location.href;
-      history.replaceState(null,'',location.pathname+location.hash);
+      history.replaceState(history.state,'',location.pathname+location.hash); // mantém o estado do botão voltar (js/sg-voltar.js)
       abrirLink(url);
     }
     registrarAparelho(false).catch(function(){}).then(escutarLiberado);

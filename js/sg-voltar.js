@@ -13,6 +13,11 @@
 // O voltar fecha só a camada do topo, pelo MESMO botão que a pessoa usaria
 // (seta do painel, Cancelar/Fechar do modal). Nunca pelo fundo escurecido
 // #adBackdrop: ele é compartilhado e tocar nele fecha todos os painéis abertos.
+//
+// Serve aos dois apps. No painel (index.html) o controller avisa cada troca
+// de tela. No app do técnico (indexdotecnico.html) não há menu: a base é
+// criada sozinha, e as telas cheias (detalhe, dimensionamento) e a gaveta de
+// notificações levam o atributo data-sg-camada e contam como camada.
 (function(){
   var telaAtual=null;     // tela da entrada atual do histórico
   var nivel=0;            // camadas que o histórico atual representa
@@ -31,16 +36,16 @@
   function estaAberta(el){
     if(!el||!el.isConnected)return false;
     var aberta;
-    if(el.classList.contains('side-panel'))aberta=el.classList.contains('active');
+    if(el.classList.contains('side-panel')||el.hasAttribute('data-sg-camada'))aberta=el.classList.contains('active');
     else if(el.classList.contains('sidebar'))aberta=el.classList.contains('mobile-open');
-    else aberta=el.classList.contains('modal-overlay')&&!el.classList.contains('hidden');
+    else aberta=(el.classList.contains('modal-overlay')||el.classList.contains('sheet-overlay'))&&!el.classList.contains('hidden');
     return aberta&&getComputedStyle(el).display!=='none';
   }
 
   // Camadas abertas, da de baixo para a de cima: primeiro pelo z-index real
   // (modal 200 fica acima de painel 150), depois pela ordem em que abriram.
   function camadas(){
-    var lista=[].slice.call(document.querySelectorAll('.side-panel.active, .modal-overlay:not(.hidden), .sidebar.mobile-open')).filter(estaAberta);
+    var lista=[].slice.call(document.querySelectorAll('.side-panel.active, .modal-overlay:not(.hidden), .sheet-overlay:not(.hidden), .sidebar.mobile-open, [data-sg-camada].active')).filter(estaAberta);
     lista.forEach(function(el){ if(!el._sgSeq)el._sgSeq=++seq; });
     conhecidas.forEach(function(el){
       if(lista.indexOf(el)<0){ delete el._sgSeq; delete el._sgReabrir; }
@@ -58,6 +63,14 @@
     }
     if(el.classList.contains('side-panel')){
       var seta=el.querySelector('.ad-backbtn'); if(seta){ seta.click(); return; }
+    }
+    // Tela cheia e gaveta: só a seta do topo, ou tirar o "active". Nunca a
+    // busca por nome abaixo: o detalhe do técnico tem #btn-cancelar, que é
+    // "Cancelar agendamento".
+    if(el.hasAttribute('data-sg-camada')){
+      var volta=el.querySelector('.backbtn, .ad-backbtn');
+      if(volta)volta.click(); else el.classList.remove('active');
+      return;
     }
     var botoes=el.querySelectorAll('button');
     for(var i=0;i<botoes.length;i++){
@@ -138,6 +151,9 @@
     if(alvo<anterior||alvo===0&&anterior===0){ history.back(); return; }
     agendar();
   });
+
+  // App sem menu (técnico): a primeira entrada vira a base.
+  setTimeout(function(){ if(telaAtual===null)window.SGVoltar.telaMudou('inicio'); },0);
 
   new MutationObserver(agendar).observe(document.body,{attributes:true,attributeFilter:['class'],subtree:true});
   new MutationObserver(agendar).observe(document.body,{childList:true});
