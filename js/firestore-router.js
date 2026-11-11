@@ -152,13 +152,14 @@
       'CPF ou CNPJ':p.cpf,
       Endereco:p.endereco,
       Email:p.email,
+      Telefone:p.telefone,
       CPFEquatorial:p.cpfEquatorial,
       DataNascimentoEquatorial:p.dataNascimentoEquatorial
     });
     return db().collection('clientes').doc(id).set(patch,{merge:true})
       .then(function(){
-        if(p.nome){ // essa tela nem sempre edita o nome — fire-and-forget
-          propagarNomeClienteDenorm(id,p.nome,undefined).catch(function(err){
+        if(p.nome || p.telefone !== undefined){ // fire-and-forget
+          propagarNomeClienteDenorm(id,p.nome,p.telefone).catch(function(err){
             console.error('Propagação de NomeCliente desnormalizado falhou:',err);
           });
         }

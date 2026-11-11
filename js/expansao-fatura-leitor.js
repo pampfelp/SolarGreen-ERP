@@ -182,6 +182,7 @@
       }
       const item = valoresDaLinha(linha, colunas, referencia);
       if (!item) continue;
+      if (financeiro && item.tipo === 'outro') item.tipo = 'financeiro';
       const eventual = ['multa', 'juros', 'parcelamento'].includes(item.tipo);
       if (eventual) item.eventual = true;
       itens.push(item);

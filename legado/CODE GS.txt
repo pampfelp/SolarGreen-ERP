@@ -7656,7 +7656,7 @@ function actionUploadAnexoExpansao(body) {
 
   var cliente = fsGet_(cfg, 'clientes/' + encodeURIComponent(body.idCliente));
   if (!cliente) return { ok: false, erro: 'Salve o cliente antes de enviar o anexo.' };
-  var nomeCliente = expansaoNomeArquivo_(cliente.dados.Nome || body.nomeCliente || 'Cliente');
+  var nomeCliente = expansaoNomeArquivo_(cliente.dados['Nome Razao Social'] || cliente.dados.Nome || 'Cliente');
   var nomePasta = nomeCliente + ' - ' + body.idCliente;
   var raiz = expansaoPastaRaiz_();
   if (!raiz) return { ok: false, erro: 'Pasta privada de expansão indisponível.' };

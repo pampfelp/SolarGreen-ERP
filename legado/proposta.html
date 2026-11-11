@@ -77,7 +77,7 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 .combo-dropdown.hidden{display:none;}
 .combo-item{padding:10px 12px;font-size:13px;color:var(--ink);cursor:pointer;border-bottom:1px solid var(--bg);}
 .combo-item:last-child{border-bottom:none;}
-.combo-item:hover{background:var(--bg);}
+.combo-item:hover,.combo-item[aria-selected="true"]{background:var(--bg);}
 .combo-empty{padding:12px;font-size:12.5px;color:var(--ink-faint);text-align:center;}
 .field:last-child{margin-bottom:0;}
 .field label{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-faint);font-weight:600;}
@@ -305,6 +305,80 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 .empty-inline{font-size:11px;color:var(--debit);font-weight:600;}
 .contrato-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}
 
+
+/* ── Proposta de expansão ── */
+.tab-btn{display:flex;align-items:center;gap:6px;white-space:nowrap;}
+.tab-btn svg{width:15px;height:15px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;}
+.tab-btn:focus-visible,#tab-expansao button:focus-visible,#tab-expansao summary:focus-visible,#tab-expansao a:focus-visible,#tab-expansao .exp-table:focus-visible{outline:2px solid var(--accent-deep);outline-offset:2px;}
+.tab-btn:focus-visible{outline-offset:-3px;}
+.cliente-mount{display:contents;}
+.cliente-mount .card{margin-bottom:20px;}
+#expFormulario{min-width:0;border:0;}
+#expFormulario>.card{margin-bottom:20px;}
+#tab-expansao [hidden]{display:none!important;}
+#tab-expansao .field,#tab-expansao input,#tab-expansao select{min-width:0;}
+#tab-expansao .field label,#tab-expansao .exp-cards-label{color:#627462;}
+#tab-expansao .exp-aside{align-self:start;position:sticky;top:12px;order:0;min-width:0;}
+#tab-expansao #expAviso:not(:empty),#tab-expansao #expModo:not(:empty){margin-bottom:12px;}
+#expAnexoDialog{margin:auto;width:min(880px,calc(100% - 28px));max-height:calc(100% - 28px);color:var(--ink);}
+#expAnexoDialog::backdrop{background:rgba(0,24,16,.55);}
+#expAnexoConteudo img{display:block;max-width:100%;max-height:65vh;margin:auto;object-fit:contain;}
+#expAnexoConteudo iframe,#expAnexoConteudo object{width:100%;height:65vh;border:0;}
+.exp-help{color:var(--ink-soft);font-size:12px;line-height:1.5;}
+.exp-copy,.exp-metrica{font-size:11px;color:var(--ink-soft);line-height:1.45;}
+.exp-copy{margin-top:6px;}
+.exp-empty{color:var(--ink-soft);font-size:12px;}
+.exp-fields,.exp-actions{margin-top:12px;}
+.exp-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.exp-actions .btn,.exp-inline{padding:7px 11px;}
+.exp-actions .btn-secondary,.exp-inline{background:var(--bg);color:#003122;}
+.exp-inline{font:inherit;font-weight:600;border:1px solid var(--line);border-radius:7px;cursor:pointer;}
+.exp-anexos .add-svc-btn{margin-top:0;}
+.exp-ponto{border-radius:7px;background:var(--warn-soft);color:#76440e;padding:10px 12px;margin-top:9px;line-height:1.45;font-size:12px;}
+.exp-verde{background:var(--accent-soft);color:#335610;}
+.exp-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px;}
+.exp-kpis .perda-kpi{padding:10px;overflow-wrap:anywhere;}
+.exp-kpis .pk-val{font-size:15px;}
+.exp-placas{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0;}
+.exp-medida{background:var(--bg);border:1px solid var(--line);padding:12px;border-radius:8px;display:grid;gap:5px;font-size:12px;overflow-wrap:anywhere;}
+.exp-medida strong{font-family:var(--unbounded);color:#003122;font-size:16px;}
+.exp-medida.destaque{background:var(--accent-soft);}
+.exp-table{overflow:auto;margin:14px 0 10px;border:1px solid var(--line);border-radius:8px;}
+.exp-table table{border-collapse:collapse;width:100%;min-width:640px;font-size:12px;}
+.exp-table th,.exp-table td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;}
+.exp-table th:first-child,.exp-table td:first-child{text-align:left;}
+.exp-table th{background:var(--bg);color:#003122;}
+.exp-table tr:last-child td{border-bottom:0;}
+.exp-economia{margin:12px 0;}
+.exp-economia .pk-val{font-size:17px;}
+.exp-roof,.exp-telhado-figura{background:linear-gradient(#e5efe8,#f6faf6);border:1px solid var(--line);border-radius:8px;text-align:center;padding:6px;}
+.exp-roof svg,.exp-telhado-figura svg{display:block;width:100%;max-height:275px;margin:auto;}
+.exp-legenda,.exp-telhado-legenda{display:flex;gap:12px;justify-content:center;align-items:center;flex-wrap:wrap;padding:8px;font-size:11px;color:var(--ink-soft);}
+.exp-telhado-legenda span::before{content:"";display:inline-block;width:9px;height:9px;margin-right:4px;border-radius:2px;background:#17191e;}
+.exp-telhado-legenda .exp-telhado-nova::before{background:#236ed1;}
+.exp-subhead{margin:15px 0 8px;font-size:12px;color:#003122;}
+.exp-summary{display:grid;gap:8px;}
+.exp-summary div{display:flex;justify-content:space-between;gap:8px;padding:5px 0;color:var(--ink-soft);border-bottom:1px solid var(--line);font-size:12px;}
+.exp-summary strong{color:#003122;}
+.exp-history li{list-style:none;border-bottom:1px solid var(--line);padding:9px 0;line-height:1.5;font-size:12px;}
+.exp-history li:last-child{border-bottom:0;}
+.exp-option{display:flex;align-items:center;gap:7px;margin-top:8px;color:var(--ink-soft);font-size:12px;}
+.exp-option input{accent-color:var(--accent-deep);}
+#tab-expansao details{margin-top:12px;}
+#tab-expansao summary{color:#003122;cursor:pointer;font-weight:600;font-size:12px;margin-bottom:10px;}
+@media(min-width:1101px){#expHistorico{max-height:55vh;overflow:auto;}}
+@media(max-width:1100px){#tab-expansao .exp-aside{position:static;}}
+@media(max-width:700px){
+  .tab-bar{padding:0 8px;gap:0;}
+  .tab-btn{font-size:11px;padding:11px 7px;}
+  #tab-expansao .container{padding:14px;}
+  #tab-expansao .card,#tab-expansao .perda-card{padding:14px;}
+  .exp-kpis{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .exp-placas{gap:6px;}
+  .exp-medida{padding:7px;}
+  .exp-medida strong{font-size:12px;}
+}
+
 /* ── Banner de instalação do app (PWA) ── */
 #sg-install-banner{position:fixed;left:14px;right:14px;bottom:14px;max-width:480px;margin:0 auto;background:#003122;color:#fff;padding:14px 16px;border-radius:13px;font-size:13px;z-index:500;box-shadow:0 10px 30px rgba(0,0,0,.35);display:none;align-items:center;gap:12px;}
 #sg-install-banner.show{display:flex;}
@@ -345,10 +419,11 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
   <a class="back-link" href="../index.html">&#8592; Voltar ao Dashboard</a>
 </div>
 
-<div class="tab-bar">
-  <button class="tab-btn active" id="tabBtnProposta" data-tab="proposta">📝 Proposta</button>
-  <button class="tab-btn" id="tabBtnContrato" data-tab="contrato">📄 Contrato</button>
-</div>
+<nav class="tab-bar" aria-label="Gerador de Proposta">
+  <button type="button" class="tab-btn active" id="tabBtnProposta" data-tab="proposta" aria-controls="tab-proposta" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19H5V5h9l5 5v3M14 5v5h5m-7 7 5-5 2 2-5 5-3 1z"/></svg> Proposta</button>
+  <button type="button" class="tab-btn" id="tabBtnContrato" data-tab="contrato" aria-controls="tab-contrato" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h7"/></svg> Contrato</button>
+  <button type="button" class="tab-btn" id="tabBtnExpansao" data-tab="expansao" aria-controls="tab-expansao" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7v8H3zM8 13h8m-4-4v8"/></svg> Proposta de Expansão</button>
+</nav>
 
 <div id="tab-proposta" class="tabpane active">
 
@@ -495,33 +570,7 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 <div class="main">
 
   <!-- ── CLIENTE ── -->
-  <div class="card" id="ctrClienteCard">
-    <div class="card-head">Cliente</div>
-    <div class="field"><label>Selecionar cliente (tabela Clientes)</label>
-      <div class="combo-wrap">
-        <input type="text" id="ctrSelClienteBusca" placeholder="Digite o nome do cliente…" autocomplete="off">
-        <input type="hidden" id="ctrSelCliente">
-        <div class="combo-dropdown hidden" id="ctrSelClienteDropdown"></div>
-      </div>
-    </div>
-    <div class="frow tri" style="margin-top:12px;">
-      <div class="field"><label>Nome / Razão Social</label><input type="text" id="ctrNome" oninput="renderContratoPreview();markClienteDirty();"></div>
-      <div class="field"><label>CPF / CNPJ</label><input type="text" id="ctrCpf" placeholder="000.000.000-00" inputmode="numeric"></div>
-      <div class="field"><label>Cidade</label><input type="text" id="ctrCidade" placeholder="ex: Breves" oninput="renderContratoPreview();markClienteDirty();"></div>
-    </div>
-    <div class="field"><label>Endereço completo</label><input type="text" id="ctrEndereco" placeholder="Rua, número, bairro, cidade - CEP" oninput="renderContratoPreview();markClienteDirty();"></div>
-    <div class="field"><label>E-mail do cliente</label><input type="email" id="ctrEmail" placeholder="cliente@email.com" oninput="markClienteDirty();"></div>
-    <div class="frow" style="margin-top:12px;">
-      <div class="field"><label>CPF do titular Equatorial</label><input type="text" id="ctrCpfEquatorial" placeholder="000.000.000-00" inputmode="numeric"></div>
-      <div class="field"><label>Data de nascimento do titular Equatorial</label><input type="text" id="ctrDataNascEquatorial" placeholder="DD/MM/AAAA" inputmode="numeric"></div>
-    </div>
-    <div style="font-size:11px;color:var(--ink-faint,#9aab9a);margin-top:-4px;">Usado pra coletar as faturas da concessionária (Equatorial) — pode ser uma pessoa diferente de quem assina o contrato.</div>
-    <div id="ctrSyncRow" style="display:none;margin-top:10px;align-items:center;gap:10px;" class="save-bar">
-      <div class="sbi" id="ctrSyncMsg">Dados alterados aqui — a planilha Clientes ainda não foi atualizada.</div>
-      <button class="btn btn-primary" id="ctrSyncBtn" style="white-space:nowrap;">💾 Salvar na planilha</button>
-    </div>
-  </div>
-
+  <div id="ctrClienteMount" class="cliente-mount"></div>
 
   <!-- ── TIPO DE CONTRATO ── -->
   <div class="card">
@@ -537,7 +586,7 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 
   <div id="ctrSyncRowBottom" style="display:none;align-items:center;gap:10px;margin-bottom:12px;" class="save-bar">
     <div class="sbi" id="ctrSyncMsgBottom">Dados do cliente alterados — a planilha Clientes ainda não foi atualizada.</div>
-    <button class="btn btn-primary" id="ctrSyncBtnBottom" style="white-space:nowrap;">💾 Salvar na planilha</button>
+    <button class="btn btn-primary" id="ctrSyncBtnBottom" style="white-space:nowrap;">Salvar na planilha</button>
   </div>
 
   <div class="contrato-actions">
@@ -560,6 +609,162 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 </div><!-- /container -->
 </div><!-- /tab-contrato -->
 
+<template id="clienteCardTemplate">
+  <div class="card" id="ctrClienteCard">
+    <div class="card-head">Cliente</div>
+    <div class="field"><label for="ctrSelClienteBusca">Selecionar cliente (tabela Clientes)</label>
+      <div class="combo-wrap">
+        <input type="text" id="ctrSelClienteBusca" placeholder="Digite o nome do cliente…" autocomplete="off">
+        <input type="hidden" id="ctrSelCliente">
+        <div class="combo-dropdown hidden" id="ctrSelClienteDropdown"></div>
+      </div>
+    </div>
+    <div class="frow tri" style="margin-top:12px;">
+      <div class="field"><label for="ctrNome">Nome / Razão Social</label><input type="text" id="ctrNome" oninput="renderContratoPreview();markClienteDirty();"></div>
+      <div class="field"><label for="ctrCpf">CPF / CNPJ</label><input type="text" id="ctrCpf" placeholder="000.000.000-00" inputmode="numeric"></div>
+      <div class="field"><label for="ctrCidade">Cidade</label><input type="text" id="ctrCidade" placeholder="ex: Breves" oninput="renderContratoPreview();markClienteDirty();"></div>
+    </div>
+    <div class="field"><label for="ctrEndereco">Endereço completo</label><input type="text" id="ctrEndereco" placeholder="Rua, número, bairro, cidade - CEP" oninput="renderContratoPreview();markClienteDirty();"></div>
+    <div class="field"><label for="ctrEmail">E-mail do cliente</label><input type="email" id="ctrEmail" placeholder="cliente@email.com" oninput="markClienteDirty();"></div>
+    <div class="field" data-exp-cliente><label for="ctrTelefone">Telefone</label><input type="tel" id="ctrTelefone" autocomplete="tel"></div>
+    <div class="frow" style="margin-top:12px;">
+      <div class="field"><label for="ctrCpfEquatorial">CPF do titular Equatorial</label><input type="text" id="ctrCpfEquatorial" placeholder="000.000.000-00" inputmode="numeric"></div>
+      <div class="field"><label for="ctrDataNascEquatorial">Data de nascimento do titular Equatorial</label><input type="text" id="ctrDataNascEquatorial" placeholder="DD/MM/AAAA" inputmode="numeric"></div>
+    </div>
+    <div data-ctr-cliente style="font-size:11px;color:var(--ink-faint,#9aab9a);margin-top:-4px;">Usado pra coletar as faturas da concessionária (Equatorial) — pode ser uma pessoa diferente de quem assina o contrato.</div>
+    <div id="ctrSyncRow" style="display:none;margin-top:10px;align-items:center;gap:10px;" class="save-bar">
+      <div class="sbi" id="ctrSyncMsg" data-ctr-cliente>Dados alterados aqui — a planilha Clientes ainda não foi atualizada.</div>
+      <button type="button" class="btn btn-secondary" id="ctrNovoCliente" data-exp-cliente>Novo cliente</button>
+      <button type="button" class="btn btn-primary" id="ctrSyncBtn" style="white-space:nowrap;">Salvar na planilha</button>
+    </div>
+  </div>
+</template>
+
+<div id="tab-expansao" class="tabpane" aria-labelledby="tabBtnExpansao">
+  <div class="container">
+    <main class="main">
+      <p id="expAviso" class="exp-help" role="status"></p>
+      <p id="expModo" class="exp-help" role="status"></p>
+      <fieldset id="expFormulario" aria-label="Dados da expansão">
+        <div id="expClienteMount" class="cliente-mount"></div>
+
+        <section class="card" aria-labelledby="expAnexosTitulo">
+          <h2 class="card-head" id="expAnexosTitulo">Anexos</h2>
+          <div id="expAnexos" class="frow exp-anexos"></div>
+          <p class="exp-copy">Até 10 MB por arquivo. Documento em PDF, JPG ou PNG. Fatura em PDF.</p>
+        </section>
+
+        <section class="card" aria-labelledby="expLeituraTitulo">
+          <h2 class="card-head" id="expLeituraTitulo">Leitura da fatura</h2>
+          <button type="button" class="btn btn-primary" id="expLerFatura">Ler fatura</button>
+          <div id="expRevisao" class="exp-fields"></div>
+          <div id="expChecagens" aria-live="polite"></div>
+          <div id="expFioB"></div>
+        </section>
+
+        <section class="card" aria-labelledby="expUsinaTitulo">
+          <h2 class="card-head" id="expUsinaTitulo">Usina atual</h2>
+          <div class="frow">
+            <div class="field"><label for="expKwpAtual">Potência atual (kWp)</label><input id="expKwpAtual" data-usina="kwpAtual" type="number" min="0" step="any"></div>
+            <div class="field"><label for="expWpAtual">Potência por placa atual (Wp)</label><input id="expWpAtual" data-usina="wpAtual" type="number" min="0" step="any"></div>
+          </div>
+          <div id="expModulosAtuais"></div>
+          <button type="button" class="btn btn-secondary" id="expAddModulo">Adicionar modelo de placa instalada</button>
+          <div class="frow exp-fields">
+            <div class="field"><label for="expIdInversor">Inversor atual (opcional)</label><select id="expIdInversor" data-usina="idInversor"><option value="">Selecione um modelo</option></select></div>
+            <div class="field"><label for="expRegimeAtual">Regime GD atual</label><select id="expRegimeAtual" data-usina="regimeAtual"><option value="">Não informado</option><option>GD I</option><option>GD II</option><option>GD III</option></select></div>
+          </div>
+          <label class="exp-option"><input data-usina="considerarRecuperacao" type="checkbox" checked> Considerar recuperação da usina atual</label>
+          <div class="frow exp-fields">
+            <div class="field"><label for="expDesempenho">Desempenho atual (%)</label><input id="expDesempenho" data-usina="desempenho" type="number" min="0" max="100" step="any"></div>
+            <div class="field"><label for="expBaseDesempenho">Base do desempenho</label><select id="expBaseDesempenho" data-usina="baseDesempenho"><option value="geracaoPrevista">Geração frente ao previsto</option><option value="PR">PR</option></select></div>
+            <div class="field"><label for="expGeracaoReal">Geração real no período (kWh)</label><input id="expGeracaoReal" data-usina="geracaoReal" type="number" min="0" step="any"></div>
+            <div class="field"><label for="expGeracaoPrevista">Geração prevista no período (kWh)</label><input id="expGeracaoPrevista" data-usina="geracaoPrevista" type="number" min="0" step="any"></div>
+            <div class="field"><label for="expPeriodoInicio">Início do período</label><input id="expPeriodoInicio" data-usina="periodoInicio" type="date"></div>
+            <div class="field"><label for="expPeriodoFim">Fim do período</label><input id="expPeriodoFim" data-usina="periodoFim" type="date"></div>
+            <div class="field"><label for="expIrradiacaoPeriodo">Irradiação no período (kWh/m²)</label><input id="expIrradiacaoPeriodo" data-usina="irradiacaoPeriodo" type="number" min="0" step="any"></div>
+            <div class="field"><label for="expPrReferencia">PR de referência (%)</label><input id="expPrReferencia" data-usina="prReferencia" type="number" min="0" max="100" step="any"></div>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="expPremissasTitulo">
+          <h2 class="card-head" id="expPremissasTitulo">Expansão</h2>
+          <div class="frow">
+            <div class="field"><label for="expIdModulo">Módulo novo</label><select id="expIdModulo" data-expansao="idModulo"><option value="">Selecione um módulo</option></select></div>
+            <div class="field"><label for="expWp">Potência do módulo (Wp)</label><input id="expWp" data-expansao="wp" type="number" min="1" step="any"></div>
+            <div class="field"><label for="expCidadeProd">Cidade para produtividade</label><select id="expCidadeProd" data-expansao="cidade" aria-describedby="expCidadeOrigem"><option value="">Selecione a cidade</option></select><small id="expCidadeOrigem" class="exp-copy"></small></div>
+            <div class="field"><label for="expProdutividade">Produtividade (kWh/kWp/mês)</label><input id="expProdutividade" data-expansao="produtividade" type="number" min="0" step="any"></div>
+            <div class="field"><label for="expFonteProdutividade">Fonte da produtividade</label><input id="expFonteProdutividade" data-expansao="fonteProdutividade" type="text"></div>
+            <div class="field"><label for="expDesempenhoAlvo">Desempenho alvo (%)</label><input id="expDesempenhoAlvo" data-usina="desempenhoAlvo" type="number" min="0" max="100" step="any"></div>
+            <div class="field"><label for="expMeta">Meta</label><select id="expMeta" data-expansao="meta"><option value="recorrente">Média recorrente</option><option value="ciclo">Ciclo da fatura</option><option value="residual">Residual desejado</option></select></div>
+            <div class="field"><label for="expRegimeExpansao">Regime da expansão</label><select id="expRegimeExpansao" data-expansao="regimeExpansao"><option>GD I</option><option selected>GD II</option><option>GD III</option></select></div>
+            <div class="field"><label for="expFracaoUtil">Fração útil</label><input id="expFracaoUtil" data-expansao="fracaoUtil" type="number" min="0" max="1" step="any" value="1"></div>
+            <div class="field"><label for="expResidualDesejado">Residual desejado (kWh)</label><input id="expResidualDesejado" data-expansao="residualDesejado" type="number" min="0" step="any"></div>
+          </div>
+          <label class="exp-option"><input data-expansao="usaCreditosAntigos" type="checkbox"> Usar créditos antigos na meta</label>
+          <details>
+            <summary>Detalhes de instalação e do ciclo</summary>
+            <div class="frow">
+              <div class="field"><label for="expAlturaM">Altura do módulo (m)</label><input id="expAlturaM" data-expansao="alturaM" type="number" min="0" step="any"></div>
+              <div class="field"><label for="expLarguraM">Largura do módulo (m)</label><input id="expLarguraM" data-expansao="larguraM" type="number" min="0" step="any"></div>
+              <div class="field"><label for="expAutoconsumoOriginal">Autoconsumo atual (kWh)</label><input id="expAutoconsumoOriginal" data-expansao="autoconsumoOriginal" type="number" min="0" step="any"></div>
+              <div class="field"><label for="expFracaoAutoconsumoRecuperacao">Fração de autoconsumo da recuperação</label><input id="expFracaoAutoconsumoRecuperacao" data-expansao="fracaoAutoconsumoRecuperacao" type="number" min="0" max="1" step="any"></div>
+              <div class="field"><label for="expFracaoAutoconsumoNova">Fração de autoconsumo da expansão</label><input id="expFracaoAutoconsumoNova" data-expansao="fracaoAutoconsumoNova" type="number" min="0" max="1" step="any"></div>
+              <div class="field"><label for="expReferenciaFutura">Referência futura (opcional)</label><input id="expReferenciaFutura" data-expansao="referenciaFutura" type="month"></div>
+              <div class="field"><label for="expSaldoElegivelFuturo">Saldo elegível na referência futura (kWh)</label><input id="expSaldoElegivelFuturo" data-expansao="saldoElegivelFuturo" type="number" min="0" step="any"></div>
+            </div>
+          </details>
+          <details>
+            <summary>Tarifas e disponibilidade</summary>
+            <div id="expTarifas"></div>
+            <div class="field exp-fields"><label for="expPisoDisponibilidade">Custo de disponibilidade (R$)</label><input id="expPisoDisponibilidade" data-expansao="pisoDisponibilidade" type="number" min="0" step="any"></div>
+            <label class="exp-option"><input data-expansao="bandeiraVerde" type="checkbox"> Bandeira verde confirmada</label>
+          </details>
+        </section>
+
+        <section class="card" aria-labelledby="expResultadoTitulo">
+          <h2 class="card-head" id="expResultadoTitulo">Resultado</h2>
+          <div id="expResultado"></div>
+        </section>
+
+        <section class="card" aria-labelledby="expPropostaTitulo">
+          <h2 class="card-head" id="expPropostaTitulo">Dados da proposta</h2>
+          <div class="frow">
+            <div class="field"><label for="expNumero">Número</label><input id="expNumero" data-proposta="Numero" type="text"></div>
+            <div class="field"><label for="expData">Data</label><input id="expData" data-proposta="Data" type="date"></div>
+          </div>
+          <div class="field"><label for="expStatus">Status</label><select id="expStatus" data-proposta="Status"><option>Rascunho</option><option>Enviada</option><option>Aceita</option><option>Recusada</option></select></div>
+          <div class="field"><label for="expObservacoes">Observações</label><textarea id="expObservacoes" data-proposta="Observacoes"></textarea></div>
+        </section>
+      </fieldset>
+      <div class="exp-actions">
+        <button type="button" class="btn btn-primary" id="expSalvar">Salvar</button>
+        <button type="button" class="btn btn-secondary" id="expPdf">Gerar PDF</button>
+        <button type="button" class="btn btn-secondary" id="expNova">Nova proposta</button>
+        <button type="button" class="btn btn-secondary" id="expRecalcular" hidden>Recalcular com os valores de hoje</button>
+      </div>
+    </main>
+    <aside class="aside exp-aside">
+      <section class="card" aria-labelledby="expResumoTitulo">
+        <h2 class="card-head" id="expResumoTitulo">Resumo da expansão</h2>
+        <div id="expResumo" class="exp-summary"></div>
+      </section>
+      <section class="history-card" aria-labelledby="expHistoricoTitulo">
+        <h2 class="card-head" id="expHistoricoTitulo">Histórico de expansão</h2>
+        <div id="expHistorico" class="exp-history"></div>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<dialog id="expAnexoDialog" class="card" aria-labelledby="expAnexoTitulo">
+  <h2 class="card-head" id="expAnexoTitulo">Anexo</h2>
+  <div id="expAnexoConteudo"></div>
+  <form method="dialog" class="exp-actions">
+    <button type="submit" class="btn btn-secondary" autofocus>Fechar</button>
+  </form>
+</dialog>
+
 <dialog id="geradorDialogo" class="card" aria-labelledby="geradorDialogoTitulo">
   <form method="dialog">
     <h2 class="card-head" id="geradorDialogoTitulo"></h2>
@@ -573,6 +778,9 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 
 <div class="toast" id="toast"><span id="toastIcon">✓</span><span id="toastMsg"></span></div>
 
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
@@ -580,10 +788,35 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 <script src="../js/firestore-router.js?v=20261111b"></script>
 <script src="../js/sg-auth.js?v=20261111b"></script>
 <script src="../js/expansao-produtividade.js?v=20261111b"></script>
+<script src="../js/expansao-calculo.js?v=20261111c"></script>
+<script src="../js/expansao-fatura-leitor.js?v=20261111c"></script>
+<script src="../js/expansao-anexos.js?v=20261111c"></script>
+<script src="../js/expansao-proposta.js?v=20261111c"></script>
+<script src="../js/expansao-pdf.js?v=20261111c"></script>
+<script src="../js/expansao-tela.js?v=20261111c"></script>
 
 <script>
 (function(){
 'use strict';
+
+function montarClienteCard(prefixo){
+  var card=document.getElementById('clienteCardTemplate').content.cloneNode(true);
+  if(prefixo==='exp'){
+    card.querySelectorAll('[id^="ctr"]').forEach(function(el){el.id=prefixo+el.id.slice(3);});
+    card.querySelectorAll('[for^="ctr"]').forEach(function(el){el.htmlFor=prefixo+el.htmlFor.slice(3);});
+    card.querySelectorAll('[oninput]').forEach(function(el){el.removeAttribute('oninput');});
+    card.querySelectorAll('[data-ctr-cliente]').forEach(function(el){el.remove();});
+    var botoes=card.querySelector('#expSyncRow');
+    botoes.className='exp-actions'; botoes.removeAttribute('style');
+    var salvar=card.querySelector('#expSyncBtn');
+    salvar.className='btn btn-secondary'; salvar.textContent='Salvar dados do cliente';
+  }else{
+    card.querySelectorAll('[data-exp-cliente]').forEach(function(el){el.remove();});
+  }
+  document.getElementById(prefixo+'ClienteMount').appendChild(card);
+}
+montarClienteCard('ctr');
+montarClienteCard('exp');
 
 // ── Tabelas de precificação (da planilha Precificação) ────────────────
 var MONITORING_TABLE = [
@@ -693,6 +926,7 @@ var S={
 var leadCombo=null,clienteCombo=null;
 
 // ── Combo de busca digitável (mesmo componente do index.html) ──────────
+var eventosCombo=new WeakMap();
 window.SGCombo=window.SGCombo||{
   criar:function(config){
     var input=document.getElementById(config.inputId);
@@ -700,43 +934,94 @@ window.SGCombo=window.SGCombo||{
     var dropdown=document.getElementById(config.dropdownId);
     if(!input||!hidden||!dropdown)return null;
 
-    function escapeHtmlCombo(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+    var desligar=eventosCombo.get(input);
+    if(desligar)desligar();
+    var eventos=new AbortController(), ativo=-1, itens=[], timer;
+    eventosCombo.set(input,function(){ eventos.abort(); clearTimeout(timer); });
 
-    if(config.valorInicial){ hidden.value=config.valorInicial.id||''; input.value=config.valorInicial.label||''; }
-    else{ hidden.value=''; input.value=''; }
+    hidden.value=config.valorInicial?.id||'';
+    input.value=config.valorInicial?.label||'';
+    input.setAttribute('role','combobox');
+    input.setAttribute('aria-autocomplete','list');
+    input.setAttribute('aria-controls',dropdown.id);
+    dropdown.setAttribute('role','listbox');
+
+    function fechar(){
+      dropdown.classList.add('hidden');
+      input.setAttribute('aria-expanded','false');
+      input.removeAttribute('aria-activedescendant');
+    }
+
+    function selecionar(opcao){
+      var id=String(opcao.id??''), label=String(opcao.label??'');
+      hidden.value=id; input.value=label;
+      fechar();
+      if(config.onSelecionar)config.onSelecionar(id,label);
+    }
+
+    function mover(indice){
+      if(!itens.length)return;
+      if(ativo>=0)itens[ativo].setAttribute('aria-selected','false');
+      ativo=Math.max(0,Math.min(indice,itens.length-1));
+      itens[ativo].setAttribute('aria-selected','true');
+      input.setAttribute('aria-activedescendant',itens[ativo].id);
+      itens[ativo].scrollIntoView({block:'nearest'});
+    }
 
     function render(filtro){
       var termo=(filtro||'').trim().toLowerCase();
       var todas=config.getOpcoes()||[];
       var lista=todas.filter(function(o){ return !termo||String(o.label||'').toLowerCase().indexOf(termo)!==-1; }).slice(0,60);
-      if(!lista.length){
-        dropdown.innerHTML='<div class="combo-empty">Nenhuma opção encontrada.</div>';
-      }else{
-        dropdown.innerHTML=lista.map(function(o){
-          return '<div class="combo-item" data-id="'+escapeHtmlCombo(o.id)+'" data-label="'+escapeHtmlCombo(o.label)+'">'+escapeHtmlCombo(o.label)+'</div>';
-        }).join('');
+      ativo=-1;
+      input.removeAttribute('aria-activedescendant');
+      itens=lista.map(function(opcao,i){
+        var item=document.createElement('div');
+        item.id=dropdown.id+'-opcao-'+i;
+        item.className='combo-item';
+        item.setAttribute('role','option');
+        item.setAttribute('aria-selected','false');
+        item.textContent=String(opcao.label??'');
+        item.addEventListener('mousedown',function(e){e.preventDefault();});
+        item.addEventListener('click',function(){selecionar(opcao);});
+        return item;
+      });
+      dropdown.replaceChildren(...itens);
+      if(!itens.length){
+        var vazio=document.createElement('div');
+        vazio.className='combo-empty';
+        vazio.setAttribute('role','option');
+        vazio.setAttribute('aria-disabled','true');
+        vazio.textContent='Nenhuma opção encontrada.';
+        dropdown.appendChild(vazio);
       }
       dropdown.classList.remove('hidden');
-      dropdown.querySelectorAll('.combo-item').forEach(function(item){
-        item.addEventListener('mousedown',function(e){
-          e.preventDefault();
-          var id=item.getAttribute('data-id'),label=item.getAttribute('data-label');
-          hidden.value=id; input.value=label;
-          dropdown.classList.add('hidden');
-          if(config.onSelecionar)config.onSelecionar(id,label);
-        });
-      });
+      input.setAttribute('aria-expanded','true');
     }
 
-    if(!input.dataset.comboWired){
-      input.dataset.comboWired='1';
-      input.addEventListener('input',function(){ hidden.value=''; render(input.value); });
-      input.addEventListener('focus',function(){ render(input.value); });
-      input.addEventListener('blur',function(){ setTimeout(function(){ dropdown.classList.add('hidden'); },150); });
-    }
+    fechar();
+    var listener={signal:eventos.signal};
+    input.addEventListener('input',function(){ hidden.value=''; render(input.value); },listener);
+    input.addEventListener('focus',function(){ clearTimeout(timer); render(input.value); },listener);
+    input.addEventListener('blur',function(){ timer=setTimeout(fechar,150); },listener);
+    input.addEventListener('keydown',function(e){
+      if(e.isComposing)return;
+      var aberto=input.getAttribute('aria-expanded')==='true';
+      if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+        e.preventDefault();
+        if(!aberto)render(input.value);
+        if(ativo<0)mover(e.key==='ArrowDown'?0:itens.length-1);
+        else mover(ativo+(e.key==='ArrowDown'?1:-1));
+      }else if(aberto&&e.key==='Enter'&&ativo>=0){
+        e.preventDefault();
+        itens[ativo].click();
+      }else if(aberto&&e.key==='Escape'){
+        e.preventDefault();
+        fechar();
+      }
+    },listener);
 
     return {
-      setValor:function(id,label){ hidden.value=id||''; input.value=label||''; }
+      setValor:function(id,label){ hidden.value=id||''; input.value=label||''; fechar(); }
     };
   }
 };
@@ -876,7 +1161,7 @@ function syncClienteToSheet(){
   var cpfEquatorial=document.getElementById('ctrCpfEquatorial').value.trim();
   var dataNascEquatorial=document.getElementById('ctrDataNascEquatorial').value.trim();
   apiCall('updateCliente',{ idCliente:CT.clienteId, nome:nome, cpf:cpf, endereco:endereco, email:email, cpfEquatorial:cpfEquatorial, dataNascimentoEquatorial:dataNascEquatorial }).then(function(resp){
-    btn.textContent='💾 Salvar na planilha'; btnB.textContent='💾 Salvar na planilha';
+    btn.textContent='Salvar na planilha'; btnB.textContent='Salvar na planilha';
     if(!resp||!resp.ok){ btn.disabled=false; btnB.disabled=false; showToast((resp&&resp.erro)||'Erro ao salvar na planilha',false); return; }
     if(S.clientesMap[CT.clienteId]){ S.clientesMap[CT.clienteId].nome=nome; S.clientesMap[CT.clienteId].cpf=cpf; S.clientesMap[CT.clienteId].endereco=endereco; S.clientesMap[CT.clienteId].email=email; S.clientesMap[CT.clienteId].cpfEquatorial=cpfEquatorial; S.clientesMap[CT.clienteId].dataNascimentoEquatorial=dataNascEquatorial; }
     CT.clienteOriginal={nome:nome,cpf:cpf,endereco:endereco,email:email,cpfEquatorial:cpfEquatorial,dataNascimentoEquatorial:dataNascEquatorial};
@@ -885,7 +1170,7 @@ function syncClienteToSheet(){
     var cAtual=S.clientesMap[CT.clienteId];
     if(clienteCombo)clienteCombo.setValor(CT.clienteId,cAtual?(cAtual.nome+(cAtual.status?' · '+cAtual.status:'')):'');
     showToast('Cadastro do cliente atualizado na planilha!');
-  }).catch(function(err){ btn.disabled=false; btn.textContent='💾 Salvar na planilha'; btnB.disabled=false; btnB.textContent='💾 Salvar na planilha'; showToast('Erro: '+err.message,false); });
+  }).catch(function(err){ btn.disabled=false; btn.textContent='Salvar na planilha'; btnB.disabled=false; btnB.textContent='Salvar na planilha'; showToast('Erro: '+err.message,false); });
 }
 
 function onLeadChange(){
@@ -2421,11 +2706,23 @@ function resetContrato(){
 }
 
 // ── Tabs ──────────────────────────────────────────────────────────────
+var expansaoTela;
 function switchTab(name){
-  document.querySelectorAll('.tabpane').forEach(function(p){p.classList.remove('active');});
-  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
-  document.getElementById('tab-'+name).classList.add('active');
-  document.getElementById(name==='proposta'?'tabBtnProposta':'tabBtnContrato').classList.add('active');
+  document.querySelectorAll('.tabpane').forEach(function(p){p.classList.toggle('active',p.id==='tab-'+name);});
+  document.querySelectorAll('.tab-btn').forEach(function(b){
+    var ativo=b.dataset.tab===name;
+    b.classList.toggle('active',ativo);
+    b.setAttribute('aria-pressed',String(ativo));
+  });
+  if(name!=='expansao')return;
+  Promise.resolve(window.SGFireReady).then(function(){
+    if(!expansaoTela)expansaoTela=window.SGExpansaoTela.criar({
+      apiCall:apiCall,getClientes:function(){return S.clientesArray||[];},guessCidade:guessCidade,showToast:showToast
+    });
+    return expansaoTela.abrir();
+  }).catch(function(erro){
+    document.getElementById('expAviso').textContent=erro.message||'Falha ao abrir a proposta de expansão.';
+  });
 }
 
 // ── Análise de desempenho toggle ────────────────────────────────────────
@@ -2447,6 +2744,7 @@ function fetchData(){
   apiCall('getFunilData').then(function(resp){
     if(!resp||!resp.ok){ st.className='connect-status error'; txt.textContent=(resp&&resp.erro)||'Erro ao conectar'; return; }
     buildMaps(resp); populateLeads(); populateClientesContrato();
+    if(expansaoTela)expansaoTela.atualizarClientes();
     document.getElementById('dataProp').value=dateKey(new Date());
     document.getElementById('mainContent').style.display='';
     document.getElementById('connectWrap').style.display='none';
@@ -2465,8 +2763,9 @@ document.getElementById('saveBtn').addEventListener('click',saveProposal);
 document.getElementById('printBtn').addEventListener('click',printProposal);
 document.getElementById('newBtn').addEventListener('click',function(){ window.abrirDialogoGerador('Nova proposta','Os dados não salvos serão perdidos.','Criar proposta',resetForm); });
 
-document.getElementById('tabBtnProposta').addEventListener('click',function(){ switchTab('proposta'); });
-document.getElementById('tabBtnContrato').addEventListener('click',function(){ switchTab('contrato'); });
+document.querySelectorAll('.tab-btn').forEach(function(btn){
+  btn.addEventListener('click',function(){ switchTab(btn.dataset.tab); });
+});
 document.getElementById('ctrSelCliente').addEventListener('change',onClienteContratoChange);
 document.getElementById('ctrPrintBtn').addEventListener('click',printContrato);
 document.getElementById('ctrAssinarBtn').addEventListener('click',enviarContratoParaAssinatura);
