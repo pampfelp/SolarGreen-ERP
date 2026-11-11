@@ -25,6 +25,17 @@ assert.deepEqual(N.decidir(os({'Data Inicio':'07/11/2026'}),os(),hoje),[]);
 // remarcar para o passado não avisa
 assert.deepEqual(N.decidir(os(),os({'Data Inicio':'2026-11-01'}),hoje),[]);
 
+// serviço de vários dias: pôr, mudar ou tirar a data fim (e a hora fim do serviço) remarca
+const dois=(extra)=>os(Object.assign({'Data Fim':'2026-11-08','Hora Fim Servico':'12:00'},extra||{}));
+assert.deepEqual(titulos(N.decidir(os(),dois(),hoje)),['Remarcado>t1']);
+assert.deepEqual(titulos(N.decidir(dois(),os(),hoje)),['Remarcado>t1']);
+assert.deepEqual(titulos(N.decidir(dois(),dois({'Data Fim':'2026-11-09'}),hoje)),['Remarcado>t1']);
+assert.deepEqual(titulos(N.decidir(dois(),dois({'Hora Fim Servico':'15:00'}),hoje)),['Remarcado>t1']);
+assert.deepEqual(N.decidir(dois(),dois({Valor:500}),hoje),[]);
+// OS que começou ontem e termina amanhã ainda avisa o técnico novo
+assert.deepEqual(titulos(N.decidir(null,dois({'Data Inicio':'2026-11-04','Data Fim':'2026-11-06'}),hoje)),['Agendado>t1']);
+assert.equal(N.corpo(dois(),'Maria Souza','Instalação'),'Maria Souza · Instalação · 07/11/2026 das 8h às 10h, até 08/11/2026 às 12h');
+
 // edição que não muda data, hora, técnico nem status não avisa
 assert.deepEqual(N.decidir(os(),os({Valor:900,'Observacao Comercial':'portão azul'}),hoje),[]);
 assert.deepEqual(N.decidir(os(),os({'Status Agendamento':'Em Andamento'}),hoje),[]);

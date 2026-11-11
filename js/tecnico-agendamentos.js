@@ -88,17 +88,24 @@
     return c;
   }
 
+  // OS de vários dias (Data Fim) aparece em "Hoje" e na semana em todos os dias que
+  // ocupa, não só no primeiro (js/agenda-periodo.js).
   function passaRange(a){
     if(rangeFiltro==='all')return true;
     var dt=parseBRDate(a['Data Inicio']); if(!dt)return false;
     var hoje=new Date(); hoje.setHours(0,0,0,0);
-    var dk=dateKey(dt),dkHoje=dateKey(hoje);
-    if(rangeFiltro==='today')return dk===dkHoje;
+    var dkHoje=dateKey(hoje);
+    var PERIODO=window.SGAgendaPeriodo;
+    var dk=dateKey(dt), dkFim=PERIODO?(PERIODO.ultimoDia(a)||dk):dk;
+    if(rangeFiltro==='today')return dk<=dkHoje&&dkFim>=dkHoje;
     if(rangeFiltro==='week'){
       var fimSemana=new Date(hoje); fimSemana.setDate(fimSemana.getDate()+7);
-      return dt.getTime()>=hoje.getTime()&&dt.getTime()<=fimSemana.getTime();
+      return dkFim>=dkHoje&&dk<=dateKey(fimSemana);
     }
     return true;
+  }
+  function textoHorario(a,sep){
+    return window.SGAgendaPeriodo?window.SGAgendaPeriodo.textoHorario(a,sep):((a['Hora inicio']||'—')+sep+(a['Hora Fim']||'—'));
   }
 
   function normBusca(s){return String(s==null?'':s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');}
@@ -249,7 +256,7 @@
         '</div>'+
         '<div class="os-right">'+
           '<div class="oc-data">'+(dt?fmtDataCurta(dt):'—')+'</div>'+
-          '<div class="oc-hora">'+escapeHtml((a['Hora inicio']||'—')+'–'+(a['Hora Fim']||'—'))+'</div>'+
+          '<div class="oc-hora">'+escapeHtml(textoHorario(a,'–'))+'</div>'+
           '<div class="os-status-badge st-'+statusSlug(status)+'">'+escapeHtml(statusLabelDisplay(status))+'</div>'+
         '</div>'+
       '</div>';
@@ -1082,7 +1089,7 @@
       '<div class="det-row"><span class="dl">Serviço</span><span class="dv">'+escapeHtml(nomeServico(a.IdServico))+'</span></div>'+
       (servico.TipoServico?'<div class="det-row"><span class="dl">Tipo</span><span class="dv">'+escapeHtml(servico.TipoServico)+'</span></div>':'')+
       '<div class="det-row"><span class="dl">Data</span><span class="dv">'+dataFmt+'</span></div>'+
-      '<div class="det-row"><span class="dl">Horário</span><span class="dv">'+escapeHtml((a['Hora inicio']||'—')+' – '+(a['Hora Fim']||'—'))+'</span></div>'+
+      '<div class="det-row"><span class="dl">Horário</span><span class="dv">'+escapeHtml(textoHorario(a,' – '))+'</span></div>'+
       '<div class="det-row" id="det-motivoRow" style="'+(a['Motivo Cancelamento']?'':'display:none;')+'"><span class="dl">Motivo do cancelamento</span><span class="dv" id="det-motivoValor">'+escapeHtml(a['Motivo Cancelamento']||'')+'</span></div>'+
       '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--bg);">'+
         '<label style="display:block;font-size:11px;font-weight:700;color:var(--ink-soft);margin-bottom:6px;">Editar status manualmente</label>'+

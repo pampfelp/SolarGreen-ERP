@@ -15,6 +15,7 @@
   var respostasCarregadasPara={};
   var agendamentoAtual=null;
   var unsubDetalheAoVivo=null;
+  var PERIODO=window.SGAgendaPeriodo;
 
   /**
    * Enquanto o painel de detalhe de uma OS está aberto, escuta ao vivo (Firestore
@@ -423,7 +424,7 @@
       '<div class="ad-row"><span class="dl">Valor</span><span class="dv">'+(a.Valor?window.SGUtil.fmtMoney(a.Valor):'<span style="color:var(--debit);font-weight:600;"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>sem valor definido</span>')+'</span></div>'+
       '<div class="ad-row"><span class="dl">Técnico</span><span class="dv">'+escapeHtml(nomeVendedor(a.TecnicoResponsavel))+'</span></div>'+
       '<div class="ad-row"><span class="dl">Data</span><span class="dv">'+dataFmt+'</span></div>'+
-      '<div class="ad-row"><span class="dl">Horário</span><span class="dv">'+escapeHtml((a['Hora inicio']||'—')+' – '+(a['Hora Fim']||'—'))+'</span></div>'+
+      '<div class="ad-row"><span class="dl">Horário</span><span class="dv">'+escapeHtml(PERIODO.textoHorario(a))+'</span></div>'+
       '<div class="ad-row" id="ad-confirmacaoRow" style="'+(textoConfirmacaoEnvio(a)?'':'display:none;')+'"><span class="dl">Confirmação</span><span class="dv" id="ad-confirmacaoValor">'+escapeHtml(textoConfirmacaoEnvio(a))+'</span></div>'+
       '<div class="ad-row" id="ad-motivoRow" style="'+(a['Motivo Cancelamento']?'':'display:none;')+'"><span class="dl">Motivo do cancelamento</span><span class="dv" id="ad-motivoValor">'+escapeHtml(a['Motivo Cancelamento']||'')+'</span></div>'+
       '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line);">'+
@@ -864,13 +865,21 @@
    * filtros ativos (data, técnico, busca) mas ignorando o de status — é
    * assim que cada KPI mostra "quantos apareceriam se eu clicasse aqui".
    */
+  // Filtro De/Até: OS de vários dias aparece em todos os dias que ocupa
+  // (js/agenda-periodo.js). Data em formato desconhecido segue a regra antiga.
+  function passaFiltroDatas(a,from,to){
+    if(!from&&!to)return true;
+    if(PERIODO.dataISO(a['Data Inicio']))return PERIODO.ocupaEntre(a,from,to);
+    var dt=parseBRDateTime(a['Data Inicio']); var dk=dt?dateKey(dt):null;
+    if(from&&dk&&dk<from)return false; if(to&&dk&&dk>to)return false;
+    return true;
+  }
   function contarPorStatus(){
     var from=document.getElementById('ag-dateFrom').value,to=document.getElementById('ag-dateTo').value;
     var tecnico=document.getElementById('ag-selTecnico').value;
     var busca=normalizaBuscaAg((document.getElementById('ag-buscaGeral')||{}).value||'').trim();
     var base=agendamentos.filter(function(a){
-      var dt=parseBRDateTime(a['Data Inicio']); var dk=dt?dateKey(dt):null;
-      if(from&&dk&&dk<from)return false; if(to&&dk&&dk>to)return false;
+      if(!passaFiltroDatas(a,from,to))return false;
       if(tecnico!=='__all__'&&String(a.TecnicoResponsavel)!==tecnico)return false;
       if(busca&&textoBuscavelAgendamento(a).indexOf(busca)===-1)return false;
       return true;
@@ -893,8 +902,7 @@
     var status=statusBtn?statusBtn.getAttribute('data-agstatus'):'__all__';
     var busca=normalizaBuscaAg((document.getElementById('ag-buscaGeral')||{}).value||'').trim();
     var lista=agendamentos.filter(function(a){
-      var dt=parseBRDateTime(a['Data Inicio']); var dk=dt?dateKey(dt):null;
-      if(from&&dk&&dk<from)return false; if(to&&dk&&dk>to)return false;
+      if(!passaFiltroDatas(a,from,to))return false;
       if(tecnico!=='__all__'&&String(a.TecnicoResponsavel)!==tecnico)return false;
       if(status!=='__all__'&&(a['Status Agendamento']||'').trim()!==status)return false;
       if(busca&&textoBuscavelAgendamento(a).indexOf(busca)===-1)return false;
@@ -983,7 +991,7 @@
     tbody.innerHTML=pagina.map(function(a){
       var dt=parseBRDateTime(a['Data Inicio']);
       var dataFmt=dt?String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0')+'/'+dt.getFullYear():'—';
-      var horario=(a['Hora inicio']||'—')+' – '+(a['Hora Fim']||'—');
+      var horario=PERIODO.textoHorario(a);
       var status=(a['Status Agendamento']||'Agendado').trim();
       var criado=parseCriadoEm(a.DataCriacao);
       var criadoFmt=criado
@@ -1128,6 +1136,10 @@
     renderHoraGrid('ag-horaInicioGrid',HORAS_INICIO,a?(a['Hora inicio']||''):'','ag-horaInicio',function(){ atualizarDisponibilidadeHoraFim(); validarHorario(); });
     renderHoraGrid('ag-horaFimGrid',HORAS_FIM,a?(a['Hora Fim']||''):'','ag-horaFim',validarHorario);
     atualizarDisponibilidadeHoraFim();
+    var dataFimAtual=a?PERIODO.dataFim(a):'';
+    document.getElementById('ag-dataFim').value=dataFimAtual;
+    renderHoraGrid('ag-horaFimServicoGrid',HORAS_FIM,dataFimAtual?(a['Hora Fim Servico']||''):'','ag-horaFimServico',validarHorario);
+    atualizarCampoDataFim();
     document.getElementById('ag-qtdModulos').value=a?(a['Quantidade de Modulos']||''):'';
     document.getElementById('ag-modeloModulos').value=a?(a['Modelo Modulos']||''):'';
     document.getElementById('ag-qtdInversores').value=a?(a['Quantidade Inversores']||''):'';
@@ -1180,10 +1192,55 @@
     });
   }
 
+  // Data fim (serviço de vários dias): só aceita dia depois da data de início. Com ela
+  // preenchida aparece "Hora fim do serviço", a hora em que o técnico fica livre no
+  // último dia. A regra do período está em js/agenda-periodo.js.
+  function diaSeguinte(iso){
+    var p=String(iso||'').split('-'); if(p.length!==3)return '';
+    return dateKey(new Date(+p[0],+p[1]-1,+p[2]+1));
+  }
+  function atualizarCampoDataFim(){
+    var dataInicio=document.getElementById('ag-dataInicio').value;
+    var inp=document.getElementById('ag-dataFim');
+    inp.min=dataInicio?diaSeguinte(dataInicio):'';
+    if(inp.value&&dataInicio&&inp.value<=dataInicio)inp.value='';
+    var tem=!!inp.value;
+    document.getElementById('ag-dataFimLimpar').style.display=tem?'':'none';
+    document.getElementById('ag-horaFimServicoField').style.display=tem?'block':'none';
+    if(!tem){
+      document.getElementById('ag-horaFimServico').value='';
+      document.getElementById('ag-horaFimServicoGrid').querySelectorAll('.hora-btn').forEach(function(b){b.classList.remove('selected');});
+    }
+  }
+
+  // O agendamento como está no formulário, no formato dos registros.
+  function registroDoFormulario(){
+    var dataInicio=document.getElementById('ag-dataInicio').value;
+    var dataFim=document.getElementById('ag-dataFim').value;
+    var temFim=!!(dataFim&&dataInicio&&dataFim>dataInicio);
+    return {
+      'Data Inicio':dataInicio,
+      'Hora inicio':document.getElementById('ag-horaInicio').value,
+      'Hora Fim':document.getElementById('ag-horaFim').value,
+      'Data Fim':temFim?dataFim:'',
+      'Hora Fim Servico':temFim?document.getElementById('ag-horaFimServico').value:''
+    };
+  }
+
+  function dataBRCurta(iso){ return iso?iso.slice(8,10)+'/'+iso.slice(5,7):''; }
+  function descreverPeriodo(a){
+    var ini=PERIODO.dataISO(a['Data Inicio']);
+    if(!PERIODO.variosDias(a))return 'no dia '+dataBRCurta(ini)+', das '+a['Hora inicio']+' às '+a['Hora Fim'];
+    var fim=PERIODO.dataFim(a);
+    return 'de '+dataBRCurta(ini)+' às '+a['Hora inicio']+' até '+dataBRCurta(fim)+(a['Hora Fim Servico']?' às '+a['Hora Fim Servico']:' (dia inteiro)');
+  }
+
   /**
    * Regras vindas do AppSheet: hora fim > hora início, e nenhum outro
-   * agendamento do MESMO técnico, no MESMO dia, com horário sobreposto.
-   * Cancelados não contam como conflito — o horário fica livre de novo.
+   * agendamento do MESMO técnico com período sobreposto. Com data fim, o
+   * período vai do início até a hora fim do serviço no último dia, sem
+   * intervalo (js/agenda-periodo.js). Cancelados não contam como conflito —
+   * o horário fica livre de novo.
    */
   function validarHorario(){
     var msgEl=document.getElementById('ag-horarioMsg');
@@ -1198,20 +1255,20 @@
       msgEl.textContent='O horário fim deve ser maior que o início.';
       return false;
     }
+    var novo=registroDoFormulario();
+    if(document.getElementById('ag-dataFim').value&&!novo['Hora Fim Servico'])return true; // falta escolher; o salvar cobra
     if(!dataInicio||!tecnico)return true;
     var conflito=agendamentos.filter(function(a){
       if(editandoId&&String(a.IdAgendamento)===String(editandoId))return false;
       if(String(a.TecnicoResponsavel)!==String(tecnico))return false;
       if(normalizaTexto(a['Status Agendamento'])==='cancelado')return false;
-      var dtA=parseBRDateTime(a['Data Inicio']);
-      if(!dtA||dateKey(dtA)!==dataInicio)return false;
-      var aIni=a['Hora inicio'],aFim=a['Hora Fim'];
-      if(!aIni||!aFim)return false;
-      return horaParaMinutos(aIni)<horaParaMinutos(horaFim)&&horaParaMinutos(aFim)>horaParaMinutos(horaInicio);
+      return PERIODO.sobrepoe(a,novo);
     })[0];
     if(conflito){
       msgEl.className='uform-msg error';
-      msgEl.textContent='Conflito! O técnico '+nomeVendedor(tecnico)+' já tem "'+nomeCliente(conflito.IdCliente)+'" agendado nesse dia, das '+conflito['Hora inicio']+' às '+conflito['Hora Fim']+'.';
+      var livre=PERIODO.variosDias(conflito)&&conflito['Hora Fim Servico']
+        ?' Ele fica livre a partir de '+dataBRCurta(PERIODO.dataFim(conflito))+' às '+conflito['Hora Fim Servico']+'.':'';
+      msgEl.textContent='Conflito! O técnico '+nomeVendedor(tecnico)+' já tem "'+nomeCliente(conflito.IdCliente)+'" agendado '+descreverPeriodo(conflito)+'.'+livre;
       return false;
     }
     return true;
@@ -1256,7 +1313,19 @@
     return true;
   }
 
-  document.getElementById('ag-dataInicio').addEventListener('change',validarHorario);
+  document.getElementById('ag-dataInicio').addEventListener('change',function(){ atualizarCampoDataFim(); validarHorario(); });
+  document.getElementById('ag-dataFim').addEventListener('change',function(){
+    var inp=this, dataInicio=document.getElementById('ag-dataInicio').value;
+    if(inp.value&&dataInicio&&inp.value<=dataInicio){
+      inp.value='';
+      showMsg('A data fim precisa ser depois da data do agendamento.','error');
+    }else showMsg('');
+    atualizarCampoDataFim(); validarHorario();
+  });
+  document.getElementById('ag-dataFimLimpar').addEventListener('click',function(){
+    document.getElementById('ag-dataFim').value='';
+    atualizarCampoDataFim(); validarHorario();
+  });
 
   function contarRespostasDoServico(idAgendamento,idServico){
     var templates=templatesPorServico[idServico]||[];
@@ -1278,11 +1347,16 @@
     if(!idCliente||!idServico||!tecnico||!dataInicio){ showMsg('Cliente, serviço, técnico e data são obrigatórios.','error'); return; }
     if(!valor||parseFloat(valor)<=0){ showMsg('Informe o valor do serviço — a OS não pode sair sem valor.','error'); return; }
     if(!document.getElementById('ag-horaInicio').value||!document.getElementById('ag-horaFim').value){ showMsg('Escolha o horário de início e fim.','error'); return; }
+    var dataFimForm=document.getElementById('ag-dataFim').value;
+    if(dataFimForm&&dataFimForm<=dataInicio){ showMsg('A data fim precisa ser depois da data do agendamento.','error'); return; }
+    if(dataFimForm&&!document.getElementById('ag-horaFimServico').value){ showMsg('Escolha a hora fim do serviço (o horário em que o técnico fica livre em '+dataFimForm.split('-').reverse().join('/')+').','error'); return; }
     if(!validarCliente()){ showMsg('Corrija o cadastro do cliente antes de continuar.','error'); return; }
     if(!validarHorario()){ showMsg('Corrija o horário antes de continuar.','error'); return; }
 
     var horaInicio=document.getElementById('ag-horaInicio').value;
     var horaFim=document.getElementById('ag-horaFim').value;
+    var dataFim=dataFimForm||'';
+    var horaFimServico=dataFim?document.getElementById('ag-horaFimServico').value:'';
     var qtdModulos=document.getElementById('ag-qtdModulos').value;
     var modeloModulos=document.getElementById('ag-modeloModulos').value;
     var qtdInversores=document.getElementById('ag-qtdInversores').value;
@@ -1309,6 +1383,7 @@
       var registroNovo={
         IdAgendamento:idAlvo, IdCliente:idCliente, IdServico:idServico, Valor:valor,
         'Data Inicio':dataInicioBR, 'Hora inicio':horaInicio, 'Hora Fim':horaFim,
+        'Data Fim':dataFim, 'Hora Fim Servico':horaFimServico,
         TecnicoResponsavel:tecnico, 'Status Agendamento':status,
         'Motivo Cancelamento':motivoCancelamento,
         'Observacao Comercial':observacao,
@@ -1338,6 +1413,7 @@
         valor: valor,
         dataInicio: dataInicio,
         horaInicio: horaInicio, horaFim: horaFim,
+        dataFim: dataFim, horaFimServico: horaFimServico,
         quantidadeModulos: qtdModulos, modeloModulos: modeloModulos,
         quantidadeInversores: qtdInversores, modeloInversores: modeloInversores,
         observacaoComercial: observacao,

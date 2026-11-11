@@ -753,6 +753,9 @@
         NomeCliente:extraCli.NomeCliente, TelefoneCliente:extraCli.TelefoneCliente,
         TecnicoResponsavel:p.tecnicoResponsavel||'', Valor:paraNumero(p.valor),
         'Data Inicio':p.dataInicio||'', 'Hora inicio':p.horaInicio||'', 'Hora Fim':p.horaFim||'',
+        // Serviço de vários dias (js/agenda-periodo.js). Vazio apaga: editar uma OS e
+        // tirar a data fim volta ela a ser de um dia só.
+        'Data Fim':p.dataFim||'', 'Hora Fim Servico':p.dataFim?(p.horaFimServico||''):'',
         'Status Agendamento':p.statusAgendamento||'Agendado', 'Motivo Cancelamento':p.motivoCancelamento||'',
         'Observacao Comercial':p.observacaoComercial||'',
         'Quantidade de Modulos':p.quantidadeModulos||'', 'Modelo Modulos':p.modeloModulos||'',

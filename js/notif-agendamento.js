@@ -14,6 +14,7 @@
   'use strict';
 
   var CONF = root && root.SGConfirmacaoOS ? root.SGConfirmacaoOS : require('./confirmacao-os.js');
+  var PERIODO = root && root.SGAgendaPeriodo ? root.SGAgendaPeriodo : require('./agenda-periodo.js');
   var API_URL = 'https://script.google.com/macros/s/AKfycbzFCy8PyBZBODgA34xrlLTVUUNhKBIlguJT3ectH7Yus-VW1n41GcCclc5q_Yj0Di2O7g/exec';
   var PAGINA_TECNICO = 'indexdotecnico.html';
 
@@ -32,7 +33,9 @@
   function mudouHorario(anterior, novo) {
     return CONF.dataISO(anterior && anterior['Data Inicio']) !== CONF.dataISO(novo && novo['Data Inicio']) ||
       campo(anterior, 'Hora inicio') !== campo(novo, 'Hora inicio') ||
-      campo(anterior, 'Hora Fim') !== campo(novo, 'Hora Fim');
+      campo(anterior, 'Hora Fim') !== campo(novo, 'Hora Fim') ||
+      PERIODO.dataFim(anterior) !== PERIODO.dataFim(novo) ||
+      (PERIODO.dataFim(novo) !== '' && campo(anterior, 'Hora Fim Servico') !== campo(novo, 'Hora Fim Servico'));
   }
 
   // anterior: a OS antes da mudança (null se é nova); novo: a OS depois (null se foi
@@ -50,7 +53,8 @@
     var out = [];
     if (tecAnt && tecAnt !== tecNovo) out.push({ para: tecAnt, titulo: 'Cancelado', ref: anterior, novo: novo });
     if (tecNovo) {
-      var dia = CONF.dataISO(novo['Data Inicio']);
+      // OS de vários dias conta até o último dia (Data Fim).
+      var dia = PERIODO.ultimoDia(novo);
       if (dia && hoje && dia >= hoje) {
         if (tecNovo !== tecAnt) out.push({ para: tecNovo, titulo: 'Agendado', ref: novo, novo: novo });
         else if (mudouHorario(anterior, novo)) out.push({ para: tecNovo, titulo: 'Remarcado', ref: novo, novo: novo });
@@ -72,6 +76,11 @@
     var ini = CONF.formatarHora(campo(ref, 'Hora inicio')), fim = CONF.formatarHora(campo(ref, 'Hora Fim'));
     var quando = data;
     if (data && ini) quando += fim ? ' das ' + ini + ' às ' + fim : ' às ' + ini;
+    var dFim = PERIODO.dataFim(ref);
+    if (data && dFim) {
+      var hFimServ = CONF.formatarHora(campo(ref, 'Hora Fim Servico'));
+      quando += ', até ' + dataBR(dFim) + (hFimServ ? ' às ' + hFimServ : '');
+    }
     if (quando) partes.push(quando);
     return partes.join(' · ');
   }
