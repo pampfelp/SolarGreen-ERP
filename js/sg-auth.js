@@ -8,6 +8,13 @@
   function apiUrl(){ return (localStorage.getItem('ponto_api_url')||'').trim()||DEFAULT_API_URL; }
   function apiKey(){ return (localStorage.getItem('ponto_api_key')||'').trim()||DEFAULT_API_KEY; }
 
+  // Para anexos e tokens, a chamada fica no destino oficial do ERP.
+  function apiCallOficial(action,payload){
+    return fetch(DEFAULT_API_URL,{
+      method:'POST',cache:'no-store',body:JSON.stringify(Object.assign({},payload,{action:action}))
+    }).then(function(r){ return r.json(); });
+  }
+
   function authCall(action,payload){
     // Piloto de migração pro Firestore: só essas ações (login tratado à parte,
     // em initLoginScreen) vão pro Firestore — o resto continua no Apps Script
@@ -145,7 +152,7 @@
     return (list||[]).filter(function(o){ return String(o[field])===meId; });
   }
 
-  window.SGAuth={ getSession:getSession, isAdmin:isAdmin, podeVerFaturamento:podeVerFaturamento, filterByOwner:filterByOwner, apiCall:authCall, apiUrl:apiUrl };
+  window.SGAuth={ getSession:getSession, isAdmin:isAdmin, podeVerFaturamento:podeVerFaturamento, filterByOwner:filterByOwner, apiCall:authCall, apiCallOficial:apiCallOficial, apiUrl:apiUrl };
 
   // Cache local por aba: guarda a última resposta boa de cada tela no
   // localStorage, pra trocar de aba mostrar os dados na hora (sem "Conectando…")

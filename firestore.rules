@@ -152,13 +152,123 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
     }
 
+    function authenticatedExpansionUser() {
+      return isSignedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
+    function expansionTeamMember() {
+      return get(/databases/$(database)/documents/expansao_equipe/$(request.auth.uid));
+    }
+
+    // O cadastro legado de vendedores pode ser escrito pelo navegador.
+    // A autorização desta aba fica numa lista provisionada pelo servidor.
+    function inExpansionTeam() {
+      return authenticatedExpansionUser() && expansionTeamMember().data.Ativo == true;
+    }
+
+    function expansionAdmin() {
+      return inExpansionTeam() && expansionTeamMember().data.get('Admin', false) == true;
+    }
+
+    match /expansao_equipe/{uid} {
+      allow get: if authenticatedExpansionUser() && request.auth.uid == uid;
+      allow list, write: if false;
+    }
+
+    function expansionDriveAttachment(anexo, tipos) {
+      return anexo is map
+        && anexo.keys().hasOnly(['DriveFileId', 'DriveLink', 'Nome', 'Mime', 'Tamanho'])
+        && anexo.DriveFileId is string
+        && anexo.DriveFileId.size() <= 150
+        && anexo.DriveFileId.matches('^[A-Za-z0-9_-]+$')
+        && anexo.DriveLink == 'https://drive.google.com/file/d/' + anexo.DriveFileId + '/view'
+        && anexo.Nome is string && anexo.Nome.size() > 0 && anexo.Nome.size() <= 255
+        && anexo.Mime in tipos
+        && anexo.Tamanho is int && anexo.Tamanho > 0 && anexo.Tamanho <= 10485760;
+    }
+
+    function validExpansionProposal(doc, id) {
+      return doc.keys().hasOnly([
+          'IdPropostaExpansao', 'OwnerUid', 'Numero', 'Data', 'Status', 'IdCliente',
+          'NomeCliente', 'IdVendedor', 'NomeVendedor', 'Observacoes', 'Fatura',
+          'UsinaAtual', 'Expansao', 'Resumo', 'Anexos', 'Geracao',
+          'GeracoesAnteriores', 'VersaoCalculo', 'VersaoRegistro', 'CriadoEm', 'AtualizadoEm'
+        ])
+        && doc.IdPropostaExpansao == id
+        && doc.Status in ['Rascunho', 'Enviada', 'Aceita', 'Recusada']
+        && doc.AtualizadoEm == request.time
+        && doc.VersaoRegistro is int
+        && (!('Anexos' in doc) || (
+          doc.Anexos is map && doc.Anexos.keys().hasOnly(['Documento', 'Fatura'])
+          && (!('Documento' in doc.Anexos) || expansionDriveAttachment(
+            doc.Anexos.Documento, ['application/pdf', 'image/jpeg', 'image/png']))
+          && (!('Fatura' in doc.Anexos) || expansionDriveAttachment(doc.Anexos.Fatura, ['application/pdf']))
+        ))
+        && (!('Geracao' in doc) || (
+          doc.Geracao is map && doc.Geracao.DataGeracao is timestamp
+          && doc.Resumo is map
+          && doc.Geracao.keys().hasOnly([
+            'DataGeracao', 'AnoFioB', 'PercentualFioBGD2', 'FonteFioBPercentual', 'TarifaFioB',
+            'ResolucaoTarifaria', 'VigenciaInicio', 'VigenciaFim', 'AliquotaICMS', 'AliquotaPIS',
+            'AliquotaCofins', 'OrigemTributos', 'ParametrosTarifarios'
+          ])
+        ))
+        && (doc.Status == 'Rascunho' || 'Geracao' in doc);
+    }
+
+    function preservesExpansionHistory(before, after) {
+      let history = before.get('GeracoesAnteriores', []);
+      let saved = before.get('Geracao', null);
+      let next = after.get('Geracao', null);
+      let nextHistory = after.get('GeracoesAnteriores', []);
+      return (saved == next && nextHistory == history
+          && (saved == null || !after.diff(before).affectedKeys().hasAny([
+            'IdCliente', 'Fatura', 'UsinaAtual', 'Expansao', 'Resumo', 'VersaoCalculo'
+          ])))
+        || (next != null && next.DataGeracao == request.time
+          && nextHistory == (saved == null
+            ? history
+            : history.concat([{'Geracao': saved, 'Resumo': before.Resumo}])));
+    }
+
+    match /propostas_expansao/{id} {
+      allow read: if inExpansionTeam();
+      allow create: if inExpansionTeam()
+        && request.resource.data.OwnerUid == request.auth.uid
+        && validExpansionProposal(request.resource.data, id)
+        && request.resource.data.CriadoEm == request.time
+        && request.resource.data.VersaoRegistro == 1
+        && (!('Geracao' in request.resource.data) || request.resource.data.Geracao.DataGeracao == request.time)
+        && !('GeracoesAnteriores' in request.resource.data);
+      allow update: if inExpansionTeam()
+        && resource.data.OwnerUid == request.auth.uid
+        && request.resource.data.OwnerUid == resource.data.OwnerUid
+        && validExpansionProposal(request.resource.data, id)
+        && request.resource.data.CriadoEm == resource.data.CriadoEm
+        && request.resource.data.VersaoRegistro == resource.data.VersaoRegistro + 1
+        && preservesExpansionHistory(resource.data, request.resource.data);
+      allow delete: if inExpansionTeam() && resource.data.OwnerUid == request.auth.uid;
+    }
+
+
     // Flags de migração (2026-09-03) — hoje só config/migracao.criadoEmFunil,
     // ligado pelo backfill de _tools/backfill-criado-em.js pra o Funil poder
     // escutar só a janela recente de leads. Leitura pra qualquer logado;
     // escrita idem (o backfill roda com Admin SDK e ignora a regra de
     // qualquer jeito, mas deixar aberto evita erro se for setado pela tela).
     match /config/{id} {
-      allow read, write: if isSignedIn();
+      allow read: if id in ['expansao_padrao', 'fiob_gd2', 'tarifas_equatorial_pa'] ? inExpansionTeam() : isSignedIn();
+      allow write: if id in ['expansao_padrao', 'fiob_gd2', 'tarifas_equatorial_pa'] ? expansionAdmin() : isSignedIn();
+    }
+
+    match /tarifas_historico/{id} {
+      allow read: if inExpansionTeam();
+      allow write: if false;
+    }
+
+    match /tarifas_observadas/{id} {
+      allow read: if inExpansionTeam();
+      allow write: if false;
     }
 
     // ── Site institucional (2026-09-29) ──

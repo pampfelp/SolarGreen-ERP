@@ -104,6 +104,10 @@ function handleRequest(e) {
     // Sininho (2026-11-05): o navegador grava o aviso em notificacoes e pede o push com o idToken.
     if ((params.action || body.action) === 'notifPush')                  return jsonOutput(actionNotifPush(body));
 
+    if (body.action === 'uploadAnexoExpansao') return jsonOutput(actionUploadAnexoExpansao(body));
+    if (body.action === 'baixarAnexoExpansao') return jsonOutput(actionBaixarAnexoExpansao(body));
+    if (body.action === 'registrarTarifaObservada') return jsonOutput(actionRegistrarTarifaObservada(body));
+
     var chave = params.chave || body.chave || '';
     if (chave !== CONFIG.CHAVE_SECRETA) {
       // A ação vai na mensagem para achar quem chama sem a chave (Marcilene, 03/11).
@@ -7589,4 +7593,431 @@ function supervisorInstalarGatilho() {
     if (t.getHandlerFunction() === 'supervisorVarrer') ScriptApp.deleteTrigger(t);
   });
   ScriptApp.newTrigger('supervisorVarrer').timeBased().everyMinutes(15).create();
+}
+
+// ── Propostas de expansão: anexos privados no Drive ──────────────────
+
+var EXPANSAO_LIMITE_ANEXO_ = 10 * 1024 * 1024;
+
+function expansaoAutenticarEquipe_(cfg, body) {
+  var auth = disparoAutenticar_(cfg, body, false);
+  if (auth.erro) return false;
+  var membro = fsGet_(cfg, 'expansao_equipe/' + encodeURIComponent(auth.uid));
+  return membro && membro.dados.Ativo === true;
+}
+
+function expansaoIdValido_(id) {
+  return typeof id === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(id);
+}
+
+function expansaoArquivoPrivado_(item) {
+  var acesso = item.getSharingAccess();
+  return acesso !== DriveApp.Access.ANYONE && acesso !== DriveApp.Access.ANYONE_WITH_LINK;
+}
+
+function expansaoPastaRaiz_() {
+  var id = PropertiesService.getScriptProperties().getProperty('EXPANSAO_DRIVE_PASTA_ID');
+  if (!expansaoIdValido_(id)) return null;
+  var raiz = DriveApp.getFolderById(id);
+  return !raiz.isTrashed() && expansaoArquivoPrivado_(raiz) ? raiz : null;
+}
+
+function expansaoMimeAceito_(tipo, mime, bytes) {
+  function assinatura(prefixo) {
+    return prefixo.every(function (byte, i) { return (bytes[i] & 255) === byte; });
+  }
+  if (mime === 'application/pdf') return assinatura([37, 80, 68, 70, 45]);
+  if (tipo !== 'Documento') return false;
+  if (mime === 'image/jpeg') return assinatura([255, 216, 255]);
+  if (mime === 'image/png') return assinatura([137, 80, 78, 71, 13, 10, 26, 10]);
+  return false;
+}
+
+function expansaoNomeArquivo_(nome) {
+  return String(nome || '').replace(/[\x00-\x1f\\\/]/g, ' ').trim().slice(0, 140);
+}
+
+function actionUploadAnexoExpansao(body) {
+  var cfg = fbConfig_();
+  if (!cfg || !expansaoAutenticarEquipe_(cfg, body)) return { ok: false, erro: 'Sem acesso aos anexos de expansão.' };
+  var tipo = body.tipo;
+  var base64 = body.base64;
+  if ((tipo !== 'Documento' && tipo !== 'Fatura') || !expansaoIdValido_(body.idCliente) ||
+      typeof base64 !== 'string' || !base64 || base64.length > 4 * Math.ceil(EXPANSAO_LIMITE_ANEXO_ / 3) ||
+      !/^[A-Za-z0-9+/]+={0,2}$/.test(base64)) return { ok: false, erro: 'Anexo inválido ou acima de 10 MB.' };
+  var nome = expansaoNomeArquivo_(body.nome);
+  var bytes;
+  try { bytes = Utilities.base64Decode(base64); }
+  catch (e) { return { ok: false, erro: 'Conteúdo do anexo inválido.' }; }
+  if (!nome || !bytes.length || bytes.length > EXPANSAO_LIMITE_ANEXO_ ||
+      !expansaoMimeAceito_(tipo, body.mime, bytes)) {
+    return { ok: false, erro: 'Formato de anexo inválido ou acima de 10 MB.' };
+  }
+
+  var cliente = fsGet_(cfg, 'clientes/' + encodeURIComponent(body.idCliente));
+  if (!cliente) return { ok: false, erro: 'Salve o cliente antes de enviar o anexo.' };
+  var nomeCliente = expansaoNomeArquivo_(cliente.dados.Nome || body.nomeCliente || 'Cliente');
+  var nomePasta = nomeCliente + ' - ' + body.idCliente;
+  var raiz = expansaoPastaRaiz_();
+  if (!raiz) return { ok: false, erro: 'Pasta privada de expansão indisponível.' };
+  var digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, bytes);
+  var assinatura = Utilities.base64EncodeWebSafe(digest);
+  var nomeDrive = tipo + ' - ' + nome;
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var pastas = raiz.getFoldersByName(nomePasta);
+    var pasta = pastas.hasNext() ? pastas.next() : raiz.createFolder(nomePasta);
+    if (!expansaoArquivoPrivado_(pasta)) return { ok: false, erro: 'A pasta do cliente precisa de acesso restrito.' };
+    var iguais = pasta.getFilesByName(nomeDrive);
+    var arquivo = null;
+    while (iguais.hasNext()) {
+      var candidato = iguais.next();
+      if (!candidato.isTrashed() && candidato.getDescription() === assinatura &&
+          expansaoArquivoPrivado_(candidato)) { arquivo = candidato; break; }
+    }
+    if (!arquivo) {
+      arquivo = pasta.createFile(Utilities.newBlob(bytes, body.mime, nomeDrive));
+      arquivo.setDescription(assinatura);
+    }
+    return { ok: true, anexo: { DriveFileId: arquivo.getId(), DriveLink: arquivo.getUrl(),
+      Nome: nome, Mime: body.mime, Tamanho: bytes.length } };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function actionBaixarAnexoExpansao(body) {
+  var cfg = fbConfig_();
+  if (!cfg || !expansaoAutenticarEquipe_(cfg, body)) return { ok: false, erro: 'Sem acesso aos anexos de expansão.' };
+  var tipo = body.tipo;
+  if (!expansaoIdValido_(body.idProposta) || (tipo !== 'Documento' && tipo !== 'Fatura')) {
+    return { ok: false, erro: 'Anexo inválido.' };
+  }
+  var proposta = fsGet_(cfg, 'propostas_expansao/' + encodeURIComponent(body.idProposta));
+  var anexo = proposta && proposta.dados.Anexos && proposta.dados.Anexos[tipo];
+  var raiz = expansaoPastaRaiz_();
+  if (!anexo || !expansaoIdValido_(anexo.DriveFileId) || !raiz) {
+    return { ok: false, erro: 'Anexo indisponível.' };
+  }
+
+  try {
+    var arquivo = DriveApp.getFileById(anexo.DriveFileId);
+    var pastas = arquivo.getParents();
+    var dentroDaRaiz = false;
+    while (pastas.hasNext()) {
+      var pasta = pastas.next();
+      var pais = pasta.getParents();
+      while (!pasta.isTrashed() && expansaoArquivoPrivado_(pasta) && pais.hasNext()) {
+        if (pais.next().getId() === raiz.getId()) { dentroDaRaiz = true; break; }
+      }
+    }
+    if (!dentroDaRaiz || arquivo.isTrashed() || !expansaoArquivoPrivado_(arquivo) ||
+        arquivo.getSize() > EXPANSAO_LIMITE_ANEXO_) return { ok: false, erro: 'Anexo indisponível.' };
+    var mime = arquivo.getMimeType();
+    var bytes = arquivo.getBlob().getBytes();
+    if (!expansaoMimeAceito_(tipo, mime, bytes)) return { ok: false, erro: 'Formato de anexo inválido.' };
+    return { ok: true, mime: mime, base64: Utilities.base64Encode(bytes) };
+  } catch (e) {
+    return { ok: false, erro: 'Anexo indisponível.' };
+  }
+}
+
+// ── Tarifas e tributos para propostas de expansão ────────────────────
+
+var EXPANSAO_ANEEL_FIOB_ = 'https://dadosabertos.aneel.gov.br/dataset/componentes-tarifarias';
+var EXPANSAO_ANEEL_API_ = 'https://dadosabertos.aneel.gov.br/api/3/action/';
+var EXPANSAO_FIOB_LEI_ = 'https://legis.senado.gov.br/norma/35420157/publicacao/35420471';
+var EXPANSAO_FIOB_PCT_ = { 2023: 0.15, 2024: 0.30, 2025: 0.45, 2026: 0.60, 2027: 0.75, 2028: 0.90 };
+var EXPANSAO_TARIFAS_CONFIG_ = 'config/tarifas_equatorial_pa';
+var EXPANSAO_FIOB_CONFIG_ = 'config/fiob_gd2';
+var EXPANSAO_TARIFAS_CAMPOS_ = {
+  icmsPct: 100, pisPct: 100, cofinsPct: 100, tarifaConsumo: 100, tarifaGD2: 100, bandeira: 100
+};
+
+function expansaoAneelJson_(acao) {
+  var r = UrlFetchApp.fetch(EXPANSAO_ANEEL_API_ + acao, { muteHttpExceptions: true });
+  if (r.getResponseCode() !== 200) throw new Error('ANEEL indisponível (HTTP ' + r.getResponseCode() + ').');
+  var resposta = JSON.parse(r.getContentText());
+  if (resposta.success !== true || !resposta.result) throw new Error('Consulta à ANEEL sem resultado válido.');
+  return resposta.result;
+}
+
+function expansaoTarifaId_(v) {
+  return JSON.stringify([v.subclasse, v.modalidade, v.posto, v.inicio]);
+}
+
+function expansaoNormalizarFioB_(registros, recurso) {
+  var chaves = Object.create(null);
+  registros.forEach(function (r) {
+    if (r.SigNomeAgente !== 'EQUATORIAL PA' || r.DscComponenteTarifario !== 'TUSD_FioB' ||
+        r.DscSubGrupoTarifario !== 'B1' || r.DscBaseTarifaria !== 'Tarifa de Aplicação') return;
+    var inicio = String(r.DatInicioVigencia || '').slice(0, 10);
+    var fim = String(r.DatFimVigencia || '').slice(0, 10);
+    var tarifa = Number(String(r.VlrComponenteTarifario || '').replace(',', '.')) / 1000;
+    if (r.DscUnidade !== 'R$/MWh' || !/^\d{4}-\d{2}-\d{2}$/.test(inicio) ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(fim) || fim < inicio || !Number.isFinite(tarifa) || tarifa <= 0 ||
+        !r.DscSubClasseConsumidor || !r.DscModalidadeTarifaria || !r.DscPostoTarifario ||
+        !r.DscResolucaoHomologatoria) throw new Error('Registro tarifário incompleto na ANEEL.');
+    var v = {
+      inicio: inicio, fim: fim, subclasse: r.DscSubClasseConsumidor,
+      modalidade: r.DscModalidadeTarifaria, posto: r.DscPostoTarifario,
+      tarifa: tarifa, resolucao: r.DscResolucaoHomologatoria, fonte: EXPANSAO_ANEEL_FIOB_ + '/resource/' + recurso
+    };
+    var chave = expansaoTarifaId_(v);
+    var anterior = chaves[chave];
+    if (anterior && (anterior.tarifa !== v.tarifa || anterior.fim !== v.fim || anterior.resolucao !== v.resolucao)) {
+      throw new Error('A ANEEL retornou valores ou vigências divergentes para a mesma tarifa.');
+    }
+    chaves[chave] = v;
+  });
+  return Object.keys(chaves).sort().map(function (chave) { return chaves[chave]; });
+}
+
+function expansaoConsultarFioB_(hoje) {
+  var ano = Number(hoje.slice(0, 4));
+  var pacote = expansaoAneelJson_('package_show?id=componentes-tarifarias');
+  var recurso = (pacote.resources || []).find(function (r) {
+    return r.name === 'componentes-tarifarias-' + ano + '.csv' && r.datastore_active !== false;
+  });
+  if (!recurso || !/^[\da-f-]{36}$/i.test(recurso.id)) throw new Error('Recurso tarifário do ano ainda indisponível.');
+  var filtros = {
+    SigNomeAgente: 'EQUATORIAL PA', DscComponenteTarifario: 'TUSD_FioB',
+    DscSubGrupoTarifario: 'B1', DscBaseTarifaria: 'Tarifa de Aplicação'
+  };
+  var registros = [], tamanho = 50;
+  while (true) {
+    var pagina = expansaoAneelJson_('datastore_search?resource_id=' + recurso.id +
+      '&limit=' + tamanho + '&offset=' + registros.length + '&sort=' + encodeURIComponent('_id asc') +
+      '&filters=' + encodeURIComponent(JSON.stringify(filtros)));
+    if (!Array.isArray(pagina.records)) throw new Error('Página tarifária da ANEEL inválida.');
+    registros = registros.concat(pagina.records);
+    if (Number.isInteger(pagina.total) && registros.length >= pagina.total) break;
+    if (pagina.records.length < tamanho) {
+      if (Number.isInteger(pagina.total)) throw new Error('A ANEEL retornou uma consulta incompleta.');
+      break;
+    }
+    if (registros.length >= 5000) throw new Error('Consulta tarifária ultrapassou o limite de páginas.');
+  }
+  var vigencias = expansaoNormalizarFioB_(registros, recurso.id);
+  var residencial = vigencias.filter(function (v) {
+    return v.subclasse === 'Residencial' && v.modalidade === 'Convencional' && v.inicio <= hoje && v.fim >= hoje;
+  });
+  if (residencial.length !== 1) throw new Error('A ANEEL não retornou uma tarifa residencial convencional vigente e única.');
+  return vigencias;
+}
+
+function expansaoVigenciasAtuais_(vigencias, hoje) {
+  return vigencias.filter(function (v) { return v.inicio <= hoje && v.fim >= hoje; });
+}
+
+function expansaoTarifasDiferencas_(antes, depois) {
+  var chaves = Object.create(null);
+  function chave(v) { return JSON.stringify([v.subclasse, v.modalidade, v.posto]); }
+  antes.forEach(function (v) { chaves[chave(v)] = { antes: v }; });
+  depois.forEach(function (v) {
+    var k = chave(v);
+    if (!chaves[k]) chaves[k] = {};
+    chaves[k].depois = v;
+  });
+  return Object.keys(chaves).sort().map(function (k) { return chaves[k]; }).filter(function (mudanca) {
+    var a = mudanca.antes, b = mudanca.depois;
+    return !a || !b || a.tarifa !== b.tarifa || a.resolucao !== b.resolucao ||
+      a.inicio !== b.inicio || a.fim !== b.fim;
+  });
+}
+
+function expansaoEscritaTarifa_(cfg, caminho, campos, anterior) {
+  return fsUpdateRico_(cfg, caminho, campos, anterior ? { updateTime: anterior.updateTime } : { exists: false });
+}
+
+function expansaoNotificacaoTarifas_(cfg, id, titulo, corpo, agora, escritas) {
+  var ids = fsListar_(cfg, 'expansao_equipe').filter(function (m) {
+    return m.Ativo === true && m.Admin === true;
+  }).map(function (m) {
+    // O IdVendedor legado, quando necessário, vem do cadastro protegido.
+    return typeof m.IdVendedor === 'string' && m.IdVendedor ? m.IdVendedor : m._id;
+  }).filter(Boolean);
+  if (!ids.length) return null;
+  var doc = {
+    para: Array.from(new Set(ids)), titulo: titulo, corpo: corpo,
+    url: 'https://pampfelp.github.io/SolarGreen-ERP/legado/proposta.html',
+    tag: id, tipo: 'aviso', criadoEmMs: agora
+  };
+  escritas.push(fsUpdateRico_(cfg, 'notificacoes/' + id, doc, { exists: false }));
+  return Object.assign({ _id: id }, doc);
+}
+
+function expansaoEnviarAvisoTarifas_(cfg, aviso) {
+  if (!aviso) return;
+  try { notifEnviarDoc_(cfg, aviso); }
+  catch (e) { console.error('Push de tarifas pendente na fila de notificações: ' + e.message); }
+}
+
+function atualizarTarifasEquatorialPA() {
+  var cfg = fbConfig_();
+  if (!cfg) throw new Error('Firebase não configurado para atualização tarifária.');
+  var agora = Date.now();
+  var hoje = Utilities.formatDate(new Date(agora), 'America/Belem', 'yyyy-MM-dd');
+  var ano = Number(hoje.slice(0, 4));
+  var novas = [], falha = '';
+  try { novas = expansaoConsultarFioB_(hoje); }
+  catch (e) { falha = String(e.message || e).slice(0, 250); }
+
+  var estado = fsGet_(cfg, EXPANSAO_TARIFAS_CONFIG_);
+  var gd2 = fsGet_(cfg, EXPANSAO_FIOB_CONFIG_);
+  var anterior = estado ? estado.dados : {};
+  var id = 'tarifas_equatorial_pa_' + Utilities.getUuid();
+  var campos = {
+    fonte: EXPANSAO_ANEEL_FIOB_,
+    ultimaFalha: falha,
+    falhasConsecutivas: falha ? Number(anterior.falhasConsecutivas || 0) + 1 : 0
+  };
+  if (!anterior.coberturaTributos) {
+    campos.coberturaTributos = {
+      icms: 'faturas observadas', pis: 'faturas observadas', cofins: 'faturas observadas'
+    };
+  }
+  var mudancas = [];
+  if (!falha) {
+    var porVigencia = Object.create(null);
+    (anterior.vigencias || []).concat(novas).forEach(function (v) {
+      porVigencia[expansaoTarifaId_(v)] = v;
+    });
+    campos.vigencias = Object.keys(porVigencia).sort().map(function (k) { return porVigencia[k]; });
+    campos.vigentes = expansaoVigenciasAtuais_(novas, hoje);
+    campos.atualizadoEm = agora;
+    var vigentesAntes = anterior.vigentes || expansaoVigenciasAtuais_(anterior.vigencias || [], hoje);
+    mudancas = expansaoTarifasDiferencas_(vigentesAntes, campos.vigentes);
+  }
+
+  var percentuais = Object.assign({}, (gd2 && gd2.dados.percentuais) || {}, EXPANSAO_FIOB_PCT_);
+  var gd2Novo = { percentuais: percentuais, fonte: EXPANSAO_FIOB_LEI_, anoVigente: ano };
+  if (typeof percentuais[ano] === 'number') gd2Novo.percentualVigente = percentuais[ano];
+  else gd2Novo.percentualVigente = '';
+  var gd2Antes = gd2 ? gd2.dados : {};
+  var mudancaAno = gd2 && (gd2Antes.anoVigente !== ano || gd2Antes.percentualVigente !== gd2Novo.percentualVigente);
+  var escritas = [expansaoEscritaTarifa_(cfg, EXPANSAO_TARIFAS_CONFIG_, campos, estado)];
+  if (!gd2 || mudancaAno || gd2Antes.fonte !== gd2Novo.fonte ||
+      Object.keys(percentuais).some(function (chave) {
+        return !gd2Antes.percentuais || gd2Antes.percentuais[chave] !== percentuais[chave];
+      })) escritas.push(expansaoEscritaTarifa_(cfg, EXPANSAO_FIOB_CONFIG_, gd2Novo, gd2));
+
+  var mensagens = [];
+  if (mudancas.length || mudancaAno) {
+    var historico = { atualizadoEm: agora, fonte: EXPANSAO_ANEEL_FIOB_, mudancas: mudancas };
+    if (mudancaAno) {
+      historico.gd2Anterior = gd2Antes;
+      historico.gd2Novo = gd2Novo;
+      function mostrarPct(v) { return typeof v === 'number' ? Math.round(v * 100) + '%' : 'sem referência'; }
+      mensagens.push('GD II ' + ano + ': ' + mostrarPct(gd2Antes.percentualVigente) + ' → ' +
+        mostrarPct(gd2Novo.percentualVigente) + '. Fonte: Lei 14.300, art. 27.');
+    }
+    if (mudancas.length) {
+      var m = mudancas.find(function (d) {
+        var v = d.depois || d.antes;
+        return v.subclasse === 'Residencial' && v.modalidade === 'Convencional';
+      }) || mudancas[0];
+      var linha = m.depois || m.antes;
+      function mostrarTarifa(v) { return v ? 'R$ ' + v.tarifa.toFixed(6).replace('.', ',') + '/kWh' : 'sem valor'; }
+      mensagens.push('Fio B ' + linha.subclasse + ' ' + linha.modalidade + ': ' + mostrarTarifa(m.antes) + ' → ' +
+        mostrarTarifa(m.depois) + '. ANEEL, vigência ' + linha.inicio + ' a ' + linha.fim + '.' +
+        (mudancas.length > 1 ? ' ' + mudancas.length + ' registros no histórico.' : ''));
+    }
+    escritas.push(fsUpdateRico_(cfg, 'tarifas_historico/' + id, historico, { exists: false }));
+  }
+  if (campos.falhasConsecutivas === 2) mensagens.push('Falha em duas consultas à ANEEL. Os últimos valores foram mantidos.');
+  var aviso = mensagens.length ? expansaoNotificacaoTarifas_(cfg, id, 'Tarifas Equatorial Pará', mensagens.join(' '), agora, escritas) : null;
+  if (!fsCommit_(cfg, escritas)) throw new Error('O estado tarifário mudou durante a consulta. Execute de novo.');
+  expansaoEnviarAvisoTarifas_(cfg, aviso);
+  return { ok: !falha, erro: falha, registrosAlterados: mudancas.length, falhasConsecutivas: campos.falhasConsecutivas };
+}
+
+function instalarGatilhoTarifasEquatorialPA() {
+  var nome = 'atualizarTarifasEquatorialPA';
+  ScriptApp.getProjectTriggers().forEach(function (gatilho) {
+    if (gatilho.getHandlerFunction() === nome) ScriptApp.deleteTrigger(gatilho);
+  });
+  ScriptApp.newTrigger(nome).timeBased().inTimezone('America/Belem')
+    .onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(6).create();
+}
+
+function expansaoObservacaoTarifaria_(entrada, mesAtual) {
+  if (!entrada || typeof entrada.referencia !== 'string' ||
+      !/^\d{4}-(0[1-9]|1[0-2])$/.test(entrada.referencia) || entrada.referencia > mesAtual) return null;
+  var classes = {
+    'residencial': 'Residencial', 'desconto social': 'Desconto Social', 'tarifa social': 'Tarifa Social',
+    'baixa renda': 'Baixa Renda', 'rural': 'Rural', 'comercial': 'Comercial', 'industrial': 'Industrial',
+    'residencial desconto social – faixa 01': 'Residencial Desconto Social – faixa 01',
+    'residencial desconto social – faixa 02': 'Residencial Desconto Social – faixa 02',
+    'residencial tarifa social – faixa 01': 'Residencial Tarifa Social – faixa 01',
+    'residencial tarifa social – faixa 02': 'Residencial Tarifa Social – faixa 02'
+  };
+  var modalidades = { 'convencional': 'Convencional', 'branca': 'Branca', 'tarifa branca': 'Branca',
+    'convencional pré-pagamento': 'Convencional pré-pagamento' };
+  function categoria(mapa, valor) {
+    var chave = typeof valor === 'string' ? valor.trim().toLowerCase() : '';
+    return Object.prototype.hasOwnProperty.call(mapa, chave) ? mapa[chave] : 'Não informada';
+  }
+  var obs = { referencia: entrada.referencia, subclasse: categoria(classes, entrada.subclasse),
+    modalidade: categoria(modalidades, entrada.modalidade) };
+  Object.keys(EXPANSAO_TARIFAS_CAMPOS_).forEach(function (k) {
+    var n = entrada[k];
+    if (Number.isFinite(n) && n >= 0 && n <= EXPANSAO_TARIFAS_CAMPOS_[k]) obs[k] = n;
+  });
+  if (Object.keys(obs).length === 3) return null;
+  if (Number.isFinite(obs.tarifaGD2) && Number.isFinite(entrada.fioBPrevisto) &&
+      entrada.fioBPrevisto > 0 && entrada.fioBPrevisto <= 100) {
+    obs.fioBPrevisto = entrada.fioBPrevisto;
+    obs.diferencaFioBPct = (obs.tarifaGD2 / obs.fioBPrevisto - 1) * 100;
+  }
+  return obs;
+}
+
+function actionRegistrarTarifaObservada(body) {
+  var cfg = fbConfig_();
+  if (!cfg || !expansaoAutenticarEquipe_(cfg, body)) return { ok: false, erro: 'Sem acesso às tarifas de expansão.' };
+  var agora = Date.now();
+  var obs = expansaoObservacaoTarifaria_(body.observacao, Utilities.formatDate(new Date(agora), 'America/Belem', 'yyyy-MM'));
+  if (!obs) return { ok: false, erro: 'Informe referência e pelo menos uma tarifa ou alíquota observada.' };
+  var digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, JSON.stringify(obs));
+  var id = Utilities.base64EncodeWebSafe(digest).replace(/=+$/, '');
+  var caminho = 'tarifas_observadas/' + id;
+  if (fsGet_(cfg, caminho)) return { ok: true, repetida: true };
+
+  var escritas = [fsUpdateRico_(cfg, caminho, Object.assign({ observadoEm: agora, fonte: 'Fatura Equatorial Pará' }, obs), { exists: false })];
+  var estado = fsGet_(cfg, EXPANSAO_TARIFAS_CONFIG_);
+  var anteriores = (estado && estado.dados.observacoes) || {};
+  var categoria = obs.subclasse + ' | ' + obs.modalidade;
+  var resumo = Object.assign({}, anteriores[categoria] || {});
+  var mudancas = [];
+  Object.keys(EXPANSAO_TARIFAS_CAMPOS_).forEach(function (k) {
+    var anterior = resumo[k];
+    if (obs[k] === undefined || (anterior && anterior.referencia > obs.referencia)) return;
+    if (anterior && anterior.valor !== obs[k]) mudancas.push(k + ' ' + anterior.valor + ' → ' + obs[k]);
+    resumo[k] = { referencia: obs.referencia, valor: obs[k] };
+  });
+  if (JSON.stringify(anteriores[categoria]) !== JSON.stringify(resumo)) {
+    var observacoes = Object.assign({}, anteriores);
+    observacoes[categoria] = resumo;
+    escritas.push(expansaoEscritaTarifa_(cfg, EXPANSAO_TARIFAS_CONFIG_, { observacoes: observacoes }, estado));
+  }
+  var aviso = null;
+  if (mudancas.length) {
+    var idMudanca = 'tarifas_observadas_' + id;
+    var corpo = obs.subclasse + ' ' + obs.modalidade + ', ' + obs.referencia +
+      '. Mudança em fatura Equatorial PA: ' + mudancas.join(', ') + '.';
+    escritas.push(fsUpdateRico_(cfg, 'tarifas_historico/' + idMudanca, {
+      atualizadoEm: agora, fonte: 'Fatura Equatorial Pará', referencia: obs.referencia,
+      categoria: categoria, antes: anteriores[categoria], depois: resumo
+    }, { exists: false }));
+    aviso = expansaoNotificacaoTarifas_(cfg, idMudanca, 'Mudança observada na fatura', corpo, agora, escritas);
+  }
+  if (!fsCommit_(cfg, escritas)) {
+    return fsGet_(cfg, caminho) ? { ok: true, repetida: true }
+      : { ok: false, erro: 'As tarifas foram atualizadas durante a leitura. Tente de novo.' };
+  }
+  expansaoEnviarAvisoTarifas_(cfg, aviso);
+  return { ok: true, repetida: false };
 }

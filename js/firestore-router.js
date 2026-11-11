@@ -515,13 +515,142 @@
       IdProposta:id, Numero:p.numero, Data:p.data, IdOportunidade:p.idOportunidade,
       NomeCliente:p.nomeCliente, IdVendedor:p.idVendedor, NomeVendedor:p.nomeVendedor,
       TotalServicos:p.totalServicos, TotalDeslocamento:p.totalDeslocamento, Total:p.total,
-      Blocos:JSON.stringify(p.blocos||[]), Observacoes:p.observacoes, Status:p.status,
+      Blocos:JSON.stringify(p.blocos||[]), Observacoes:p.observacoes, Status:p.status, Perda:p.perda,
       LinkProposta:(p.baseUrl||'')+'?propostaId='+id
     });
     return ref.set(doc,{merge:true})
       .then(function(){ return {ok:true, id:id, link:doc.LinkProposta, acao:criando?'criado':'atualizado'}; })
       .catch(function(err){ return {ok:false, erro:err.message}; });
   }
+
+  // A equipe consulta o histórico. Só o autor altera a proposta.
+  function autorPropostaExpansao(){
+    var usuario=firebase.auth().currentUser;
+    if(!usuario||usuario.isAnonymous)throw new Error('Entre no ERP para acessar as propostas de expansão.');
+    return usuario.uid;
+  }
+
+  async function getPropostasExpansao(p){
+    try{
+      autorPropostaExpansao();
+      var col=db().collection('propostas_expansao');
+      if(p&&p.id){
+        var doc=await col.doc(String(p.id)).get({source:'server'});
+        return {ok:true, proposta:doc.exists?doc.data():null};
+      }
+      var lista=await col.get({source:'server'});
+      return {ok:true, propostas:snapshotToArray(lista)};
+    }catch(err){ return {ok:false, erro:err.message}; }
+  }
+
+  var CAMPOS_PROPOSTA_EXPANSAO=[
+    'Numero','Data','Status','IdCliente','NomeCliente','IdVendedor','NomeVendedor',
+    'Observacoes','Fatura','UsinaAtual','Expansao','Resumo','VersaoCalculo'
+  ];
+  var CAMPOS_CALCULO_EXPANSAO=['IdCliente','Fatura','UsinaAtual','Expansao','Resumo','VersaoCalculo'];
+  var CAMPOS_GERACAO_EXPANSAO=[
+    'AnoFioB','PercentualFioBGD2','FonteFioBPercentual','TarifaFioB','ResolucaoTarifaria',
+    'VigenciaInicio','VigenciaFim','AliquotaICMS','AliquotaPIS','AliquotaCofins',
+    'OrigemTributos','ParametrosTarifarios'
+  ];
+  var ESTADOS_PROPOSTA_EXPANSAO=['Rascunho','Enviada','Aceita','Recusada'];
+
+  function camposExpansao(fonte,campos){
+    var dados={};
+    campos.forEach(function(campo){
+      if(fonte[campo]!==undefined)dados[campo]=fonte[campo];
+    });
+    return dados;
+  }
+
+  function mesmoDadoExpansao(a,b){
+    if(a===b)return true;
+    if(!a||!b||typeof a!=='object'||typeof b!=='object'||Array.isArray(a)!==Array.isArray(b))return false;
+    var chaves=Object.keys(a);
+    return chaves.length===Object.keys(b).length&&chaves.every(function(chave){
+      return Object.prototype.hasOwnProperty.call(b,chave)&&mesmoDadoExpansao(a[chave],b[chave]);
+    });
+  }
+
+  function anexosPropostaExpansao(anexos){
+    var dados={};
+    ['Documento','Fatura'].forEach(function(tipo){
+      var anexo=anexos[tipo];
+      if(anexo==null)return;
+      var id=anexo.DriveFileId, mime=anexo.Mime;
+      if(typeof id!=='string'||id.length>150||!/^[A-Za-z0-9_-]+$/.test(id)
+        ||typeof anexo.Nome!=='string'||!anexo.Nome.trim()||anexo.Nome.length>255
+        ||!(tipo==='Fatura'?mime==='application/pdf':['application/pdf','image/jpeg','image/png'].includes(mime))
+        ||!Number.isInteger(anexo.Tamanho)||anexo.Tamanho<1||anexo.Tamanho>10*1024*1024){
+        throw new Error('Revise os dados do anexo '+tipo.toLowerCase()+'.');
+      }
+      dados[tipo]={DriveFileId:id, DriveLink:'https://drive.google.com/file/d/'+id+'/view',
+        Nome:anexo.Nome, Mime:mime, Tamanho:anexo.Tamanho};
+    });
+    return dados;
+  }
+
+  async function salvarPropostaExpansao(p){
+    try{
+      var uid=autorPropostaExpansao(), col=db().collection('propostas_expansao');
+      var ref=p.id?col.doc(String(p.id)):col.doc();
+      var entrada=camposExpansao(p.proposta||{},CAMPOS_PROPOSTA_EXPANSAO);
+      if(p.proposta&&p.proposta.Anexos!==undefined)entrada.Anexos=anexosPropostaExpansao(p.proposta.Anexos||{});
+
+      var resultado=await db().runTransaction(async function(tx){
+        var snap=await tx.get(ref), anterior=snap.exists?snap.data():{};
+        if(snap.exists&&anterior.OwnerUid!==uid)throw new Error('Esta proposta pertence a outro usuário.');
+        if(snap.exists?anterior.VersaoRegistro!==p.versaoEsperada:p.versaoEsperada!=null){
+          throw new Error('A proposta mudou em outra sessão. Reabra o registro antes de salvar.');
+        }
+
+        var status=entrada.Status||anterior.Status||'Rascunho';
+        if(!ESTADOS_PROPOSTA_EXPANSAO.includes(status))throw new Error('Selecione um status válido.');
+        var timestamp=firebase.firestore.FieldValue.serverTimestamp();
+        var patch=Object.assign({},entrada,{
+          IdPropostaExpansao:ref.id, OwnerUid:uid, Status:status, AtualizadoEm:timestamp,
+          VersaoRegistro:(anterior.VersaoRegistro||0)+1
+        });
+        if(!snap.exists)patch.CriadoEm=timestamp;
+
+        var possuiGeracao=!!anterior.Geracao;
+        var novaGeracao=p.recalcular===true||(!possuiGeracao&&(p.gerar===true||status!=='Rascunho'));
+        if(possuiGeracao&&!novaGeracao&&CAMPOS_CALCULO_EXPANSAO.some(function(campo){
+          return Object.prototype.hasOwnProperty.call(entrada,campo)&&!mesmoDadoExpansao(entrada[campo],anterior[campo]);
+        })){
+          throw new Error('Use Recalcular para alterar os dados de uma proposta já gerada.');
+        }
+        if(novaGeracao){
+          if(!p.geracao||!entrada.Resumo)throw new Error('Calcule o resultado e revise os parâmetros antes de gerar.');
+          patch.Geracao=camposExpansao(p.geracao,CAMPOS_GERACAO_EXPANSAO);
+          patch.Geracao.DataGeracao=timestamp;
+          if(possuiGeracao){
+            patch.GeracoesAnteriores=(anterior.GeracoesAnteriores||[]).concat([
+              {Geracao:anterior.Geracao, Resumo:anterior.Resumo}
+            ]);
+          }
+        }
+
+        // Update substitui cada mapa entregue. Um anexo removido não reaparece pelo merge.
+        if(snap.exists)tx.update(ref,patch);
+        else tx.set(ref,patch);
+        return {ok:true, id:ref.id, acao:snap.exists?'atualizado':'criado',
+          versao:patch.VersaoRegistro, novaGeracao:novaGeracao};
+      });
+
+      if(resultado.novaGeracao){
+        try{
+          var salvo=await ref.get({source:'server'});
+          var proposta=salvo.data();
+          if(proposta&&proposta.VersaoRegistro===resultado.versao)resultado.proposta=proposta;
+        }catch(err){
+          // O salvamento terminou. Se a leitura falhar, o PDF pode reabrir o registro.
+        }
+      }
+      return resultado;
+    }catch(err){ return {ok:false, erro:err.message}; }
+  }
+
 
   function paraNumero(v){
     if(v===''||v===null||v===undefined)return 0;
@@ -1147,6 +1276,9 @@
     excluirFunilPipeline:comSync('funil_pipelines',function(p){return 'excluir pipeline '+p.idPipeline;},comAuthPronto(excluirFunilPipeline)),
     getProposals:comAuthPronto(getPropostas),
     saveProposal:comSync('propostas',function(p){return p.nomeCliente||p.numero||'';},comAuthPronto(salvarProposta)),
+
+    getPropostasExpansao:comAuthPronto(getPropostasExpansao),
+    salvarPropostaExpansao:comSync('propostas_expansao',function(p){return p.proposta&&p.proposta.Numero||'proposta de expansão';},comAuthPronto(salvarPropostaExpansao)),
 
     listVendedoresAdmin:comAuthPronto(listVendedoresAdmin),
     salvarVendedor:comSync('vendedores',function(p){return p.nome||p.idVendedor;},comAuthPronto(salvarVendedor)),
