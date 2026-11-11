@@ -108,4 +108,3 @@ test('renderiza cada página do PDF com bytes locais e imprime só após decodif
 });
 
 module.exports = { model, figura };
-

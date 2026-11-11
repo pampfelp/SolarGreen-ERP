@@ -84,4 +84,3 @@ test('impede arquivo de outra pasta, destino público e tipo incompatível', () 
   assert.equal(ctx.actionUploadAnexoExpansao({ ...upload, mime: 'image/png' }).ok, false);
   assert.equal(arquivos.length, 0);
 });
-

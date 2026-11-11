@@ -219,4 +219,3 @@ test('ignora texto livre em campos de classificação e alíquotas fora do inter
   assert.equal(obs.icmsPct, undefined);
   assert.equal(obs.pisPct, undefined);
 });
-

@@ -142,4 +142,3 @@ test('valida o tipo da fatura e permite retirar um anexo antes de nova geração
   const aberta = await api.getPropostasExpansao({ id });
   assert.equal(aberta.proposta.Anexos.Fatura, undefined);
 });
-
