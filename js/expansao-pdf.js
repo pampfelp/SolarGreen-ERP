@@ -27,7 +27,7 @@
     'table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8.5pt;margin:2mm 0 4mm}' +
     'thead{display:table-header-group}tr{break-inside:avoid}th,td{border-bottom:1px solid #d9e3db;padding:2mm 1.1mm;text-align:right;vertical-align:top;overflow-wrap:anywhere}' +
     'th{color:#003122;background:#edf4ed}th:first-child,td:first-child{text-align:left;width:31%}.financeiro th,.total th,.total td{font-weight:700;background:#edf4ed}' +
-    '.cenarios th:first-child{width:27%}.cenarios th:last-child{width:14%}.cenarios td:last-child{white-space:nowrap}' +
+    '.cenarios th:first-child{width:25%}.cenarios th:nth-child(5),.cenarios th:nth-child(6){width:12.5%}.cenarios th:last-child{width:14%}.cenarios td:last-child{white-space:nowrap}' +
     'figure{margin:3mm 0;text-align:center}img{max-width:100%;max-height:217mm;object-fit:contain}.telhado img{max-height:175mm}' +
     '.comparacao{break-inside:avoid}.comparacao td:first-child{width:auto}.lembrete{color:#42564b;font-size:8.5pt}.anexo{break-inside:avoid}' +
     'footer{border-top:1px solid #d9e3db;padding-top:2mm;font-size:8pt;color:#42564b;text-align:center}' +
@@ -136,7 +136,7 @@
     const economia = (titulo, e = {}) => '<tr><td>' + titulo + '</td><td>' + esc(reais(e.contaReferencia)) +
       '</td><td>' + esc(reais(e.contaExpansao)) + '</td><td><strong>' + esc(reais(e.valor)) + '</strong></td></tr>';
     return '<table class="cenarios"><thead><tr><th>Cenário</th><th>Rede<br>(kWh)</th><th>Injeção<br>(kWh)</th><th>Créditos usados<br>(kWh)</th>' +
-      '<th>Compensado<br>(kWh)</th><th>Sem compensação<br>(kWh)</th><th>Saldo final<br>(kWh)</th><th>Conta<br>(R$)</th></tr></thead><tbody>' +
+      '<th>Compensado<br>(kWh)</th><th>Sem<br>compensação<br>(kWh)</th><th>Saldo final<br>(kWh)</th><th>Conta<br>(R$)</th></tr></thead><tbody>' +
       (linhas || '<tr><td colspan="8">Cenários não informados.</td></tr>') + '</tbody></table>' +
       '<h3>Economia estimada</h3><table><thead><tr><th>Comparação</th><th>Conta de referência</th><th>Conta com expansão</th>' +
       '<th>Economia</th></tr></thead><tbody>' + economia('Considerando créditos anteriores', simulacao.economiaComCreditos) +
