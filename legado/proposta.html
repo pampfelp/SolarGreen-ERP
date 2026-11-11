@@ -1964,6 +1964,19 @@ function joinComma(arr){
   return arr.slice(0,-1).join(', ')+' e '+arr[arr.length-1];
 }
 
+// CPF e RG do procurador padrão ficam no Firestore (config/procuracao_padrao,
+// campos cpf e rg já formatados), não no código: o repositório é público.
+var PROCURADOR_PADRAO=null;
+var MSG_PROC_PADRAO='Falta configurar o CPF e o RG do procurador padrão (config/procuracao_padrao). A procuração não foi gerada.';
+function procPadraoOk(){ return !!(PROCURADOR_PADRAO&&PROCURADOR_PADRAO.cpf&&PROCURADOR_PADRAO.rg); }
+function procPadraoBloqueado(t){ return !!(t&&t.id==='procuracao'&&CT.values&&CT.values.procuradorPadrao&&!procPadraoOk()); }
+function carregarProcuradorPadrao(){
+  firebase.firestore().collection('config').doc('procuracao_padrao').get().then(function(snap){
+    var d=snap.exists?snap.data():null;
+    PROCURADOR_PADRAO=(d&&d.cpf&&d.rg)?{cpf:String(d.cpf),rg:String(d.rg)}:null;
+  }).catch(function(){ PROCURADOR_PADRAO=null; }).then(function(){ if(CT.selectedId==='procuracao')renderContratoPreview(); });
+}
+
 function composeProcuracao(v,c){
   var pj=v.tipoPessoa==='Jurídica';
 
@@ -1977,7 +1990,8 @@ function composeProcuracao(v,c){
 
   var outorgadoClause;
   if(v.procuradorPadrao){
-    outorgadoClause=escH(CONTRATADA.nome)+' com sede legal em '+escH(CONTRATADA.enderecoFull)+', inscrito no CNPJ '+escH(CONTRATADA.cnpj)+' e FELIPE EDUARDO PAMPLONA DE SOUSA NASCIMENTO, portador(a) do CPF [CPF removido] e carteira de identidade [RG removido], residente e domiciliado(a) no mesmo endereço.';
+    if(!procPadraoOk())return'<p class="empty-inline">'+MSG_PROC_PADRAO+'</p>';
+    outorgadoClause=escH(CONTRATADA.nome)+' com sede legal em '+escH(CONTRATADA.enderecoFull)+', inscrito no CNPJ '+escH(CONTRATADA.cnpj)+' e FELIPE EDUARDO PAMPLONA DE SOUSA NASCIMENTO, portador(a) do CPF '+escH(PROCURADOR_PADRAO.cpf)+' e carteira de identidade '+escH(PROCURADOR_PADRAO.rg)+', residente e domiciliado(a) no mesmo endereço.';
   } else {
     outorgadoClause=escH(v.procNome||'—')+', '+escH(v.procNacionalidade)+', '+escH(v.procEstadoCivil)+', '+escH(v.procProfissao)+', portador(a) do CPF nº '+escH(v.procCpf||'—')+' e carteira de identidade '+escH(v.procRg||'—')+(v.procRgOrgao?(' '+escH(v.procRgOrgao)):'')+', residente e domiciliado(a) em '+escH(v.procEndereco||'—')+(v.procTelefone?(', telefone '+escH(v.procTelefone)):'')+'.';
   }
@@ -2166,6 +2180,7 @@ function cadastrarAssinantesNovos(t){
 function printContrato(){
   var t=CONTRACT_TYPES.find(function(x){return x.id===CT.selectedId;});
   if(!t||!t.compose){ showToast('Selecione um tipo de contrato',false); return; }
+  if(procPadraoBloqueado(t)){ showToast(MSG_PROC_PADRAO,false); return; }
   var c=clienteVars();
   var partes=t.partes?partesDoContrato(t):null;
   var semNome=partes&&partes.filter(function(p){return !p.nome;})[0];
@@ -2204,6 +2219,7 @@ function enviarContratoParaAssinatura(){
   var t=CONTRACT_TYPES.find(function(x){return x.id===CT.selectedId;});
   if(!t||!t.compose){ showToast('Selecione um tipo de contrato',false); return; }
   if(!TIPOS_CONTRATO_ASSINAVEIS[CT.selectedId]){ showToast('Esse tipo de documento não pode ser enviado pra assinatura digital.',false); return; }
+  if(procPadraoBloqueado(t)){ showToast(MSG_PROC_PADRAO,false); return; }
   var c=clienteVars();
   var partes=t.partes?partesDoContrato(t):null;
   if(!partes&&c.nome==='—'){ showToast('Informe o nome do cliente',false); return; }
@@ -2353,7 +2369,7 @@ document.getElementById('ctrSyncBtnBottom').addEventListener('click',syncCliente
   // Espera o Firebase Auth restaurar a sessão (mesmo Promise usado no resto
   // do painel) antes de ler o Firestore — sem isso, ler logo após F5 dá
   // "Missing or insufficient permissions" mesmo a pessoa estando logada.
-  if(window.SGFireReady)window.SGFireReady.then(fetchData);
+  if(window.SGFireReady)window.SGFireReady.then(function(u){ fetchData(); if(u)carregarProcuradorPadrao(); });
   else fetchData();
 })();
 
