@@ -1610,10 +1610,7 @@
       <div class="uform-field u-photo-field"><label for="u-foto">Foto do colaborador</label><div class="u-photo-row"><div id="u-foto-preview" class="u-photo-preview" aria-label="Prévia da foto"></div><div><input type="file" id="u-foto" accept="image/*"><small>A foto aparecerá no Ranking. Imagem quadrada, compactada ao salvar.</small></div></div></div>
       <div class="uform-field">
         <label>Função (Tipo)</label>
-        <input type="text" id="u-tipo" list="u-tipo-sugestoes" placeholder="Vendedor, Técnico, Admin, CEO…">
-        <datalist id="u-tipo-sugestoes">
-          <option value="Vendedor"><option value="Técnico"><option value="Admin"><option value="CEO"><option value="Gestor">
-        </datalist>
+        <select id="u-tipo"><option value="">Selecione</option><option value="Vendedor">Vendedor</option><option value="Técnico">Técnico</option><option value="Admin">Admin</option><option value="CEO">CEO</option><option value="Gestor">Gestor</option></select>
       </div>
       <div class="uform-field">
         <label>Status</label>
@@ -2143,13 +2140,13 @@
 <script src="js/confirmacao-os.js?v=20261104a"></script>
 <script src="js/notif-agendamento.js?v=20261105a"></script>
 <script src="js/firestore-router.js?v=20261106a"></script>
-<script src="js/sg-auth.js?v=20261110a"></script>
+<script src="js/sg-auth.js?v=20261111a"></script>
 <script src="js/dashboard.js?v=20261103a"></script>
 <script src="js/faturamento.js?v=20261001g"></script>
-<script src="js/ponto.js?v=20261109a"></script>
+<script src="js/ponto.js?v=20261111a"></script>
 <script src="js/cobranca-regra.js?v=20261103b"></script>
 <script src="js/cobranca.js?v=20261106a"></script>
-<script src="js/vendas.js?v=20261030a"></script>
+<script src="js/vendas.js?v=20261111a"></script>
 <!-- supervisor-vendas -->
 <script src="js/supervisor-regras.js?v=20261105f"></script>
 <script src="js/supervisor-mensagens.js?v=20261105c"></script>
@@ -2169,7 +2166,7 @@
 <!-- supervisor-vendas -->
 <script src="js/supervisor.js?v=20261106a"></script>
 <script src="js/supervisao.js?v=20261106a"></script>
-<script src="js/usuarios.js?v=20261106a"></script>
+<script src="js/usuarios.js?v=20261111a"></script>
 <script src="js/permissoes.js?v=20260829f"></script>
 <script src="js/sg-voltar.js?v=20261110a"></script>
 <script src="js/controller.js?v=20261110a"></script>
@@ -2217,7 +2214,7 @@
       deferredPrompt.prompt();
       deferredPrompt.userChoice.finally(function(){ deferredPrompt=null; esconder(); });
     }else{
-      alert('Pra instalar: toque no ícone de compartilhar do navegador e escolha "Adicionar à Tela de Início".');
+      window.SGConfirm.perguntar({titulo:'Instalar o app',mensagem:'Pra instalar: toque no ícone de compartilhar do navegador e escolha "Adicionar à Tela de Início".',textoConfirmar:'OK',semCancelar:true});
     }
   });
 

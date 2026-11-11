@@ -14,11 +14,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./style.css?v=20261016a">
+  <link rel="stylesheet" href="./style.css?v=20261111a">
   <script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-  <script type="module" src="./app.js?v=20261016c"></script>
+  <script type="module" src="./app.js?v=20261111a"></script>
 </head>
 <body>
 <svg class="symbols" aria-hidden="true">
@@ -134,6 +134,11 @@
   <p>Escolha a OS da lista ou digite parte do nome do cliente. Para lista sem OS, digite o ID do cliente e toque em Buscar.</p>
   <form id="client-search-form"><input id="client-search" type="text" autocomplete="off" placeholder="Nome do cliente ou nº da OS" required><button class="btn g" type="submit">Buscar</button></form>
   <div id="client-results"></div>
+</dialog>
+<dialog id="replace-dialog" class="client-dialog replace-dialog">
+  <div class="dialog-head"><h2>Substituir lista</h2></div>
+  <p>Gerar outra lista substitui a edição atual. Continuar?</p>
+  <div class="dialog-actions"><button id="replace-cancel" class="btn o" type="button">Cancelar</button><button id="replace-ok" class="btn g" type="button">Substituir</button></div>
 </dialog>
 <aside id="install-banner" class="install-banner" hidden><span id="install-text">Instale o app para abrir pela tela inicial.</span><button id="install-button" type="button">Instalar</button><button id="install-dismiss" type="button" aria-label="Dispensar">×</button></aside>
 <article id="print-sheet" aria-hidden="true"></article>

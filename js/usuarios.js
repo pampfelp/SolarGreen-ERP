@@ -124,7 +124,7 @@
     document.getElementById('u-nome').value=u?(u.Nome||''):'';
     document.getElementById('u-email').value=u?(u.Email||''):'';
     document.getElementById('u-telefone').value=u?(u.Telefone||''):'';
-    document.getElementById('u-tipo').value=u?(u.Tipo||''):'';
+    definirTipo(u?u.Tipo:'');
     document.getElementById('u-status').value=(u&&u.Status)||'Ativo';
     document.getElementById('u-foto').value='';
     mostrarFoto(u&&u.FotoPerfil, u&&u.Nome);
@@ -194,11 +194,36 @@
     });
   }
 
+  var TIPOS_CANONICOS=['Vendedor','Técnico','Admin','CEO','Gestor'];
+  function semAcento(s){ return s.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
+  function normalizarTipo(v){
+    var t=String(v||'').trim();
+    var chave=semAcento(t);
+    if(chave==='administrador')return 'Admin';
+    for(var i=0;i<TIPOS_CANONICOS.length;i++){
+      if(semAcento(TIPOS_CANONICOS[i])===chave)return TIPOS_CANONICOS[i];
+    }
+    return t;
+  }
+  // Valor fora da lista vira opção extra, pra abrir o cadastro não apagar o dado.
+  function definirTipo(v){
+    var sel=document.getElementById('u-tipo');
+    var extra=sel.querySelector('option[data-extra]');
+    if(extra)sel.removeChild(extra);
+    var t=normalizarTipo(v);
+    if(t&&TIPOS_CANONICOS.indexOf(t)===-1){
+      var o=document.createElement('option');
+      o.value=t;o.textContent=t;o.setAttribute('data-extra','1');
+      sel.appendChild(o);
+    }
+    sel.value=t;
+  }
+
   function salvar(){
     var nome=document.getElementById('u-nome').value.trim();
     var email=document.getElementById('u-email').value.trim();
     var telefone=document.getElementById('u-telefone').value.trim();
-    var tipo=document.getElementById('u-tipo').value.trim();
+    var tipo=normalizarTipo(document.getElementById('u-tipo').value);
     var status=document.getElementById('u-status').value;
     if(!nome||!email){ showMsg('Nome e e-mail são obrigatórios.','error'); return; }
     if(fotoPendente){showMsg('Aguarde a foto terminar de preparar.','error');return;}

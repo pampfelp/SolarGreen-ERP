@@ -142,12 +142,15 @@ h1{font-family:'Unbounded';font-weight:900;font-size:44px;line-height:1.04;lette
 .auth-card input,.client-dialog input{width:100%;border:1px solid var(--line);border-radius:10px;padding:12px;font:inherit}
 .auth-card button{width:100%;justify-content:center;margin-top:20px}
 #login-error{color:#b42318;margin-top:10px;font-size:13px}
-.client-dialog{border:0;border-radius:18px;padding:26px;width:min(550px,calc(100vw - 24px));box-shadow:0 20px 80px #0004}
+.client-dialog{border:0;border-radius:18px;padding:26px;width:min(550px,calc(100vw - 24px));box-shadow:0 20px 80px #0004;margin:auto}
 .client-dialog::backdrop{background:#06241a99}
 .dialog-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .dialog-head h2{font-family:Unbounded;font-size:18px}
 .dialog-head button{border:0;background:none;font-size:26px}
 .client-dialog p{color:var(--muted);margin:12px 0}
+.replace-dialog{width:min(420px,calc(100vw - 24px))}
+.dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.replace-dialog .btn.o{color:var(--accent-2);border-color:var(--accent-2)}
 #client-search-form{display:flex;gap:8px}
 #client-results{margin-top:14px;max-height:min(60vh,520px);overflow:auto}
 #client-results button{display:block;width:100%;padding:12px;border:1px solid var(--line);background:#fff;text-align:left;margin-top:6px;border-radius:8px;color:var(--ink)}

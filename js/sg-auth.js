@@ -270,6 +270,7 @@
         var btn=el('sgc-confirmarBtn');
         btn.textContent=(opts&&opts.textoConfirmar)||'Confirmar';
         btn.className=(opts&&opts.perigo)?'danger-btn':'connect-btn';
+        el('sgc-cancelarBtn').classList.toggle('hidden',!!(opts&&opts.semCancelar));
         el('sgConfirmModal').classList.remove('hidden');
       });
     }

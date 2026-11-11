@@ -196,9 +196,18 @@ function markEdited(item) {
   if (row) row.querySelectorAll('.tag').forEach(tag => { tag.className = tag.classList.contains('mobile-tag') ? 'mobile-tag tag e' : 'tag e'; tag.textContent = 'Editado'; });
   updateStats();
 }
-function generate() {
+function confirmReplace() {
+  const dialog = $('#replace-dialog');
+  return new Promise(resolve => {
+    dialog.returnValue = '';
+    dialog.addEventListener('close', () => resolve(dialog.returnValue === 'ok'), { once: true });
+    dialog.showModal();
+    $('#replace-cancel').focus();
+  });
+}
+async function generate() {
   const result = generateMaterials(measureValues());
-  if (state.items.length && !confirm('Gerar outra lista substitui a edição atual. Continuar?')) return;
+  if (state.items.length && !(await confirmReplace())) return;
   state.items = result.items;
   state.opened = {};
   state.warning = result.warning;
@@ -503,12 +512,15 @@ function wire() {
   $('#logout-button').addEventListener('click', () => firebase.auth().signOut());
   $$('.seg button').forEach(button => button.addEventListener('click', () => { button.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('on')); button.classList.add('on'); updateStats(); }));
   $$('#measure-form input').forEach(input => input.addEventListener('input', updateStats));
-  $('#measure-form').addEventListener('submit', event => { event.preventDefault(); try { generate(); } catch (e) { status(e.message, true); } });
+  $('#measure-form').addEventListener('submit', event => { event.preventDefault(); generate().catch(e => status(e.message, true)); });
   $$('.tabs button').forEach(button => button.addEventListener('click', () => setTab(button.dataset.tab)));
   $('#client-button').addEventListener('click', openClientDialog);
   $('#client-button-mobile').addEventListener('click', openClientDialog);
   $('#client-search').addEventListener('input', () => renderOsResults($('#client-search').value).catch(e => status(e.message, true)));
   $('#close-dialog').addEventListener('click', () => $('#client-dialog').close());
+  $('#replace-cancel').addEventListener('click', () => $('#replace-dialog').close('cancel'));
+  $('#replace-ok').addEventListener('click', () => $('#replace-dialog').close('ok'));
+  $('#replace-dialog').addEventListener('click', event => { if (event.target === event.currentTarget) event.currentTarget.close('cancel'); });
   $('#client-search-form').addEventListener('submit', event => { event.preventDefault(); searchClient($('#client-search').value).catch(e => status(e.message, true)); });
   $('#save-button').addEventListener('click', () => save().catch(e => status(e.message, true)));
   $$('.export-button').forEach(button => button.addEventListener('click', printList));

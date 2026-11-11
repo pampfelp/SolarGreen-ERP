@@ -21,7 +21,7 @@
   document.getElementById('appVersionFoot').textContent = APP_VERSION;
 
   function loadOverrides(){ try{ var r=localStorage.getItem(OVERRIDES_STORAGE_KEY); overrides=r?JSON.parse(r):{}; }catch(e){ overrides={}; } }
-  function saveOverridesLocalCache(){ try{ localStorage.setItem(OVERRIDES_STORAGE_KEY,JSON.stringify(overrides)); }catch(e){} }
+  function saveOverridesLocalCache(){ try{ localStorage.setItem(OVERRIDES_STORAGE_KEY,JSON.stringify(overrides)); }catch(e){ console.warn('[ponto] ajustes do ponto não couberam no armazenamento local; nada foi apagado',e); } }
   function overrideKey(f,d){ return f+'|'+d; }
   function getOverride(f,d){ return overrides[overrideKey(f,d)]||null; }
   function getApiUrl(){ return (localStorage.getItem(API_URL_KEY)||'').trim()||DEFAULT_API_URL; }
