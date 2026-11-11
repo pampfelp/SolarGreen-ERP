@@ -156,6 +156,10 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 .btn:disabled{opacity:.45;cursor:default;}
 .actions-row{display:flex;gap:10px;flex-wrap:wrap;}
 
+#geradorDialogo{margin:auto;width:min(420px,calc(100% - 28px));color:var(--ink);}
+#geradorDialogo::backdrop{background:rgba(0,24,16,.55);}
+#geradorDialogo [hidden]{display:none;}
+
 /* ── Summary sidebar ── */
 .summary-card{background:var(--panel);border:2px solid var(--accent);border-radius:var(--radius);padding:18px 20px;position:sticky;top:28px;}
 .sum-row{display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--line);font-size:12px;}
@@ -371,19 +375,24 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
   <div id="perdaSection" style="display:none;margin-bottom:20px;">
     <div class="perda-card">
       <div class="card-head">Dados da Usina do Cliente</div>
-      <div class="frow quad">
-        <div class="field"><label>Potência (kWp)</label><input type="number" id="perdaKwp" placeholder="ex: 3,85" step="0.01" min="0" onchange="calcPerda()"></div>
-        <div class="field"><label>Constante de Geração</label><input type="number" id="perdaConst" value="114" step="1" min="1" onchange="calcPerda()"></div>
+      <div class="frow">
+        <div class="field"><label for="perdaKwp">Potência (kWp)</label><input type="number" id="perdaKwp" placeholder="ex: 3,85" step="0.01" min="0" onchange="calcPerda()"></div>
+        <div class="field"><label for="perdaCidade">Cidade</label><select id="perdaCidade"><option value="">Cidade pelo lead</option><option value="__regional">Outra cidade</option></select></div>
         <div class="field"><label>Tarifa (R$/kWh)</label><input type="number" id="perdaTarifa" value="0.98" step="0.01" min="0" onchange="calcPerda()"></div>
         <div class="field"><label>Desempenho Atual (%)</label><input type="number" id="perdaDesempenho" placeholder="ex: 93" step="0.01" min="0" max="100" onchange="calcPerda()"></div>
       </div>
+      <div class="frow" id="perdaProdCampos">
+        <div class="field"><label for="perdaProd">Produtividade (kWh/kWp por mês)</label><input type="text" inputmode="decimal" id="perdaProd" readonly></div>
+        <div class="field"><label for="perdaFonte">Fonte da produtividade</label><input type="text" id="perdaFonte" readonly></div>
+      </div>
+      <p id="perdaAviso" role="status" style="font-size:12px;color:#dcfce7;"></p>
       <div class="perda-grid">
         <div class="perda-kpi"><div class="pk-label">Desempenho Esperado</div><div class="pk-val">100%</div><div class="pk-sub">gerando 100% da capacidade</div></div>
         <div class="perda-kpi alerta" id="perdaKpiMensal"><div class="pk-label">Perda Mensal</div><div class="pk-val" id="perdaValMensal">—</div><div class="pk-sub">por mês no rendimento atual</div></div>
         <div class="perda-kpi alerta" id="perdaKpiAnual"><div class="pk-label">Perda Anual Estimada</div><div class="pk-val" id="perdaValAnual">—</div><div class="pk-sub">projeção 12 meses</div></div>
       </div>
       <div style="margin-top:12px;font-size:11px;color:rgba(255,255,255,.4);">
-        Fórmula: Perda mensal = kWp × Constante × Tarifa × (1 − Desempenho%)
+        Fórmula: Perda mensal = kWp × Produtividade da cidade × Tarifa × (1 − Desempenho%)
       </div>
     </div>
   </div>
@@ -551,14 +560,26 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 </div><!-- /container -->
 </div><!-- /tab-contrato -->
 
+<dialog id="geradorDialogo" class="card" aria-labelledby="geradorDialogoTitulo">
+  <form method="dialog">
+    <h2 class="card-head" id="geradorDialogoTitulo"></h2>
+    <p id="geradorDialogoMensagem"></p>
+    <div class="actions-row" style="margin-top:16px;justify-content:flex-end;">
+      <button type="submit" class="btn btn-secondary" value="cancelar" id="geradorDialogoCancelar" autofocus>Cancelar</button>
+      <button type="submit" class="btn btn-primary" value="confirmar" id="geradorDialogoConfirmar">Confirmar</button>
+    </div>
+  </form>
+</dialog>
+
 <div class="toast" id="toast"><span id="toastIcon">✓</span><span id="toastMsg"></span></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="../js/firebase-init.js?v=20260825h"></script>
-<script src="../js/firestore-router.js?v=20260903a"></script>
-<script src="../js/sg-auth.js?v=20260825h"></script>
+<script src="../js/firestore-router.js?v=20261111b"></script>
+<script src="../js/sg-auth.js?v=20261111b"></script>
+<script src="../js/expansao-produtividade.js?v=20261111b"></script>
 
 <script>
 (function(){
@@ -651,6 +672,18 @@ function dateKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(
 function fmtDateBR(s){ if(!s)return'—'; var m=String(s).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m)return m[1].padStart(2,'0')+'/'+m[2].padStart(2,'0')+'/'+m[3]; return String(s).substring(0,10); }
 function statusCls(s){ return (s||'rascunho').toLowerCase().replace(/\s/g,''); }
 function showToast(msg,ok){ var t=document.getElementById('toast'); document.getElementById('toastMsg').textContent=msg; document.getElementById('toastIcon').textContent=ok===false?'✕':'✓'; t.className='toast '+(ok===false?'error':'success')+' show'; setTimeout(function(){t.classList.remove('show');},3400); }
+
+window.abrirDialogoGerador=function(titulo,mensagem,acao,aoConfirmar){
+  var dialogo=document.getElementById('geradorDialogo');
+  if(dialogo.open)return;
+  document.getElementById('geradorDialogoTitulo').textContent=titulo;
+  document.getElementById('geradorDialogoMensagem').textContent=mensagem;
+  document.getElementById('geradorDialogoCancelar').hidden=!aoConfirmar;
+  document.getElementById('geradorDialogoConfirmar').textContent=acao;
+  dialogo.returnValue='';
+  dialogo.onclose=function(){if(dialogo.returnValue==='confirmar'&&aoConfirmar)aoConfirmar();};
+  dialogo.showModal();
+};
 
 // ── Estado global ──────────────────────────────────────────────────────
 var S={
@@ -857,7 +890,7 @@ function syncClienteToSheet(){
 
 function onLeadChange(){
   var id=document.getElementById('selLead').value,lc=document.getElementById('leadCard');
-  if(!id){lc.style.display='none';return;}
+  if(!id){lc.style.display='none'; limparCidadePerda(); return; }
   var r=S.funilRecords.find(function(x){return x.id===id;});
   if(!r){lc.style.display='none';return;}
   document.getElementById('lcNome').textContent=r.nomeCliente;
@@ -869,19 +902,98 @@ function onLeadChange(){
   document.getElementById('lcCpfEquatorial').textContent=r.cpfEquatorial||'—';
   document.getElementById('lcDataNascEquatorial').textContent=r.dataNascimentoEquatorial||'—';
   lc.style.display='block';
+  limparCidadePerda();
 }
 
 // ── Cálculo de Perda ───────────────────────────────────────────────────
-window.calcPerda = function(){
-  var kwp   = parseFloat(document.getElementById('perdaKwp').value)||0;
-  var konst = parseFloat(document.getElementById('perdaConst').value)||114;
-  var tarifa= parseFloat(document.getElementById('perdaTarifa').value)||0;
-  var desemp= parseFloat(document.getElementById('perdaDesempenho').value)||0;
-  if(!kwp||!tarifa||!desemp){ document.getElementById('perdaValMensal').textContent='—'; document.getElementById('perdaValAnual').textContent='—'; return; }
-  var perdaMensal = kwp * konst * tarifa * (1 - desemp/100);
-  var perdaAnual  = perdaMensal * 12;
-  document.getElementById('perdaValMensal').textContent = fmtMoney(perdaMensal)+'/mês';
-  document.getElementById('perdaValAnual').textContent  = fmtMoney(perdaAnual)+'/ano';
+var perdaProdutividade=null, perdaSnapshot=null, perdaConsulta=0;
+
+function limparCidadePerda(){
+  var select=document.getElementById('perdaCidade');
+  select.value='';
+  if(document.getElementById('perdaToggle').checked) carregarCidadePerda();
+  else { perdaConsulta++; perdaProdutividade=null; perdaSnapshot=null; }
+}
+
+async function carregarCidadePerda(){
+  perdaSnapshot=null;
+  var versao=++perdaConsulta;
+  var select=document.getElementById('perdaCidade'), escolhido=select.value;
+  var lead=S.funilRecords.find(function(r){return r.id===document.getElementById('selLead').value;});
+  var prod=document.getElementById('perdaProd'), fonte=document.getElementById('perdaFonte');
+  var aviso=document.getElementById('perdaAviso');
+  var mesmoCampoManual=perdaProdutividade&&perdaProdutividade.status==='manual';
+  perdaProdutividade=null;
+  if(!mesmoCampoManual){prod.value='';fonte.value='';}
+  prod.readOnly=true;fonte.readOnly=true;
+  aviso.textContent='Consultando a produtividade do site…';
+  calcPerda();
+  var resultado=await window.SGExpansaoProdutividade.resolver({
+    cidadeEscolhida:escolhido==='__regional'?'Outra cidade':escolhido,
+    cidadeCadastro:guessCidade(lead&&lead.endereco)
+  });
+  if(versao!==perdaConsulta)return;
+  perdaProdutividade=resultado;
+  if(resultado.status==='ok'){
+    select.replaceChildren(new Option('Cidade pelo lead',''));
+    resultado.cidades.forEach(function(cidade){select.add(new Option(cidade,cidade));});
+    select.add(new Option('Outra cidade','__regional'));
+    select.value=escolhido || resultado.cidade || '__regional';
+    prod.value=resultado.mediaMensal.toLocaleString('pt-BR',{maximumFractionDigits:2});
+    fonte.value=resultado.fonte;
+  }else{prod.readOnly=false;fonte.readOnly=false;}
+  aviso.textContent=resultado.aviso||'';
+  calcPerda();
+}
+
+function lerPerdaAtual(){
+  if(!document.getElementById('perdaToggle').checked||!perdaProdutividade)return null;
+  var kwp=document.getElementById('perdaKwp').valueAsNumber;
+  var tarifa=document.getElementById('perdaTarifa').valueAsNumber;
+  var desempenho=document.getElementById('perdaDesempenho').valueAsNumber;
+  var produtividade=perdaProdutividade.status==='manual'
+    ? window.SGExpansaoProdutividade.produtividadeManual({valor:document.getElementById('perdaProd').value,fonte:document.getElementById('perdaFonte').value})
+    : perdaProdutividade;
+  if(produtividade.status!=='ok'||!(kwp>0&&tarifa>=0&&desempenho>=0&&desempenho<=100))return null;
+  if(perdaSnapshot&&perdaSnapshot.Kwp===kwp&&perdaSnapshot.Tarifa===tarifa&&perdaSnapshot.Desempenho===desempenho)return perdaSnapshot;
+  var mensal=kwp*produtividade.mediaMensal*tarifa*(1-desempenho/100);
+  return {Kwp:kwp,Tarifa:tarifa,Desempenho:desempenho,Cidade:produtividade.cidade||'',
+    Produtividade:produtividade.mediaMensal,Fonte:produtividade.fonte,Mensal:mensal};
+}
+
+function restaurarPerda(perda){
+  perdaConsulta++;
+  perdaSnapshot=perda||null;
+  var toggle=document.getElementById('perdaToggle');
+  toggle.checked=Boolean(perda);
+  document.getElementById('perdaKwp').value=perda?.Kwp??'';
+  document.getElementById('perdaTarifa').value=perda?.Tarifa??0.98;
+  document.getElementById('perdaDesempenho').value=perda?.Desempenho??'';
+  var prod=document.getElementById('perdaProd'), fonte=document.getElementById('perdaFonte');
+  prod.value=perda?.Produtividade?.toLocaleString('pt-BR',{maximumFractionDigits:2})??'';
+  fonte.value=perda?.Fonte??'';
+  prod.readOnly=true;fonte.readOnly=true;
+  var select=document.getElementById('perdaCidade');
+  if(perda?.Cidade&&!Array.from(select.options).some(function(o){return o.value===perda.Cidade;}))select.add(new Option(perda.Cidade,perda.Cidade));
+  select.value=perda?.Cidade||(perda?'__regional':'');
+  perdaProdutividade=perda ? {status:'ok',mediaMensal:perda.Produtividade,fonte:perda.Fonte,cidade:perda.Cidade} : null;
+  document.getElementById('perdaAviso').textContent=perda?'Produtividade salva com a proposta.':'';
+  toggle.dispatchEvent(new Event('change'));
+  if(perda){
+    var versao=perdaConsulta;
+    window.SGExpansaoProdutividade.resolver().then(function(resultado){
+      if(versao!==perdaConsulta||resultado.status!=='ok')return;
+      resultado.cidades.forEach(function(cidade){
+        if(!Array.from(select.options).some(function(o){return o.value===cidade;}))select.add(new Option(cidade,cidade));
+      });
+    });
+  }
+}
+
+window.calcPerda=function(){
+  var perda=lerPerdaAtual();
+  document.getElementById('perdaValMensal').textContent=perda?fmtMoney(perda.Mensal)+'/mês':'—';
+  document.getElementById('perdaValAnual').textContent=perda?fmtMoney(perda.Mensal*12)+'/ano':'—';
 };
 
 // ── Blocos de serviços ─────────────────────────────────────────────────
@@ -1109,6 +1221,7 @@ window._loadProp=function(pid){
     if(leadCombo)leadCombo.setValor(p.IdOportunidade||'',leadSalvo?(leadSalvo.nomeCliente+' · '+leadSalvo.etapa+' · '+leadSalvo.nomeVendedor):(p.NomeCliente||''));
     else document.getElementById('selLead').value=p.IdOportunidade||'';
     onLeadChange();
+    restaurarPerda(p.Perda);
     document.getElementById('numeroProp').value=p.Numero||'';
     document.getElementById('dataProp').value=String(p.Data||'').substring(0,10);
     document.getElementById('statusProp').value=p.Status||'Rascunho';
@@ -1130,6 +1243,8 @@ function showSaveBar(id,link){
 
 // ── Salvar ──────────────────────────────────────────────────────────────
 function saveProposal(){
+  var perda=lerPerdaAtual();
+  if(document.getElementById('perdaToggle').checked&&!perda){showToast('Complete os dados da análise de desempenho.',false);return;}
   var btn=document.getElementById('saveBtn'); btn.disabled=true;btn.textContent='Salvando…';
   var lead=S.funilRecords.find(function(r){return r.id===document.getElementById('selLead').value;})||{};
   var subT=subtotalServicos(),totalDesc=totalDescontos(subT),desl=Math.max(parseFloat(document.getElementById('deslocamento').value)||0,0);
@@ -1138,7 +1253,8 @@ function saveProposal(){
     id:S.propostaId||undefined,data:document.getElementById('dataProp').value,numero:document.getElementById('numeroProp').value,
     idOportunidade:lead.id||'',nomeCliente:lead.nomeCliente||'',idVendedor:lead.idVendedor||'',nomeVendedor:lead.nomeVendedor||'',
     totalServicos:subT,totalDeslocamento:desl,total:total,blocos:S.blocks,
-    observacoes:document.getElementById('obsGerais').value,status:document.getElementById('statusProp').value,baseUrl:BASE_URL
+    observacoes:document.getElementById('obsGerais').value,status:document.getElementById('statusProp').value,
+    perda:perda,baseUrl:BASE_URL
   }).then(function(resp){
     btn.disabled=false;btn.textContent='💾 Salvar Proposta';
     if(!resp||!resp.ok){showToast((resp&&resp.erro)||'Erro ao salvar',false);return;}
@@ -1166,13 +1282,11 @@ function printProposal(){
 
   // Perda
   var perdaSection='';
-  if(document.getElementById('perdaToggle').checked){
-    var kwp=parseFloat(document.getElementById('perdaKwp').value)||0;
-    var konst=parseFloat(document.getElementById('perdaConst').value)||114;
-    var tarifa2=parseFloat(document.getElementById('perdaTarifa').value)||0;
-    var desemp=parseFloat(document.getElementById('perdaDesempenho').value)||0;
-    if(kwp&&tarifa2&&desemp){
-      var pm=kwp*konst*tarifa2*(1-desemp/100);
+  var perda=lerPerdaAtual();
+  if(perda){
+      var kwp=perda.Kwp;
+      var desemp=perda.Desempenho;
+      var pm=perda.Mensal;
       perdaSection=
         '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#003122;border-radius:10px;padding:20px;margin-bottom:24px;color:#fff;">'+
         '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#78D800;margin-bottom:12px;">Análise de Desempenho da Usina</div>'+
@@ -1194,7 +1308,6 @@ function printProposal(){
           '</div>'+
         '</div>'+
         '</div>';
-    }
   }
 
   // ── Ícones SVG inline por serviço ──
@@ -1366,6 +1479,7 @@ function printProposal(){
 
 // ── Reset ──────────────────────────────────────────────────────────────
 function resetForm(){
+  restaurarPerda(null);
   if(leadCombo)leadCombo.setValor('',''); else document.getElementById('selLead').value='';
   document.getElementById('leadCard').style.display='none';
   document.getElementById('numeroProp').value=''; document.getElementById('dataProp').value=dateKey(new Date());
@@ -2320,7 +2434,11 @@ document.getElementById('perdaToggle').addEventListener('change',function(){
   document.getElementById('perdaSection').style.display=on?'':'none';
   document.getElementById('perdaToggleLabel').textContent=on?'Ativado':'Desativado';
   document.getElementById('perdaToggleRow').className='toggle-row'+(on?' active':'');
+  if(on&&!perdaProdutividade) carregarCidadePerda();
+  else calcPerda();
 });
+document.getElementById('perdaCidade').addEventListener('change',carregarCidadePerda);
+['perdaProd','perdaFonte'].forEach(function(id){ document.getElementById(id).addEventListener('input',calcPerda); });
 
 // ── Conexão ────────────────────────────────────────────────────────────
 function fetchData(){
@@ -2345,14 +2463,14 @@ document.getElementById('addPlanoBtn').addEventListener('click',function(){ var 
 document.getElementById('addDescontoBtn').addEventListener('click',function(){ var b=newBlock('desconto'); S.blocks.push(b); renderBlock(b); updateSummary(); });
 document.getElementById('saveBtn').addEventListener('click',saveProposal);
 document.getElementById('printBtn').addEventListener('click',printProposal);
-document.getElementById('newBtn').addEventListener('click',function(){ if(confirm('Criar nova proposta? Os dados não salvos serão perdidos.'))resetForm(); });
+document.getElementById('newBtn').addEventListener('click',function(){ window.abrirDialogoGerador('Nova proposta','Os dados não salvos serão perdidos.','Criar proposta',resetForm); });
 
 document.getElementById('tabBtnProposta').addEventListener('click',function(){ switchTab('proposta'); });
 document.getElementById('tabBtnContrato').addEventListener('click',function(){ switchTab('contrato'); });
 document.getElementById('ctrSelCliente').addEventListener('change',onClienteContratoChange);
 document.getElementById('ctrPrintBtn').addEventListener('click',printContrato);
 document.getElementById('ctrAssinarBtn').addEventListener('click',enviarContratoParaAssinatura);
-document.getElementById('ctrResetBtn').addEventListener('click',function(){ if(confirm('Limpar contrato atual?'))resetContrato(); });
+document.getElementById('ctrResetBtn').addEventListener('click',function(){ window.abrirDialogoGerador('Limpar contrato','Os dados do contrato atual serão limpos.','Limpar contrato',resetContrato); });
 document.getElementById('ctrSyncBtn').addEventListener('click',syncClienteToSheet);
 // Máscara primeiro, depois a pré-visualização: assim ela já usa o valor formatado.
 // Mesmo critério do cadastro de clientes (CPF ou CNPJ conforme a quantidade de dígitos).
@@ -2377,7 +2495,7 @@ document.getElementById('ctrSyncBtnBottom').addEventListener('click',syncCliente
 </script>
 
 <div id="sg-install-banner">
-  <span class="sg-ib-icon">📲</span>
+  <span class="sg-ib-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M12 8v6m-2-2 2 2 2-2m-3 5h2"/></svg></span>
   <div class="sg-ib-text"><b>Instalar app</b><span id="sg-ib-msg">Adicione este app à tela inicial do seu celular — abre direto, sem navegador.</span></div>
   <div class="sg-ib-actions">
     <button type="button" class="sg-ib-instalar" id="sg-ib-instalar">Instalar</button>
@@ -2413,7 +2531,7 @@ document.getElementById('ctrSyncBtnBottom').addEventListener('click',syncCliente
       deferredPrompt.prompt();
       deferredPrompt.userChoice.finally(function(){ deferredPrompt=null; esconder(); });
     }else{
-      alert('Pra instalar: toque no ícone de compartilhar do navegador e escolha "Adicionar à Tela de Início".');
+      window.abrirDialogoGerador('Instalar app','Toque em Compartilhar e escolha “Adicionar à Tela de Início”.','Fechar');
     }
   });
 
