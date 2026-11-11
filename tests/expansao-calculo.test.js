@@ -172,3 +172,31 @@ test('compara o Fio B por vigência e rejeita intervalo sem referência', () => 
   assert.equal(arred(cruzado.previsto, 6), 0.233806);
   assert.equal(arred(calc.projetarTarifaGD2(0.260931, 0.6, 0.75), 6), 0.326164);
 });
+
+test('transforma rubricas revisadas em tarifas e mantém lacunas de classe social explícitas', () => {
+  const f = { ...fatura, modalidade: 'Convencional', subclasse: 'Residencial', itens: [
+    { tipo: 'consumo', descricao: 'Consumo', quantidade: 641.23, precoComTributos: 1.1, valor: 705.35 },
+    { tipo: 'consumoCompensado', descricao: 'Consumo compensado', quantidade: 769.19, valor: 715.23 },
+    { tipo: 'energiaInjetada', quantidade: 239, valor: -222.23 },
+    { tipo: 'creditoAnterior', quantidade: 530.19, valor: -493.00 },
+    { tipo: 'bandeira', descricao: 'Bandeira tarifária', quantidade: 641.23, valor: 12.42 },
+    ...fatura.itens.filter(i => ['gd2', 'sceeBruto', 'sceeLiquido'].includes(i.tipo))
+  ] };
+  const lidas = calc.tarifasDaFatura(f, { regimeAtual: 'GD II' });
+  assert.equal(lidas.faixasConsumo[0].precoComTributos, 1.1);
+  assert.equal(arred(lidas.bandeiras[0].valorPorKWh, 6), 0.019369);
+  assert.equal(lidas.porRegime['GD II'].length, 5);
+  assert.equal(simular({ fatura: f, tarifas: lidas }).cenarios[4].total, 955.89);
+  assert.deepEqual(calc.tarifasDaFatura({ ...f, subclasse: 'Desconto social' }).faixasConsumo, []);
+});
+
+test('compara classificação genérica de Desconto Social apenas quando as faixas oficiais concordam', () => {
+  const periodo = { inicio: '2026-09-18', fim: '2027-08-06', tarifa: 0.379352320561,
+    modalidade: 'Convencional', resolucao: 'REH 3608' };
+  const p = { inicio: '2026-10-01', fim: '2026-10-31', subclasse: 'Desconto Social',
+    modalidade: 'Convencional', cobrado: 0.260931, percentuais: { 2026: 0.60 } };
+  const faixa1 = { ...periodo, subclasse: 'Residencial Desconto Social – faixa 01' };
+  const faixa2 = { ...periodo, subclasse: 'Residencial Desconto Social – faixa 02' };
+  assert.equal(arred(calc.compararFioB({ ...p, vigencias: [faixa1, faixa2] }).diferencaPct, 1), 14.6);
+  assert.equal(calc.compararFioB({ ...p, vigencias: [faixa1, { ...faixa2, tarifa: 0.3 }] }).comparavel, false);
+});

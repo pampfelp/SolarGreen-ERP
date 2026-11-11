@@ -146,6 +146,68 @@
       valor: escalar(tarifa.valorPorKWh ?? tarifa.precoComTributos) };
   }
 
+
+  function tarifasDaFatura(f, { faixasConsumo = [], bandeiraVerde = false,
+    regimeAtual, pisoDisponibilidade } = {}) {
+    const itens = (f.itens || []).filter(item => item.noTotal !== false);
+    const linhas = tipo => itens.filter(item => item.tipo === tipo);
+    const taxa = (item, base, valorPorKWh = false) => ({
+      tipo: item.tipo, descricao: item.descricao, precoComTributos: item.precoComTributos,
+      tarifaSemTributos: item.tarifaSemTributos, sinal: item.valor < 0 ? -1 : 1,
+      valorPorKWh: valorPorKWh && Number.isFinite(item.valor) ? Math.abs(item.valor) / base : null,
+      pisCofinsPorKWh: Number.isFinite(item.pisCofins) ? Math.abs(item.pisCofins) / base : null,
+      icmsPorKWh: Number.isFinite(item.icms) ? Math.abs(item.icms) / base : null
+    });
+    const consumo = linhas('consumo').filter(item => item.quantidade > 0 && valor(item.precoComTributos));
+    if (!faixasConsumo.length && !/social|baixa renda/.test(texto(f.subclasse))
+        && consumo.length === 1 && texto(f.modalidade) === 'convencional') {
+      faixasConsumo = [taxa(consumo[0], consumo[0].quantidade)];
+    }
+    const porRegime = {};
+    const tipoGd = { 'GD II': 'gd2', 'GD III': 'gd3' }[regimeAtual];
+    const q = f.consumoCompensado;
+    if (q > 0 && regimeAtual) {
+      const cobrancaCompensada = linhas('consumoCompensado');
+      const deducoes = [...linhas('energiaInjetada'), ...linhas('creditoAnterior')];
+      const cobrancaRede = tipoGd ? linhas(tipoGd) : [];
+      const bruto = linhas('sceeBruto');
+      const liquido = linhas('sceeLiquido');
+      const todasConferiveis = cobrancaCompensada.length > 0 && deducoes.length > 0
+        && (!tipoGd || cobrancaRede.length > 0)
+        && ((bruto.length === 0 && liquido.length === 0) || (bruto.length === 1 && liquido.length === 1))
+        && [...cobrancaCompensada, ...deducoes, ...cobrancaRede, ...bruto, ...liquido]
+          .every(i => Number.isFinite(i.valor));
+      if (todasConferiveis) {
+        // Reaproveita os valores unitários observados. As deduções por competência
+        // viram uma linha, porque o uso de crédito é recalculado no novo ciclo.
+        const soma = (lista, campo) => lista.every(i => Number.isFinite(i[campo]))
+          ? lista.reduce((a, b) => a + b[campo], 0) : null;
+        const valorDeduzido = soma(deducoes, 'valor');
+        const qtdDeduzida = soma(deducoes, 'quantidade');
+        const tarifaDeduzida = deducoes.every(i => valor(i.tarifaSemTributos))
+          && new Set(deducoes.map(i => i.tarifaSemTributos)).size === 1
+          ? deducoes[0].tarifaSemTributos : null;
+        const deducao = taxa({
+          tipo: 'energiaInjetada', descricao: 'Energia ativa injetada usada na compensação',
+          valor: valorDeduzido, pisCofins: soma(deducoes, 'pisCofins'), icms: soma(deducoes, 'icms'),
+          precoComTributos: Math.abs(valorDeduzido) / (qtdDeduzida > 0 ? qtdDeduzida : q),
+          tarifaSemTributos: tarifaDeduzida
+        }, q, true);
+        porRegime[regimeAtual] = [
+          ...cobrancaCompensada.map(item => taxa(item, q, true)), deducao,
+          ...cobrancaRede.map(item => taxa(item, q, true)),
+          ...[...bruto, ...liquido].map(item => ({ ...taxa(item, q, true), ocultarQuantidade: true }))
+        ];
+      }
+    }
+    const quantidadeSem = f.consumoSemCompensacao;
+    const porBandeira = linhas('bandeira');
+    const bandeiras = quantidadeSem > 0 && porBandeira.length
+      ? porBandeira.map(item => taxa(item, quantidadeSem, true))
+      : bandeiraVerde ? [{ precoComTributos: 0 }] : [];
+    return { faixasConsumo, bandeiras, porRegime, pisoDisponibilidade };
+  }
+
   function montarFaturaSimulada(cenario, tarifas, itensFinanceiros = [], opcoes = {}) {
     const { semCompensacao, compensadoPorRegime } = cenario;
     const { faixasConsumo = [], bandeiras = [], porRegime = {}, pisoDisponibilidade } = tarifas;
@@ -163,7 +225,7 @@
       if (!bandeiras.length) dadosAusentes.push('Tarifa da bandeira no ciclo.');
       for (const tarifa of bandeiras) {
         const qtd = semCompensacao * (tarifa.fracaoCiclo ?? 1);
-        if (tarifa.precoComTributos !== 0) linhas.push(linha({ tipo: 'bandeira', ...tarifa }, qtd));
+        if ((tarifa.valorPorKWh ?? tarifa.precoComTributos) !== 0) linhas.push(linha({ tipo: 'bandeira', ...tarifa }, qtd));
       }
     }
     for (const [regime, quantidade] of Object.entries(compensadoPorRegime)) {
@@ -287,7 +349,7 @@
       valorCreditosUsados: diferenca(atualSem.total, atualCom.total), premissas };
   }
 
-  function compararFioB({ inicio, fim, vigencias, subclasse, modalidade, percentuais,
+  function compararFioB({ inicio, fim, vigencias = [], subclasse, modalidade, posto, percentuais = {},
     cobrado, precoComTributos, kwhCompensados }) {
     const de = dia(inicio);
     const ate = dia(fim);
@@ -295,20 +357,34 @@
     if (!(ate > de) || !(cobrado > 0) || !subclasse || !modalidade) {
       return naoComparavel('Faltam dados do ciclo, da classificação ou da tarifa cobrada.');
     }
-    const vigenciasDaUC = vigencias.filter(v => texto(v.subclasse) === texto(subclasse)
-      && texto(v.modalidade) === texto(modalidade));
+    const classe = texto(subclasse);
+    const modal = s => texto(s).replace(/^tarifa /, '');
+    const classeCompativel = s => {
+      const nome = texto(s);
+      if (nome === classe) return true;
+      return ['desconto social', 'tarifa social'].includes(classe)
+        && nome.startsWith('residencial ' + classe + ' ');
+    };
+    if (modal(modalidade) === 'branca' && !posto) return naoComparavel('Informe o posto tarifário.');
+    const vigenciasDaUC = vigencias.filter(v => classeCompativel(v.subclasse)
+      && modal(v.modalidade) === modal(modalidade) && (!posto || texto(v.posto) === texto(posto)));
     const fontes = new Map();
     let soma = 0;
     for (let d = de; d < ate; d += DIA) {
       const vigentes = vigenciasDaUC.filter(v => dia(v.inicio) <= d && dia(v.fim) >= d);
       const ano = new Date(d).getUTCFullYear();
       const percentual = percentuais[ano];
-      if (vigentes.length !== 1 || !(percentual > 0 && percentual <= 1) || !(vigentes[0].tarifa > 0)) {
+      const valoresVigentes = new Set(vigentes.map(v => v.tarifa));
+      const resolucoes = new Set(vigentes.map(v => v.resolucao));
+      if (valoresVigentes.size !== 1 || resolucoes.size !== 1 || !(percentual > 0 && percentual <= 1)
+          || !(vigentes[0].tarifa > 0)) {
         return naoComparavel('Falta uma referência única e vigente para todos os dias do ciclo.');
       }
       const v = vigentes[0];
       soma += v.tarifa * percentual;
-      fontes.set(v.inicio + ':' + ano, { ...v, ano, percentual });
+      for (const fonte of vigentes) {
+        fontes.set([fonte.inicio, fonte.subclasse, fonte.posto, ano].join('|'), { ...fonte, ano, percentual });
+      }
     }
     const previsto = soma / ((ate - de) / DIA);
     const diferencaCiclo = valor(kwhCompensados) ? (cobrado - previsto) * kwhCompensados : null;
@@ -325,7 +401,7 @@
   }
 
   const api = { conferirFatura, calcularRecuperacao, dimensionar, sugerirInversor,
-    montarFaturaSimulada, simularCenarios, compararFioB, projetarTarifaGD2 };
+    tarifasDaFatura, montarFaturaSimulada, simularCenarios, compararFioB, projetarTarifaGD2 };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.SGExpansaoCalculo = api;
 })(typeof window === 'undefined' ? globalThis : window);
