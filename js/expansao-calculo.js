@@ -124,18 +124,38 @@
     };
     const faseUC = fase(fornecimento);
     const fonte = catalogo.length ? 'catalogo' : 'config';
-    const compat = catalogo.filter(m => faseUC === null || fase(m.Fases) === faseUC);
-    const potencia = m => Number(m.PotenciaAtivaNomCA);
+    // O catálogo (produtos_inversores) grava em W: PotenciaAtivaNomCA_W e PotenciaMaxCC_W.
+    const kwDe = (m, campo) => {
+      const kw = Number(m?.[campo]);
+      if (Number.isFinite(kw) && kw > 0) return kw;
+      const w = Number(m?.[campo + '_W']);
+      return Number.isFinite(w) && w > 0 ? w / 1000 : NaN;
+    };
+    // Rede 127/220 V: inversor monofásico de 220 V liga entre duas fases (UC bifásica ou trifásica);
+    // trifásico de 220 V só em UC trifásica; monofásico de 127 V em qualquer UC com neutro.
+    // Modelo marcado sem registro no Inmetro não é sugerido.
+    const cabe = m => {
+      if (m.RegistroInmetro === false) return false;
+      if (faseUC === null) return true;
+      const f = fase(m.Fases);
+      const v = Number(m.TensaoCANominalV);
+      if (f === 1) return Number.isFinite(v) && v <= 140 ? true : faseUC >= 2;
+      if (f === 2) return faseUC >= 2;
+      if (f === 3) return faseUC === 3;
+      return false;
+    };
+    const compat = catalogo.filter(cabe);
+    const potencia = m => kwDe(m, 'PotenciaAtivaNomCA');
     const kwMinimo = kwpTotal / overloadMax;
     const kw = Math.min(...(catalogo.length ? compat.map(potencia) : potenciasInversorKW)
       .filter(n => valor(n) && n > 0 && n + 1e-9 >= kwMinimo));
-    const maxCC = Number(inversorAtual?.PotenciaMaxCC);
+    const maxCC = kwDe(inversorAtual, 'PotenciaMaxCC');
     const atualSuporta = inversorAtual && potencia(inversorAtual) > 0
       ? potencia(inversorAtual) + 1e-9 >= kwMinimo && (!(maxCC > 0) || kwpTotal <= maxCC)
       : null;
     return { kwMinimo, kw: Number.isFinite(kw) ? kw : null, fonte,
       overload: Number.isFinite(kw) ? kwpTotal / kw : null,
-      modelos: compat.filter(m => potencia(m) === kw), atualSuporta };
+      modelos: compat.filter(m => Math.abs(potencia(m) - kw) < 1e-9), atualSuporta };
   }
 
   function linha(tarifa, quantidade, sinal = 1) {

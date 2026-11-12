@@ -200,3 +200,22 @@ test('compara classificação genérica de Desconto Social apenas quando as faix
   assert.equal(arred(calc.compararFioB({ ...p, vigencias: [faixa1, faixa2] }).diferencaPct, 1), 14.6);
   assert.equal(calc.compararFioB({ ...p, vigencias: [faixa1, { ...faixa2, tarifa: 0.3 }] }).comparavel, false);
 });
+
+test('lê o catálogo real em W e respeita a ligação 127/220 V da UC', () => {
+  // Formato de produtos_inversores: potências em W e fases "Monofasico"/"Trifasico".
+  const catalogo = [
+    { Modelo: 'Mono 8k', PotenciaAtivaNomCA_W: 8000, TensaoCANominalV: 220, Fases: 'Monofasico', PotenciaMaxCC_W: 12000 },
+    { Modelo: 'Mono 10k', PotenciaAtivaNomCA_W: 10000, TensaoCANominalV: 220, Fases: 'Monofasico' },
+    { Modelo: 'Tri 10k', PotenciaAtivaNomCA_W: 10000, TensaoCANominalV: 220, Fases: 'Trifasico' },
+    { Modelo: 'Tri 12k sem Inmetro', PotenciaAtivaNomCA_W: 12000, TensaoCANominalV: 220, Fases: 'Trifasico', RegistroInmetro: false }
+  ];
+  const bi = calc.sugerirInversor({ kwpTotal: 14, catalogo, fornecimento: 'bifasico' });
+  assert.equal(bi.kw, 10);
+  assert.deepEqual(bi.modelos.map(m => m.Modelo), ['Mono 10k']);
+  const tri = calc.sugerirInversor({ kwpTotal: 14, catalogo, fornecimento: 'Trifásico' });
+  assert.deepEqual(tri.modelos.map(m => m.Modelo), ['Mono 10k', 'Tri 10k']);
+  assert.equal(calc.sugerirInversor({ kwpTotal: 14, catalogo, fornecimento: 'monofasico' }).kw, null);
+  assert.equal(calc.sugerirInversor({ kwpTotal: 16, catalogo, fornecimento: 'trifasico' }).kw, null);
+  assert.equal(calc.sugerirInversor({ kwpTotal: 11, catalogo, fornecimento: 'bifasico', inversorAtual: catalogo[0] }).atualSuporta, true);
+  assert.equal(calc.sugerirInversor({ kwpTotal: 12.5, catalogo, fornecimento: 'bifasico', inversorAtual: catalogo[0] }).atualSuporta, false);
+});
