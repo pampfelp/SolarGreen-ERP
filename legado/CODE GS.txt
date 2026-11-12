@@ -100,6 +100,7 @@ function handleRequest(e) {
     if ((params.action || body.action) === 'cobrancaPlanoValidar')       return jsonOutput(actionCobrancaPlanoValidar(body));
     if ((params.action || body.action) === 'cobrancaLinkAvulso')         return jsonOutput(actionCobrancaLinkAvulso(body));
     if ((params.action || body.action) === 'cobrancaAvulsos')            return jsonOutput(actionCobrancaAvulsos(body));
+    if ((params.action || body.action) === 'cobrancaAtendimento')        return jsonOutput(actionCobrancaAtendimento(body));
     if (params.action === 'cobrancaWebhook')                             return jsonOutput(actionCobrancaWebhook(body));
     // Sininho (2026-11-05): o navegador grava o aviso em notificacoes e pede o push com o idToken.
     if ((params.action || body.action) === 'notifPush')                  return jsonOutput(actionNotifPush(body));
@@ -6344,15 +6345,9 @@ function cobrancaEnviarAtendimento_(cfg, props, cliente, dono, de, recebidoEm) {
   if (!canonico || canonico !== cobrancaTelefoneCanonico_(cliente.Telefone)) {
     return { ok: false, motivo: 'O telefone da conversa não confere com o cadastro.' };
   }
-  var id = String(cliente['Vendedor Responsavel'] || '').trim();
-  if (!id) return { ok: false, motivo: 'Cliente sem vendedor responsável.' };
-  var doc = fsGet_(cfg, 'vendedores/' + id);
-  var vendedor = doc ? doc.dados : fsConsulta_(cfg, 'vendedores', 'IdVendedor', id, 1)[0];
-  var nome = vendedor ? String(vendedor.Nome || '').trim().split(/\s+/)[0] : '';
-  var tel = vendedor ? cobrancaTelefone_(vendedor.Telefone) : '';
-  if (!nome || !tel || String(vendedor.Status || '').trim() !== 'Ativo' || cobrancaTelefoneCanonico_(tel) === canonico) {
-    return { ok: false, motivo: 'O vendedor responsável não tem um contato ativo válido.' };
-  }
+  var v = cobrancaVendedorAtendimento_(cfg, cliente, canonico);
+  if (v.motivo) return { ok: false, motivo: v.motivo };
+  var nome = v.nome, tel = v.tel;
   if (!props.token || !props.phoneId) return { ok: false, erro: 'WhatsApp não configurado.' };
 
   // A reserva atômica evita duas respostas se mensagens distintas chegam juntas.
@@ -6388,6 +6383,115 @@ function cobrancaEnviarAtendimento_(cfg, props, cliente, dono, de, recebidoEm) {
   ]);
   if (!gravou) return { ok: true, wamid: r.wamid, erro: 'A Meta aceitou, mas o histórico não foi gravado.' };
   return { ok: true, wamid: r.wamid };
+}
+
+// O vendedor que atende o cliente da cobrança: o responsável do cadastro, ativo
+// e com celular válido que não seja o do próprio cliente. {nome, tel} ou {motivo}.
+function cobrancaVendedorAtendimento_(cfg, cliente, canonicoCliente) {
+  var id = String(cliente['Vendedor Responsavel'] || '').trim();
+  if (!id) return { motivo: 'Cliente sem vendedor responsável.' };
+  var doc = fsGet_(cfg, 'vendedores/' + id);
+  var vendedor = doc ? doc.dados : fsConsulta_(cfg, 'vendedores', 'IdVendedor', id, 1)[0];
+  var nome = vendedor ? String(vendedor.Nome || '').trim().split(/\s+/)[0] : '';
+  var tel = vendedor ? cobrancaTelefone_(vendedor.Telefone) : '';
+  if (!nome || !tel || String(vendedor.Status || '').trim() !== 'Ativo' || cobrancaTelefoneCanonico_(tel) === canonicoCliente) {
+    return { motivo: 'O vendedor responsável não tem um contato ativo válido.' };
+  }
+  return { nome: nome, tel: tel };
+}
+
+// "5593991234567" -> "(93) 99123-4567", como o cliente lê e o WhatsApp reconhece.
+function cobrancaTelefoneLegivel_(tel) {
+  var m = /^55(\d{2})(\d{4,5})(\d{4})$/.exec(String(tel || ''));
+  return m ? '(' + m[1] + ') ' + m[2] + '-' + m[3] : String(tel || '');
+}
+
+// Contato do vendedor por modelo (12/11). A resposta automática do webhook
+// (cobrancaEnviarAtendimento_) é texto livre e só vale até 24h depois da última
+// mensagem do cliente; passado isso a Meta só aceita modelo. O botão "Enviar
+// contato do vendedor" da cobrança usa este. Sem botão de link: a Meta recusa
+// botão com wa.me, então o número vai no texto. Utilidade dentro da janela de
+// 24h não é cobrada; fora dela, sim, na tarifa de utilidade.
+// TEXTO AGUARDANDO O OK DO FELIPE (crença 19): não criar na Meta antes disso.
+var ATENDIMENTO_MODELO = { nome: 'atendimento_vendedor', campos: ['nome', 'vendedor', 'telefone'],
+  texto: 'Olá, {{1}}! Aqui é da Solar Green. Recebemos o seu pedido de atendimento. Quem vai te atender é {{2}}, pelo WhatsApp {{3}}. É só chamar nesse número.' };
+
+function cobrancaEnviarAtendimentoModelo_(cfg, cliente, dono, por, url) {
+  var para = cobrancaTelefone_(cliente.Telefone);
+  if (!para) return { ok: false, erro: 'O cliente não tem um celular válido no cadastro.' };
+  var canonico = cobrancaTelefoneCanonico_(para);
+  var v = cobrancaVendedorAtendimento_(cfg, cliente, canonico);
+  if (v.motivo) return { ok: false, erro: v.motivo + ' Confira o cadastro do vendedor (status Ativo e celular).' };
+  var props = disparoProps_();
+  if (!props.token || !props.phoneId) return { ok: false, erro: 'Faltam WA_TOKEN ou WA_PHONE_ID nas Propriedades do script.' };
+
+  // Dois cliques seguidos não mandam duas vezes.
+  var agora = Date.now();
+  var caminho = 'cobranca_mensagens/atendimento-' + canonico;
+  var anterior = fsGet_(cfg, caminho);
+  if (anterior && Number(anterior.dados.em) > agora - 2 * 60 * 1000) return { ok: false, erro: 'O contato do vendedor acabou de ser enviado para esse cliente.' };
+
+  var dados = { nome: cobrancaPrimeiroNome_(cliente), vendedor: v.nome, telefone: cobrancaTelefoneLegivel_(v.tel) };
+  var r = cobrancaMandarModelo_(props, para, ATENDIMENTO_MODELO, dados, '');
+  if (!r.ok) {
+    console.error('Contato do vendedor para ' + disparoFim8_(para) + ' recusado (' + r.codigo + '): ' + r.erro);
+    return { ok: false, erro: 'A Meta recusou (' + r.codigo + '): ' + r.erro };
+  }
+  var texto = cobrancaTextoModelo_(ATENDIMENTO_MODELO, dados, '');
+  var campos = cobrancaJuntar_({
+    direcao: 'saida', tipo: 'atendimento', telFim8: disparoFim8_(para), em: Date.now(), status: 'enviado'
+  }, dono);
+  // A reserva de 24h segura a resposta automática se o cliente responder logo.
+  fsCommit_(cfg, [
+    fsUpdate_(cfg, caminho, { em: agora }),
+    fsUpdate_(cfg, 'cobranca_mensagens/out-' + r.wamid, campos),
+    cobrancaEspelho_(cfg, 'saida', r.wamid, cliente, cobrancaJuntar_(campos, {
+      tipo: 'text', cobrancaTipo: 'atendimento', telLead: para, texto: texto
+    }))
+  ]);
+  var chave = dono.idPlano ? 'plano-' + dono.idPlano : dono.idAgendamento;
+  cobrancaAvisarEnvio_(cfg, cliente, 'Seu contato foi enviado (por ' + (por || 'automático') + ') para',
+    url, 'cobranca-' + chave, 'cobranca:atendimento:' + r.wamid, 'cobranca');
+  return { ok: true, vendedor: v.nome };
+}
+
+// action: cobrancaAtendimento { idToken, idAgendamento } ou { idToken, idPlano }:
+// manda ao cliente o contato do vendedor pelo modelo atendimento_vendedor.
+function actionCobrancaAtendimento(body) {
+  if (body.idPlano) {
+    var a = cobrancaPlanoAuth_(body);
+    if (a.erro) return { ok: false, erro: a.erro };
+    return cobrancaEnviarAtendimentoModelo_(a.cfg, a.c.cliente, { idPlano: String(a.c.id) }, a.por,
+      'index.html?cobrancaPlano=' + a.c.id);
+  }
+  var cfg = fbConfig_();
+  if (!cfg) return { ok: false, erro: 'Firebase não configurado no servidor.' };
+  var auth = disparoAutenticar_(cfg, body, false);
+  if (auth.erro) return { ok: false, erro: auth.erro };
+  var c = cobrancaContexto_(cfg, String(body.idAgendamento || ''));
+  if (!c) return { ok: false, erro: 'OS não encontrada.' };
+  if (!cobrancaPermitido_(auth, c)) return { ok: false, erro: 'Só o vendedor do cliente ou a gestão mandam esse contato.' };
+  return cobrancaEnviarAtendimentoModelo_(cfg, c.cliente, { idAgendamento: String(c.id) },
+    auth.vendedor.Nome || auth.vendedor.IdVendedor, 'index.html?cobranca=' + c.id);
+}
+
+// Pelo editor, depois do ok do Felipe no texto: cria o modelo atendimento_vendedor
+// (utilidade) e, nas execuções seguintes, mostra a situação dele na Meta.
+function atendimentoCriarModelo() {
+  var props = disparoProps_();
+  var m = ATENDIMENTO_MODELO;
+  var existente = disparoListarModelosMeta_(props, 'name,status,category,rejected_reason').filter(function (t) { return t.name === m.nome; })[0];
+  if (existente) {
+    console.log(m.nome + ': ' + existente.status + ' / ' + existente.category +
+      (existente.rejected_reason && existente.rejected_reason !== 'NONE' ? ' / ' + existente.rejected_reason : ''));
+    return;
+  }
+  var exemplo = { nome: 'Maria', vendedor: 'Marcilene', telefone: '(93) 99123-4567' };
+  var r = disparoMetaPedir_(props, 'post', props.wabaId + '/message_templates', {
+    name: m.nome, category: 'UTILITY', language: 'pt_BR',
+    components: [{ type: 'BODY', text: m.texto, example: { body_text: [m.campos.map(function (c) { return exemplo[c]; })] } }]
+  });
+  console.log(m.nome + ' (' + r.codigo + '): ' + JSON.stringify(r.json).slice(0, 400));
 }
 
 // Entrega ou falha de uma mensagem da cobrança.

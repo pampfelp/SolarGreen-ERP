@@ -434,6 +434,29 @@
     executar([{acao:'pausarCobranca',payload:{idAgendamento:l.idAgendamento,ate:ate,por:s.nome||''}}],ov,
       ate?'Cobrança pausada até '+dataCurta(ate)+'. No dia, os lembretes voltam.':'Cobrança retomada.');
   }
+  // Contato do vendedor (12/11): o modelo atendimento_vendedor leva ao cliente o
+  // nome e o número do vendedor dele. Serve depois das 24h da última mensagem do
+  // cliente, quando a resposta automática do webhook já não pode sair.
+  function htmlContatoVendedor(idVend){
+    if(!idVend)return '';
+    var primeiro=String(nomeVendedor[idVend]||'').trim().split(/\s+/)[0]||'o vendedor';
+    return '<div class="cb-acoes"><button type="button" class="reset-btn" data-acao="contatoVendedor">Enviar contato do vendedor</button></div>'+
+      '<div class="hint">Para quando o cliente pede atendimento. Vai pelo WhatsApp da Solar Green com o nome e o número de '+esc(primeiro)+'.</div>';
+  }
+  function enviarContatoVendedor(alvo,nomeCliente,idVend){
+    window.SGConfirm.perguntar({
+      titulo:'Enviar contato do vendedor',
+      mensagem:'Mandar para '+nomeCliente+', pelo WhatsApp da Solar Green, o nome e o número de '+(nomeVendedor[idVend]||'o vendedor')+'?',
+      textoConfirmar:'Enviar'
+    }).then(function(ok){
+      if(!ok)return;
+      toast('Enviando o contato do vendedor…');
+      chamarServidor('cobrancaAtendimento',alvo).then(function(r){
+        if(r&&r.ok)toast('Contato de '+r.vendedor+' enviado ao cliente.');
+        else toast((r&&r.erro)||'Não foi possível enviar o contato.',true);
+      }).catch(function(err){ toast('Erro de conexão: '+err.message,true); });
+    });
+  }
   function htmlWhats(l){
     var a=mapaAg[l.idAgendamento]||{},html='';
     var envios=Array.isArray(a.CobrancaEnvios)?a.CobrancaEnvios:[];
@@ -457,6 +480,7 @@
     }else if(l.situacao==='quitada'&&a.CobrancaAgradecer&&!a.CobrancaAgradecidoEm){
       html+='<div class="cb-acoes"><button type="button" class="connect-btn" data-acao="api" data-tipo="obrigado">Enviar agradecimento</button></div>';
     }
+    if(ultimo||cobravel(l))html+=htmlContatoVendedor(l.idVendedorResp);
     if(!html&&!info)return '';
     return '<h4 style="margin-top:14px;">Cobrança pelo WhatsApp</h4>'+info+html;
   }
@@ -564,6 +588,7 @@
       acoes+='<div class="cb-acoes"><button type="button" class="reset-btn" data-acao="planoValidar">Validar pagamento ('+esc(window.SGCobrancaRegra.nomeMeses(mv))+')</button></div>'+
         '<div class="hint">Para pagamento em dinheiro ou Pix direto, inclusive antes do vencimento. Lança a venda.</div>';
     }
+    acoes+=htmlContatoVendedor(vendedorDoPlano(p));
     if(acoes)html+='<div class="ad-section"><h4>Cobrança pelo WhatsApp</h4>'+acoes+'</div>';
     window.SGViewPanel.abrir({
       titulo:nomeDoPlano(p),
@@ -576,6 +601,7 @@
           if(acao==='planoApi')enviarPlanoSolarGreen(id,'');
           else if(acao==='planoWhats')enviarPlanoWhats(id);
           else if(acao==='planoValidar')validarPagamentoPlano(id);
+          else if(acao==='contatoVendedor')enviarContatoVendedor({idPlano:id},nomeDoPlano(p),vendedorDoPlano(p));
         };
       }
     });
@@ -823,6 +849,8 @@
             enviarPelaSolarGreen(l,b.getAttribute('data-tipo'));
           }else if(acao==='whats'){
             enviarWhats(l,b.getAttribute('data-tipo'));
+          }else if(acao==='contatoVendedor'){
+            enviarContatoVendedor({idAgendamento:l.idAgendamento},nomeDoCliente(l),l.idVendedorResp);
           }else if(acao==='pagamento'){
             window.SGViewPanel.fechar();
             window.SGVendas.abrirNovaVendaParaOS({idCliente:l.idCliente,nomeCliente:nomeDoCliente(l),idServico:l.idServico,valor:l.saldo,idsOS:[l.idAgendamento],idVendedor:l.idVendedorResp});
