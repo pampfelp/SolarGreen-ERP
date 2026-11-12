@@ -489,8 +489,8 @@
   // Os planos marcados na tela de Planos recebem a cobrança do mês pelo WhatsApp
   // da Solar Green (Apps Script, cobrancaPlanos_). Aqui fica a lista, o envio na
   // hora, a reserva pelo WhatsApp de quem clica e o pagamento validado à mão.
-  var NOMES_PLANO={em_aberto:'Em aberto',pago:'Pago no mês',aguardando:'Aguardando vencimento'};
-  var CLASSE_PLANO={em_aberto:'em_aberto',pago:'quitada',aguardando:'sem_valor'};
+  var NOMES_PLANO={em_aberto:'Em aberto',pago:'Pago no mês',interrompido:'Cobrança interrompida',aguardando:'Aguardando vencimento'};
+  var CLASSE_PLANO={em_aberto:'em_aberto',pago:'quitada',interrompido:'sem_valor',aguardando:'sem_valor'};
   function vendedorDoPlano(p){ return (mapaClientes[p.IdCliente]||{})['Vendedor Responsavel']||''; }
   function nomeDoPlano(p){ return nomeCliente[p.IdCliente]||p.IdCliente||'—'; }
   function renderPlanos(){
@@ -560,6 +560,25 @@
       }).catch(function(err){ toast('Erro de conexão: '+err.message,true); });
     });
   }
+  // Interromper (12/11): para a cobrança do mês sem lançar venda e sem mensagem ao
+  // cliente (cortesia, negociação). Só a gestão; o Apps Script confere de novo.
+  function interromperPlano(id){
+    var p=mapaPlanos[id]||{};
+    var meses=window.SGCobrancaRegra.mesesParaValidar(p,new Date());
+    window.SGConfirm.perguntar({
+      titulo:'Interromper cobrança',
+      mensagem:'Parar a cobrança de '+window.SGCobrancaRegra.nomeMeses(meses)+' de '+nomeDoPlano(p)+'? Os lembretes param, nenhuma venda é lançada e o cliente não recebe mensagem. Se ele pagar pelo link que já recebeu, a venda entra e a gestão é avisada.',
+      textoConfirmar:'Interromper'
+    }).then(function(ok){
+      if(!ok)return;
+      window.SGViewPanel.fechar();
+      toast('Interrompendo a cobrança…');
+      chamarServidor('cobrancaPlanoInterromper',{idPlano:id}).then(function(r){
+        if(r&&r.ok)toast('Cobrança de '+window.SGCobrancaRegra.nomeMeses(r.meses)+' interrompida.');
+        else toast((r&&r.erro)||'Não foi possível interromper.',true);
+      }).catch(function(err){ toast('Erro de conexão: '+err.message,true); });
+    });
+  }
   function abrirPlano(id){
     var p=mapaPlanos[id];
     if(!p){ toast('Esse plano não está na cobrança mensal.',true); return; }
@@ -575,18 +594,21 @@
       (s.situacao==='em_aberto'?linhaDetalhe('Em aberto',esc(s.nomes)+' · '+dinheiro(s.valor)):'')+
       (cm.PagoEm&&s.situacao!=='em_aberto'?linhaDetalhe('Último pagamento',esc(new Date(cm.PagoEm).toLocaleString('pt-BR'))+(cm.ValidadoPor?' · validado por '+esc(cm.ValidadoPor):' · pelo link')):'')+
       (s.situacao!=='em_aberto'&&cm.PagoEm&&p.CobrancaUltimoMes?linhaDetalhe('Pago até',esc(window.SGCobrancaRegra.nomeMeses([p.CobrancaUltimoMes])+' de '+String(p.CobrancaUltimoMes).slice(0,4))):'')+
+      (s.situacao==='interrompido'?linhaDetalhe('Interrompida',esc(s.nomes)+(cm.InterrompidoEm?' · '+esc(new Date(cm.InterrompidoEm).toLocaleString('pt-BR')):'')+(cm.InterrompidoPor?' · '+esc(cm.InterrompidoPor):'')):'')+
       (ultimo?linhaDetalhe('Última mensagem',esc(new Date(ultimo.Em).toLocaleString('pt-BR'))+(ultimo.Por?' · '+esc(ultimo.Por):'')+(ultimo.Erro?' · <span class="hint">não saiu: '+esc(ultimo.Erro)+'</span>':'')):'')+
     '</div>';
     var acoes='';
     if(window.SGCobrancaRegra.planoEntra(p)){
-      acoes+='<div class="hint">'+(s.situacao==='em_aberto'?'Os lembretes saem às 8h, 15h e 18h (sábado 8h e 12h) até o pagamento.':'Sem mês em aberto: o botão já cobra a mensalidade deste mês.')+'</div>'+
+      acoes+='<div class="hint">'+(s.situacao==='em_aberto'?'Os lembretes saem às 8h, 15h e 18h (sábado 8h e 12h) até o pagamento.':s.situacao==='interrompido'?'Cobrança de '+esc(s.nomes)+' interrompida. O botão abaixo já cobra '+esc(window.SGCobrancaRegra.nomeMeses(window.SGCobrancaRegra.mesesParaValidar(p,new Date())))+'.':'Sem mês em aberto: o botão já cobra a mensalidade deste mês.')+'</div>'+
         '<div class="cb-acoes"><button type="button" class="connect-btn" data-acao="planoApi">Enviar cobrança agora</button>'+
         '<button type="button" class="reset-btn" data-acao="planoWhats">Mandar pelo meu WhatsApp</button></div>';
     }
     if(souAdmin()&&(s.situacao==='em_aberto'||window.SGCobrancaRegra.planoEntra(p))){
       var mv=window.SGCobrancaRegra.mesesParaValidar(p,new Date());
       acoes+='<div class="cb-acoes"><button type="button" class="reset-btn" data-acao="planoValidar">Validar pagamento ('+esc(window.SGCobrancaRegra.nomeMeses(mv))+')</button></div>'+
-        '<div class="hint">Para pagamento em dinheiro ou Pix direto, inclusive antes do vencimento. Lança a venda.</div>';
+        '<div class="hint">Para pagamento em dinheiro ou Pix direto, inclusive antes do vencimento. Lança a venda.</div>'+
+        '<div class="cb-acoes"><button type="button" class="reset-btn" data-acao="planoInterromper">Interromper cobrança ('+esc(window.SGCobrancaRegra.nomeMeses(mv))+')</button></div>'+
+        '<div class="hint">Para os lembretes desse mês sem lançar venda e sem mensagem ao cliente. O mês seguinte é cobrado normalmente.</div>';
     }
     acoes+=htmlContatoVendedor(vendedorDoPlano(p));
     if(acoes)html+='<div class="ad-section"><h4>Cobrança pelo WhatsApp</h4>'+acoes+'</div>';
@@ -601,6 +623,7 @@
           if(acao==='planoApi')enviarPlanoSolarGreen(id,'');
           else if(acao==='planoWhats')enviarPlanoWhats(id);
           else if(acao==='planoValidar')validarPagamentoPlano(id);
+          else if(acao==='planoInterromper')interromperPlano(id);
           else if(acao==='contatoVendedor')enviarContatoVendedor({idPlano:id},nomeDoPlano(p),vendedorDoPlano(p));
         };
       }

@@ -276,12 +276,17 @@
   // Situação do plano para a tela. hoje: Date local.
   //   em_aberto  meses na cobrança (total e nomes)
   //   pago       o mês corrente já foi cobrado e pago
+  //   interrompido a gestão parou a cobrança do mês corrente sem lançar venda (12/11)
   //   aguardando o mês corrente ainda não venceu (ou foi pulado ao marcar)
   function situacaoPlano(p, hoje) {
     var cm = p.CobrancaMes || {};
     var mes = hoje.getFullYear() + '-' + ('0' + (hoje.getMonth() + 1)).slice(-2);
     if (cm.Ativa === true && Array.isArray(cm.Meses) && cm.Meses.length) {
       return { situacao: 'em_aberto', meses: cm.Meses.slice(), nomes: nomeMeses(cm.Meses), valor: numero(cm.Valor) || numero(p.Valor) * cm.Meses.length };
+    }
+    var parados = Array.isArray(cm.InterrompidoMeses) ? cm.InterrompidoMeses : [];
+    if (parados.indexOf(mes) !== -1 && !(cm.PagoEm && String(cm.PagoEm) > String(cm.InterrompidoEm || ''))) {
+      return { situacao: 'interrompido', meses: parados.slice(), nomes: nomeMeses(parados), valor: 0 };
     }
     if (String(p.CobrancaUltimoMes || '') >= mes && cm.PagoEm) return { situacao: 'pago', meses: [], nomes: '', valor: 0 };
     return { situacao: 'aguardando', meses: [], nomes: '', valor: 0 };

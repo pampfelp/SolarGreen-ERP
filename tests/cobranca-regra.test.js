@@ -150,7 +150,8 @@ assert.equal(R.tipoPelaHora(new Date(2026,10,7,12)),'15h');
 assert.equal(R.telefoneWhatsApp('(91) 98759-8592'),'5591987598592');
 assert.equal(R.telefoneWhatsApp('5591987598592'),'5591987598592');
 assert.equal(R.telefoneWhatsApp('123'),'');
-
+
+
 // Mensalidade dos planos
 const pl=(x)=>Object.assign({IdPlano:'p',TipoAssinatura:'Mensal',Status:'Ativo',Valor:39.9,CobrancaMensal:true},x);
 assert.equal(R.planoEntra(pl()),true);
@@ -167,6 +168,16 @@ assert.deepEqual(R.situacaoPlano(pl({CobrancaMes:{Ativa:true,Meses:['2026-11','2
 assert.equal(R.situacaoPlano(pl({CobrancaUltimoMes:'2026-11',CobrancaMes:{Ativa:false,Meses:[],PagoEm:'x'}}),nov).situacao,'pago');
 assert.equal(R.situacaoPlano(pl({CobrancaUltimoMes:'2026-10',CobrancaMes:{Ativa:false,Meses:[],PagoEm:'x'}}),nov).situacao,'aguardando');
 assert.equal(R.situacaoPlano(pl(),nov).situacao,'aguardando');
+// Interrompida (12/11): mês corrente parado sem venda, mesmo com PagoEm de um mês anterior
+const parado={CobrancaUltimoMes:'2026-11',CobrancaMes:{Ativa:false,Meses:[],PagoEm:'2026-10-12T10:00:00.000Z',InterrompidoEm:'2026-11-12T20:00:00.000Z',InterrompidoMeses:['2026-11']}};
+assert.deepEqual(R.situacaoPlano(pl(parado),nov),{situacao:'interrompido',meses:['2026-11'],nomes:'novembro',valor:0});
+// Pago pelo link depois da interrupção: volta a constar como pago
+assert.equal(R.situacaoPlano(pl({CobrancaUltimoMes:'2026-11',CobrancaMes:Object.assign({},parado.CobrancaMes,{PagoEm:'2026-11-13T09:00:00.000Z'})}),nov).situacao,'pago');
+// Dezembro interrompido adiantado não muda novembro pago
+assert.equal(R.situacaoPlano(pl({CobrancaUltimoMes:'2026-12',CobrancaMes:{Ativa:false,Meses:[],PagoEm:'2026-11-05T10:00:00.000Z',InterrompidoEm:'2026-11-12T20:00:00.000Z',InterrompidoMeses:['2026-12']}}),nov).situacao,'pago');
+// Mês seguinte posto em cobrança: em aberto de novo
+assert.equal(R.situacaoPlano(pl({CobrancaUltimoMes:'2026-12',CobrancaMes:Object.assign({},parado.CobrancaMes,{Ativa:true,Meses:['2026-12'],Valor:39.9})}),new Date(2026,11,11)).situacao,'em_aberto');
+assert.deepEqual(R.mesesParaValidar(pl(parado),nov),['2026-12']);
 // Validar pagamento: em aberto quita os meses; sem nada, o próximo ainda não cobrado
 assert.deepEqual(R.mesesParaValidar(pl({CobrancaMes:{Ativa:true,Meses:['2026-10','2026-11']}}),nov),['2026-10','2026-11']);
 assert.deepEqual(R.mesesParaValidar(pl(),nov),['2026-11']);

@@ -98,6 +98,7 @@ function handleRequest(e) {
     if ((params.action || body.action) === 'cobrancaPlanoEnviar')        return jsonOutput(actionCobrancaPlanoEnviar(body));
     if ((params.action || body.action) === 'cobrancaPlanoCriarLink')     return jsonOutput(actionCobrancaPlanoCriarLink(body));
     if ((params.action || body.action) === 'cobrancaPlanoValidar')       return jsonOutput(actionCobrancaPlanoValidar(body));
+    if ((params.action || body.action) === 'cobrancaPlanoInterromper')   return jsonOutput(actionCobrancaPlanoInterromper(body));
     if ((params.action || body.action) === 'cobrancaLinkAvulso')         return jsonOutput(actionCobrancaLinkAvulso(body));
     if ((params.action || body.action) === 'cobrancaAvulsos')            return jsonOutput(actionCobrancaAvulsos(body));
     if ((params.action || body.action) === 'cobrancaAtendimento')        return jsonOutput(actionCobrancaAtendimento(body));
@@ -6657,6 +6658,8 @@ function cobrancaPagouPlano_(cfg, ref, orderNsu, transacao, conf, body) {
   // Link pago depois de os meses já estarem quitados (validados à mão): o
   // dinheiro entrou, então a venda sai, mas o aviso pede conferência.
   var repetido = pagos.length > 0 && !pagos.some(function (m) { return c.meses.indexOf(m) !== -1; });
+  var interrompidos = Array.isArray(c.cm.InterrompidoMeses) ? c.cm.InterrompidoMeses : [];
+  var foiInterrompido = repetido && pagos.some(function (m) { return interrompidos.indexOf(m) !== -1; });
   var venda = cobrancaVendaPlano_(c, valor, pagos, { PagamentoInfinitePay: transacao });
   var idVenda = venda.IdVenda;
   var nome = String(c.cliente['Nome Razao Social'] || c.cliente.Nome || '');
@@ -6675,7 +6678,7 @@ function cobrancaPagouPlano_(cfg, ref, orderNsu, transacao, conf, body) {
   var vendedor = String(c.cliente['Vendedor Responsavel'] || '');
   enviarPush_(cfg, repetido ? cobrancaGestao_(cfg) : (vendedor ? [vendedor] : cobrancaGestao_(cfg)), {
     titulo: repetido ? 'Mensalidade paga de novo pelo link' : 'Mensalidade paga pelo link',
-    corpo: (nome || 'Cliente') + ' pagou ' + cobrancaDinheiro_(valor) + ' do plano (' + cobrancaPlanoNomeMeses_(pagos) + ')' + (repetido ? '; esses meses já estavam quitados, confira' : ''),
+    corpo: (nome || 'Cliente') + ' pagou ' + cobrancaDinheiro_(valor) + ' do plano (' + cobrancaPlanoNomeMeses_(pagos) + ')' + (foiInterrompido ? '; a cobrança desses meses tinha sido interrompida, confira' : (repetido ? '; esses meses já estavam quitados, confira' : '')),
     url: 'index.html?cobrancaPlano=' + c.id, tag: 'cobranca-plano-' + c.id, notifId: 'cobranca:' + transacao, tipo: 'cobranca'
   });
   if (!repetido && !resto.length && !cobrancaOutrasAbertas_(cfg, { id: '', os: { IdCliente: c.plano.IdCliente } })) {
@@ -6788,6 +6791,29 @@ function actionCobrancaPlanoValidar(body) {
     cobrancaPlanoEnviar_(a.cfg, c, 'obrigado', a.por);
   }
   return { ok: true, meses: meses, valor: valor, idVenda: venda.IdVenda };
+}
+
+// action: cobrancaPlanoInterromper { idToken, idPlano } (gestão, 12/11): para a
+// cobrança dos meses em aberto (sem nenhum, do próximo) sem lançar venda e sem
+// mensagem ao cliente. Para cortesia, negociação ou mês que não vai ser cobrado
+// (pedido do Felipe). Os meses seguintes entram normalmente no vencimento. O link
+// antigo da InfinitePay continua pagável: se o cliente pagar, a venda sai e a
+// gestão é avisada (cobrancaPagouPlano_).
+function actionCobrancaPlanoInterromper(body) {
+  var a = cobrancaPlanoAuth_(body);
+  if (a.erro) return { ok: false, erro: a.erro };
+  if (!ehGestaoAtivaFs_(a.auth.vendedor)) return { ok: false, erro: 'Só a gestão interrompe a cobrança da mensalidade.' };
+  var c = a.c;
+  var meses = c.meses.length ? c.meses.slice() : [cobrancaPlanoProximoMes_(c)];
+  var cm = cobrancaJuntar_(c.cm, {
+    Meses: [], Ativa: false, Url: '', OrderNsu: '', Valor: 0,
+    InterrompidoEm: new Date().toISOString(), InterrompidoMeses: meses, InterrompidoPor: String(a.por)
+  });
+  var campos = { CobrancaMes: cm };
+  var ultimo = meses[meses.length - 1];
+  if (ultimo > String(c.plano.CobrancaUltimoMes || '')) campos.CobrancaUltimoMes = ultimo;
+  if (!fsCommit_(a.cfg, [fsUpdateRico_(a.cfg, 'planos/' + c.id, campos)])) return { ok: false, erro: 'Não foi possível gravar a interrupção.' };
+  return { ok: true, meses: meses };
 }
 
 // ── Link avulso (2026-11-03) ───────────────────────────────────────────

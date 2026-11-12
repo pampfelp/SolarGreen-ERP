@@ -111,4 +111,42 @@ reset();
 a=C.cobrancaEnviarAtendimento_({},C.disparoProps_(),cliente,{idAgendamento:'os1'},'5593991112222',agoraMs-25*60*60*1000);
 assert.equal(a.ok,false);assert.match(a.motivo,/Janela/);
 
+// ── Interromper a mensalidade (12/11): sem venda, sem mensagem, mês fechado ──
+{
+  let gestao=true;
+  const plano={IdCliente:'c1',Valor:39.9,CobrancaUltimoMes:'2026-11',CobrancaMes:{Ativa:true,Meses:['2026-11'],Valor:39.9,Url:'https://checkout.infinitepay.io/x/abc',OrderNsu:'n1',Desde:'2026-11-11',PagoEm:'2026-10-12T10:00:00.000Z'}};
+  let gravado=null;
+  C.cobrancaPlanoAuth_=()=>({cfg:{},auth:{vendedor:{IdVendedor:'adm'}},por:'Felipe',c:C.cobrancaPlanoContexto_({},'p1',JSON.parse(JSON.stringify(plano)))});
+  C.ehGestaoAtivaFs_=()=>gestao;
+  C.fsUpdateRico_=(cfg,caminho,campos,cond)=>({caminho,campos,cond});
+  reset(); db['clientes/c1']=cliente;
+  C.fsCommit_=(cfg,ws)=>{ escritas.push(...ws); gravado=ws; return true; };
+  let ri=C.actionCobrancaPlanoInterromper({idPlano:'p1'});
+  assert.equal(ri.ok,true,JSON.stringify(ri));
+  assert.deepEqual(Array.from(ri.meses),['2026-11']);
+  assert.equal(gravado.length,1,'só o plano é gravado');
+  assert.equal(gravado[0].caminho,'planos/p1');
+  const cm=gravado[0].campos.CobrancaMes;
+  assert.equal(cm.Ativa,false);assert.equal(cm.Meses.length,0);assert.equal(cm.Url,'');assert.equal(cm.OrderNsu,'');
+  assert.deepEqual(Array.from(cm.InterrompidoMeses),['2026-11']);assert.equal(cm.InterrompidoPor,'Felipe');
+  assert.equal(cm.PagoEm,'2026-10-12T10:00:00.000Z','não marca pagamento');
+  assert.equal(gravado[0].campos.CobrancaUltimoMes,undefined,'novembro já era o último mês posto em cobrança');
+  assert.ok(!escritas.some(w=>/^vendas\//.test(w.caminho)),'não lança venda');
+  assert.equal(graph.length,0,'não manda mensagem');
+  // A tela lê o resultado como interrompido
+  const R=require('../js/cobranca-regra.js');
+  const depois=Object.assign({},plano,{CobrancaMes:JSON.parse(JSON.stringify(cm))});
+  assert.equal(R.situacaoPlano(depois,new Date(2026,10,12)).situacao,'interrompido');
+  // Vendedor (não gestão) não interrompe
+  gestao=false; gravado=null;
+  ri=C.actionCobrancaPlanoInterromper({idPlano:'p1'});
+  assert.equal(ri.ok,false);assert.match(ri.erro,/Só a gestão/);assert.equal(gravado,null);
+  // Sem mês em aberto: interrompe o próximo e avança o último mês
+  gestao=true;
+  C.cobrancaPlanoAuth_=()=>({cfg:{},auth:{vendedor:{IdVendedor:'adm'}},por:'Felipe',c:C.cobrancaPlanoContexto_({},'p1',Object.assign({},plano,{CobrancaMes:{Ativa:false,Meses:[],PagoEm:'2026-11-05T10:00:00.000Z'}}))});
+  ri=C.actionCobrancaPlanoInterromper({idPlano:'p1'});
+  assert.equal(ri.ok,true);assert.deepEqual(Array.from(ri.meses),['2026-12']);
+  assert.equal(gravado[0].campos.CobrancaUltimoMes,'2026-12');
+}
+
 console.log('cobranca-atendimento-gas: ok');
