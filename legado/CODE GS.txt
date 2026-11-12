@@ -5729,14 +5729,18 @@ var COBRANCA_MODELOS = {
 };
 
 // Confirmação de OS por WhatsApp (03/11). Textos aprovados pelo Felipe em 04/11/2026 (trocam os de 03/11).
-// horas: usado quando a OS tem Hora inicio e Hora Fim; dia: quando falta uma delas.
+// horas: usado quando a OS tem Hora inicio e Hora Fim; dia: quando falta uma delas;
+// varios: OS com Data Fim depois de Data Inicio, Hora inicio e Hora Fim Servico.
 // campos: o que vai em {{1}}, {{2}}... na ordem. A regra de quando sai está em
 // js/confirmacao-os.js (e espelhada em osConfirmacaoEnviar_).
 var OS_MODELOS = {
   horas: { nome: 'os_confirmacao_v2', campos: ['nome', 'servico', 'data', 'inicio', 'fim', 'tecnico', 'valor', 'endereco'],
     texto: 'Tudo certo, {{1}}! Seu agendamento de {{2}} foi confirmado e está marcado para o dia {{3}}.\n\n* Horário: de {{4}} até {{5}}\n* Técnico: {{6}}\n* Valor do serviço: {{7}}\n* Endereço do serviço: {{8}}\n\nSe precisar remarcar ou tiver qualquer dúvida, é só responder essa mensagem.' },
   dia: { nome: 'os_confirmacao_v2_dia', campos: ['nome', 'servico', 'data', 'tecnico', 'valor', 'endereco'],
-    texto: 'Tudo certo, {{1}}! Seu agendamento de {{2}} foi confirmado e está marcado para o dia {{3}}.\n\n* Técnico: {{4}}\n* Valor do serviço: {{5}}\n* Endereço do serviço: {{6}}\n\nSe precisar remarcar ou tiver qualquer dúvida, é só responder essa mensagem.' }
+    texto: 'Tudo certo, {{1}}! Seu agendamento de {{2}} foi confirmado e está marcado para o dia {{3}}.\n\n* Técnico: {{4}}\n* Valor do serviço: {{5}}\n* Endereço do serviço: {{6}}\n\nSe precisar remarcar ou tiver qualquer dúvida, é só responder essa mensagem.' },
+  // Serviço de vários dias (OS com Data Fim e Hora Fim Servico). Texto aprovado pelo Felipe em 12/11/2026.
+  varios: { nome: 'os_confirmacao_v2_varios', campos: ['nome', 'servico', 'data', 'inicio', 'dataFim', 'fimServico', 'tecnico', 'valor', 'endereco'],
+    texto: 'Tudo certo, {{1}}! Seu agendamento de {{2}} foi confirmado e começa no dia {{3}}, às {{4}}.\n\n* Previsão de finalização: dia {{5}}, às {{6}}\n* Técnico: {{7}}\n* Valor do serviço: {{8}}\n* Endereço do serviço: {{9}}\n\nSe precisar remarcar ou tiver qualquer dúvida, é só responder essa mensagem.' }
 };
 // Modelos da primeira versão (03/11), trocados pelos de cima. osApagarModelosAntigos os remove da Meta.
 var OS_MODELOS_ANTIGOS = ['os_confirmacao', 'os_confirmacao_dia'];
@@ -6873,20 +6877,32 @@ function osConfirmacaoEnviar_(cfg, id, por) {
     if (!tel) return falhar('O cliente não tem um celular válido no cadastro.');
     var dia = osDataIso_(c.os['Data Inicio']);
     var inicio = osFormatarHora_(c.os['Hora inicio']), fim = osFormatarHora_(c.os['Hora Fim']);
-    var modelo = inicio && fim ? OS_MODELOS.horas : OS_MODELOS.dia;
+    var diaFim = osDataIso_(c.os['Data Fim']), fimServico = osFormatarHora_(c.os['Hora Fim Servico']);
+    var umDia = inicio && fim ? OS_MODELOS.horas : OS_MODELOS.dia;
+    var modelo = diaFim && diaFim > dia && inicio && fimServico ? OS_MODELOS.varios : umDia;
+    var modeloReserva = modelo; // pelo WhatsApp do vendedor vai sempre o texto completo
     var tecDoc = c.os.TecnicoResponsavel ? fsGet_(cfg, 'vendedores/' + c.os.TecnicoResponsavel) : null;
     var valorOs = cobrancaNumero_(c.os.Valor);
     var dados = {
       nome: cobrancaPrimeiroNome_(c.cliente), servico: (c.nomeServico || 'serviço').toLowerCase(),
       data: dia.slice(8, 10) + '/' + dia.slice(5, 7), inicio: inicio, fim: fim,
+      dataFim: diaFim ? diaFim.slice(8, 10) + '/' + diaFim.slice(5, 7) : '', fimServico: fimServico,
       tecnico: (tecDoc && String(tecDoc.dados.Nome || '').trim()) || 'equipe Solar Green',
       valor: valorOs < 2 ? 'gratuito' : cobrancaDinheiro_(valorOs),
       endereco: String(c.cliente.Endereco || c.cliente['Endereço'] || '').trim() || '-'
     };
     var r = cobrancaMandarModelo_(props, tel, modelo, dados); // só corpo, sem botão nem anexo
+    // Modelo de vários dias ainda em análise (ou recusado) na Meta: manda o de um dia,
+    // que diz só o primeiro dia, e anota por que não saiu o de vários dias.
+    if (!r.ok && modelo === OS_MODELOS.varios) {
+      registro.ModeloRecusado = modelo.nome + ' (' + r.codigo + '): ' + r.erro;
+      console.error('Confirmação da OS ' + c.id + ': ' + registro.ModeloRecusado);
+      modelo = umDia;
+      r = cobrancaMandarModelo_(props, tel, modelo, dados);
+    }
     if (!r.ok) {
       var f = falhar('A Meta recusou (' + r.codigo + '): ' + r.erro);
-      osPedirReserva_(cfg, c.cliente, { tel: tel, texto: cobrancaTextoReserva_(modelo, dados, '') }, c.id);
+      osPedirReserva_(cfg, c.cliente, { tel: tel, texto: cobrancaTextoReserva_(modeloReserva, dados, '') }, c.id);
       return f;
     }
     registro.Modelo = modelo.nome;
@@ -6934,7 +6950,7 @@ function actionOsConfirmar(body) {
 // (utilidade, sem botão). Mesmo molde de cobrancaCriarModelos.
 function osCriarModelos() {
   var props = disparoProps_();
-  var exemplo = { nome: 'Maria', servico: 'limpeza', data: '05/11', inicio: '8h', fim: '10h', tecnico: 'João', valor: 'R$ 150,00', endereco: 'Rua das Flores, 100, Marco' };
+  var exemplo = { nome: 'Maria', servico: 'limpeza', data: '05/11', inicio: '8h', fim: '10h', dataFim: '06/11', fimServico: '12h', tecnico: 'João', valor: 'R$ 150,00', endereco: 'Rua das Flores, 100, Marco' };
   var existentes = disparoListarModelosMeta_(props, 'name').map(function (t) { return t.name; });
   Object.keys(OS_MODELOS).forEach(function (k) {
     var m = OS_MODELOS[k];

@@ -15,11 +15,14 @@
   // na ordem de cada modelo.
   var CAMPOS = {
     os_confirmacao_v2: ['nome', 'servico', 'data', 'inicio', 'fim', 'tecnico', 'valor', 'endereco'],
-    os_confirmacao_v2_dia: ['nome', 'servico', 'data', 'tecnico', 'valor', 'endereco']
+    os_confirmacao_v2_dia: ['nome', 'servico', 'data', 'tecnico', 'valor', 'endereco'],
+    // Serviço de vários dias (Data Fim), texto aprovado pelo Felipe em 12/11/2026.
+    os_confirmacao_v2_varios: ['nome', 'servico', 'data', 'inicio', 'dataFim', 'fimServico', 'tecnico', 'valor', 'endereco']
   };
   var TEXTOS = {
     os_confirmacao_v2: 'Tudo certo, {{1}}! Seu agendamento de {{2}} foi confirmado e está marcado para o dia {{3}}.\n\n* Horário: de {{4}} até {{5}}\n* Técnico: {{6}}\n* Valor do serviço: {{7}}\n* Endereço do serviço: {{8}}\n\nSe precisar remarcar ou tiver qualquer dúvida, é só responder essa mensagem.',
-    os_confirmacao_v2_dia: 'Tudo certo, {{1}}! Seu agendamento de {{2}} foi confirmado e está marcado para o dia {{3}}.\n\n* Técnico: {{4}}\n* Valor do serviço: {{5}}\n* Endereço do serviço: {{6}}\n\nSe precisar remarcar ou tiver qualquer dúvida, é só responder essa mensagem.'
+    os_confirmacao_v2_dia: 'Tudo certo, {{1}}! Seu agendamento de {{2}} foi confirmado e está marcado para o dia {{3}}.\n\n* Técnico: {{4}}\n* Valor do serviço: {{5}}\n* Endereço do serviço: {{6}}\n\nSe precisar remarcar ou tiver qualquer dúvida, é só responder essa mensagem.',
+    os_confirmacao_v2_varios: 'Tudo certo, {{1}}! Seu agendamento de {{2}} foi confirmado e começa no dia {{3}}, às {{4}}.\n\n* Previsão de finalização: dia {{5}}, às {{6}}\n* Técnico: {{7}}\n* Valor do serviço: {{8}}\n* Endereço do serviço: {{9}}\n\nSe precisar remarcar ou tiver qualquer dúvida, é só responder essa mensagem.'
   };
 
   function normalizar(s) {
@@ -59,6 +62,12 @@
 
   function hora(o, campo) { return String((o && o[campo]) == null ? '' : o[campo]).trim(); }
 
+  // 'Data Fim' só vale depois de 'Data Inicio' (mesma regra de js/agenda-periodo.js).
+  function dataFimValida(o) {
+    var ini = dataISO(o && o['Data Inicio']), fim = dataISO(o && o['Data Fim']);
+    return ini && fim && fim > ini ? fim : '';
+  }
+
   // Sai quando a OS é nova ou mudou dia/horário, ainda é futura (ou de hoje) e não
   // está cancelada nem concluída. Editar uma OS antiga sem mexer na data não dispara.
   // anterior: o registro antes de salvar (ou null); novo: o que será gravado;
@@ -73,7 +82,9 @@
     if (!anterior) return true;
     return dataISO(anterior['Data Inicio']) !== dia ||
       hora(anterior, 'Hora inicio') !== hora(novo, 'Hora inicio') ||
-      hora(anterior, 'Hora Fim') !== hora(novo, 'Hora Fim');
+      hora(anterior, 'Hora Fim') !== hora(novo, 'Hora Fim') ||
+      dataFimValida(anterior) !== dataFimValida(novo) ||
+      (dataFimValida(novo) !== '' && hora(anterior, 'Hora Fim Servico') !== hora(novo, 'Hora Fim Servico'));
   }
 
   // Mesma leitura de cobrancaNumero_ no Apps Script: número, ou texto "R$ 1.234,50".
@@ -94,13 +105,17 @@
     return 'R$ ' + (Math.round(n * 100) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   }
 
-  // Sem hora de início ou de fim válida, vale o modelo só com o dia.
+  // Com data fim depois do início, hora de início e hora fim do serviço: o modelo de
+  // vários dias. Sem hora de início ou de fim válida, vale o modelo só com o dia.
   function modeloConfirmacao(dados) {
     var d = dados || {};
+    var ini = dataISO(d.data), fim = dataISO(d.dataFim);
+    if (ini && fim && fim > ini && formatarHora(d.horaInicio) && formatarHora(d.horaFimServico)) return 'os_confirmacao_v2_varios';
     return formatarHora(d.horaInicio) && formatarHora(d.horaFim) ? 'os_confirmacao_v2' : 'os_confirmacao_v2_dia';
   }
 
-  // dados: {nome, servico, data, horaInicio, horaFim, tecnico, valor, endereco}.
+  // dados: {nome, servico, data, horaInicio, horaFim, dataFim, horaFimServico, tecnico,
+  // valor, endereco}; dataFim e horaFimServico só na OS de vários dias.
   // Usa só o primeiro nome. Nenhum campo vai vazio: a Meta recusa.
   function textoConfirmacao(dados) {
     var d = dados || {};
@@ -109,6 +124,7 @@
     var campos = {
       nome: nome, servico: String(d.servico || '').toLowerCase(), data: dataDiaMes(d.data),
       inicio: formatarHora(d.horaInicio), fim: formatarHora(d.horaFim),
+      dataFim: dataDiaMes(d.dataFim), fimServico: formatarHora(d.horaFimServico),
       tecnico: String(d.tecnico || '').trim() || 'equipe Solar Green',
       valor: formatarValor(d.valor), endereco: String(d.endereco || '').trim() || '-'
     };

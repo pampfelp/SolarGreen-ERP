@@ -69,4 +69,27 @@ assert.ok(!/\{\{|undefined/.test(C.textoConfirmacao({nome:'a'})));
 assert.equal(C.modeloConfirmacao({horaInicio:'08:00',horaFim:'10:00'}),'os_confirmacao_v2');
 assert.equal(C.modeloConfirmacao({horaInicio:'08:00',horaFim:''}),'os_confirmacao_v2_dia');
 
+// serviço de vários dias (Data Fim): texto aprovado em 12/11/2026
+const varios=Object.assign({},base,{nome:'JOAO SILVA',servico:'Instalação sistema completa',data:'2026-11-13',horaInicio:'08:00',horaFim:'18:00',dataFim:'2026-11-14',horaFimServico:'12:00',tecnico:'Oziel Vanzeler',valor:0.01,endereco:'TRAVESSA OITAVA JD IMPERIAL , 22 QD 16'});
+assert.equal(C.modeloConfirmacao(varios),'os_confirmacao_v2_varios');
+assert.equal(C.textoConfirmacao(varios),
+  'Tudo certo, Joao! Seu agendamento de instalação sistema completa foi confirmado e começa no dia 13/11, às 8h.\n\n* Previsão de finalização: dia 14/11, às 12h\n* Técnico: Oziel Vanzeler\n* Valor do serviço: gratuito\n* Endereço do serviço: TRAVESSA OITAVA JD IMPERIAL , 22 QD 16\n\nSe precisar remarcar ou tiver qualquer dúvida, é só responder essa mensagem.');
+// data fim em dd/mm/aaaa também vale
+assert.equal(C.modeloConfirmacao(Object.assign({},varios,{data:'13/11/2026',dataFim:'14/11/2026'})),'os_confirmacao_v2_varios');
+// data fim igual ou antes do início, ou sem hora fim do serviço: volta ao modelo de um dia
+assert.equal(C.modeloConfirmacao(Object.assign({},varios,{dataFim:'2026-11-13'})),'os_confirmacao_v2');
+assert.equal(C.modeloConfirmacao(Object.assign({},varios,{dataFim:'2026-11-12'})),'os_confirmacao_v2');
+assert.equal(C.modeloConfirmacao(Object.assign({},varios,{horaFimServico:''})),'os_confirmacao_v2');
+assert.equal(C.modeloConfirmacao(Object.assign({},varios,{dataFim:''})),'os_confirmacao_v2');
+assert.ok(!/\{\{|undefined/.test(C.textoConfirmacao(varios)));
+// pôr, mudar ou tirar a data fim (e a hora fim do serviço) confirma de novo
+const dois=(extra)=>os(Object.assign({'Data Fim':'2026-11-06','Hora Fim Servico':'12:00'},extra||{}));
+assert.equal(C.precisaConfirmar(os(),dois(),hoje),true);
+assert.equal(C.precisaConfirmar(dois(),os(),hoje),true);
+assert.equal(C.precisaConfirmar(dois(),dois({'Data Fim':'2026-11-07'}),hoje),true);
+assert.equal(C.precisaConfirmar(dois(),dois({'Hora Fim Servico':'15:00'}),hoje),true);
+assert.equal(C.precisaConfirmar(dois(),dois({Valor:500}),hoje),false);
+// data fim inválida que some não é remarcação
+assert.equal(C.precisaConfirmar(os({'Data Fim':'2026-11-05'}),os(),hoje),false);
+
 console.log('confirmacao-os: ok');

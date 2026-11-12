@@ -589,7 +589,7 @@
     garantirClienteCarregadoAg(a.IdCliente).then(function(full){
       full=full||cliente;
       var tecnico=(vendedoresMap[a.TecnicoResponsavel]||{}).Nome;
-      var texto=window.SGConfirmacaoOS.textoConfirmacao({nome:nomeCliente(a.IdCliente),servico:nomeServico(a.IdServico),data:a['Data Inicio'],horaInicio:a['Hora inicio'],horaFim:a['Hora Fim'],tecnico:tecnico,valor:a.Valor,endereco:full.Endereco||full['Endereço']});
+      var texto=window.SGConfirmacaoOS.textoConfirmacao({nome:nomeCliente(a.IdCliente),servico:nomeServico(a.IdServico),data:a['Data Inicio'],horaInicio:a['Hora inicio'],horaFim:a['Hora Fim'],dataFim:a['Data Fim'],horaFimServico:a['Hora Fim Servico'],tecnico:tecnico,valor:a.Valor,endereco:full.Endereco||full['Endereço']});
       var url='https://wa.me/'+tel+'?text='+encodeURIComponent(texto);
       if(janela)janela.location.href=url; else window.open(url,'_blank','noopener');
     });
