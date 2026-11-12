@@ -325,6 +325,27 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 #expAnexoConteudo img{display:block;max-width:100%;max-height:65vh;margin:auto;object-fit:contain;}
 #expAnexoConteudo iframe,#expAnexoConteudo object{width:100%;height:65vh;border:0;}
 .exp-help{color:var(--ink-soft);font-size:12px;line-height:1.5;}
+.exp-passos{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+.exp-passos button{display:flex;align-items:center;gap:7px;border:1px solid var(--line);background:#fff;color:var(--ink-soft);border-radius:999px;padding:6px 12px 6px 6px;font:inherit;font-size:12px;cursor:pointer;}
+.exp-passos button .exp-num{margin:0;}
+.exp-passos button.feito{border-color:var(--accent);color:#335610;background:var(--accent-soft);}
+.exp-passos button.atual{border-color:#003122;color:#003122;font-weight:600;}
+.exp-num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#003122;color:#fff;font-size:11px;font-weight:700;margin-right:8px;flex:none;}
+.feito .exp-num{background:var(--accent-deep);}
+.exp-orienta{font-size:12.5px;color:var(--ink-soft);line-height:1.5;margin:-4px 0 12px;}
+.exp-confere{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:12px;margin-top:12px;font-size:12.5px;line-height:1.45;cursor:pointer;}
+.exp-confere.ok{border-color:var(--accent);background:var(--accent-soft);}
+.exp-confere input{margin-top:2px;}
+.exp-falta{display:grid;gap:6px;font-size:12px;}
+.exp-falta .item{display:flex;gap:8px;align-items:flex-start;color:var(--ink-soft);line-height:1.4;}
+.exp-falta .item::before{content:"";flex:none;width:12px;height:12px;margin-top:2px;border-radius:50%;border:1.5px solid var(--line);}
+.exp-falta .item.ok{color:#335610;}
+.exp-falta .item.ok::before{background:var(--accent-deep);border-color:var(--accent-deep);}
+.exp-falta .proximo{background:var(--warn-soft);color:#76440e;border-radius:7px;padding:9px 10px;font-weight:600;}
+.exp-falta .pronto{background:var(--accent-soft);color:#335610;border-radius:7px;padding:9px 10px;font-weight:600;}
+.exp-destaques{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px;}
+.exp-destaques .perda-kpi .pk-val{font-size:18px;}
+@media(max-width:720px){.exp-destaques{grid-template-columns:1fr;}}
 .exp-copy,.exp-metrica{font-size:11px;color:var(--ink-soft);line-height:1.45;}
 .exp-copy{margin-top:6px;}
 .exp-empty{color:var(--ink-soft);font-size:12px;}
@@ -643,76 +664,80 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 <div id="tab-expansao" class="tabpane" aria-labelledby="tabBtnExpansao">
   <div class="container">
     <main class="main">
+      <nav id="expPassos" class="exp-passos" aria-label="Passo a passo da proposta de expansão"></nav>
       <p id="expAviso" class="exp-help" role="status"></p>
       <p id="expModo" class="exp-help" role="status"></p>
       <fieldset id="expFormulario" aria-label="Dados da expansão">
         <div id="expClienteMount" class="cliente-mount"></div>
 
-        <section class="card" aria-labelledby="expAnexosTitulo">
-          <h2 class="card-head" id="expAnexosTitulo">Anexos</h2>
+        <section class="card exp-passo" id="expPasso2" aria-labelledby="expPasso2Titulo">
+          <h2 class="card-head" id="expPasso2Titulo"><span class="exp-num">2</span>Fatura da Equatorial</h2>
+          <p class="exp-orienta">Anexe a fatura em PDF e clique em <strong>Ler fatura</strong>. Depois compare os números abaixo com a fatura e confirme.</p>
           <div id="expAnexos" class="frow exp-anexos"></div>
-          <p class="exp-copy">Até 10 MB por arquivo. Documento em PDF, JPG ou PNG. Fatura em PDF.</p>
-        </section>
-
-        <section class="card" aria-labelledby="expLeituraTitulo">
-          <h2 class="card-head" id="expLeituraTitulo">Leitura da fatura</h2>
-          <button type="button" class="btn btn-primary" id="expLerFatura">Ler fatura</button>
-          <div id="expRevisao" class="exp-fields"></div>
+          <p class="exp-copy">Até 10 MB por arquivo. Fatura em PDF. O documento do cliente (PDF, JPG ou PNG) é opcional e vai no fim do PDF.</p>
+          <div class="exp-actions"><button type="button" class="btn btn-primary" id="expLerFatura">Ler fatura</button></div>
+          <div id="expResumoFatura"></div>
           <div id="expChecagens" aria-live="polite"></div>
+          <div id="expRevisao" class="exp-fields"></div>
           <div id="expFioB"></div>
         </section>
 
-        <section class="card" aria-labelledby="expUsinaTitulo">
-          <h2 class="card-head" id="expUsinaTitulo">Usina atual</h2>
-          <div class="frow">
-            <div class="field"><label for="expKwpAtual">Potência atual (kWp)</label><input id="expKwpAtual" data-usina="kwpAtual" type="number" min="0" step="any"></div>
-            <div class="field"><label for="expWpAtual">Potência por placa atual (Wp)</label><input id="expWpAtual" data-usina="wpAtual" type="number" min="0" step="any"></div>
-          </div>
+        <section class="card exp-passo" id="expPasso3" aria-labelledby="expPasso3Titulo">
+          <h2 class="card-head" id="expPasso3Titulo"><span class="exp-num">3</span>Usina atual do cliente</h2>
+          <p class="exp-orienta">Informe as placas que já estão instaladas e o desempenho da usina no período da fatura.</p>
           <div id="expModulosAtuais"></div>
-          <button type="button" class="btn btn-secondary" id="expAddModulo">Adicionar modelo de placa instalada</button>
+          <button type="button" class="btn btn-secondary exp-inline" id="expAddModulo">Adicionar outro modelo de placa</button>
           <div class="frow exp-fields">
-            <div class="field"><label for="expIdInversor">Inversor atual (opcional)</label><select id="expIdInversor" data-usina="idInversor"><option value="">Selecione um modelo</option></select></div>
-            <div class="field"><label for="expRegimeAtual">Regime GD atual</label><select id="expRegimeAtual" data-usina="regimeAtual"><option value="">Não informado</option><option>GD I</option><option>GD II</option><option>GD III</option></select></div>
+            <div class="field"><label for="expDesempenho" id="expDesempenhoRotulo">Desempenho da usina no período da fatura (%)</label><input id="expDesempenho" data-usina="desempenho" type="number" min="0" max="200" step="any" placeholder="ex.: 85"><small class="exp-copy">Veja no app do inversor ou no relatório de monitoramento. Deixe em branco se não souber.</small></div>
+            <div class="field"><label for="expIdInversor">Inversor instalado (opcional)</label><select id="expIdInversor" data-usina="idInversor" data-combo data-combo-vazio><option value="">Não informado</option></select></div>
           </div>
-          <label class="exp-option"><input data-usina="considerarRecuperacao" type="checkbox" checked> Considerar recuperação da usina atual</label>
-          <div class="frow exp-fields">
-            <div class="field"><label for="expDesempenho">Desempenho atual (%)</label><input id="expDesempenho" data-usina="desempenho" type="number" min="0" max="100" step="any"></div>
-            <div class="field"><label for="expBaseDesempenho">Base do desempenho</label><select id="expBaseDesempenho" data-usina="baseDesempenho"><option value="geracaoPrevista">Geração frente ao previsto</option><option value="PR">PR</option></select></div>
-            <div class="field"><label for="expGeracaoReal">Geração real no período (kWh)</label><input id="expGeracaoReal" data-usina="geracaoReal" type="number" min="0" step="any"></div>
-            <div class="field"><label for="expGeracaoPrevista">Geração prevista no período (kWh)</label><input id="expGeracaoPrevista" data-usina="geracaoPrevista" type="number" min="0" step="any"></div>
-            <div class="field"><label for="expPeriodoInicio">Início do período</label><input id="expPeriodoInicio" data-usina="periodoInicio" type="date"></div>
-            <div class="field"><label for="expPeriodoFim">Fim do período</label><input id="expPeriodoFim" data-usina="periodoFim" type="date"></div>
-            <div class="field"><label for="expIrradiacaoPeriodo">Irradiação no período (kWh/m²)</label><input id="expIrradiacaoPeriodo" data-usina="irradiacaoPeriodo" type="number" min="0" step="any"></div>
-            <div class="field"><label for="expPrReferencia">PR de referência (%)</label><input id="expPrReferencia" data-usina="prReferencia" type="number" min="0" max="100" step="any"></div>
-          </div>
+          <div id="expDiagnostico" aria-live="polite"></div>
+          <p class="exp-copy" id="expRegimeInfo"></p>
+          <details>
+            <summary>Avançado: outro período, potência total ou enquadramento</summary>
+            <div class="frow">
+              <div class="field"><label for="expKwpAtual">Só sei a potência total (kWp)</label><input id="expKwpAtual" data-usina="kwpAtual" type="number" min="0" step="any" placeholder="ex.: 5"></div>
+              <div class="field"><label for="expWpAtual">Potência de cada placa (Wp)</label><input id="expWpAtual" data-usina="wpAtual" type="number" min="0" step="any" placeholder="ex.: 550"></div>
+              <div class="field"><label for="expRegimeAtual">Enquadramento da usina atual</label><select id="expRegimeAtual" data-usina="regimeAtual" data-combo data-combo-vazio><option value="">Ler da fatura</option><option>GD I</option><option>GD II</option><option>GD III</option></select></div>
+              <div class="field"><label for="expDesempenhoAlvo">Desempenho esperado (%)</label><input id="expDesempenhoAlvo" data-usina="desempenhoAlvo" type="number" min="0" max="100" step="any" placeholder="100"></div>
+              <div class="field"><label for="expGeracaoReal">Geração real em outro período (kWh)</label><input id="expGeracaoReal" data-usina="geracaoReal" type="number" min="0" step="any"></div>
+              <div class="field"><label for="expGeracaoPrevista">Geração prevista nesse período (kWh)</label><input id="expGeracaoPrevista" data-usina="geracaoPrevista" type="number" min="0" step="any"></div>
+              <div class="field"><label for="expPeriodoInicio">Início do período</label><input id="expPeriodoInicio" data-usina="periodoInicio" type="date"></div>
+              <div class="field"><label for="expPeriodoFim">Fim do período</label><input id="expPeriodoFim" data-usina="periodoFim" type="date"></div>
+              <div class="field"><label for="expBaseDesempenho">Base do desempenho</label><select id="expBaseDesempenho" data-usina="baseDesempenho" data-combo><option value="geracaoPrevista">Geração frente ao previsto</option><option value="PR">PR</option></select></div>
+              <div class="field"><label for="expIrradiacaoPeriodo">Irradiação no período (kWh/m²)</label><input id="expIrradiacaoPeriodo" data-usina="irradiacaoPeriodo" type="number" min="0" step="any"></div>
+              <div class="field"><label for="expPrReferencia">PR de referência (%)</label><input id="expPrReferencia" data-usina="prReferencia" type="number" min="0" max="100" step="any"></div>
+              <div class="field"><label for="expAutoconsumoOriginal">Autoconsumo atual (kWh)</label><input id="expAutoconsumoOriginal" data-expansao="autoconsumoOriginal" type="number" min="0" step="any" placeholder="calculado"></div>
+            </div>
+          </details>
         </section>
 
-        <section class="card" aria-labelledby="expPremissasTitulo">
-          <h2 class="card-head" id="expPremissasTitulo">Expansão</h2>
+        <section class="card exp-passo" id="expPasso4" aria-labelledby="expPasso4Titulo">
+          <h2 class="card-head" id="expPasso4Titulo"><span class="exp-num">4</span>Expansão</h2>
+          <p class="exp-orienta">Confira o módulo e escolha o objetivo. A cidade e a produtividade vêm da fatura.</p>
           <div class="frow">
-            <div class="field"><label for="expIdModulo">Módulo novo</label><select id="expIdModulo" data-expansao="idModulo"><option value="">Selecione um módulo</option></select></div>
-            <div class="field"><label for="expWp">Potência do módulo (Wp)</label><input id="expWp" data-expansao="wp" type="number" min="1" step="any"></div>
-            <div class="field"><label for="expCidadeProd">Cidade para produtividade</label><select id="expCidadeProd" data-expansao="cidade" aria-describedby="expCidadeOrigem"><option value="">Selecione a cidade</option></select><small id="expCidadeOrigem" class="exp-copy"></small></div>
-            <div class="field"><label for="expProdutividade">Produtividade (kWh/kWp/mês)</label><input id="expProdutividade" data-expansao="produtividade" type="number" min="0" step="any"></div>
-            <div class="field"><label for="expFonteProdutividade">Fonte da produtividade</label><input id="expFonteProdutividade" data-expansao="fonteProdutividade" type="text"></div>
-            <div class="field"><label for="expDesempenhoAlvo">Desempenho alvo (%)</label><input id="expDesempenhoAlvo" data-usina="desempenhoAlvo" type="number" min="0" max="100" step="any"></div>
-            <div class="field"><label for="expMeta">Meta</label><select id="expMeta" data-expansao="meta"><option value="recorrente">Média recorrente</option><option value="ciclo">Ciclo da fatura</option><option value="residual">Residual desejado</option></select></div>
-            <div class="field"><label for="expRegimeExpansao">Regime da expansão</label><select id="expRegimeExpansao" data-expansao="regimeExpansao"><option>GD I</option><option selected>GD II</option><option>GD III</option></select></div>
-            <div class="field"><label for="expFracaoUtil">Fração útil</label><input id="expFracaoUtil" data-expansao="fracaoUtil" type="number" min="0" max="1" step="any" value="1"></div>
-            <div class="field"><label for="expResidualDesejado">Residual desejado (kWh)</label><input id="expResidualDesejado" data-expansao="residualDesejado" type="number" min="0" step="any"></div>
+            <div class="field"><label for="expIdModulo">Módulo novo</label><select id="expIdModulo" data-expansao="idModulo" data-combo><option value="">Selecione um módulo</option></select></div>
+            <div class="field"><label for="expMeta">Objetivo</label><select id="expMeta" data-expansao="meta" data-combo><option value="recorrente">Zerar a conta (média do ano)</option><option value="ciclo">Zerar o mês desta fatura</option><option value="residual">Deixar um consumo mínimo</option></select></div>
+            <div class="field" id="expResidualCampo" hidden><label for="expResidualDesejado">Consumo a deixar na conta (kWh/mês)</label><input id="expResidualDesejado" data-expansao="residualDesejado" type="number" min="0" step="any" placeholder="ex.: 100"></div>
+            <div class="field"><label for="expCidadeProd">Cidade</label><select id="expCidadeProd" data-expansao="cidade" data-combo aria-describedby="expCidadeOrigem"><option value="">Identificar pela fatura</option></select><small id="expCidadeOrigem" class="exp-copy"></small></div>
           </div>
-          <label class="exp-option"><input data-expansao="usaCreditosAntigos" type="checkbox"> Usar créditos antigos na meta</label>
+          <p class="exp-copy" id="expProdutividadeInfo"></p>
           <details>
-            <summary>Detalhes de instalação e do ciclo</summary>
+            <summary>Avançado: módulo, produtividade, regime e frações</summary>
             <div class="frow">
+              <div class="field"><label for="expWp">Potência do módulo (Wp)</label><input id="expWp" data-expansao="wp" type="number" min="1" step="any"></div>
               <div class="field"><label for="expAlturaM">Altura do módulo (m)</label><input id="expAlturaM" data-expansao="alturaM" type="number" min="0" step="any"></div>
               <div class="field"><label for="expLarguraM">Largura do módulo (m)</label><input id="expLarguraM" data-expansao="larguraM" type="number" min="0" step="any"></div>
-              <div class="field"><label for="expAutoconsumoOriginal">Autoconsumo atual (kWh)</label><input id="expAutoconsumoOriginal" data-expansao="autoconsumoOriginal" type="number" min="0" step="any"></div>
+              <div class="field"><label for="expProdutividade">Produtividade (kWh/kWp/mês)</label><input id="expProdutividade" data-expansao="produtividade" type="number" min="0" step="any"></div>
+              <div class="field"><label for="expFonteProdutividade">Fonte da produtividade</label><input id="expFonteProdutividade" data-expansao="fonteProdutividade" type="text"></div>
+              <div class="field"><label for="expRegimeExpansao">Regime das placas novas</label><select id="expRegimeExpansao" data-expansao="regimeExpansao" data-combo><option>GD I</option><option selected>GD II</option><option>GD III</option></select></div>
+              <div class="field"><label for="expFracaoUtil">Fração útil</label><input id="expFracaoUtil" data-expansao="fracaoUtil" type="number" min="0" max="1" step="any" value="1"></div>
               <div class="field"><label for="expFracaoAutoconsumoRecuperacao">Fração de autoconsumo da recuperação</label><input id="expFracaoAutoconsumoRecuperacao" data-expansao="fracaoAutoconsumoRecuperacao" type="number" min="0" max="1" step="any"></div>
               <div class="field"><label for="expFracaoAutoconsumoNova">Fração de autoconsumo da expansão</label><input id="expFracaoAutoconsumoNova" data-expansao="fracaoAutoconsumoNova" type="number" min="0" max="1" step="any"></div>
-              <div class="field"><label for="expReferenciaFutura">Referência futura (opcional)</label><input id="expReferenciaFutura" data-expansao="referenciaFutura" type="month"></div>
-              <div class="field"><label for="expSaldoElegivelFuturo">Saldo elegível na referência futura (kWh)</label><input id="expSaldoElegivelFuturo" data-expansao="saldoElegivelFuturo" type="number" min="0" step="any"></div>
+              <div class="field"><label for="expReferenciaFutura">Simular outro mês (opcional)</label><input id="expReferenciaFutura" data-expansao="referenciaFutura" type="month"></div>
+              <div class="field"><label for="expSaldoElegivelFuturo">Saldo de créditos nesse mês (kWh)</label><input id="expSaldoElegivelFuturo" data-expansao="saldoElegivelFuturo" type="number" min="0" step="any"></div>
             </div>
+            <label class="exp-option"><input data-expansao="usaCreditosAntigos" type="checkbox"> Usar créditos antigos para reduzir as placas</label>
           </details>
           <details>
             <summary>Referência GD II (fatura sem a parcela GD II)</summary>
@@ -726,29 +751,29 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
           </details>
         </section>
 
-        <section class="card" aria-labelledby="expResultadoTitulo">
-          <h2 class="card-head" id="expResultadoTitulo">Resultado</h2>
+        <section class="card exp-passo" id="expPasso5" aria-labelledby="expPasso5Titulo">
+          <h2 class="card-head" id="expPasso5Titulo"><span class="exp-num">5</span>Resultado e PDF</h2>
           <div id="expResultado"></div>
-        </section>
-
-        <section class="card" aria-labelledby="expPropostaTitulo">
-          <h2 class="card-head" id="expPropostaTitulo">Dados da proposta</h2>
-          <div class="frow">
-            <div class="field"><label for="expNumero">Número</label><input id="expNumero" data-proposta="Numero" type="text"></div>
+          <div class="frow exp-fields">
+            <div class="field"><label for="expStatus">Status</label><select id="expStatus" data-proposta="Status" data-combo><option>Rascunho</option><option>Enviada</option><option>Aceita</option><option>Recusada</option></select></div>
             <div class="field"><label for="expData">Data</label><input id="expData" data-proposta="Data" type="date"></div>
+            <div class="field"><label for="expNumero">Número</label><input id="expNumero" data-proposta="Numero" type="text" placeholder="gerado ao salvar"></div>
           </div>
-          <div class="field"><label for="expStatus">Status</label><select id="expStatus" data-proposta="Status"><option>Rascunho</option><option>Enviada</option><option>Aceita</option><option>Recusada</option></select></div>
-          <div class="field"><label for="expObservacoes">Observações</label><textarea id="expObservacoes" data-proposta="Observacoes"></textarea></div>
+          <div class="field"><label for="expObservacoes">Observações (opcional)</label><textarea id="expObservacoes" data-proposta="Observacoes"></textarea></div>
         </section>
       </fieldset>
       <div class="exp-actions">
-        <button type="button" class="btn btn-primary" id="expSalvar">Salvar</button>
-        <button type="button" class="btn btn-secondary" id="expPdf">Gerar PDF</button>
+        <button type="button" class="btn btn-primary" id="expPdf">Gerar PDF</button>
+        <button type="button" class="btn btn-secondary" id="expSalvar">Salvar</button>
         <button type="button" class="btn btn-secondary" id="expNova">Nova proposta</button>
         <button type="button" class="btn btn-secondary" id="expRecalcular" hidden>Recalcular com os valores de hoje</button>
       </div>
     </main>
     <aside class="aside exp-aside">
+      <section class="card" aria-labelledby="expFaltaTitulo">
+        <h2 class="card-head" id="expFaltaTitulo">Para gerar o PDF</h2>
+        <div id="expFalta" class="exp-falta" aria-live="polite"></div>
+      </section>
       <section class="card" aria-labelledby="expResumoTitulo">
         <h2 class="card-head" id="expResumoTitulo">Resumo da expansão</h2>
         <div id="expResumo" class="exp-summary"></div>
@@ -792,12 +817,12 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 <script src="../js/firestore-router.js?v=20261112a"></script>
 <script src="../js/sg-auth.js?v=20261111b"></script>
 <script src="../js/expansao-produtividade.js?v=20261111b"></script>
-<script src="../js/expansao-calculo.js?v=20261112b"></script>
+<script src="../js/expansao-calculo.js?v=20261112c"></script>
 <script src="../js/expansao-fatura-leitor.js?v=20261112b"></script>
 <script src="../js/expansao-anexos.js?v=20261111c"></script>
-<script src="../js/expansao-proposta.js?v=20261112a"></script>
-<script src="../js/expansao-pdf.js?v=20261111d"></script>
-<script src="../js/expansao-tela.js?v=20261112a"></script>
+<script src="../js/expansao-proposta.js?v=20261112b"></script>
+<script src="../js/expansao-pdf.js?v=20261112a"></script>
+<script src="../js/expansao-tela.js?v=20261112b"></script>
 
 <script>
 (function(){
@@ -814,6 +839,12 @@ function montarClienteCard(prefixo){
     botoes.className='exp-actions'; botoes.removeAttribute('style');
     var salvar=card.querySelector('#expSyncBtn');
     salvar.className='btn btn-secondary'; salvar.textContent='Salvar dados do cliente';
+    var cardCliente=card.querySelector('.card'), cabecalho=card.querySelector('.card-head');
+    if(cardCliente)cardCliente.classList.add('exp-passo');
+    if(cabecalho){
+      cabecalho.insertAdjacentHTML('afterbegin','<span class="exp-num">1</span>');
+      cabecalho.insertAdjacentHTML('afterend','<p class="exp-orienta">Escolha o cliente na lista. Se ele não estiver cadastrado, preencha o nome e clique em <strong>Salvar dados do cliente</strong>.</p>');
+    }
   }else{
     card.querySelectorAll('[data-exp-cliente]').forEach(function(el){el.remove();});
   }
@@ -1005,7 +1036,7 @@ window.SGCombo=window.SGCombo||{
     fechar();
     var listener={signal:eventos.signal};
     input.addEventListener('input',function(){ hidden.value=''; render(input.value); },listener);
-    input.addEventListener('focus',function(){ clearTimeout(timer); render(input.value); },listener);
+    input.addEventListener('focus',function(){ clearTimeout(timer); render(config.listaInteiraAoFocar&&hidden.value!==''?'':input.value); },listener);
     input.addEventListener('blur',function(){ timer=setTimeout(fechar,150); },listener);
     input.addEventListener('keydown',function(e){
       if(e.isComposing)return;

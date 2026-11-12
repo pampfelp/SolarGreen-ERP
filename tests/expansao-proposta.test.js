@@ -138,3 +138,35 @@ test('período parcial, residual condicional e recuperação dispensada', () => 
   p.expansao.residualDesejado = 150;
   assert.equal(arred(calcular(p).dimensionamento.residual), 1021.42);
 });
+
+test('desempenho no período da própria fatura: recuperação, autoconsumo e cenários aplicáveis', () => {
+  const api = require('../js/expansao-proposta.js');
+  const p = dados();
+  // Sem período próprio: o desempenho (%) vale para as datas de leitura da fatura (01 a 31/10).
+  p.usinaAtual = { modulosAtuais: [{ qtd: 10, wp: 500 }], desempenho: 0.8 };
+  const mensal = [120, 110, 115, 112, 118, 121, 130, 135, 133, 124, 119, 117];
+  p.expansao.produtividadeMensal = mensal;
+  const r = api.calcular(p);
+  // Outubro inteiro: 5 kWp × 124 = 620 kWh esperados; 80% → 496 kWh; faltam 124 kWh no mês.
+  assert.equal(arred(r.recuperacao.geracaoPrevista), 620);
+  assert.equal(arred(r.recuperacao.recuperacaoMensal), 124);
+  // Autoconsumo = geração do período − injetado da fatura (496 − 239).
+  const semSolar = r.simulacao.cenarios.find(c => c.nome === 'semSolar');
+  assert.equal(arred(semSolar.rede), arred(1410.42 + 257));
+  // Créditos antigos usados e recuperação > 0: quatro linhas, sem "sem solar".
+  assert.deepEqual(api.cenariosAplicaveis(r.simulacao, r.recuperacao).map(c => c.nome),
+    ['atualCom', 'atualSem', 'recuperadaSem', 'expansaoSem']);
+  const destaque = api.economiaDestaque(r.simulacao);
+  assert.equal(destaque.usouCreditos, true);
+  assert.equal(destaque.principal, r.simulacao.economiaSemCreditos);
+  // 100% ou mais: nada a recuperar e o cenário "recuperada" some.
+  p.usinaAtual.desempenho = 1;
+  const ok = api.calcular(p);
+  assert.equal(ok.recuperacao.recuperacaoMensal, 0);
+  assert.equal(api.cenariosAplicaveis(ok.simulacao, ok.recuperacao).some(c => c.nome.startsWith('recuperada')), false);
+  // Desempenho em branco: considera que a usina gera o esperado, com premissa visível.
+  delete p.usinaAtual.desempenho;
+  const branco = api.calcular(p);
+  assert.equal(branco.recuperacao, null);
+  assert.match(branco.simulacao.premissas.join(' '), /Desempenho da usina não informado/);
+});

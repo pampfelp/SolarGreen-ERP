@@ -45,7 +45,7 @@
 
     return [
       check('consumoFaturado', consumo, f.consumoFaturado, 0.01),
-      check('creditosAntigos', creditosInferidos, f.creditosAntigosNasLinhas, 0.01),
+      check('creditosAntigos', creditosInferidos, f.creditosAntigosNasLinhas, 0.05),
       check('totalFatura', soma, f.total, CENTAVOS),
       check('beneficioScee', efeitoScee, tributos, CENTAVOS)
     ];

@@ -129,23 +129,35 @@
       '</tbody></table><p>' + esc(frase) + '</p></div>';
   }
 
-  function tabelaCenarios(simulacao) {
-    const linhas = (simulacao.cenarios || []).map(c => '<tr><td>' + esc(cenarios[c.nome] || c.nome) + '</td>' +
-      [c.rede, c.injetado, c.creditoUsado, c.compensado, c.semCompensacao, c.saldoFinal].map(v =>
-        '<td>' + esc(numero(v)) + '</td>').join('') + '<td>' + esc(reais(c.total)) + '</td></tr>').join('');
+  // Só os cenários que se aplicam ao cliente (mesma escolha da tela, em SGExpansaoProposta).
+  function aplicaveis(simulacao, recuperacao) {
+    const proposta = typeof module !== 'undefined' && module.exports ? require('./expansao-proposta.js') : root?.SGExpansaoProposta;
+    return proposta?.cenariosAplicaveis
+      ? proposta.cenariosAplicaveis(simulacao, recuperacao)
+      : (simulacao.cenarios || []).map(c => ({ ...c, rotulo: cenarios[c.nome] || c.nome }));
+  }
+
+  function tabelaCenarios(simulacao, recuperacao) {
+    const linhas = aplicaveis(simulacao, recuperacao).map(c => '<tr><td>' + esc(c.rotulo) + '</td>' +
+      [c.rede, c.compensado, c.semCompensacao].map(v => '<td>' + esc(numero(v)) + '</td>').join('') +
+      '<td>' + esc(reais(c.total)) + '</td></tr>').join('');
+    const atual = (simulacao.cenarios || []).find(c => c.nome === 'atualCom');
+    const usouCreditos = (atual?.creditoUsado || 0) > 0.005;
+    const principal = usouCreditos ? simulacao.economiaSemCreditos : simulacao.economiaComCreditos;
     const economia = (titulo, e = {}) => '<tr><td>' + titulo + '</td><td>' + esc(reais(e.contaReferencia)) +
       '</td><td>' + esc(reais(e.contaExpansao)) + '</td><td><strong>' + esc(reais(e.valor)) + '</strong></td></tr>';
-    return '<table class="cenarios"><thead><tr><th>Cenário</th><th>Rede<br>(kWh)</th><th>Injeção<br>(kWh)</th><th>Créditos usados<br>(kWh)</th>' +
-      '<th>Compensado<br>(kWh)</th><th>Sem<br>compensação<br>(kWh)</th><th>Saldo final<br>(kWh)</th><th>Conta<br>(R$)</th></tr></thead><tbody>' +
-      (linhas || '<tr><td colspan="8">Cenários não informados.</td></tr>') + '</tbody></table>' +
-      '<h3>Economia estimada</h3><table><thead><tr><th>Comparação</th><th>Conta de referência</th><th>Conta com expansão</th>' +
-      '<th>Economia</th></tr></thead><tbody>' + economia('Considerando créditos anteriores', simulacao.economiaComCreditos) +
-      economia('Sem usar créditos anteriores', simulacao.economiaSemCreditos) + '</tbody></table>';
+    return '<table class="cenarios"><thead><tr><th>Situação</th><th>Energia da rede<br>(kWh)</th><th>Compensado<br>(kWh)</th>' +
+      '<th>Sem compensação<br>(kWh)</th><th>Conta<br>(R$)</th></tr></thead><tbody>' +
+      (linhas || '<tr><td colspan="5">Cenários não informados.</td></tr>') + '</tbody></table>' +
+      '<h3>Economia por mês</h3><table><thead><tr><th>Comparação</th><th>Conta de referência</th><th>Conta com expansão</th>' +
+      '<th>Economia</th></tr></thead><tbody>' +
+      economia(usouCreditos ? 'Sem os créditos antigos' : 'Conta de hoje', principal) +
+      (usouCreditos ? economia('Conta de hoje, com créditos antigos', simulacao.economiaComCreditos) : '') + '</tbody></table>';
   }
 
   function montarHtml(model = {}, { paginasDocumento = [] } = {}) {
     const { cliente = {}, fatura = {}, dimensionamento: d = {}, inversor = {}, expansao = {}, geracao: g = {},
-      simulacao = {}, comparacaoFioB = {}, imagemTelhado, numeroProposta, vendedor } = model;
+      simulacao = {}, comparacaoFioB = {}, imagemTelhado, numeroProposta, vendedor, recuperacao = null } = model;
     const percentualFioB = percentual(Number.isFinite(g.PercentualFioBGD2)
       ? g.PercentualFioBGD2 * (g.PercentualFioBGD2 <= 1 ? 100 : 1) : null);
     const rodape = 'Gerado em ' + data(g.DataGeracao) + ' · Fio B GD II: ' + percentualFioB + ' (' + (g.AnoFioB ?? AUSENTE) +
@@ -178,12 +190,13 @@
     const telhado = secao('Telhado 3D', imagemLocal(imagemTelhado) ? '<figure class="telhado"><img alt="Arranjo ilustrativo dos módulos" src="' +
       imagemTelhado + '"><figcaption>' + esc(numero(d.placasExistentes, 0)) + ' existentes · ' + esc(numero(d.placasNovas, 0)) +
       ' a adicionar · Desenho ilustrativo</figcaption></figure>' : '<p>Ilustração indisponível.</p>');
-    const simulada = (simulacao.cenarios || []).find(c => c.nome === 'expansaoCom') || {};
+    const usouCreditos = ((simulacao.cenarios || []).find(c => c.nome === 'atualCom')?.creditoUsado || 0) > 0.005;
+    const simulada = (simulacao.cenarios || []).find(c => c.nome === (usouCreditos ? 'expansaoSem' : 'expansaoCom')) || {};
     const partes = [
       identificacao, resumo, telhado,
       secao('Fatura atual', tabelaFatura(fatura.itens, fatura.total) + quadroFioB(comparacaoFioB, fatura.referencia)),
       secao('Fatura simulada', tabelaFatura(simulada.linhas, simulada.total, fatura.itensFinanceiros || [])),
-      secao('Cenários e economia', tabelaCenarios(simulacao))
+      secao('Cenários e economia', tabelaCenarios(simulacao, recuperacao))
     ];
     const paginas = paginasDocumento.filter(imagemLocal);
     if (!paginas.length) partes.push(secao('Documento do cliente anexado', '<p>Documento não informado.</p>'));

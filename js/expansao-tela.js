@@ -39,6 +39,19 @@
     cip: 'CIP/Cosip', servico: 'Serviço', multa: 'Multa', juros: 'Juros',
     parcelamento: 'Parcelamento', financeiro: 'Outro item financeiro', outro: 'Outro item'
   };
+  // Campos da fatura com opções fixas: viram combo digitável. O valor é o vocabulário que o
+  // cálculo e o registro de tarifas usam; o rótulo é o que o operador lê.
+  const FIXOS = {
+    subclasse: [['residencial', 'Residencial'], ['desconto social', 'Desconto social'], ['tarifa social', 'Tarifa social'],
+      ['baixa renda', 'Baixa renda'], ['rural', 'Rural'], ['comercial', 'Comercial'], ['industrial', 'Industrial']],
+    modalidade: [['convencional', 'Convencional'], ['tarifa branca', 'Tarifa branca']],
+    tipoFornecimento: [['monofasico', 'Monofásico'], ['bifasico', 'Bifásico'], ['trifasico', 'Trifásico']],
+    grupo: [['B', 'B (baixa tensão)'], ['A', 'A (média ou alta tensão)']],
+    subgrupo: [['B1', 'B1 residencial'], ['B2', 'B2 rural'], ['B3', 'B3 demais classes'], ['B4', 'B4 iluminação pública'], ['A4', 'A4']],
+    posto: [['', 'Não se aplica'], ['ponta', 'Ponta'], ['intermediario', 'Intermediário'], ['fora ponta', 'Fora ponta']],
+    regimeGD: [['', 'Não informado'], ['GD I', 'GD I'], ['GD II', 'GD II'], ['GD III', 'GD III']],
+    regimeCreditosAntigos: [['', 'Não informado'], ['GD I', 'GD I'], ['GD II', 'GD II'], ['GD III', 'GD III']]
+  };
   const FINANCEIROS = new Set(['cip', 'servico', 'multa', 'juros', 'parcelamento', 'financeiro']);
   const EVENTUAIS = new Set(['multa', 'juros', 'parcelamento']);
   const TIPOS_ANEXO = { Documento: 'Documento do cliente', Fatura: 'Fatura Equatorial' };
@@ -228,7 +241,63 @@
       $('expCidadeOrigem').textContent = [retorno.origemCidade, retorno.aviso,
         retorno.produtividadeMes ? 'No mês da fatura: ' + fmt(retorno.produtividadeMes) + ' kWh/kWp.' : ''
       ].filter(Boolean).join(' · ');
+      const prod = numero(noCampo('expansao', 'produtividade').value);
+      $('expProdutividadeInfo').textContent = prod
+        ? 'Produtividade usada: ' + fmt(prod) + ' kWh por kWp ao mês' + (retorno.cidade ? ' (' + retorno.cidade + ')' : ' (média regional)') +
+          '. Para trocar, abra "Avançado".'
+        : 'Produtividade indisponível: informe em "Avançado" com a fonte.';
+      sincronizarCombos();
       agendarResultado();
+    }
+
+    // Menu selecionável no padrão do sistema (SGCombo): cada <select data-combo> ganha o combo
+    // digitável por cima e continua sendo a fonte do valor, para o resto da tela não mudar.
+    const combos = new Map();
+
+    function prepararCombos(raiz = painel) {
+      for (const select of raiz.querySelectorAll('select[data-combo]')) {
+        if (combos.has(select) || !select.id) continue;
+        const wrap = document.createElement('div');
+        wrap.className = 'combo-wrap';
+        wrap.innerHTML = '<input type="text" autocomplete="off" id="' + select.id + 'Busca" placeholder="Clique e escolha">' +
+          '<input type="hidden" id="' + select.id + 'Valor"><div class="combo-dropdown hidden" id="' + select.id + 'Lista"></div>';
+        select.after(wrap);
+        select.hidden = true;
+        const rotulo = painel.querySelector('label[for="' + select.id + '"]');
+        if (rotulo) rotulo.htmlFor = select.id + 'Busca';
+        const entrada = wrap.querySelector('input[type=text]');
+        const opcoes = () => Array.from(select.options)
+          .filter(o => o.value !== '' || select.hasAttribute('data-combo-vazio')
+            || (FIXOS[select.dataset.fatura] || []).some(([v]) => v === ''))
+          .map(o => ({ id: o.value, label: o.text }));
+        const combo = window.SGCombo.criar({
+          inputId: select.id + 'Busca', hiddenId: select.id + 'Valor', dropdownId: select.id + 'Lista',
+          getOpcoes: opcoes, listaInteiraAoFocar: true,
+          onSelecionar: id => {
+            if (select.value === id) return;
+            select.value = id;
+            select.dispatchEvent(new Event('input', { bubbles: true }));
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        });
+        // Texto digitado sem escolher da lista volta para a opção atual ao sair do campo.
+        entrada.addEventListener('blur', () => setTimeout(() => sincronizarCombo(select), 180));
+        combos.set(select, { combo, entrada });
+        sincronizarCombo(select);
+      }
+    }
+
+    function sincronizarCombo(select) {
+      const c = combos.get(select);
+      if (!c || !select.isConnected) { combos.delete(select); return; }
+      c.entrada.disabled = select.disabled;
+      if (document.activeElement === c.entrada) return;
+      const opcao = select.selectedOptions[0];
+      c.combo?.setValor(select.value, opcao && (opcao.value !== '' || select.hasAttribute('data-combo-vazio')) ? opcao.text : '');
+    }
+
+    function sincronizarCombos() {
+      for (const select of Array.from(combos.keys())) sincronizarCombo(select);
     }
 
     async function carregarConfig() {
@@ -342,6 +411,7 @@
           ]);
           entrou = true;
           aviso('');
+          aplicarModuloPadrao();
           renderReferenciaGD2();
           atualizarProdutividade();
         } catch (e) {
@@ -373,8 +443,43 @@
         esc(tipo === 'n' ? eDecimal(valor) : valor) + '"></label>';
     }
 
+    // Módulo novo por padrão (decisão do Felipe, 12/11): o mais usado nas propostas salvas;
+    // sem histórico, o da configuração; sem configuração, o DMEGC 620 Wp do catálogo.
+    function moduloPadrao() {
+      const contagem = new Map();
+      for (const p of selecionados) {
+        const id = p.Expansao?.idModulo;
+        if (id && catalogo.modulos.some(m => m.IdModulo === id)) contagem.set(id, (contagem.get(id) || 0) + 1);
+      }
+      const maisUsado = [...contagem.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+      if (maisUsado) return maisUsado;
+      if (config.idModuloPadrao && catalogo.modulos.some(m => m.IdModulo === config.idModuloPadrao)) return config.idModuloPadrao;
+      return catalogo.modulos.find(m => /DM620M10RT-B72HST/i.test(m.Modelo || ''))?.IdModulo || '';
+    }
+
+    function aplicarModuloPadrao() {
+      const campo = noCampo('expansao', 'idModulo');
+      if (!campo || campo.value || salvo || visualizacao) return;
+      const id = moduloPadrao();
+      if (!id) return;
+      campo.value = id;
+      produtoEscolhido();
+      sincronizarCombos();
+      agendarResultado();
+    }
+
     function campoFatura([campo, label, tipo]) {
       const origem = nomesOrigem[fatura.origem?.[campo]] || 'Não encontrado';
+      if (FIXOS[campo]) {
+        const atual = fatura[campo] ?? '';
+        const opcoes = FIXOS[campo].slice();
+        if (atual && !opcoes.some(([v]) => v === atual)) opcoes.push([atual, atual]);
+        if (!opcoes.some(([v]) => v === '')) opcoes.unshift(['', 'Escolha']);
+        return '<div class="field"><label for="expFatura_' + campo + '">' + esc(label) + ' · <small data-origem="' + campo + '">' +
+          origem + '</small></label><select id="expFatura_' + campo + '" data-fatura="' + campo + '" data-combo>' +
+          opcoes.map(([v, r]) => '<option value="' + esc(v) + '"' + (v === atual ? ' selected' : '') + '>' + esc(r) + '</option>').join('') +
+          '</select></div>';
+      }
       return '<label class="field"><span>' + esc(label) + ' · <small data-origem="' + campo + '">' + origem +
         '</small></span><input data-fatura="' + campo + '" type="' + (tipo === 'n' ? 'text" inputmode="decimal' : tipo || 'text') +
         '" value="' + esc(tipo === 'n' ? eDecimal(fatura[campo]) : fatura[campo]) + '"></label>';
@@ -390,7 +495,8 @@
       if (!itens) return;
       itens.innerHTML = fatura.itens.map((item, i) =>
         '<div class="exp-medida" data-linha="' + i + '"><div class="frow">' +
-        '<label class="field"><span>Tipo do item</span><select data-item="tipo">' + tipoItem(item.tipo) + '</select></label>' +
+        '<div class="field"><label for="expItemTipo' + i + '">Tipo do item</label><select id="expItemTipo' + i +
+        '" data-item="tipo" data-combo>' + tipoItem(item.tipo) + '</select></div>' +
         campoDinamico('Descrição', 'data-item="descricao"', item.descricao) + '</div><div class="frow tri">' +
         [['quantidade', 'Quantidade (kWh)'], ['precoComTributos', 'Preço com tributos (R$/kWh)'],
           ['tarifaSemTributos', 'Tarifa sem tributos (R$/kWh)'], ['pisCofins', 'PIS/Cofins (R$)'],
@@ -399,19 +505,45 @@
         '</div><div class="actions-row"><label><input type="checkbox" data-item="noTotal"' +
         (item.noTotal === false ? '' : ' checked') + '> Lançado no total</label>' +
         '<button type="button" class="btn btn-secondary" data-remover-item="' + i + '">Remover item</button></div></div>').join('');
+      prepararCombos(itens);
+    }
+
+    const mesAnoRef = ref => /^\d{4}-\d{2}$/.test(ref || '') ? ref.slice(5) + '/' + ref.slice(0, 4) : '—';
+    const dataBR = iso => /^\d{4}-\d{2}-\d{2}$/.test(iso || '') ? iso.slice(8) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4) : '';
+
+    // Os seis números que o operador compara com o PDF; o resto fica em "Ver e corrigir".
+    function renderResumoFatura() {
+      const lida = Number.isFinite(fatura.consumoFaturado) || fatura.itens.length > 0;
+      if (!lida) {
+        $('expResumoFatura').innerHTML = '<p class="exp-help">Depois de ler a fatura, os números principais aparecem aqui para conferência.</p>';
+        return;
+      }
+      const creditos = fatura.creditosAntigosNasLinhas ?? fatura.creditosAntigosUsados;
+      $('expResumoFatura').innerHTML = '<div class="exp-kpis">' +
+        kpi('Referência', mesAnoRef(fatura.referencia), dataBR(fatura.dataLeituraAnterior) && dataBR(fatura.dataLeituraAtual)
+          ? 'Leituras ' + dataBR(fatura.dataLeituraAnterior) + ' a ' + dataBR(fatura.dataLeituraAtual) : '') +
+        kpi('Consumo faturado', fmt(fatura.consumoFaturado) + ' kWh', 'Medido: ' + fmt(fatura.consumoMedido) + ' kWh') +
+        kpi('Injetado no mês', fmt(fatura.injetadoNoCiclo) + ' kWh', 'Energia que a usina mandou para a rede') +
+        kpi('Compensado', fmt(fatura.consumoCompensado) + ' kWh', fmt(fatura.consumoSemCompensacao) + ' kWh pagos sem compensação') +
+        kpi('Créditos antigos usados', fmt(creditos) + ' kWh', 'Sobra de meses anteriores usada nesta fatura') +
+        kpi('Total da fatura', dinheiro(fatura.total), fatura.vencimento ? 'Vence em ' + dataBR(fatura.vencimento) : '') +
+        '</div>';
     }
 
     function renderFatura() {
+      renderResumoFatura();
       $('expRevisao').innerHTML = (fatura.avisos || []).map(a => '<p class="exp-copy">' + esc(a) + '</p>').join('') +
-        CAMPOS_FATURA.map(([grupo, lista], i) =>
-          '<details' + (i === 0 ? ' open' : '') + '><summary>' + esc(grupo) +
-          '</summary><div class="frow">' + lista.map(campoFatura).join('') + '</div></details>').join('') +
-        '<details><summary>Itens da fatura e lançamentos financeiros</summary><div id="expItensFatura"></div>' +
-        '<button type="button" class="btn btn-secondary" data-novo-item>Adicionar item</button></details>' +
+        '<details><summary>Ver e corrigir todos os campos lidos</summary>' +
+        CAMPOS_FATURA.map(([grupo, lista]) => '<h3 class="exp-subhead">' + esc(grupo) + '</h3><div class="frow">' +
+          lista.map(campoFatura).join('') + '</div>').join('') +
+        '<h3 class="exp-subhead">Itens da fatura e lançamentos financeiros</h3><div id="expItensFatura"></div>' +
+        '<button type="button" class="btn btn-secondary exp-inline" data-novo-item>Adicionar item</button></details>' +
         (fatura.avisosFinanceiros || []).map(a => '<p class="exp-copy">Aviso na fatura: ' + esc(a.descricao) + '</p>').join('') +
-        '<label class="exp-copy"><input id="expConfereFatura" type="checkbox"' + (fatura.revisada ? ' checked' : '') +
-        '> Revisei os dados e itens da fatura</label>';
+        '<label class="exp-confere' + (fatura.revisada ? ' ok' : '') + '"><input id="expConfereFatura" type="checkbox"' +
+        (fatura.revisada ? ' checked' : '') + '><span><strong>Conferi os números com a fatura em PDF.</strong> ' +
+        'Se algum estiver diferente, corrija em "Ver e corrigir todos os campos lidos" antes de marcar.</span></label>';
       renderItens();
+      prepararCombos($('expRevisao'));
     }
 
     function recalcularItens() {
@@ -421,7 +553,10 @@
 
     function invalidarRevisao() {
       fatura.revisada = false;
-      if ($('expConfereFatura')) $('expConfereFatura').checked = false;
+      if ($('expConfereFatura')) {
+        $('expConfereFatura').checked = false;
+        $('expConfereFatura').closest('.exp-confere')?.classList.remove('ok');
+      }
     }
 
     function renderModulos() {
@@ -573,14 +708,16 @@
           || (i < tarifas.length - 1 && !(f.kwhFaixa > 0))) || (bandeiraManual !== null && bandeiraManual < 0))) {
         throw new Error('Revise o preço, o limite das faixas e a bandeira tarifária.');
       }
+      // A tabela mensal da cidade só vale enquanto a produtividade não foi editada à mão.
+      const mensal = produto?.status === 'ok' && !produtividadeEditada && Array.isArray(produto.mensal) ? produto.mensal : null;
       return {
-        usinaAtual: { ...u, modulosAtuais: modulos, inversorAtual: inversorAtual || null,
+        usinaAtual: { ...u, modulosAtuais: modulos.filter(m => m.qtd > 0 && m.wp > 0), inversorAtual: inversorAtual || null,
           desempenho: u.desempenho == null ? null : u.desempenho / 100,
           desempenhoAlvo: u.desempenhoAlvo == null ? null : u.desempenhoAlvo / 100,
           prReferencia: u.prReferencia == null ? null : u.prReferencia / 100 },
         expansao: { ...e, cidadeManual, origemCidade: produto?.origemCidade || '',
           produtividade: fonte.mediaMensal ?? e.produtividade, fonteProdutividade: fonte.fonte ?? e.fonteProdutividade,
-          fracaoUtil: e.fracaoUtil ?? 1, faixasConsumo: tarifas,
+          fracaoUtil: e.fracaoUtil ?? 1, faixasConsumo: tarifas, produtividadeMensal: mensal,
           tarifasRevisadas: rascunho ? null : tarifasRevisadas(),
           rubricasRevisadas: regras, bandeiraManual: bandeiraManual }
       };
@@ -602,25 +739,30 @@
         try { resultado = calcularAgora(); erroCalculo = ''; }
         catch (e) { resultado = null; erroCalculo = e.message; }
         renderConferencia();
+        renderDiagnostico();
         renderResultado();
         atualizarModo();
       });
     }
 
     function renderConferencia() {
-      const nomes = { consumoFaturado: 'Consumo faturado', creditosAntigos: 'Créditos antigos',
-        totalFatura: 'Soma dos itens', beneficioScee: 'Benefício SCEE' };
-      const checagens = resultado?.conferencia || window.SGExpansaoCalculo.conferirFatura(fatura);
-      $('expChecagens').innerHTML = checagens.map(c => {
+      const nomes = {
+        consumoFaturado: 'Consumo faturado = compensado + sem compensação',
+        creditosAntigos: 'Créditos antigos = compensado − injetado no mês',
+        totalFatura: 'Soma dos itens = total da fatura', beneficioScee: 'Benefício SCEE = ICMS + PIS/Cofins da linha'
+      };
+      const lida = Number.isFinite(fatura.consumoFaturado) || fatura.itens.length > 0;
+      const checagens = lida ? (resultado?.conferencia || window.SGExpansaoCalculo.conferirFatura(fatura)) : [];
+      $('expChecagens').innerHTML = checagens.filter(c => c.ok !== null).map(c => {
         const formatar = c.campo === 'totalFatura' || c.campo === 'beneficioScee' ? dinheiro : n => fmt(n) + ' kWh';
-        const estado = c.ok === true ? 'Conferido' : c.ok === false
-          ? 'Calculado ' + formatar(c.calculado) + ' · informado ' + formatar(c.informado) +
-            ' · diferença ' + formatar(c.diferenca)
-          : 'Dados pendentes';
+        const estado = c.ok === true
+          ? 'Confere' + (Math.abs(c.diferenca || 0) >= 0.005 ? ' (diferença de ' + formatar(Math.abs(c.diferenca)) + ', arredondamento)' : '')
+          : 'Não confere: calculado ' + formatar(c.calculado) + ', na fatura ' + formatar(c.informado) +
+            '. Confira os campos em "Ver e corrigir".';
         return '<div class="exp-ponto' + (c.ok === true ? ' exp-verde' : '') + '">' +
           esc(nomes[c.campo]) + ' · ' + esc(estado) + '</div>';
-      }).join('') + (!Number.isFinite(fatura.saldoDisponivel)
-        ? '<p class="exp-copy">Saldo não informado na fatura. Solicite o extrato SCEE.</p>' : '');
+      }).join('') + (lida && fatura.consumoCompensado > 0 && !Number.isFinite(fatura.saldoDisponivel)
+        ? '<p class="exp-copy">A fatura não traz o saldo de créditos que ainda resta. Ele está no extrato de créditos da Equatorial; sem ele, o cálculo usa os créditos usados neste mês como mínimo.</p>' : '');
       const comp = resultado?.comparacaoFioB || window.SGExpansaoCalculo.compararFioB({
         inicio: fatura.dataLeituraAnterior, fim: fatura.dataLeituraAtual,
         vigencias: config.tarifas?.vigencias, subclasse: fatura.subclasse, modalidade: fatura.modalidade,
@@ -647,56 +789,122 @@
         esc(valor) + '</strong><span class="exp-copy">' + esc(detalhe) + '</span></div>';
     }
 
-    function tabelaCenarios(s) {
-      return '<div class="exp-table" tabindex="0" aria-label="Cenários de faturamento"><table><thead><tr>' +
-        ['Cenário', 'Rede (kWh)', 'Injeção', 'Créditos usados', 'Compensado', 'Sem compensação', 'Crédito novo', 'Saldo final', 'Total']
+    // Só os cenários que valem para este cliente (SGExpansaoProposta.cenariosAplicaveis).
+    function tabelaCenarios(s, recuperacao) {
+      const linhas = window.SGExpansaoProposta.cenariosAplicaveis(s, recuperacao);
+      return '<div class="exp-table" tabindex="0" aria-label="Comparação de contas"><table><thead><tr>' +
+        ['Situação', 'Energia da rede (kWh)', 'Compensado (kWh)', 'Sem compensação (kWh)', 'Conta']
           .map(h => '<th scope="col">' + h + '</th>').join('') +
-        '</tr></thead><tbody>' + s.cenarios.map(c => '<tr><th scope="row">' + esc(CENARIOS[c.nome]) + '</th>' +
-          [c.rede, c.injetado, c.creditoUsado, c.compensado, c.semCompensacao, c.creditoNovo, c.saldoFinal]
-            .map(n => '<td>' + fmt(n) + '</td>').join('') + '<td>' + dinheiro(c.total) + '</td></tr>').join('') +
-        '</tbody></table></div>';
+        '</tr></thead><tbody>' + linhas.map(c => '<tr><th scope="row">' + esc(c.rotulo) + '</th>' +
+          [c.rede, c.compensado, c.semCompensacao].map(n => '<td>' + fmt(n) + '</td>').join('') +
+          '<td>' + dinheiro(c.total) + '</td></tr>').join('') + '</tbody></table></div>';
+    }
+
+    // O que falta, em ordem, para chegar ao PDF. Alimenta a lista lateral, a barra de passos
+    // e a mensagem do resultado enquanto ele não pode ser calculado.
+    function pendencias() {
+      const u = dataCampos('usina');
+      const e = dataCampos('expansao');
+      const kwp = modulos.reduce((s, m) => s + ((m.qtd > 0 && m.wp > 0) ? m.qtd * m.wp / 1000 : 0), 0) || u.kwpAtual || 0;
+      const lida = Number.isFinite(fatura.consumoFaturado) || fatura.itens.length > 0;
+      const economia = resultado && window.SGExpansaoProposta.economiaDestaque(resultado.simulacao).principal;
+      return [
+        { passo: 1, ok: Boolean(clienteId), texto: 'Escolher o cliente' },
+        { passo: 2, ok: Boolean(locais.has('Fatura') || anexos.Fatura), texto: 'Anexar a fatura em PDF' },
+        { passo: 2, ok: lida, texto: 'Clicar em Ler fatura' },
+        { passo: 2, ok: Boolean(fatura.revisada), texto: 'Conferir os números e marcar a confirmação' },
+        { passo: 3, ok: kwp > 0, texto: 'Informar as placas instaladas' },
+        { passo: 3, ok: u.desempenho > 0, texto: 'Informar o desempenho da usina', opcional: true },
+        { passo: 4, ok: e.wp > 0, texto: 'Escolher o módulo novo' },
+        { passo: 4, ok: e.produtividade > 0, texto: 'Produtividade da cidade' },
+        { passo: 5, ok: Number.isFinite(economia?.valor), texto: 'Ver o resultado' }
+      ];
+    }
+
+    function renderProgresso() {
+      const lista = pendencias();
+      const obrigatorias = lista.filter(i => !i.opcional);
+      const proxima = obrigatorias.find(i => !i.ok);
+      const nomes = ['Cliente', 'Fatura', 'Usina atual', 'Expansão', 'Resultado e PDF'];
+      const alvo = ['expClienteCard', 'expPasso2', 'expPasso3', 'expPasso4', 'expPasso5'];
+      $('expPassos').innerHTML = nomes.map((nome, i) => {
+        const doPasso = obrigatorias.filter(p => p.passo === i + 1);
+        const estado = doPasso.every(p => p.ok) ? 'feito' : proxima?.passo === i + 1 ? 'atual' : '';
+        return '<button type="button" class="' + estado + '" data-ir-passo="' + alvo[i] + '"><span class="exp-num">' +
+          (estado === 'feito' ? '✓' : i + 1) + '</span>' + esc(nome) + '</button>';
+      }).join('');
+      $('expFalta').innerHTML = (salvo?.Geracao && !recalc
+        ? '<div class="pronto">Proposta gerada. Use Gerar PDF para imprimir de novo.</div>'
+        : proxima ? '<div class="proximo">Próximo: ' + esc(proxima.texto) + ' (passo ' + proxima.passo + ')</div>'
+          : '<div class="pronto">Tudo pronto. Clique em Gerar PDF.</div>') +
+        lista.map(i => '<div class="item' + (i.ok ? ' ok' : '') + '">' + esc(i.texto) + (i.opcional ? ' (opcional)' : '') + '</div>').join('');
+      return proxima;
+    }
+
+    // Passo 3: o desempenho vale para as datas de leitura da fatura; a tela diz se a usina
+    // está gerando o esperado e quanto falta.
+    function renderDiagnostico() {
+      const inicio = dataBR(fatura.dataLeituraAnterior), fim = dataBR(fatura.dataLeituraAtual);
+      $('expDesempenhoRotulo').textContent = inicio && fim
+        ? 'Desempenho da usina de ' + inicio + ' a ' + fim + ' (%)' : 'Desempenho da usina no período da fatura (%)';
+      const r = resultado?.recuperacao;
+      const u = dataCampos('usina');
+      let html = '';
+      if (r && Number.isFinite(r.desempenho)) {
+        const pct = fmt(r.desempenho * 100, 0) + '%';
+        html = r.recuperacaoMensal > 0.005
+          ? '<div class="exp-ponto">Está gerando ' + pct + ' do esperado' + (r.fonte === 'periodo da fatura' ? ' no período da fatura' : '') +
+            '. Faltaram ' + fmt(r.recuperacao, 0) + ' kWh; a proposta soma ' + fmt(r.recuperacaoMensal, 0) +
+            ' kWh/mês de recuperação da usina atual.</div>'
+          : '<div class="exp-ponto exp-verde">Está gerando o que deveria (' + pct + ' do esperado).</div>';
+      } else if (u.desempenho > 0) {
+        html = '<p class="exp-copy">Para avaliar o desempenho, informe as placas instaladas e leia a fatura.</p>';
+      }
+      $('expDiagnostico').innerHTML = html;
+      const atual = resultado?.regimeAtual;
+      $('expRegimeInfo').textContent = resultado
+        ? 'Enquadramento: usina atual ' + (atual || 'não identificado') + (u.regimeAtual ? ' (informado)' : atual ? ' (lido da fatura)' : '') +
+          ' · placas novas ' + (resultado.regimeExpansao || 'GD II') + ' (ligações a partir de 2023).'
+        : '';
     }
 
     function renderResultado() {
       const host = $('expResultado');
       const antigoTelhado = $('expTelhado');
+      const proxima = renderProgresso();
       if (!resultado) {
         limparTelhado();
-        host.innerHTML = '<p class="exp-help">' + esc(erroCalculo || 'Complete os dados para calcular a expansão.') + '</p>';
+        host.innerHTML = '<p class="exp-help">' + (proxima
+          ? 'Para calcular, falta: <strong>' + esc(proxima.texto) + '</strong> (passo ' + proxima.passo + ').'
+          : esc(erroCalculo || 'Complete os dados para calcular a expansão.')) + '</p>' +
+          (proxima && erroCalculo ? '<p class="exp-copy">' + esc(erroCalculo) + '</p>' : '');
         renderResumo();
         return;
       }
       const { dimensionamento: d, inversor, simulacao: s, recuperacao } = resultado;
       const exp = dataCampos('expansao');
-      const resumoEconomia = (titulo, r) => kpi(titulo, dinheiro(r.valor),
-        dinheiro(r.contaReferencia) + ' → ' + dinheiro(r.contaExpansao));
-      const qtd = n => Number.isFinite(n) ? fmt(n, 0) + ' placas' : 'Quantidade não informada';
+      const destaque = window.SGExpansaoProposta.economiaDestaque(s);
       const modelos = (inversor?.modelos || []).map(m => [m.Marca, m.Modelo].filter(Boolean).join(' '));
-      host.innerHTML = '<div class="perda-card"><h3 class="card-head">Indicadores do ciclo</h3><div class="exp-kpis">' +
-        kpi('Consumo faturado', fmt(fatura.consumoFaturado) + ' kWh', 'Medido: ' + fmt(fatura.consumoMedido) + ' kWh') +
-        kpi('Injetado no ciclo', fmt(fatura.injetadoNoCiclo) + ' kWh', fatura.referencia) +
-        kpi('Compensado', fmt(fatura.consumoCompensado) + ' kWh', fmt(fatura.consumoSemCompensacao) + ' kWh sem compensação') +
-        kpi('Créditos antigos', fmt(s.cenarios[0]?.creditoUsado) + ' kWh',
-          Number.isFinite(fatura.saldoDisponivel) ? 'Saldo: ' + fmt(fatura.saldoDisponivel) + ' kWh' : 'Saldo não informado') +
-        kpi('Desempenho atual', Number.isFinite(recuperacao?.desempenho) ? fmt(recuperacao.desempenho * 100) + '%' : '—',
-          'Recuperação: ' + fmt(recuperacao?.recuperacaoMensal ?? 0) + ' kWh/mês') +
-        kpi('Residual a cobrir', fmt(d.residual) + ' kWh', 'Geração média de referência') + '</div></div>' +
-        '<div class="exp-placas">' + medida('Atual', fmt(d.kwpAtual) + ' kWp', qtd(d.placasExistentes)) +
-        medida('A adicionar', fmt(d.kwpAdicional) + ' kWp', qtd(d.placasNovas) + ' × ' + fmt(exp.wp, 0) + ' Wp · ' + fmt(d.geracaoNova) + ' kWh/mês') +
-        medida('Total', fmt(d.kwpTotal) + ' kWp', Number.isFinite(d.placasExistentes) ? qtd(d.placasExistentes + d.placasNovas) : 'Quantidade parcial', 'destaque') +
-        '</div><div class="exp-ponto' + (inversor?.kw ? ' exp-verde' : '') + '">' +
-        (inversor?.kw ? '<strong>Inversor sugerido: ' + fmt(inversor.kw, 2) + ' kW</strong> · Overload ' + fmt(inversor.overload) +
-          (modelos.length ? ' · ' + esc(modelos.join(', ')) : ' · Potência de referência da configuração') :
-          '<strong>Inversor sem sugestão.</strong> Confira a potência atual e o catálogo para o fornecimento.') +
-        (typeof inversor?.atualSuporta === 'boolean' ? ' Inversor atual ' + (inversor.atualSuporta ? 'comporta' : 'excede o limite para') + ' a potência calculada.' : '') +
-        ' A compatibilidade elétrica depende do projeto e da distribuidora.</div>' +
+      const listaModelos = modelos.slice(0, 6).join(', ') + (modelos.length > 6 ? ' e mais ' + (modelos.length - 6) : '');
+      const p = destaque.principal || {};
+      host.innerHTML = '<div class="exp-destaques">' +
+        kpi('Adicionar', fmt(d.placasNovas, 0) + ' placas', fmt(exp.wp, 0) + ' Wp cada · ' + fmt(d.kwpAdicional) +
+          ' kWp · total da usina ' + fmt(d.kwpTotal) + ' kWp') +
+        kpi('Inversor sugerido', inversor?.kw ? fmt(inversor.kw, 0) + ' kW' : 'Sem sugestão',
+          inversor?.kw ? 'Overload ' + fmt(inversor.overload) + (modelos.length ? ' · ' + modelos.length + ' modelos no catálogo' : '')
+            : 'Nenhum modelo do catálogo serve para este fornecimento') +
+        kpi('Economia por mês', dinheiro(p.valor), dinheiro(p.contaReferencia) + ' → ' + dinheiro(p.contaExpansao)) +
+        '</div>' +
+        (destaque.contaDeHoje ? '<p class="exp-help">A fatura usou créditos antigos. Comparado com a conta de hoje (' +
+          dinheiro(destaque.contaDeHoje.contaReferencia) + '), a economia é de ' + dinheiro(destaque.contaDeHoje.valor) +
+          '. Quando os créditos acabarem, a diferença passa a ser a de cima.</p>' : '') +
+        (inversor?.kw && modelos.length ? '<p class="exp-copy">Modelos de ' + fmt(inversor.kw, 0) + ' kW: ' + esc(listaModelos) + '.' +
+          (typeof inversor.atualSuporta === 'boolean' ? ' O inversor instalado ' + (inversor.atualSuporta ? 'comporta' : 'não comporta') +
+            ' a potência total.' : '') + ' A compatibilidade elétrica depende do projeto e da distribuidora.</p>' : '') +
         '<h3 class="exp-subhead">Arranjo dos módulos</h3><div id="expTelhado"></div>' +
-        '<h3 class="exp-subhead">Comparação de contas</h3>' + tabelaCenarios(s) +
-        '<div class="perda-card exp-economia"><h3 class="card-head">Economia estimada</h3><div class="frow">' +
-        resumoEconomia('Considerando créditos anteriores', s.economiaComCreditos) +
-        resumoEconomia('Sem usar créditos anteriores', s.economiaSemCreditos) + '</div></div>' +
-        '<p class="exp-help">Valor dos créditos antigos usados no ciclo: ' + dinheiro(s.valorCreditosUsados) + '.</p>' +
-        (s.premissas.length ? '<ul class="exp-copy">' + s.premissas.map(p => '<li>' + esc(p) + '</li>').join('') + '</ul>' : '');
+        '<h3 class="exp-subhead">Comparação de contas</h3>' + tabelaCenarios(s, recuperacao) +
+        (s.premissas.length ? '<details><summary>Premissas do cálculo (' + s.premissas.length + ')</summary><ul class="exp-copy">' +
+          s.premissas.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></details>' : '');
       montarTelhado(d, exp, antigoTelhado);
       renderResumo();
     }
@@ -729,11 +937,13 @@
 
     function renderResumo() {
       const r = resultado?.resumo || {};
+      const destaque = resultado ? window.SGExpansaoProposta.economiaDestaque(resultado.simulacao) : {};
       $('expResumo').innerHTML = [
-        ['Potência total', Number.isFinite(r.KwpTotal) ? fmt(r.KwpTotal) + ' kWp' : '—'],
         ['Placas a adicionar', fmt(r.PlacasNovas, 0)],
-        ['Economia com créditos', dinheiro(r.EconomiaComCreditos)],
-        ['Economia sem créditos', dinheiro(r.EconomiaSemCreditos)]
+        ['Potência total', Number.isFinite(r.KwpTotal) ? fmt(r.KwpTotal) + ' kWp' : '—'],
+        ['Inversor sugerido', Number.isFinite(r.InversorSugeridoKW) ? fmt(r.InversorSugeridoKW, 0) + ' kW' : '—'],
+        ['Economia por mês', dinheiro(destaque.principal?.valor)],
+        ...(destaque.contaDeHoje ? [['Comparado à conta de hoje', dinheiro(destaque.contaDeHoje.valor)]] : [])
       ].map(([k, v]) => '<div class="sum-row"><span>' + k + '</span><strong class="sum-val">' + v + '</strong></div>').join('');
     }
 
@@ -913,7 +1123,7 @@
         await window.SGExpansaoPdf.imprimir({
           cliente: p.Resumo.Cliente, fatura: p.Fatura, dimensionamento: r.dimensionamento,
           inversor: r.inversor || {}, expansao: p.Expansao, geracao: p.Geracao, simulacao: r.simulacao,
-          comparacaoFioB: r.comparacaoFioB, imagemTelhado: imagem, documento,
+          comparacaoFioB: r.comparacaoFioB, recuperacao: r.recuperacao, imagemTelhado: imagem, documento,
           numeroProposta: p.Numero, vendedor: p.NomeVendedor
         }, { janela });
       } catch (e) {
@@ -923,6 +1133,7 @@
     }
 
     function atualizarModo() {
+      queueMicrotask(sincronizarCombos);
       const somenteLeitura = !liberado || visualizacao;
       const congelado = Boolean(salvo?.Geracao && !recalc);
       $('expFormulario').disabled = !liberado || ocupacao;
@@ -963,7 +1174,7 @@
       visualizacao = false; recalc = false; alterou = false; cidadeManual = '';
       produtividadeAutomatica = null; produtividadeEditada = false;
       locais.clear();
-      fatura = baseFatura(); anexos = {}; modulos = []; tarifas = []; regras = [];
+      fatura = baseFatura(); anexos = {}; modulos = [{ qtd: null, wp: null }]; tarifas = []; regras = [];
       preencherCliente();
       preencherCampos('usina', { baseDesempenho: 'geracaoPrevista', considerarRecuperacao: true });
       preencherCampos('expansao', { meta: 'recorrente', fracaoUtil: 1, regimeExpansao: 'GD II' });
@@ -973,7 +1184,7 @@
       aviso('');
       atualizarModo();
       agendarResultado();
-      if (entrou) atualizarProdutividade();
+      if (entrou) { atualizarProdutividade(); aplicarModuloPadrao(); }
     }
 
     function aplicarCampo(el) {
@@ -984,6 +1195,7 @@
         const campo = el.dataset.fatura;
         fatura[campo] = el.inputMode === 'decimal' ? numero(el.value) : el.value.trim() || null;
         fatura.origem[campo] = 'editado';
+        renderResumoFatura();
         painel.querySelector('[data-origem="' + campo + '"]').textContent = 'Editado';
         invalidarRevisao();
       }
@@ -1002,6 +1214,7 @@
       if (el.id === 'expBandeiraManual') bandeiraManual = numero(el.value);
       if (el.id === 'expConfereFatura') {
         fatura.revisada = el.checked;
+        el.closest('.exp-confere')?.classList.toggle('ok', el.checked);
         if (el.checked) window.requestAnimationFrame(registrarObservacao);
       }
       if (el.dataset.expansao === 'produtividade' && numero(el.value) !== produtividadeAutomatica) {
@@ -1063,6 +1276,7 @@
         if (el.dataset.expansao === 'idModulo') { produtoEscolhido(); agendarResultado(); }
         if (el.dataset.expansao === 'cidade') { cidadeManual = el.value; produtividadeEditada = false; atualizarProdutividade(); }
         if (['meta', 'referenciaFutura'].includes(el.dataset.expansao)) atualizarProdutividade();
+        if (el.dataset.expansao === 'meta') $('expResidualCampo').hidden = el.value !== 'residual';
         if (el.id === 'expCidade' || ['municipio', 'cep', 'referencia'].includes(el.dataset.fatura)) atualizarProdutividade();
       });
       painel.addEventListener('dragover', event => {
@@ -1081,6 +1295,7 @@
         const d = botao.dataset;
         if (d.escolherAnexo) $('expArquivo' + d.escolherAnexo).click();
         if (d.verAnexo) executar(() => verAnexo(d.verAnexo));
+        if (d.irPasso) $(d.irPasso)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         if (d.refGd2 === 'editar' || d.refGd2 === 'cancelar') {
           editandoRefGD2 = d.refGd2 === 'editar';
           renderReferenciaGD2();
@@ -1114,6 +1329,7 @@
     }
 
     conectar();
+    prepararCombos();
     nova();
     return { abrir: carregarAba, atualizarClientes: () => {
       if (entrou && !salvo && clienteId && clientes().some(c => c.id === clienteId)) renderAnexos();

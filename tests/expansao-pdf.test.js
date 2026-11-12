@@ -29,7 +29,10 @@ const model = {
   geracao: { DataGeracao: new Date('2026-11-12T02:30:00Z'), AnoFioB: 2027, PercentualFioBGD2: 0.75,
     ResolucaoTarifaria: 'REH nº 3.608', VigenciaInicio: '2026-09-18', VigenciaFim: '2027-08-06' },
   comparacaoFioB,
-  simulacao: { cenarios: [cenario],
+  // Fatura que usou créditos antigos: a simulada é a da expansão sem créditos, e a economia em destaque
+  // é a sem créditos (decisão de 12/11), com a da conta de hoje logo abaixo.
+  simulacao: { cenarios: [{ nome: 'atualCom', rede: 1410.42, creditoUsado: 530.19, compensado: 769.19,
+    semCompensacao: 641.23, total: 1440.59 }, { ...cenario, nome: 'expansaoSem' }],
     economiaComCreditos: { contaReferencia: 1440.59, contaExpansao: 955.89, valor: 484.70 },
     economiaSemCreditos: { contaReferencia: 1853.06, contaExpansao: 955.89, valor: 897.17 } }
 };
@@ -56,6 +59,9 @@ test('preserva sinais, valores da simulação e bloco dos itens financeiros', ()
   assert.match(html, /R\$\s955,89/);
   assert.match(html, /R\$\s484,70/);
   assert.match(html, /R\$\s897,17/);
+  assert.ok(html.indexOf('Sem os créditos antigos') < html.indexOf('Conta de hoje, com créditos antigos'));
+  assert.match(html, /Conta de hoje \(com créditos antigos\)<\/td>/);
+  assert.doesNotMatch(html, /Referência sem solar/);
 });
 
 test('quadro Fio B exige homologação, comparabilidade e diferença superior a 1%', () => {

@@ -34,6 +34,23 @@
     return meses;
   }
 
+  // Geração esperada de `kwp` entre duas leituras, dia a dia, pela produtividade mensal da cidade
+  // (12 valores em kWh/kWp). Sem a tabela mensal, usa a média mensal informada.
+  function geracaoPrevistaNoPeriodo(kwp, mensal, mediaMensal, inicio, fim) {
+    const meses = periodoMensal(inicio, fim);
+    if (!(kwp > 0) || !(meses > 0)) return null;
+    if (Array.isArray(mensal) && mensal.length === 12 && mensal.every(v => v > 0)) {
+      let kwh = 0;
+      for (let d = dataISO(inicio).getTime(); d <= dataISO(fim).getTime(); d += DIA) {
+        const dia = new Date(d);
+        const diasNoMes = new Date(Date.UTC(dia.getUTCFullYear(), dia.getUTCMonth() + 1, 0)).getUTCDate();
+        kwh += kwp * mensal[dia.getUTCMonth()] / diasNoMes;
+      }
+      return { kwh, meses };
+    }
+    return mediaMensal > 0 ? { kwh: kwp * mediaMensal * meses, meses } : null;
+  }
+
   function janelaMensal(referencia) {
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(referencia)) return null;
     const inicio = referencia + '-01';
@@ -239,15 +256,31 @@
     const kwp = modulosAtuais.length
       ? modulosAtuais.reduce((soma, m) => soma + m.qtd * m.wp, 0) / 1000 : usinaAtual.kwpAtual;
     let recuperacao = null;
-    if (usinaAtual.considerarRecuperacao === false || kwp === 0) {
-      avisos.push('O cenário considera expansão sem recuperar geração da usina atual.');
+    let autoconsumoDaFatura = null;
+    const desempenhoAlvo = usinaAtual.desempenhoAlvo ?? config.desempenhoAlvo ?? 1;
+    const periodoProprio = usinaAtual.periodoInicio || usinaAtual.periodoFim || numero(usinaAtual.geracaoReal);
+    if (!(kwp > 0) || usinaAtual.considerarRecuperacao === false) {
+      avisos.push('A expansão é calculada sem recuperar geração da usina atual.');
+    } else if (!periodoProprio) {
+      // Caminho simples: o desempenho (%) vale para o período de leitura da própria fatura.
+      const prevista = geracaoPrevistaNoPeriodo(kwp, expansao.produtividadeMensal, expansao.produtividade,
+        fatura.dataLeituraAnterior, fatura.dataLeituraAtual);
+      if (!(usinaAtual.desempenho > 0)) {
+        avisos.push('Desempenho da usina não informado: o cálculo considera que ela gera o esperado.');
+      } else if (!prevista) {
+        avisos.push('Faltam as datas de leitura da fatura ou a produtividade para avaliar o desempenho.');
+      } else {
+        const geracaoReal = prevista.kwh * usinaAtual.desempenho;
+        recuperacao = { ...calc.calcularRecuperacao({ geracaoReal, geracaoPrevista: prevista.kwh, desempenhoAlvo,
+          meses: prevista.meses }), meses: prevista.meses, inicio: fatura.dataLeituraAnterior, fim: fatura.dataLeituraAtual,
+          geracaoReal, fonte: 'periodo da fatura' };
+        if (numero(fatura.injetadoNoCiclo)) autoconsumoDaFatura = Math.max(0, geracaoReal - fatura.injetadoNoCiclo);
+      }
     } else {
       const temDatas = usinaAtual.periodoInicio || usinaAtual.periodoFim;
       const meses = temDatas ? periodoMensal(usinaAtual.periodoInicio, usinaAtual.periodoFim) : usinaAtual.meses;
       if (!(meses > 0 && Number.isFinite(meses))) throw new Error('Informe o período válido do diagnóstico de geração.');
-      recuperacao = calc.calcularRecuperacao({
-        ...usinaAtual, meses, kwp, desempenhoAlvo: usinaAtual.desempenhoAlvo ?? config.desempenhoAlvo ?? 1
-      });
+      recuperacao = calc.calcularRecuperacao({ ...usinaAtual, meses, kwp, desempenhoAlvo });
       if (!recuperacao) throw new Error('Informe a geração real e a geração prevista ou o desempenho que permita calculá-la.');
       recuperacao = { ...recuperacao, meses };
       if (!Number.isInteger(meses)) avisos.push('O período de recuperação foi convertido em meses proporcionais pelos dias de cada mês.');
@@ -292,7 +325,7 @@
       fracaoUtil: expansao.fracaoUtil,
       fracaoAutoconsumoRecuperacao: usinaAtual.fracaoAutoconsumoRecuperacao ?? expansao.fracaoAutoconsumoRecuperacao,
       fracaoAutoconsumoNova: expansao.fracaoAutoconsumoNova,
-      autoconsumoOriginal: usinaAtual.autoconsumoOriginal ?? expansao.autoconsumoOriginal,
+      autoconsumoOriginal: usinaAtual.autoconsumoOriginal ?? expansao.autoconsumoOriginal ?? autoconsumoDaFatura,
       recorrente, futuro: Boolean(referenciaFutura)
     });
     simulacao.premissas = [...new Set([
@@ -319,11 +352,34 @@
       InversorSugeridoKW: inversor?.kw ?? null, EconomiaComCreditos: simulacao.economiaComCreditos.valor,
       EconomiaSemCreditos: simulacao.economiaSemCreditos.valor
     };
-    return { dimensionamento, inversor, simulacao, comparacaoFioB, geracao, resumo,
+    return { dimensionamento, inversor, simulacao, comparacaoFioB, geracao, resumo, regimeAtual, regimeExpansao,
       recuperacao, conferencia: calc.conferirFatura(fatura) };
   }
 
-  const api = { calcular };
+  // Só os cenários que valem para a situação do cliente, na ordem em que se explicam.
+  // Sem créditos antigos na fatura, "com" e "sem" créditos são iguais; sem recuperação, a usina
+  // recuperada é igual à atual. A conta sem solar fica fora: não é a situação de quem já tem usina.
+  function cenariosAplicaveis(simulacao, recuperacao) {
+    const porNome = Object.fromEntries((simulacao?.cenarios || []).map(c => [c.nome, c]));
+    const usouCreditos = (porNome.atualCom?.creditoUsado || 0) > 0.005;
+    const recupera = (recuperacao?.recuperacaoMensal || 0) > 0.005;
+    const lista = [['atualCom', usouCreditos ? 'Conta de hoje (com créditos antigos)' : 'Conta de hoje']];
+    if (usouCreditos) lista.push(['atualSem', 'Conta de hoje sem os créditos antigos']);
+    if (recupera) lista.push([usouCreditos ? 'recuperadaSem' : 'recuperadaCom', 'Com a usina atual recuperada']);
+    lista.push([usouCreditos ? 'expansaoSem' : 'expansaoCom', 'Com a expansão']);
+    return lista.filter(([nome]) => porNome[nome]).map(([nome, rotulo]) => ({ ...porNome[nome], rotulo }));
+  }
+
+  // Economia em destaque (decisão do Felipe, 12/11): sem os créditos antigos, o ganho recorrente.
+  // Quando a fatura usou créditos antigos, a comparação com a conta de hoje vai como informação.
+  function economiaDestaque(simulacao) {
+    const atual = (simulacao?.cenarios || []).find(c => c.nome === 'atualCom');
+    const usouCreditos = (atual?.creditoUsado || 0) > 0.005;
+    return { principal: (usouCreditos ? simulacao?.economiaSemCreditos : simulacao?.economiaComCreditos) || null,
+      contaDeHoje: usouCreditos ? simulacao?.economiaComCreditos || null : null, usouCreditos };
+  }
+
+  const api = { calcular, cenariosAplicaveis, economiaDestaque, geracaoPrevistaNoPeriodo };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.SGExpansaoProposta = api;
 })(typeof window === 'undefined' ? globalThis : window);

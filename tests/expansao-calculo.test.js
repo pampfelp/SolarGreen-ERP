@@ -52,7 +52,8 @@ const simular = (mais = {}) => calc.simularCenarios({
 test('reconcilia kWh, créditos, total e tributos da fatura de referência', () => {
   const checagens = Object.fromEntries(calc.conferirFatura(fatura).map(c => [c.campo, c]));
   assert.equal(checagens.consumoFaturado.ok, true);
-  assert.equal(checagens.creditosAntigos.ok, false);
+  // 0,02 kWh é arredondamento da Equatorial: tolerância de 0,05 kWh.
+  assert.equal(checagens.creditosAntigos.ok, true);
   assert.equal(arred(checagens.creditosAntigos.diferenca), 0.02);
   assert.equal(checagens.totalFatura.calculado, 1440.59);
   assert.equal(checagens.totalFatura.ok, true);
