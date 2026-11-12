@@ -129,8 +129,12 @@
       && extrair(linha, 367, 375, vencimento) && extrair(linha, 423, 431, vencimento));
     const linhaUc = pagina.find(linha => extrair(linha, 218, 231, /^unidade consumidora$/));
     const ucFormatada = /^\d{1,3}(?:\.\d{3}){2,3}-\d{2}$|^\d{7,15}$/;
-    const uc = pagina.find(linha => linhaUc && linha.y < linhaUc.y && linhaUc.y - linha.y < 14
-      && extrair(linha, 218, 231, ucFormatada));
+    // Na 2ª via o rótulo é desenhado: a UC pontuada fica sozinha entre a leitura e o resumo.
+    const uc = linhaUc ? pagina.find(linha => linha.y < linhaUc.y && linhaUc.y - linha.y < 14
+      && extrair(linha, 218, 231, ucFormatada))
+      : pagina.find(linha => linha.y > resumo.y && linha.y < leitura.y
+        && extrair(linha, 200, 231, /^\d{1,3}(?:\.\d{3}){2,3}-\d{2}$/));
+    const posUc = linhaUc ? [218, 231] : [200, 231];
     const endereco = pagina.map(linha => extrair(linha, 19, 30, /^cep\s*:/)).find(Boolean);
     const cepCidade = endereco?.match(/^cep\s*:\s*(\d{5}-?\d{3})(?:\s+-\s+.*?)?\s+-\s+([\p{L} .'-]+)\s+-\s+PA$/iu);
     const tributos = pagina.flatMap(linha => {
@@ -151,7 +155,7 @@
     return {
       primeira, colunas, medicao, tributos,
       municipio: cepCidade?.[2]?.trim() ?? null,
-      uc: extrair(uc, 218, 231, ucFormatada)?.replace(/\D/g, '') ?? null,
+      uc: extrair(uc, posUc[0], posUc[1], ucFormatada)?.replace(/\D/g, '') ?? null,
       referencia: referenciaISO(extrair(resumo, 44, 51, referencia)),
       vencimento: dataISO(extrair(resumo, 119, 131, vencimento)),
       total: numero(extrair(resumo, 193, 240, total)),
@@ -380,7 +384,10 @@
   function lerTextoPosicional(paginas) {
     const linhas = remontarLinhas(paginas);
     if (!linhas.length) return vazio('sem-texto', 'Este PDF não contém texto selecionável. Preencha a fatura manualmente.');
-    const distribuidora = linhas.some(linha => /\bequatorial(?:\s+energia)?\s+para\b|\bpara\s+distribuidora\s+de\s+energia\b/.test(linha.normalizado));
+    // A 2ª via ("fatura arrecadada") traz o nome da distribuidora só no logotipo. A chave de acesso da
+    // NF3e (UF 15, CNPJ 04.895.728/0001-80 da Equatorial Pará, modelo 66) identifica a emissora.
+    const distribuidora = linhas.some(linha => /\bequatorial(?:\s+energia)?\s+para\b|\bpara\s+distribuidora\s+de\s+energia\b/.test(linha.normalizado)
+      || /\b15\d{4}0489572800018066\d{22}\b/.test(linha.normalizado));
     const tabela = linhas.some(colunasItens);
     const cabecalho = linhas.some(linha => /\b(?:unidade consumidora|conta contrato)\b/.test(linha.normalizado));
     const danfe = distribuidora && cabecalho && !tabela ? danfeEquatorial(linhas) : null;

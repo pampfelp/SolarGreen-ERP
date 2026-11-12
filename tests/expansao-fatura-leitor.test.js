@@ -159,6 +159,22 @@ test('distingue créditos inferidos de créditos impressos na DANFE', () => {
   )]);
   assert.equal(comValorImpresso.creditosAntigosUsados, 0);
   assert.equal(comValorImpresso.origem.creditosAntigosUsados, 'lido');
+
+  // 2ª via ("fatura arrecadada"): sem o nome da distribuidora nem o rótulo da UC em texto.
+  // A chave de acesso da NF3e identifica a Equatorial Pará; a UC pontuada fica entre a leitura e o resumo.
+  const segundaVia = danfe.filter(i => i.str !== 'Equatorial Pará' && i.str !== 'Unidade Consumidora').concat(
+    linha(745, [['0.000.000.000-00', 206, 293]]),
+    linha(740, [['15250104895728000180660000000000001000000000', 418]]),
+    linha(610, [['Esta Unidade Consumidora recebe excedente de energia', 163]])
+  );
+  const lida = lerTextoPosicional([segundaVia]);
+  assert.equal(lida.status, 'lido');
+  assert.equal(lida.distribuidora, 'Equatorial Pará');
+  assert.equal(lida.uc, '000000000000');
+  assert.equal(lida.total, 130);
+  // Chave de outro emissor não basta.
+  const outraChave = segundaVia.map(i => i.str.startsWith('1525') ? { ...i, str: i.str.replace('04895728000180', '11111111000111') } : i);
+  assert.equal(lerTextoPosicional([outraChave]).status, 'layout-desconhecido');
 });
 
 test('envia somente bytes ao PDF.js, lê todas as páginas e encerra o worker', async () => {
