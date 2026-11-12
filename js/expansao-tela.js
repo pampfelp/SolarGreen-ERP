@@ -806,6 +806,25 @@
           '<td>' + dinheiro(c.total) + '</td></tr>').join('') + '</tbody></table></div>';
     }
 
+    // O que impede a conta de algum cenário, em linguagem de operador e com o lugar onde preencher.
+    const ORIENTACAO_FALTA = {
+      'Tarifa de consumo para todas as faixas.': 'o preço do consumo: informe as faixas em Expansão › Tarifas e disponibilidade',
+      'Tarifa da bandeira no ciclo.': 'a bandeira do mês: marque "Bandeira verde confirmada" ou informe o valor em Expansão › Tarifas e disponibilidade',
+      'Tarifas para energia compensada no regime GD II.': 'o custo GD II: cadastre em Expansão › Referência GD II',
+      'Tarifas para energia compensada no regime GD I.': 'o custo da compensação GD I: confira os itens da fatura em "Ver e corrigir"',
+      'Saldo elegível no início do ciclo.': 'o saldo de créditos: informe em Expansão › Avançado',
+      'Preço com tributos em rubrica tarifária.': 'o preço com tributos de algum item: confira em "Ver e corrigir" ou em Tarifas e disponibilidade',
+      'Valor de item financeiro.': 'o valor de algum item financeiro: confira em "Ver e corrigir todos os campos lidos"'
+    };
+
+    function faltasDaEconomia() {
+      if (!resultado) return [];
+      const vazios = window.SGExpansaoProposta.cenariosAplicaveis(resultado.simulacao, resultado.recuperacao)
+        .filter(c => !Number.isFinite(c.total));
+      return [...new Set(vazios.flatMap(c => c.dadosAusentes || []))]
+        .map(x => ORIENTACAO_FALTA[x] || x.replace(/\.$/, '').toLowerCase());
+    }
+
     // O que falta, em ordem, para chegar ao PDF. Alimenta a lista lateral, a barra de passos
     // e a mensagem do resultado enquanto ele não pode ser calculado.
     function pendencias() {
@@ -823,7 +842,11 @@
         { passo: 3, ok: u.desempenho > 0, texto: 'Informar o desempenho da usina', opcional: true },
         { passo: 4, ok: e.wp > 0, texto: 'Escolher o módulo novo' },
         { passo: 4, ok: e.produtividade > 0, texto: 'Produtividade da cidade' },
-        { passo: 5, ok: Number.isFinite(economia?.valor), texto: 'Ver o resultado' }
+        Number.isFinite(economia?.valor)
+          ? { passo: 5, ok: true, texto: 'Economia calculada' }
+          : { passo: resultado ? 4 : 5, ok: false,
+            texto: resultado && faltasDaEconomia().length
+              ? 'Completar ' + faltasDaEconomia()[0] : 'Calcular a economia (preencha os passos acima)' }
       ];
     }
 
@@ -902,7 +925,9 @@
             : 'Nenhum modelo do catálogo serve para este fornecimento') +
         kpi('Economia por mês', dinheiro(p.valor), dinheiro(p.contaReferencia) + ' → ' + dinheiro(p.contaExpansao)) +
         '</div></div>' +
-        (destaque.contaDeHoje ? '<p class="exp-help">A fatura usou créditos antigos. Comparado com a conta de hoje (' +
+        (Number.isFinite(p.valor) ? '' : '<div class="exp-ponto"><strong>A economia ainda não foi calculada.</strong> Falta ' +
+          esc(faltasDaEconomia().join('; ') || 'completar os passos acima') + '.</div>') +
+        (Number.isFinite(destaque.contaDeHoje?.valor) ? '<p class="exp-help">A fatura usou créditos antigos. Comparado com a conta de hoje (' +
           dinheiro(destaque.contaDeHoje.contaReferencia) + '), a economia é de ' + dinheiro(destaque.contaDeHoje.valor) +
           '. Quando os créditos acabarem, a diferença passa a ser a de cima.</p>' : '') +
         (inversor?.kw && modelos.length ? '<p class="exp-copy">Modelos de ' + fmt(inversor.kw, 0) + ' kW: ' + esc(listaModelos) + '.' +
@@ -950,7 +975,7 @@
         ['Potência total', Number.isFinite(r.KwpTotal) ? fmt(r.KwpTotal) + ' kWp' : '—'],
         ['Inversor sugerido', Number.isFinite(r.InversorSugeridoKW) ? fmt(r.InversorSugeridoKW, 0) + ' kW' : '—'],
         ['Economia por mês', dinheiro(destaque.principal?.valor)],
-        ...(destaque.contaDeHoje ? [['Comparado à conta de hoje', dinheiro(destaque.contaDeHoje.valor)]] : [])
+        ...(Number.isFinite(destaque.contaDeHoje?.valor) ? [['Comparado à conta de hoje', dinheiro(destaque.contaDeHoje.valor)]] : [])
       ].map(([k, v]) => '<div class="sum-row"><span>' + k + '</span><strong class="sum-val">' + v + '</strong></div>').join('');
     }
 
