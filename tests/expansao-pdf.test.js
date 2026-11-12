@@ -29,18 +29,20 @@ const model = {
   geracao: { DataGeracao: new Date('2026-11-12T02:30:00Z'), AnoFioB: 2027, PercentualFioBGD2: 0.75,
     ResolucaoTarifaria: 'REH nº 3.608', VigenciaInicio: '2026-09-18', VigenciaFim: '2027-08-06' },
   comparacaoFioB,
-  // Fatura que usou créditos antigos: a simulada é a da expansão sem créditos, e a economia em destaque
-  // é a sem créditos (decisão de 12/11), com a da conta de hoje logo abaixo.
-  simulacao: { cenarios: [{ nome: 'atualCom', rede: 1410.42, creditoUsado: 530.19, compensado: 769.19,
-    semCompensacao: 641.23, total: 1440.59 }, { ...cenario, nome: 'expansaoSem' }],
+  // Fatura que usou créditos antigos: a fatura com 100% de abatimento é a da expansão sem créditos.
+  simulacao: { cenarios: [{ nome: 'atualCom', rede: 1410.42, injetado: 239, creditoUsado: 530.19, compensado: 769.19,
+    semCompensacao: 641.23, total: 1440.59 }, { nome: 'atualSem', total: 1853.06 }, { ...cenario, nome: 'expansaoSem' },
+    { nome: 'semSolar', total: 2350.10, linhas: [{ ...itemConsumo, descricao: 'Consumo (kWh)', valor: 2142.10 }, itemFinanceiro] }],
     economiaComCreditos: { contaReferencia: 1440.59, contaExpansao: 955.89, valor: 484.70 },
     economiaSemCreditos: { contaReferencia: 1853.06, contaExpansao: 955.89, valor: 897.17 } }
 };
 const figura = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZQAAAAASUVORK5CYII=';
-const titulos = ['Cliente', 'Resumo da expansão', 'Telhado 3D', 'Fatura atual', 'Fatura simulada', 'Cenários e economia',
+const titulos = ['Cliente', 'Resumo da expansão', 'Fatura atual', 'Fatura sem energia solar', 'Fatura com 100% de abatimento',
   'Documento do cliente anexado'];
+const kpis = html => [...html.matchAll(/<div class="kpi ([a-z]*)"><span>(.*?)<\/span><strong>(.*?)<\/strong>(?:<small>(.*?)<\/small>)?/g)]
+  .map(m => [m[1], m[2], m[3].replace(/\s/g, ' '), m[4] || '']);
 
-test('monta as sete partes A4 com rodapé congelado, data de Belém e escape de texto', () => {
+test('monta as seis partes A4 com rodapé congelado, data de Belém e escape de texto', () => {
   const html = pdf.montarHtml({ ...model, imagemTelhado: figura }, { paginasDocumento: [figura] });
   assert.deepEqual([...html.matchAll(/<h2>(.*?)<\/h2>/g)].map(m => m[1]), titulos);
   assert.match(html, /@page\{size:A4/);
@@ -57,11 +59,50 @@ test('preserva sinais, valores da simulação e bloco dos itens financeiros', ()
   assert.match(html, /Itens financeiros<\/th><\/tr><tr><td>Benefício tarifário líquido SCEE/);
   assert.match(html, /-669,02<\/td><\/tr><tr><td>Plano demonstrativo/);
   assert.match(html, /R\$\s955,89/);
-  assert.match(html, /R\$\s484,70/);
-  assert.match(html, /R\$\s897,17/);
-  assert.ok(html.indexOf('Sem os créditos antigos') < html.indexOf('Conta de hoje, com créditos antigos'));
-  assert.match(html, /Conta de hoje \(com créditos antigos\)<\/td>/);
-  assert.doesNotMatch(html, /Referência sem solar/);
+  assert.doesNotMatch(html, /Cenários|Telhado 3D/);
+});
+
+test('cliente com solar: KPIs da fatura atual, sem solar e com 100% de abatimento', () => {
+  const html = pdf.montarHtml({ ...model, imagemTelhado: figura });
+  assert.deepEqual(kpis(html), [
+    ['ganho', 'Geração por mês', '+917,87 kWh', 'Total: 1.487,27 kWh'],
+    ['ganho', 'Economia frente a uma conta sem energia solar', 'R$ 909,51', ''],
+    ['alerta', 'Abatido com créditos de meses anteriores', 'R$ 412,47', 'Não se repete nas próximas faturas'],
+    ['', 'Conta sem esse abatimento', 'R$ 1.853,06', ''],
+    ['alerta', 'Valor a mais que a fatura atual', '+R$ 909,51', ''],
+    ['ganho', 'Economia frente à fatura atual', 'R$ 484,70', '']
+  ]);
+  // O telhado fica na página do resumo, sem título próprio.
+  const resumo = html.slice(html.indexOf('<h2>Resumo da expansão'), html.indexOf('<h2>Fatura atual'));
+  assert.match(resumo, /class="telhado"/);
+  assert.match(html, /Consumo \(kWh\)<\/td><td>1\.410,42/);
+});
+
+test('sem créditos antigos não mostra o abatimento; multa e juros ficam fora das comparações', () => {
+  const cenarios = model.simulacao.cenarios.map(c => c.nome === 'atualCom' ? { ...c, creditoUsado: 0, total: 1436.50 }
+    : c.nome === 'expansaoSem' ? { ...c, nome: 'expansaoCom' } : c);
+  const html = pdf.montarHtml({ ...model, simulacao: { ...model.simulacao, cenarios } });
+  assert.deepEqual(kpis(html).map(k => k[1]), ['Geração por mês', 'Economia frente a uma conta sem energia solar',
+    'Valor a mais que a fatura atual', 'Economia frente à fatura atual']);
+  assert.match(html, /Comparações sem multa, juros e outros valores eventuais desta fatura \(conta de referência R\$\s1\.436,50\)/);
+});
+
+test('cliente sem solar: fatura atual e fatura simulada com energia solar', () => {
+  const cenarios = [{ nome: 'atualCom', injetado: 0, creditoUsado: 0, compensado: 0, total: 1440.59 },
+    { ...cenario, nome: 'expansaoCom' }, { nome: 'semSolar', total: 1440.59, linhas: [] }];
+  const html = pdf.montarHtml({ ...model, dimensionamento: { ...model.dimensionamento, kwpAtual: 0, placasExistentes: 0 },
+    simulacao: { cenarios } });
+  assert.deepEqual([...html.matchAll(/<h2>(.*?)<\/h2>/g)].map(m => m[1]),
+    ['Cliente', 'Resumo da expansão', 'Fatura atual', 'Fatura simulada com energia solar', 'Documento do cliente anexado']);
+  assert.deepEqual(kpis(html).slice(1), [['ganho', 'Economia por mês', 'R$ 484,70', '']]);
+});
+
+test('sem a consulta à ANEEL, tarifa, resolução e vigência saem do PDF', () => {
+  const html = pdf.montarHtml({ ...model, geracao: { DataGeracao: model.geracao.DataGeracao, AnoFioB: 2026,
+    PercentualFioBGD2: 0.6, FonteFioBPercentual: 'Lei 14.300/2022, art. 27' } });
+  assert.doesNotMatch(html, /Tarifa Fio B|Resolução|Vigência|Tarifas:/);
+  assert.match(html, /Percentual Fio B GD II<\/dt><dd>60%/);
+  assert.match(html, /Fio B GD II: 60% \(2026\)<\/footer>/);
 });
 
 test('quadro Fio B exige homologação, comparabilidade e diferença superior a 1%', () => {

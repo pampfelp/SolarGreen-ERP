@@ -97,9 +97,17 @@ test('ciclo de outro ano ajusta a referência pelo percentual do Fio B', () => {
   assert.equal(usada.fator, 1.25);
   const gd2 = r.simulacao.cenarios.find(c => c.nome === 'expansaoSem').linhas.find(l => l.tipo === 'gd2');
   assert.equal(arred(gd2.tarifaSemTributos, 6), 0.326164);
-  const semPercentual = calcular({ config: { referenciaGD2: referencia, fiob: {} },
+  // Sem config/fiob_gd2 no banco, vale a tabela da Lei 14.300.
+  const pelaLei = calcular({ config: { referenciaGD2: referencia, fiob: {} },
     expansao: { meta: 'ciclo', wp: 620, produtividade: 119.23, fracaoUtil: 1, regimeExpansao: 'GD II',
       referenciaFutura: '2027-03', saldoElegivelFuturo: 0 } });
+  assert.equal(pelaLei.geracao.ParametrosTarifarios.referenciaGD2.fator, 1.25);
+  assert.equal(pelaLei.geracao.PercentualFioBGD2, 0.75);
+  assert.equal(pelaLei.geracao.FonteFioBPercentual, 'Lei 14.300/2022, art. 27');
+  // A lei não fixa percentual depois de 2028: sem o banco, a premissa avisa.
+  const semPercentual = calcular({ config: { referenciaGD2: referencia, fiob: {} },
+    expansao: { meta: 'ciclo', wp: 620, produtividade: 119.23, fracaoUtil: 1, regimeExpansao: 'GD II',
+      referenciaFutura: '2029-03', saldoElegivelFuturo: 0 } });
   assert.match(semPercentual.simulacao.premissas.join(' '), /Falta o percentual do Fio B/);
 });
 

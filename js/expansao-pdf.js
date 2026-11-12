@@ -8,15 +8,6 @@
     resultado[casas] = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas });
     return resultado;
   }, {});
-  const cenarios = {
-    atualCom: 'Usina atual · com créditos anteriores',
-    atualSem: 'Usina atual · sem créditos anteriores',
-    recuperadaCom: 'Usina recuperada · com créditos anteriores',
-    recuperadaSem: 'Usina recuperada · sem créditos anteriores',
-    expansaoCom: 'Recuperada + expansão · com créditos anteriores',
-    expansaoSem: 'Recuperada + expansão · sem créditos anteriores',
-    semSolar: 'Referência sem solar'
-  };
   const css = '@page{size:A4;margin:15mm 14mm 21mm}' +
     '*{box-sizing:border-box}body{color:#1e1e1e;font:10pt/1.4 Arial,sans-serif;margin:0}main{width:100%}' +
     '.folha{padding-bottom:7mm}.folha+.folha{break-before:page}.marca{color:#003122;font-weight:700;border-bottom:2pt solid #78a527;padding-bottom:3mm;margin:0 0 7mm}' +
@@ -27,8 +18,10 @@
     'table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8.5pt;margin:2mm 0 4mm}' +
     'thead{display:table-header-group}tr{break-inside:avoid}th,td{border-bottom:1px solid #d9e3db;padding:2mm 1.1mm;text-align:right;vertical-align:top;overflow-wrap:anywhere}' +
     'th{color:#003122;background:#edf4ed}th:first-child,td:first-child{text-align:left;width:31%}.financeiro th,.total th,.total td{font-weight:700;background:#edf4ed}' +
-    '.cenarios th:first-child{width:25%}.cenarios th:nth-child(5),.cenarios th:nth-child(6){width:12.5%}.cenarios th:last-child{width:14%}.cenarios td:last-child{white-space:nowrap}' +
-    'figure{margin:3mm 0;text-align:center}img{max-width:100%;max-height:217mm;object-fit:contain}.telhado img{max-height:175mm}' +
+    '.kpis{display:flex;gap:3mm;margin:0 0 4mm;break-inside:avoid}.kpi{flex:1;background:#f2f7f2;border:1pt solid #dde8dd;padding:3mm}' +
+    '.kpi span{display:block;color:#42564b;font-size:9pt}.kpi strong{display:block;font-size:15pt;color:#003122}.kpi small{display:block;color:#42564b;font-size:8pt}' +
+    '.kpi.ganho strong{color:#4d7a17}.kpi.alerta{background:#fdf0ef;border-color:#efc4bf}.kpi.alerta strong,.kpi.alerta small{color:#b3261e}' +
+    'figure{margin:3mm 0;text-align:center}img{max-width:100%;max-height:217mm;object-fit:contain}.telhado{break-inside:avoid}.telhado img{max-height:115mm}' +
     '.comparacao{break-inside:avoid}.comparacao td:first-child{width:auto}.lembrete{color:#42564b;font-size:8.5pt}.anexo{break-inside:avoid}' +
     'footer{border-top:1px solid #d9e3db;padding-top:2mm;font-size:8pt;color:#42564b;text-align:center}' +
     '@media screen{tfoot{display:none}body{max-width:210mm;margin:8mm auto;padding:0 14mm}.folha{margin:0 0 12mm}.folha+.folha{border-top:1px solid #d9e3db;padding-top:5mm}}' +
@@ -129,39 +122,27 @@
       '</tbody></table><p>' + esc(frase) + '</p></div>';
   }
 
-  // Só os cenários que se aplicam ao cliente (mesma escolha da tela, em SGExpansaoProposta).
-  function aplicaveis(simulacao, recuperacao) {
-    const proposta = typeof module !== 'undefined' && module.exports ? require('./expansao-proposta.js') : root?.SGExpansaoProposta;
-    return proposta?.cenariosAplicaveis
-      ? proposta.cenariosAplicaveis(simulacao, recuperacao)
-      : (simulacao.cenarios || []).map(c => ({ ...c, rotulo: cenarios[c.nome] || c.nome }));
+  function kpis(lista) {
+    const validos = lista.filter(k => k && Number.isFinite(k.valor));
+    return validos.length ? '<div class="kpis">' + validos.map(k => '<div class="kpi ' + (k.classe || '') + '"><span>' +
+      esc(k.titulo) + '</span><strong>' + esc(k.texto ?? (k.sinal && k.valor > 0 ? '+' : '') + reais(k.valor)) + '</strong>' +
+      (k.nota ? '<small>' + esc(k.nota) + '</small>' : '') + '</div>').join('') + '</div>' : '';
   }
 
-  function tabelaCenarios(simulacao, recuperacao) {
-    const linhas = aplicaveis(simulacao, recuperacao).map(c => '<tr><td>' + esc(c.rotulo) + '</td>' +
-      [c.rede, c.compensado, c.semCompensacao].map(v => '<td>' + esc(numero(v)) + '</td>').join('') +
-      '<td>' + esc(reais(c.total)) + '</td></tr>').join('');
-    const atual = (simulacao.cenarios || []).find(c => c.nome === 'atualCom');
-    const usouCreditos = (atual?.creditoUsado || 0) > 0.005;
-    const principal = usouCreditos ? simulacao.economiaSemCreditos : simulacao.economiaComCreditos;
-    const economia = (titulo, e = {}) => '<tr><td>' + titulo + '</td><td>' + esc(reais(e.contaReferencia)) +
-      '</td><td>' + esc(reais(e.contaExpansao)) + '</td><td><strong>' + esc(reais(e.valor)) + '</strong></td></tr>';
-    return '<table class="cenarios"><thead><tr><th>Situação</th><th>Energia da rede<br>(kWh)</th><th>Compensado<br>(kWh)</th>' +
-      '<th>Sem compensação<br>(kWh)</th><th>Conta<br>(R$)</th></tr></thead><tbody>' +
-      (linhas || '<tr><td colspan="5">Cenários não informados.</td></tr>') + '</tbody></table>' +
-      '<h3>Economia por mês</h3><table><thead><tr><th>Comparação</th><th>Conta de referência</th><th>Conta com expansão</th>' +
-      '<th>Economia</th></tr></thead><tbody>' +
-      economia(usouCreditos ? 'Sem os créditos antigos' : 'Conta de hoje', principal) +
-      (usouCreditos ? economia('Conta de hoje, com créditos antigos', simulacao.economiaComCreditos) : '') + '</tbody></table>';
+  function diferenca(a, b) {
+    return Number.isFinite(a) && Number.isFinite(b) ? Math.round((a - b) * 100) / 100 : null;
   }
 
   function montarHtml(model = {}, { paginasDocumento = [] } = {}) {
     const { cliente = {}, fatura = {}, dimensionamento: d = {}, inversor = {}, expansao = {}, geracao: g = {},
-      simulacao = {}, comparacaoFioB = {}, imagemTelhado, numeroProposta, vendedor, recuperacao = null } = model;
+      simulacao = {}, comparacaoFioB = {}, imagemTelhado, numeroProposta, vendedor } = model;
     const percentualFioB = percentual(Number.isFinite(g.PercentualFioBGD2)
       ? g.PercentualFioBGD2 * (g.PercentualFioBGD2 <= 1 ? 100 : 1) : null);
-    const rodape = 'Gerado em ' + data(g.DataGeracao) + ' · Fio B GD II: ' + percentualFioB + ' (' + (g.AnoFioB ?? AUSENTE) +
-      ') · Tarifas: ' + (g.ResolucaoTarifaria || AUSENTE) + ', ' + vigencia(g);
+    const rodape = 'Gerado em ' + data(g.DataGeracao) + ' · Fio B GD II: ' + percentualFioB + ' (' + (g.AnoFioB ?? AUSENTE) + ')' +
+      (g.ResolucaoTarifaria ? ' · Tarifas: ' + g.ResolucaoTarifaria + ', ' + vigencia(g) : '');
+    // Tarifa, resolução e vigência só aparecem quando a consulta à ANEEL já trouxe os valores.
+    const tarifaAneel = [['Tarifa Fio B', numero(g.TarifaFioB, 6, ' R$/kWh')], ['Resolução', g.ResolucaoTarifaria],
+      ['Vigência', vigencia(g)]].filter(([, v]) => v && v !== AUSENTE);
     const identificacao = secao('Cliente', grupos([
       ['Nome', cliente.Nome ?? cliente.nome], ['CPF / CNPJ', cliente['CPF ou CNPJ'] ?? cliente.CPF ?? cliente.cpf ?? cliente.cpfCnpj],
       ['Telefone', cliente.Telefone ?? cliente.telefone], ['E-mail', cliente.Email ?? cliente.email],
@@ -172,32 +153,64 @@
       ['Proposta', numeroProposta], ['Vendedor', vendedor], ['Geração (Belém)', data(g.DataGeracao, true)]
     ]) + '<h3>Parâmetros tarifários</h3>' + grupos([
       ['Ano do ciclo', g.AnoFioB], ['Percentual Fio B GD II', percentualFioB],
-      ['Fonte do percentual Fio B', g.FonteFioBPercentual], ['Tarifa Fio B', numero(g.TarifaFioB, 6, ' R$/kWh')],
-      ['Resolução', g.ResolucaoTarifaria], ['Vigência', vigencia(g)],
+      ['Fonte do percentual Fio B', g.FonteFioBPercentual], ...tarifaAneel,
       ['ICMS', percentual(g.AliquotaICMS)], ['PIS', percentual(g.AliquotaPIS)],
       ['Cofins', percentual(g.AliquotaCofins)], ['Origem dos tributos',
         typeof g.OrigemTributos === 'object' && g.OrigemTributos
           ? Object.entries(g.OrigemTributos).map(([nome, fonte]) => nome + ' · ' + fonte).join(' / ') : g.OrigemTributos]
     ]));
+
     const potencia = (titulo, kwp) => '<div>' + titulo + '<strong>' + esc(numero(kwp, 2, ' kWp')) + '</strong></div>';
+    // Total = geração nova na proporção da potência total (mesma produtividade da geração nova).
+    const geracaoTotal = d.kwpAdicional > 0 && Number.isFinite(d.kwpTotal) && Number.isFinite(d.geracaoNova)
+      ? d.geracaoNova * d.kwpTotal / d.kwpAdicional : null;
+    const telhado = imagemLocal(imagemTelhado) ? '<figure class="telhado"><img alt="Arranjo ilustrativo dos módulos" src="' +
+      imagemTelhado + '"><figcaption>' + esc(numero(d.placasExistentes, 0)) + ' existentes · ' + esc(numero(d.placasNovas, 0)) +
+      ' a adicionar · Desenho ilustrativo</figcaption></figure>' : '<p class="lembrete">Ilustração indisponível.</p>';
     const resumo = secao('Resumo da expansão', '<div class="potencias">' + potencia('Atual', d.kwpAtual) +
-      potencia('A adicionar', d.kwpAdicional) + potencia('Total', d.kwpTotal) + '</div>' + grupos([
+      potencia('A adicionar', d.kwpAdicional) + potencia('Total', d.kwpTotal) + '</div>' +
+      kpis([{ titulo: 'Geração por mês', valor: d.geracaoNova, texto: '+' + numero(d.geracaoNova, 2, ' kWh'),
+        nota: Number.isFinite(geracaoTotal) ? 'Total: ' + numero(geracaoTotal, 2, ' kWh') : '', classe: 'ganho' }]) + grupos([
       ['Placas existentes', numero(d.placasExistentes, 0)], ['Placas novas', numero(d.placasNovas, 0)],
       ['Inversor sugerido', numero(inversor.kw, 2, ' kW')], ['Cidade', expansao.Cidade ?? expansao.cidade],
-      ['Produtividade', numero(expansao.Produtividade ?? expansao.produtividade, 2, ' kWh/kWp/mês')],
-      ['Geração nova', numero(d.geracaoNova, 2, ' kWh/mês')]
-    ]));
-    const telhado = secao('Telhado 3D', imagemLocal(imagemTelhado) ? '<figure class="telhado"><img alt="Arranjo ilustrativo dos módulos" src="' +
-      imagemTelhado + '"><figcaption>' + esc(numero(d.placasExistentes, 0)) + ' existentes · ' + esc(numero(d.placasNovas, 0)) +
-      ' a adicionar · Desenho ilustrativo</figcaption></figure>' : '<p>Ilustração indisponível.</p>');
-    const usouCreditos = ((simulacao.cenarios || []).find(c => c.nome === 'atualCom')?.creditoUsado || 0) > 0.005;
-    const simulada = (simulacao.cenarios || []).find(c => c.nome === (usouCreditos ? 'expansaoSem' : 'expansaoCom')) || {};
-    const partes = [
-      identificacao, resumo, telhado,
-      secao('Fatura atual', tabelaFatura(fatura.itens, fatura.total) + quadroFioB(comparacaoFioB, fatura.referencia)),
-      secao('Fatura simulada', tabelaFatura(simulada.linhas, simulada.total, fatura.itensFinanceiros || [])),
-      secao('Cenários e economia', tabelaCenarios(simulacao, recuperacao))
+      ['Produtividade', numero(expansao.Produtividade ?? expansao.produtividade, 2, ' kWh/kWp/mês')]
+    ]) + telhado);
+
+    // Ordem das faturas (decisão do Felipe, 12/11): sem solar, atual e simulada com solar; com solar,
+    // atual, sem solar e com 100% de abatimento.
+    const porNome = Object.fromEntries((simulacao.cenarios || []).map(c => [c.nome, c]));
+    const atual = porNome.atualCom || {};
+    const usouCreditos = (atual.creditoUsado || 0) > 0.005;
+    const temSolar = d.kwpAtual > 0 || atual.injetado > 0 || atual.compensado > 0;
+    const contaHoje = Number.isFinite(atual.total) ? atual.total : fatura.total;
+    const simulada = porNome[usouCreditos ? 'expansaoSem' : 'expansaoCom'] || {};
+    const semSolar = porNome.semSolar || {};
+    const financeiros = fatura.itensFinanceiros || [];
+    const semEventuais = Number.isFinite(fatura.total) && Number.isFinite(contaHoje) && Math.abs(fatura.total - contaHoje) > 0.005
+      ? '<p class="lembrete">Comparações sem multa, juros e outros valores eventuais desta fatura (conta de referência ' +
+        esc(reais(contaHoje)) + ').</p>' : '';
+    const tabelaAtual = tabelaFatura(fatura.itens, fatura.total) + quadroFioB(comparacaoFioB, fatura.referencia);
+    const faturas = temSolar ? [
+      secao('Fatura atual', kpis([
+        { titulo: 'Economia frente a uma conta sem energia solar', valor: diferenca(semSolar.total, contaHoje), classe: 'ganho' },
+        usouCreditos && { titulo: 'Abatido com créditos de meses anteriores', valor: diferenca(porNome.atualSem?.total, contaHoje),
+          nota: 'Não se repete nas próximas faturas', classe: 'alerta' },
+        usouCreditos && { titulo: 'Conta sem esse abatimento', valor: porNome.atualSem?.total }
+      ]) + semEventuais + tabelaAtual),
+      secao('Fatura sem energia solar', kpis([
+        { titulo: 'Valor a mais que a fatura atual', valor: diferenca(semSolar.total, contaHoje), sinal: true, classe: 'alerta' }
+      ]) + tabelaFatura(semSolar.linhas, semSolar.total, financeiros)),
+      secao('Fatura com 100% de abatimento', kpis([
+        { titulo: 'Economia frente à fatura atual', valor: diferenca(contaHoje, simulada.total), classe: 'ganho' }
+      ]) + tabelaFatura(simulada.linhas, simulada.total, financeiros))
+    ] : [
+      secao('Fatura atual', tabelaAtual),
+      secao('Fatura simulada com energia solar', kpis([
+        { titulo: 'Economia por mês', valor: diferenca(contaHoje, simulada.total), classe: 'ganho' }
+      ]) + semEventuais + tabelaFatura(simulada.linhas, simulada.total, financeiros))
     ];
+
+    const partes = [identificacao, resumo, ...faturas];
     const paginas = paginasDocumento.filter(imagemLocal);
     if (!paginas.length) partes.push(secao('Documento do cliente anexado', '<p>Documento não informado.</p>'));
     paginas.forEach((img, i) => partes.push(secao('Documento do cliente anexado',

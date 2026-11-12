@@ -4,6 +4,8 @@
   const calc = typeof module === 'object' && module.exports
     ? require('./expansao-calculo.js') : root.SGExpansaoCalculo;
   const DIA = 86400000;
+  // Lei 14.300/2022, art. 27: parcela do Fio B paga pela GD II (mesma tabela do Apps Script).
+  const FIOB_LEI_14300 = { 2023: 0.15, 2024: 0.30, 2025: 0.45, 2026: 0.60, 2027: 0.75, 2028: 0.90 };
 
   function numero(n) {
     return Number.isFinite(n) && n >= 0;
@@ -224,7 +226,9 @@
       throw new Error('Revise o consumo faturado e a injeção da fatura, em kWh.');
     }
     const avisos = [];
-    const fiob = config.fiob || {};
+    // Sem config/fiob_gd2 no banco, vale o percentual da Lei 14.300, art. 27 (o banco prevalece quando existe).
+    const fiob = { ...config.fiob, fonte: config.fiob?.fonte || 'Lei 14.300/2022, art. 27',
+      percentuais: { ...FIOB_LEI_14300, ...config.fiob?.percentuais } };
     const refTarifaria = config.tarifas || {};
     const vigencias = refTarifaria.vigencias || [];
     const janelaOriginal = { inicio: fatura.dataLeituraAnterior, fim: fatura.dataLeituraAtual };
