@@ -183,6 +183,16 @@
         && consumo.length === 1 && texto(f.modalidade) === 'convencional') {
       faixasConsumo = [taxa(consumo[0], consumo[0].quantidade)];
     }
+    // Desconto Social e baixa renda cobram o consumo em faixas. Com duas ou mais linhas de consumo
+    // na fatura, toda linha antes da última é uma faixa completa: a quantidade dela é o limite.
+    let faixasDaFatura = false;
+    if (!faixasConsumo.length && /social|baixa renda/.test(texto(f.subclasse)) && consumo.length >= 2
+        && texto(f.modalidade) === 'convencional'
+        && consumo.every((item, i) => i === 0 || item.precoComTributos > consumo[i - 1].precoComTributos)) {
+      faixasConsumo = consumo.map((item, i) => ({ ...taxa(item, item.quantidade),
+        ...(i < consumo.length - 1 ? { kwhFaixa: item.quantidade } : {}) }));
+      faixasDaFatura = true;
+    }
     const porRegime = {};
     const tipoGd = { 'GD II': 'gd2', 'GD III': 'gd3' }[regimeAtual];
     const q = f.consumoCompensado;
@@ -225,7 +235,7 @@
     const bandeiras = quantidadeSem > 0 && porBandeira.length
       ? porBandeira.map(item => taxa(item, quantidadeSem, true))
       : bandeiraVerde ? [{ precoComTributos: 0 }] : [];
-    return { faixasConsumo, bandeiras, porRegime, pisoDisponibilidade };
+    return { faixasConsumo, bandeiras, porRegime, pisoDisponibilidade, faixasDaFatura };
   }
 
   function montarFaturaSimulada(cenario, tarifas, itensFinanceiros = [], opcoes = {}) {

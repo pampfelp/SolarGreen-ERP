@@ -310,6 +310,12 @@
       fornecimento: fatura.tipoFornecimento, inversorAtual: usinaAtual.inversorAtual, overloadMax: config.overloadMax
     });
     const tarifasFatura = calc.tarifasDaFatura(fatura, { ...expansao, regimeAtual });
+    if (tarifasFatura.faixasDaFatura && !expansao.tarifasRevisadas?.faixasConsumo?.length) {
+      const f = tarifasFatura.faixasConsumo;
+      avisos.push('Faixas de consumo do ' + (fatura.subclasse || 'desconto social') + ' lidas da fatura: ' +
+        f.map((x, i) => (i < f.length - 1 ? 'até ' + x.kwhFaixa + ' kWh' : 'acima') + ' a R$ ' +
+          x.precoComTributos.toLocaleString('pt-BR', { maximumFractionDigits: 6 })).join('; ') + '.');
+    }
     const revistas = expansao.tarifasRevisadas || {};
     const tarifas = {
       ...tarifasFatura, ...revistas, porRegime: { ...tarifasFatura.porRegime, ...revistas.porRegime }

@@ -220,3 +220,20 @@ test('lê o catálogo real em W e respeita a ligação 127/220 V da UC', () => {
   assert.equal(calc.sugerirInversor({ kwpTotal: 11, catalogo, fornecimento: 'bifasico', inversorAtual: catalogo[0] }).atualSuporta, true);
   assert.equal(calc.sugerirInversor({ kwpTotal: 12.5, catalogo, fornecimento: 'bifasico', inversorAtual: catalogo[0] }).atualSuporta, false);
 });
+
+test('desconto social: faixas de consumo saem das linhas da fatura e reproduzem os R$ 1.492,15', () => {
+  const f = { subclasse: 'desconto social', modalidade: 'convencional', consumoSemCompensacao: 641.23, itens: [
+    { tipo: 'consumo', quantidade: 120, precoComTributos: 1.167917, tarifaSemTributos: 0.923628, pisCofins: 2.69, icms: 26.63, valor: 140.15 },
+    { tipo: 'consumo', quantidade: 521.23, precoComTributos: 1.285881, tarifaSemTributos: 1.016846, pisCofins: 12.88, icms: 127.35, valor: 670.24 }
+  ] };
+  const t = calc.tarifasDaFatura(f);
+  assert.equal(t.faixasDaFatura, true);
+  assert.equal(t.faixasConsumo[0].kwhFaixa, 120);
+  assert.equal(t.faixasConsumo[1].kwhFaixa, undefined);
+  // Usina atual sem créditos anteriores (seção 5.5): 1.171,42 kWh nas duas faixas.
+  const conta = calc.montarFaturaSimulada({ semCompensacao: 1171.42, compensadoPorRegime: {} },
+    { ...t, bandeiras: [{ precoComTributos: 0 }] });
+  assert.equal(arred(conta.linhas.filter(l => l.tipo === 'consumo').reduce((s, l) => s + l.valor, 0)), 1492.15);
+  // Linhas fora de ordem de preço não viram faixa.
+  assert.deepEqual(calc.tarifasDaFatura({ ...f, itens: [...f.itens].reverse() }).faixasConsumo, []);
+});
