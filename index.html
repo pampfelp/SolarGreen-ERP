@@ -1982,15 +1982,16 @@
     <button class="ad-trashbtn" id="mod-excluirBtn" title="Excluir módulo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
   </div>
   <div class="ad-body" id="mod-body">
-    <div class="uform-field"><label>Marca</label><input type="text" id="mod-marca"></div>
-    <div class="uform-field"><label>Modelo</label><input type="text" id="mod-modelo"></div>
+    <div class="hint" style="margin-bottom:12px;font-size:12px;color:var(--ink-faint);">Os valores em cinza são exemplo (DMEGC DM620M10RT-B72HST). Copie os números do datasheet do módulo.</div>
+    <div class="uform-field"><label>Marca</label><input type="text" id="mod-marca" placeholder="ex.: DMEGC SOLAR"></div>
+    <div class="uform-field"><label>Modelo</label><input type="text" id="mod-modelo" placeholder="ex.: DM620M10RT-B72HST"></div>
     <div class="uform-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-      <div class="uform-field"><label>Altura (m)</label><input type="number" id="mod-alturaM" step="0.001"></div>
-      <div class="uform-field"><label>Largura (m)</label><input type="number" id="mod-larguraM" step="0.001"></div>
-      <div class="uform-field"><label>Potência (W)</label><input type="number" id="mod-potenciaW" step="1"></div>
-      <div class="uform-field"><label>Peso (kg)</label><input type="number" id="mod-pesoKg" step="0.1"></div>
-      <div class="uform-field"><label>Voc — tensão de circuito aberto (V)</label><input type="number" id="mod-vocV" step="0.01"></div>
-      <div class="uform-field"><label>Isc — corrente de curto-circuito (A)</label><input type="number" id="mod-iscA" step="0.01"></div>
+      <div class="uform-field"><label>Altura (m)</label><input type="number" id="mod-alturaM" step="0.001" placeholder="ex.: 2,384"></div>
+      <div class="uform-field"><label>Largura (m)</label><input type="number" id="mod-larguraM" step="0.001" placeholder="ex.: 1,134"></div>
+      <div class="uform-field"><label>Potência (W)</label><input type="number" id="mod-potenciaW" step="1" placeholder="ex.: 620"></div>
+      <div class="uform-field"><label>Peso (kg)</label><input type="number" id="mod-pesoKg" step="0.1" placeholder="ex.: 32,8"></div>
+      <div class="uform-field"><label>Voc — tensão de circuito aberto (V)</label><input type="number" id="mod-vocV" step="0.01" placeholder="ex.: 54,33"></div>
+      <div class="uform-field"><label>Isc — corrente de curto-circuito (A)</label><input type="number" id="mod-iscA" step="0.01" placeholder="ex.: 14,44"></div>
     </div>
     <div class="uform-msg" id="mod-msg"></div>
   </div>
@@ -2006,18 +2007,19 @@
     <button class="ad-trashbtn" id="inv-excluirBtn" title="Excluir inversor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
   </div>
   <div class="ad-body" id="inv-body">
-    <div class="uform-field"><label>Marca</label><input type="text" id="inv-marca"></div>
-    <div class="uform-field"><label>Modelo</label><input type="text" id="inv-modelo"></div>
+    <div class="hint" style="margin-bottom:12px;font-size:12px;color:var(--ink-faint);">Os valores em cinza são exemplo (Growatt MIN 5000TL-X2). Copie os números do datasheet do inversor; deixe vazio o que o datasheet não trouxer.</div>
+    <div class="uform-field"><label>Marca</label><input type="text" id="inv-marca" placeholder="ex.: GROWATT"></div>
+    <div class="uform-field"><label>Modelo</label><input type="text" id="inv-modelo" placeholder="ex.: MIN 5000TL-X2"></div>
     <div class="uform-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-      <div class="uform-field"><label>Potência máxima CC — Wp máximo (W)</label><input type="number" id="inv-potenciaMaxCC" step="1"></div>
-      <div class="uform-field"><label>Potência nominal CC — Wp nominal (W)</label><input type="number" id="inv-potenciaNomCC" step="1"></div>
-      <div class="uform-field"><label>Tensão de entrada máxima (V)</label><input type="number" id="inv-tensaoEntradaMax" step="1"></div>
-      <div class="uform-field"><label>Tensão mínima de partida (V)</label><input type="number" id="inv-startupV" step="1"></div>
-      <div class="uform-field"><label>Tensão mínima da MPPT (V)</label><input type="number" id="inv-mpptMinV" step="1"></div>
-      <div class="uform-field"><label>Tensão máxima da MPPT (V)</label><input type="number" id="inv-mpptMaxV" step="1"></div>
-      <div class="uform-field"><label>Potência ativa nominal CA (W)</label><input type="number" id="inv-potenciaAtivaNomCA" step="1"></div>
-      <div class="uform-field"><label>Tensão CA nominal (V)</label><input type="number" id="inv-tensaoCANominal" step="1"></div>
-      <div class="uform-field"><label>Corrente máxima CA (A)</label><input type="number" id="inv-correnteMaxCA" step="0.1"></div>
+      <div class="uform-field"><label>Potência máxima CC — Wp máximo (W)</label><input type="number" id="inv-potenciaMaxCC" step="1" placeholder="ex.: 9000"></div>
+      <div class="uform-field"><label>Potência nominal CC — Wp nominal (W)</label><input type="number" id="inv-potenciaNomCC" step="1" placeholder="vazio se não constar"></div>
+      <div class="uform-field"><label>Tensão de entrada máxima (V)</label><input type="number" id="inv-tensaoEntradaMax" step="1" placeholder="ex.: 550"></div>
+      <div class="uform-field"><label>Tensão mínima de partida (V)</label><input type="number" id="inv-startupV" step="1" placeholder="ex.: 50"></div>
+      <div class="uform-field"><label>Tensão mínima da MPPT (V)</label><input type="number" id="inv-mpptMinV" step="1" placeholder="ex.: 40"></div>
+      <div class="uform-field"><label>Tensão máxima da MPPT (V)</label><input type="number" id="inv-mpptMaxV" step="1" placeholder="ex.: 550"></div>
+      <div class="uform-field"><label>Potência ativa nominal CA (W)</label><input type="number" id="inv-potenciaAtivaNomCA" step="1" placeholder="ex.: 5000"></div>
+      <div class="uform-field"><label>Tensão CA nominal (V)</label><input type="number" id="inv-tensaoCANominal" step="1" placeholder="ex.: 220"></div>
+      <div class="uform-field"><label>Corrente máxima CA (A)</label><input type="number" id="inv-correnteMaxCA" step="0.1" placeholder="ex.: 22,7"></div>
       <div class="uform-field"><label>Fases</label>
         <select id="inv-fases"><option value="Monofasico">Monofásico</option><option value="Bifasico">Bifásico</option><option value="Trifasico">Trifásico</option></select>
       </div>
@@ -2027,7 +2029,7 @@
       <h2>Configuração por <span>MPPT</span></h2>
       <div class="hint">alguns inversores têm MPPTs com corrente e nº de strings diferentes entre si</div>
     </div>
-    <div class="uform-field"><label>Número de entradas MPPT</label><input type="number" id="inv-numMppts" min="0" step="1"></div>
+    <div class="uform-field"><label>Número de entradas MPPT</label><input type="number" id="inv-numMppts" min="0" step="1" placeholder="ex.: 2"></div>
     <div id="inv-mpptsWrap"></div>
     <div class="uform-msg" id="inv-msg"></div>
   </div>
@@ -2171,7 +2173,7 @@
 <script src="js/custos-venda.js?v=20261027a"></script>
 <script src="js/custo-recorrente.js?v=20260829f"></script>
 <script src="js/servicos.js?v=20260831b"></script>
-<script src="js/catalogo.js?v=20260829f"></script>
+<script src="js/catalogo.js?v=20261112a"></script>
 <script src="js/metas.js?v=20260829f"></script>
 <script src="js/planos.js?v=20261103a"></script>
 <script src="js/leads-site-motor.js?v=20261008a"></script>

@@ -194,8 +194,8 @@
     wrap.innerHTML=mpptsConfigAtual.map(function(cfg,i){
       return '<div class="mppt-cfg-row" data-i="'+i+'" style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">'+
         '<span style="font-size:12px;color:var(--ink-faint);width:56px;flex:none;">MPPT '+(i+1)+'</span>'+
-        '<input type="number" class="mppt-maxisc" step="0.1" placeholder="Corrente máx. (A)" value="'+(cfg.maxIsc!==undefined&&cfg.maxIsc!==null?cfg.maxIsc:'')+'" style="flex:1;font-size:12.5px;padding:7px 9px;border:1px solid var(--line);border-radius:7px;">'+
-        '<input type="number" class="mppt-maxstrings" step="1" min="0" placeholder="Nº strings" value="'+(cfg.maxStrings!==undefined&&cfg.maxStrings!==null?cfg.maxStrings:'')+'" style="width:100px;font-size:12.5px;padding:7px 9px;border:1px solid var(--line);border-radius:7px;">'+
+        '<input type="number" class="mppt-maxisc" step="0.1" placeholder="Isc máx. (A), ex.: 24" value="'+(cfg.maxIsc!==undefined&&cfg.maxIsc!==null?cfg.maxIsc:'')+'" style="flex:1;font-size:12.5px;padding:7px 9px;border:1px solid var(--line);border-radius:7px;">'+
+        '<input type="number" class="mppt-maxstrings" step="1" min="0" placeholder="Strings, ex.: 1" value="'+(cfg.maxStrings!==undefined&&cfg.maxStrings!==null?cfg.maxStrings:'')+'" style="width:100px;font-size:12.5px;padding:7px 9px;border:1px solid var(--line);border-radius:7px;">'+
       '</div>';
     }).join('');
     wrap.querySelectorAll('.mppt-cfg-row').forEach(function(row){
