@@ -1887,6 +1887,7 @@ var CONTRACT_TYPES=[
       {key:'prazoVigencia',label:'Vigência (meses)',type:'number',default:12},
       {key:'taxaDeslocamento',label:'Cobrar taxa de deslocamento p/ reconexão Wi-Fi',type:'checkbox',default:true},
       {key:'valorTaxa',label:'Valor da taxa (R$)',type:'number',default:100},
+      {key:'incluirManutencao',label:'Incluir manutenção preventiva neste contrato',type:'checkbox',default:true},
       {key:'incluirLimpeza',label:'Incluir limpeza dos módulos neste contrato',type:'checkbox',default:false},
       {key:'periodicidadeLimpeza',label:'Periodicidade da limpeza',type:'select',options:['Semestral','Anual'],default:'Semestral'},
       {key:'dataContrato',label:'Data do contrato',type:'date',default:dateKey(new Date())}
@@ -2191,6 +2192,22 @@ function composeMonitoramento(v,c){
   var limpezaHtml=v.incluirLimpeza?
     ('4.2. Este contrato <strong>inclui</strong> a limpeza dos módulos solares, com periodicidade '+escH(v.periodicidadeLimpeza).toLowerCase()+'. Não estão incluídos manutenção elétrica corretiva, troca de peças ou reparos físicos no telhado, que deverão ser orçados à parte.')
     :('4.2. Este contrato <strong>não inclui</strong> serviços de limpeza dos painéis, manutenção elétrica corretiva, troca de peças ou reparos físicos no telhado, que deverão ser orçados à parte.');
+  // Manutenção preventiva (2026-11-12, texto aprovado literalmente pelo
+  // Felipe): cliente pediu que ficasse explícito que o contrato inclui a
+  // manutenção e quais peças a Solar Green troca. Desmarcada, o contrato
+  // sai idêntico ao de antes (2.5 ausente, 4.2 e 4.3 originais).
+  var manutencaoObrigHtml='';
+  var geracaoNum='4.3';
+  if(v.incluirManutencao){
+    manutencaoObrigHtml='<p>2.5. Este contrato <strong>inclui</strong> a manutenção preventiva do sistema de energia solar fotovoltaica'+
+      (v.incluirLimpeza?(', com periodicidade '+escH(v.periodicidadeLimpeza).toLowerCase()+', realizada na mesma visita da limpeza dos módulos.'):'.')+'</p>';
+    limpezaHtml='4.2. Na manutenção preventiva, a CONTRATADA substitui somente os seguintes itens: dispositivo de proteção contra surtos (DPS), disjuntor, conectores e cabos, estes limitados a 6 (seis) metros de comprimento total e à seção transversal de até 10 mm². A substituição só é feita quando a necessidade for apontada pelo técnico da CONTRATADA em laudo de vistoria. A mão de obra dessa substituição está incluída neste contrato; o material é cobrado à parte.</p>'+
+      '<p>4.3. Não está incluída a troca do inversor, dos módulos solares (placas) nem de qualquer outro componente do sistema fotovoltaico além dos listados no item 4.2. Se for necessária, será orçada à parte.</p>'+
+      '<p>'+(v.incluirLimpeza?
+        ('4.4. Este contrato <strong>inclui</strong> a limpeza dos módulos solares, com periodicidade '+escH(v.periodicidadeLimpeza).toLowerCase()+'. Reparos físicos no telhado não estão incluídos e serão orçados à parte.')
+        :'4.4. Este contrato <strong>não inclui</strong> a limpeza dos painéis nem reparos físicos no telhado, que serão orçados à parte.');
+    geracaoNum='4.5';
+  }
   var equatorialClause=(c.cpfEquatorial&&c.dataNascimentoEquatorial)?
     ('3.3. Autorizar o acesso da CONTRATADA à fatura de energia elétrica junto à concessionária Equatorial Energia, para fins de acompanhamento da geração e economia — titular da conta portador(a) do CPF <strong>'+escH(c.cpfEquatorial)+'</strong>, nascido(a) em <strong>'+escH(c.dataNascimentoEquatorial)+'</strong>.')
     :'3.3. Fornecer à CONTRATADA os dados (CPF e data de nascimento) do titular da conta de energia junto à concessionária Equatorial, necessários para acompanhamento da fatura — a preencher no cadastro do cliente.';
@@ -2208,6 +2225,7 @@ function composeMonitoramento(v,c){
   '<p>2.2. Enviar relatório <strong>'+escH(v.periodicidadeRelatorio)+'</strong> contendo o comparativo de geração (Esperado x Realizado) e economia estimada.</p>'+
   '<p>2.3. Notificar o CONTRATANTE em até <strong>'+escH(v.prazoNotificacao)+' horas úteis</strong> caso sejam detectadas anomalias graves (ex: geração zero, falha de inversor).</p>'+
   '<p>2.4. Atuar proativamente na gestão da garantia junto ao fabricante caso seja detectado defeito no equipamento (abertura de tickets de suporte).</p>'+
+  manutencaoObrigHtml+
   '<div class="cp-clause-title">CLÁUSULA TERCEIRA – DAS OBRIGAÇÕES DO CONTRATANTE</div>'+
   '<p>3.1. Manter o sistema conectado à rede elétrica e à rede de internet (Wi-Fi).</p>'+
   '<p>3.2. Fornecer à CONTRATADA acesso (login e senha ou permissão de visualização) à plataforma de monitoramento.</p>'+
@@ -2217,7 +2235,7 @@ function composeMonitoramento(v,c){
   '<p>4.1. A CONTRATADA não se responsabiliza pela interrupção do monitoramento causada por falta de energia elétrica, corte de internet ou alteração de senha do Wi-Fi por parte do CONTRATANTE.</p>'+
   taxaHtml+
   '<p>'+limpezaHtml+'</p>'+
-  '<p>4.3. A CONTRATADA não garante a geração de energia, visto que esta depende de condições climáticas (irradiação solar), mas compromete-se a monitorar se o equipamento está funcionando conforme o esperado.</p>'+
+  '<p>'+geracaoNum+'. A CONTRATADA não garante a geração de energia, visto que esta depende de condições climáticas (irradiação solar), mas compromete-se a monitorar se o equipamento está funcionando conforme o esperado.</p>'+
   '<div class="cp-clause-title">CLÁUSULA QUINTA – DO PREÇO E PAGAMENTO</div>'+
   '<p>5.1. Pelos serviços prestados, '+pagoClause+'</p>'+
   '<p>5.2. '+pagamentoDia+'</p>'+
