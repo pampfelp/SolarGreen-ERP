@@ -125,6 +125,35 @@ test('preserva campos ausentes em fatura sintética sem SCEE e recusa outros lay
   assert.equal(lerTextoPosicional([[]]).status, 'sem-texto');
 });
 
+test('distingue créditos inferidos de créditos impressos na DANFE', () => {
+  const linha = (y, pontos) => pontos.map(([str, x, direita]) => ({
+    str, width: direita ? direita - x : str.length * 3,
+    transform: [6, 0, 0, 6, x, y]
+  }));
+  const danfe = [
+    ...linha(790, [['Equatorial Pará', 21], ['Unidade Consumidora', 225]]),
+    ...linha(750, [['Leitura anterior', 364], ['Leitura atual', 425]]),
+    ...linha(730, [['01/2025', 48], ['20/01/2025', 125], ['R$ 130,00', 210]]),
+    ...linha(550, [['Consumo (kWh)', 21], ['100,00', 158, 174], ['1,00', 205, 224],
+      ['0,90', 252, 273], ['2,00', 310, 323], ['5,00', 358, 373], ['100,00', 403, 422]]),
+    ...linha(541, [['Consumo compensado', 21], ['30,00', 158, 174], ['30,00', 403, 422]]),
+    ...linha(530, [['Total', 21]]),
+    ...linha(350, [['Energia injetada', 76], ['Ativo total', 154], ['20 kWh', 312]])
+  ];
+
+  const inferida = lerTextoPosicional([danfe]);
+  assert.equal(inferida.status, 'lido');
+  assert.equal(inferida.creditosAntigosUsados, 10);
+  assert.equal(inferida.origem.creditosAntigosUsados, 'inferido');
+  assert.equal(inferida.saldoDisponivel, null);
+
+  const comValorImpresso = lerTextoPosicional([danfe.concat(
+    linha(320, [['Créditos anteriores usados: 0 kWh', 21]])
+  )]);
+  assert.equal(comValorImpresso.creditosAntigosUsados, 0);
+  assert.equal(comValorImpresso.origem.creditosAntigosUsados, 'lido');
+});
+
 test('envia somente bytes ao PDF.js, lê todas as páginas e encerra o worker', async () => {
   const bytes = new TextEncoder().encode('%PDF-1.7\nExemplo sintético');
   const arquivo = { size: bytes.length, arrayBuffer: async () => bytes.buffer };

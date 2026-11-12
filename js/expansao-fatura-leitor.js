@@ -102,14 +102,72 @@
     return nomes.has('valor') && nomes.has('quantidade') && nomes.size === colunas.length ? colunas : null;
   }
 
+  // Esta DANFE tem cabeçalhos desenhados, sem texto selecionável. As posições
+  // só são usadas quando a leitura, o resumo e as seis colunas se confirmam.
+  function danfeEquatorial(linhas) {
+    const pagina = linhas.filter(linha => linha.pagina === 1);
+    const naFaixa = (ponto, inicio, fim) => ponto.x >= inicio && ponto.x <= fim;
+    const extrair = (linha, inicio, fim, padrao) => linha?.pontos
+      .find(ponto => naFaixa(ponto, inicio, fim) && padrao.test(normalizar(ponto.texto)))?.texto;
+    const leitura = pagina.find(linha => extrair(linha, 360, 368, /^leitura anterior$/)
+      && extrair(linha, 422, 429, /^leitura atual$/));
+    const vencimento = /^\d{2}\/\d{2}\/\d{4}$/;
+    const referencia = /^(?:0[1-9]|1[0-2])\/\d{4}$/;
+    const total = new RegExp('^r\\$\\s*' + moeda + '$');
+    const resumo = pagina.find(linha => extrair(linha, 44, 51, referencia) && extrair(linha, 119, 131, vencimento)
+      && extrair(linha, 193, 240, total));
+    const colunas = [
+      ['quantidade', 154, 174], ['precoComTributos', 199, 224], ['tarifaSemTributos', 248, 273],
+      ['pisCofins', 308, 323], ['icms', 354, 373], ['valor', 402, 422]
+    ].map(([nome, x, direita]) => ({ nome, x, direita }));
+    const primeira = pagina.find(linha => extrair(linha, 18, 25, /^consumo \(kwh\)$/)
+      && colunas.every(({ x, direita }) => linha.pontos.some(ponto => naFaixa(ponto, x - 5, direita)
+        && Math.abs(ponto.x + ponto.largura - direita) < 4 && numero(ponto.texto) !== null)));
+    if (!leitura || !resumo || !primeira) return null;
+
+    const datas = pagina.find(linha => linha.y < leitura.y && leitura.y - linha.y < 15
+      && extrair(linha, 367, 375, vencimento) && extrair(linha, 423, 431, vencimento));
+    const linhaUc = pagina.find(linha => extrair(linha, 218, 231, /^unidade consumidora$/));
+    const ucFormatada = /^\d{1,3}(?:\.\d{3}){2,3}-\d{2}$|^\d{7,15}$/;
+    const uc = pagina.find(linha => linhaUc && linha.y < linhaUc.y && linhaUc.y - linha.y < 14
+      && extrair(linha, 218, 231, ucFormatada));
+    const endereco = pagina.map(linha => extrair(linha, 19, 30, /^cep\s*:/)).find(Boolean);
+    const cepCidade = endereco?.match(/^cep\s*:\s*(\d{5}-?\d{3})(?:\s+-\s+.*?)?\s+-\s+([\p{L} .'-]+)\s+-\s+PA$/iu);
+    const tributos = pagina.flatMap(linha => {
+      const tipo = extrair(linha, 431, 439, /^(?:icms|pis|cofins)$/);
+      if (!tipo) return [];
+      const valorNaFaixa = (inicio, fim) => numero(linha.pontos.find(ponto => naFaixa(ponto, inicio, fim)
+        && numero(ponto.texto) !== null)?.texto);
+      return [{ tipo: tipo.toLowerCase(), base: valorNaFaixa(468, 490), aliquota: valorNaFaixa(506, 533), valor: valorNaFaixa(542, 565) }];
+    });
+    const medicao = {};
+    for (const linha of pagina) {
+      const energiaMedida = extrair(linha, 302, 335, /^\d[\d.,]*\s+kwh$/);
+      if (!energiaMedida || !extrair(linha, 150, 159, /^ativo total$/)) continue;
+      const campo = extrair(linha, 73, 89, /^energia injetada$/) ? 'injetadoNoCiclo'
+        : extrair(linha, 73, 89, /^consumo$/) ? 'consumoMedido' : null;
+      if (campo) medicao[campo] = numero(energiaMedida.replace(/\s+kwh$/i, ''));
+    }
+    return {
+      primeira, colunas, medicao, tributos,
+      municipio: cepCidade?.[2]?.trim() ?? null,
+      uc: extrair(uc, 218, 231, ucFormatada)?.replace(/\D/g, '') ?? null,
+      referencia: referenciaISO(extrair(resumo, 44, 51, referencia)),
+      vencimento: dataISO(extrair(resumo, 119, 131, vencimento)),
+      total: numero(extrair(resumo, 193, 240, total)),
+      dataLeituraAnterior: dataISO(extrair(datas, 367, 375, vencimento)),
+      dataLeituraAtual: dataISO(extrair(datas, 423, 431, vencimento))
+    };
+  }
+
   function tipoItem(descricao, referencia) {
     const texto = normalizar(descricao);
     if (/\b(?:beneficio|benef\.).*\bscee\b/.test(texto)) {
       if (/\bbrut[oa]\b/.test(texto)) return 'sceeBruto';
       if (/\bliquid[oa]\b/.test(texto)) return 'sceeLiquido';
     }
-    if (/\bparc(?:ela)?\.?\s+inj(?:ecao)?\.?.*\bgd[\s-]*ii\b/.test(texto)) return 'gd2';
-    if (/\bparc(?:ela)?\.?\s+inj(?:ecao)?\.?.*\bgd[\s-]*iii\b/.test(texto)) return 'gd3';
+    if (/\bparc(?:ela)?\.?\s+inj(?:ecao)?\.?.*\bgd[\s-]*(?:ii|2)\b/.test(texto)) return 'gd2';
+    if (/\bparc(?:ela)?\.?\s+inj(?:ecao)?\.?.*\bgd[\s-]*(?:iii|3)\b/.test(texto)) return 'gd3';
     if (/\bconsumo\b.*\bcompensad[oa]\b/.test(texto)) return 'consumoCompensado';
     if (/^consumo\b/.test(texto)) return 'consumo';
     if (/\b(?:energia\s+(?:ativa\s+)?inj(?:etada)?\.?|creditos?)\b/.test(texto)) {
@@ -126,6 +184,8 @@
     if (/\bmulta\b/.test(texto)) return 'multa';
     if (/\bjuros\b/.test(texto)) return 'juros';
     if (/\bparcelamento\b/.test(texto)) return 'parcelamento';
+    if (/\bcorrecao monetaria\b/.test(texto)) return 'correcaoMonetaria';
+    if (/\breligacao\b/.test(texto)) return 'religacao';
     return 'outro';
   }
 
@@ -154,12 +214,13 @@
     };
   }
 
-  function extrairItens(linhas, referencia) {
+  function extrairItens(linhas, referencia, danfe) {
     let colunas = null;
     let pagina = 0;
     let financeiro = false;
     const itens = [];
     const itensFinanceiros = [];
+    let ultimaLinhaDanfe;
     for (const linha of linhas) {
       if (linha.pagina !== pagina) {
         pagina = linha.pagina;
@@ -171,19 +232,31 @@
         colunas = novas;
         continue;
       }
+      if (danfe && linha === danfe.primeira) {
+        colunas = danfe.colunas;
+        ultimaLinhaDanfe = linha.y;
+      }
       if (!colunas) continue;
+      if (danfe && ultimaLinhaDanfe - linha.y > 21) {
+        colunas = null;
+        continue;
+      }
       if (/^(?:total(?:\s+a\s+pagar|\s+da\s+fatura|\s*$)|tributos?|historico|mensagens|informacoes|reservado|debitos|avisos)\b/.test(linha.normalizado)) {
         colunas = null;
         continue;
       }
       if (/^(?:itens financeiros|lancamentos financeiros)\b/.test(linha.normalizado)) {
         financeiro = true;
+        if (danfe) ultimaLinhaDanfe = linha.y;
         continue;
       }
-      const item = valoresDaLinha(linha, colunas, referencia);
+      const linhaItens = danfe ? { pontos: linha.pontos.filter(ponto => ponto.x < 427) } : linha;
+      if (danfe && !linhaItens.pontos.some(ponto => ponto.x >= 18 && ponto.x <= 25)) continue;
+      const item = valoresDaLinha(linhaItens, colunas, referencia);
       if (!item) continue;
+      if (danfe) ultimaLinhaDanfe = linha.y;
       if (financeiro && item.tipo === 'outro') item.tipo = 'financeiro';
-      const eventual = ['multa', 'juros', 'parcelamento'].includes(item.tipo);
+      const eventual = ['multa', 'juros', 'parcelamento', 'correcaoMonetaria', 'religacao'].includes(item.tipo);
       if (eventual) item.eventual = true;
       itens.push(item);
       // O cálculo já recalcula o SCEE, inclusive o benefício líquido.
@@ -310,56 +383,77 @@
     const distribuidora = linhas.some(linha => /\bequatorial(?:\s+energia)?\s+para\b|\bpara\s+distribuidora\s+de\s+energia\b/.test(linha.normalizado));
     const tabela = linhas.some(colunasItens);
     const cabecalho = linhas.some(linha => /\b(?:unidade consumidora|conta contrato)\b/.test(linha.normalizado));
-    if (!distribuidora || !tabela || !cabecalho) {
+    const danfe = distribuidora && cabecalho && !tabela ? danfeEquatorial(linhas) : null;
+    if (!distribuidora || (!tabela && !danfe) || !cabecalho) {
       return vazio('layout-desconhecido', 'O formato da Equatorial Pará não pôde ser reconhecido. Preencha a fatura manualmente.');
     }
     const fatura = vazio('lido', 'Confira todos os campos com o PDF antes de usar a leitura.');
     const ref = primeiraCaptura(linhas, /\b(?:ref(?:erencia)?\.?|mes de referencia)\s*:?\s*([a-z]{3}\/\d{4}|\d{2}\/\d{4})\b/);
-    fatura.referencia = referenciaISO(ref);
-    const { itens, itensFinanceiros } = extrairItens(linhas, fatura.referencia);
+    fatura.referencia = referenciaISO(ref) ?? danfe?.referencia ?? null;
+    const { itens, itensFinanceiros } = extrairItens(linhas, fatura.referencia, danfe);
     fatura.distribuidora = 'Equatorial Pará';
     fatura.itens = itens;
     fatura.itensFinanceiros = itensFinanceiros;
     const municipio = linhas.map(linha => linha.texto.match(/\bMunic[ií]pio\s*:?\s*([\p{L} -]+?)(?=\s*[-/]?\s*\bPA\b|\s+(?:CEP|UF)\b|$)/iu)?.[1]?.trim()).find(Boolean);
-    fatura.municipio = municipio || null;
+    fatura.municipio = municipio ?? danfe?.municipio ?? null;
     fatura.cep = primeiraCaptura(linhas, /\bcep\s*:?\s*(\d{5}-?\d{3})\b/);
-    fatura.uc = primeiraCaptura(linhas, /\b(?:unidade consumidora|conta contrato)\s*:?\s*(\d{5,15})\b/);
-    const subgrupo = primeiraCaptura(linhas, /\b(?:subgrupo|classificacao)\s*:?\s*(b[1-4])\b/);
+    fatura.uc = primeiraCaptura(linhas, /\b(?:unidade consumidora|conta contrato)\s*:?\s*(\d{5,15})\b/) ?? danfe?.uc ?? null;
+    const subgrupo = primeiraCaptura(linhas, /\b(?:subgrupo|classificacao|modalidade tarifaria)\s*:?\s*(b[1-4])(?=\b|_)/);
     fatura.subgrupo = subgrupo?.toUpperCase() || null;
     fatura.grupo = subgrupo ? 'B' : primeiraCaptura(linhas, /\bgrupo\s*:?\s*([ab])\b/)?.toUpperCase() || null;
-    fatura.subclasse = primeiraCaptura(linhas, /\b(desconto social|tarifa social|baixa renda|residencial|rural|comercial|industrial)\b/);
+    const classificacao = primeiraCaptura(linhas, /\bclassificacao\s*:\s*((?:residencial\s+)?(?:desconto social|tarifa social|baixa renda|residencial(?: pleno)?|rural|comercial|industrial))\b/);
+    fatura.subclasse = classificacao?.replace(/^residencial (?=desconto social|tarifa social|baixa renda)/, '')
+      ?? primeiraCaptura(linhas, /\b(desconto social|tarifa social|baixa renda|residencial|rural|comercial|industrial)\b/);
     fatura.modalidade = primeiraCaptura(linhas, /\b(?:modalidade(?: tarifaria)?\s*:?\s*)?(tarifa branca|convencional)\b/);
     fatura.tipoFornecimento = primeiraCaptura(linhas, /\b(monofasic[oa]|bifasic[oa]|trifasic[oa])\b/);
-    fatura.vencimento = dataISO(primeiraCaptura(linhas, /\bvencimento\s*:?\s*(\d{2}\/\d{2}\/\d{4})\b/));
-    fatura.dataLeituraAnterior = dataISO(primeiraCaptura(linhas, /\b(?:data (?:da |de )?)?leitura anterior\s*:?\s*(\d{2}\/\d{2}\/\d{4})\b/));
-    fatura.dataLeituraAtual = dataISO(primeiraCaptura(linhas, /\b(?:data (?:da |de )?)?leitura atual\s*:?\s*(\d{2}\/\d{2}\/\d{4})\b/));
-    fatura.total = dadoMonetario(linhas, '\\btotal (?:a pagar|da fatura)');
+    fatura.vencimento = danfe?.vencimento ?? dataISO(primeiraCaptura(linhas, /\bvencimento\s*:?\s*(\d{2}\/\d{2}\/\d{4})\b/));
+    fatura.dataLeituraAnterior = danfe?.dataLeituraAnterior ?? dataISO(primeiraCaptura(linhas, /\b(?:data (?:da |de )?)?leitura anterior\s*:?\s*(\d{2}\/\d{2}\/\d{4})\b/));
+    fatura.dataLeituraAtual = danfe?.dataLeituraAtual ?? dataISO(primeiraCaptura(linhas, /\b(?:data (?:da |de )?)?leitura atual\s*:?\s*(\d{2}\/\d{2}\/\d{4})\b/));
+    fatura.total = danfe?.total ?? dadoMonetario(linhas, '\\btotal (?:a pagar|da fatura)');
     const medicao = extrairMedicao(linhas);
-    fatura.consumoMedido = dadoEnergia(linhas, '\\b(?:consumo medido|consumo ativo(?: da rede)?)') ?? medicao.consumoMedido;
-    fatura.injetadoNoCiclo = dadoEnergia(linhas, '\\b(?:injetad[ao] no ciclo|energia ativa injetada medida|energia injetada no ciclo)') ?? medicao.injetadoNoCiclo;
+    fatura.consumoMedido = danfe?.medicao.consumoMedido ?? dadoEnergia(linhas, '\\b(?:consumo medido|consumo ativo(?: da rede)?)') ?? medicao.consumoMedido;
+    fatura.injetadoNoCiclo = danfe?.medicao.injetadoNoCiclo ?? dadoEnergia(linhas, '\\b(?:injetad[ao] no ciclo|energia ativa injetada medida|energia injetada no ciclo)') ?? medicao.injetadoNoCiclo;
     fatura.consumoSemCompensacao = dadoEnergia(linhas, '\\bconsumo sem compensacao') ?? somarEnergia(itens, 'consumo');
     fatura.consumoCompensado = dadoEnergia(linhas, '\\b(?:energia compensada|consumo compensado)(?!\\s*[/–-])') ?? somarEnergia(itens, 'consumoCompensado');
+    const soma = itens.reduce((s, item) => s + item.valor, 0);
+    const itensConferidos = Number.isFinite(fatura.total) && Math.abs(soma - fatura.total) <= 0.050001;
+    const semScee = danfe && itensConferidos && fatura.consumoMedido === fatura.consumoSemCompensacao
+      && fatura.consumoMedido !== null && !linhas.some(linha => /\b(?:scee|energia injetada|microgeracao|minigeracao)\b/.test(linha.normalizado));
+    if (semScee) {
+      fatura.consumoCompensado = 0;
+      fatura.injetadoNoCiclo = 0;
+    }
     fatura.consumoFaturado = dadoEnergia(linhas, '\\bconsumo faturado');
     if (fatura.consumoFaturado === null && fatura.consumoSemCompensacao !== null && fatura.consumoCompensado !== null) {
       fatura.consumoFaturado = fatura.consumoSemCompensacao + fatura.consumoCompensado;
     }
     fatura.creditosAntigosNasLinhas = somarEnergia(itens, 'creditoAnterior');
     fatura.creditosAntigosUsados = dadoEnergia(linhas, '\\bcreditos (?:antigos|anteriores) (?:usados|utilizados)');
+    let creditosAntigosInferidos = false;
+    if (danfe && itensConferidos && fatura.injetadoNoCiclo !== null && fatura.consumoCompensado !== null) {
+      if (fatura.creditosAntigosUsados === null) {
+        fatura.creditosAntigosUsados = Math.max(0, Math.round((fatura.consumoCompensado - fatura.injetadoNoCiclo) * 100) / 100);
+        creditosAntigosInferidos = true;
+      }
+      if (!fatura.creditosAntigosUsados) fatura.creditosAntigosNasLinhas ??= 0;
+    }
     fatura.saldoInicialElegivel = dadoEnergia(linhas, '\\b(?:saldo inicial elegivel|saldo anterior de creditos)');
     fatura.saldoDisponivel = dadoEnergia(linhas, '\\bsaldo (?:atualizado|acumulado|disponivel|de creditos disponivel|de creditos)');
     fatura.saldoAExpirar = dadoEnergia(linhas, '\\bsaldo a expirar');
     fatura.creditosExpirados = dadoEnergia(linhas, '\\bcreditos expirados')
+      ?? numero(primeiraCaptura(linhas, new RegExp('\\bsaldo de creditos expirados no ciclo ref\\s+\\d{2}/\\d{2,4}:\\s*' + energia)))
       ?? numero(primeiraCaptura(linhas, new RegExp(energia + '\\s+expirados\\b')));
     const regime = primeiraCaptura(linhas, /\b(?:regime|enquadramento)(?:\s+(?:da\s+)?gd)?\s*:?\s*gd[\s-]*(iii|ii|i)\b/);
-    fatura.regimeGD = regime ? 'GD ' + regime.toUpperCase() : null;
     const linhasGD2 = itens.filter(item => item.tipo === 'gd2');
+    fatura.regimeGD = regime ? 'GD ' + regime.toUpperCase()
+      : linhasGD2.length && !itens.some(item => item.tipo === 'gd3') ? 'GD II' : null;
     if (linhasGD2.length) {
       const semTributos = new Set(linhasGD2.map(item => item.tarifaSemTributos));
       const comTributos = new Set(linhasGD2.map(item => item.precoComTributos));
       fatura.tarifaGD2SemTributos = semTributos.size === 1 ? semTributos.values().next().value : null;
       fatura.tarifaGD2ComTributos = comTributos.size === 1 ? comTributos.values().next().value : null;
     }
-    fatura.tributos = tabelaTributos(linhas);
+    fatura.tributos = danfe?.tributos ?? tabelaTributos(linhas);
     for (const [campo, tipo] of Object.entries({ aliquotaICMS: 'icms', aliquotaPIS: 'pis', aliquotaCofins: 'cofins', aliquotaPisCofins: 'pis/cofins' })) {
       const tributo = fatura.tributos.filter(item => item.tipo === tipo);
       if (tributo.length === 1) fatura[campo] = tributo[0].aliquota;
@@ -369,7 +463,8 @@
     for (const campo of Object.keys(fatura.origem)) {
       if (Array.isArray(fatura[campo]) ? fatura[campo].length : fatura[campo] !== null) fatura.origem[campo] = 'lido';
     }
-    if (fatura.saldoDisponivel === null) {
+    if (creditosAntigosInferidos) fatura.origem.creditosAntigosUsados = 'inferido';
+    if (!semScee && fatura.saldoDisponivel === null) {
       fatura.avisos.push('Saldo não informado na fatura. Consulte o extrato SCEE se houver compensação.');
     }
     return fatura;
