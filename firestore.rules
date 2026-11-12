@@ -271,6 +271,45 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Referência GD II (2026-11-12): vem da última fatura lida com a parcela GD II
+    // ou da edição da equipe. Serve às faturas sem a parcela (usina GD I ou sem SCEE).
+    function optionalTariff(d, campo) {
+      return d.get(campo, null) == null || (d.get(campo, null) is number && d.get(campo, null) > 0 && d.get(campo, null) <= 5);
+    }
+
+    function optionalShortText(d, campo, max) {
+      return d.get(campo, null) == null || (d.get(campo, null) is string && d.get(campo, null).size() <= max);
+    }
+
+    function validGd2Reference(d) {
+      return d.keys().hasOnly(['Referencia', 'TarifaSemTributos', 'PrecoComTributos', 'PisCofinsPorKWh',
+          'IcmsPorKWh', 'Subclasse', 'Modalidade', 'Fonte', 'Origem', 'AtualizadoEm', 'AtualizadoPor',
+          'AtualizadoPorNome', 'Anterior'])
+        && d.Referencia is string && d.Referencia.matches('^[0-9]{4}-(0[1-9]|1[0-2])$')
+        && d.TarifaSemTributos is number && d.TarifaSemTributos > 0 && d.TarifaSemTributos <= 5
+        && d.PrecoComTributos is number && d.PrecoComTributos > d.TarifaSemTributos && d.PrecoComTributos <= 5
+        && optionalTariff(d, 'PisCofinsPorKWh') && optionalTariff(d, 'IcmsPorKWh')
+        && optionalShortText(d, 'Subclasse', 60) && optionalShortText(d, 'Modalidade', 60)
+        && d.Fonte is string && d.Fonte.size() > 0 && d.Fonte.size() <= 200
+        && d.Origem in ['fatura', 'manual']
+        && d.AtualizadoEm == request.time && d.AtualizadoPor == request.auth.uid
+        && d.AtualizadoPorNome is string && d.AtualizadoPorNome.size() <= 120;
+    }
+
+    match /expansao_referencias/{id} {
+      allow read: if inExpansionTeam();
+      allow create, update: if inExpansionTeam() && id == 'gd2'
+        && validGd2Reference(request.resource.data) && !('Anterior' in request.resource.data);
+      allow delete: if false;
+    }
+
+    match /expansao_referencias_historico/{id} {
+      allow read: if inExpansionTeam();
+      allow create: if inExpansionTeam() && validGd2Reference(request.resource.data)
+        && (request.resource.data.get('Anterior', null) == null || request.resource.data.Anterior is map);
+      allow update, delete: if false;
+    }
+
     // ── Site institucional (2026-09-29) ──
     // Antessala dos contatos do site: o público CRIA e nunca lê, atualiza nem
     // apaga. Quem lê e promove pra funil/clientes é o ERP logado

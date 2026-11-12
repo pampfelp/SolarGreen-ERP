@@ -138,6 +138,37 @@
     };
   }
 
+  // Fatura sem parcela GD II: usa a referência gravada pela última fatura lida que tinha a parcela
+  // (ou editada pela equipe), ajustada pelo percentual do Fio B do ano simulado.
+  function aplicarReferenciaGD2(f, ref, tarifas, ano, fiob, avisos) {
+    if (equivalencia(f.modalidade).replace(/^tarifa /, '') === 'branca') {
+      avisos.push('Tarifa branca: informe as rubricas GD II revisadas para simular a expansão.');
+      return null;
+    }
+    if (!ref) {
+      avisos.push('Sem referência GD II salva. Leia uma fatura com a parcela GD II ou cadastre a referência na aba.');
+      return null;
+    }
+    const anoRef = Number(String(ref.referencia || '').slice(0, 4));
+    const fator = anoRef === ano ? 1
+      : calc.projetarTarifaGD2(1, fiob.percentuais?.[anoRef], fiob.percentuais?.[ano]);
+    if (!fator) {
+      avisos.push('Falta o percentual do Fio B de ' + anoRef + ' ou ' + ano + ' para ajustar a referência GD II.');
+      return null;
+    }
+    const compensado = calc.tarifaCompensadaDaFatura(f, tarifas);
+    const regras = calc.rubricasGD2DaReferencia({ referencia: ref, compensado, fator });
+    if (!regras) {
+      avisos.push('A referência GD II não pôde ser aplicada: falta a tarifa do kWh compensado desta fatura em faixa única.');
+      return null;
+    }
+    tarifas.porRegime['GD II'] = regras;
+    avisos.push('Custo GD II estimado pela referência de ' + ref.referencia + (ref.fonte ? ' (' + ref.fonte + ')' : '') +
+      (fator === 1 ? '' : ', ajustada ao percentual do Fio B de ' + ano) + '.');
+    return { referencia: ref.referencia, fonte: ref.fonte ?? null, origem: ref.origem ?? null,
+      tarifaSemTributos: ref.tarifaSemTributos, precoComTributos: ref.precoComTributos, fator };
+  }
+
   function avisarMudancas(fatura, observacoes, avisos) {
     const campos = [
       ['GD II sem tributos', fatura.tarifaGD2SemTributos, observacoes.tarifaGD2, 'R$/kWh'],
@@ -182,7 +213,14 @@
     const janelaOriginal = { inicio: fatura.dataLeituraAnterior, fim: fatura.dataLeituraAtual };
     const gd2CobreTodoScee = fatura.consumoCompensado > 0
       && Math.abs(energiaCobradaGD2(fatura, null) - fatura.consumoCompensado) <= 0.02;
-    const regimeAtual = usinaAtual.regimeAtual || fatura.regimeGD || (gd2CobreTodoScee ? 'GD II' : null);
+    // Fatura com SCEE e sem parcela GD II/GD III: a usina atual está em GD I.
+    const comRubricaGD = (fatura.itens || []).some(i => ['gd2', 'gd3'].includes(i.tipo) && i.noTotal !== false);
+    const gd1PelaFatura = !gd2CobreTodoScee && fatura.consumoCompensado > 0 && !comRubricaGD
+      && (fatura.itens || []).some(i => i.tipo === 'consumoCompensado' && i.noTotal !== false);
+    const regimeAtual = usinaAtual.regimeAtual || fatura.regimeGD || (gd2CobreTodoScee ? 'GD II' : gd1PelaFatura ? 'GD I' : null);
+    if (!usinaAtual.regimeAtual && !fatura.regimeGD && gd1PelaFatura) {
+      avisos.push('Usina atual tratada como GD I porque a fatura não tem a parcela GD II. Confira o enquadramento atual.');
+    }
     const regimeExpansao = expansao.regimeExpansao || 'GD II';
     const comparacaoFioB = compararCobranca(fatura, regimeAtual, janelaOriginal, vigencias, fiob, config.homologacaoFioB);
 
@@ -243,7 +281,9 @@
     const observacoes = observacoesDaClasse(fatura, refTarifaria);
     if (referencia) avisarMudancas({ ...fatura, referencia }, observacoes, avisos);
     const usaGD2 = regimeAtual === 'GD II' || regimeExpansao === 'GD II' || fatura.regimeCreditosAntigos === 'GD II';
-    const projecao = referenciaFutura && usaGD2
+    const referenciaGD2 = usaGD2 && !tarifas.porRegime['GD II']?.length
+      ? aplicarReferenciaGD2(fatura, config.referenciaGD2, tarifas, ano, fiob, avisos) : null;
+    const projecao = referenciaFutura && usaGD2 && !referenciaGD2
       ? projetarGD2(fatura, referenciaFutura, janelaFutura, janelaOriginal, vigencias, fiob, observacoes, tarifas, avisos)
       : null;
     const faturaSimulada = referenciaFutura ? { ...fatura, saldoInicialElegivel: saldoElegivel } : fatura;
@@ -270,7 +310,7 @@
       ...tributosDaGeracao({ ...fatura, referencia }, observacoes),
       ParametrosTarifarios: snapshot({
         referenciaSimulada, fonteTarifas: expansao.tarifasRevisadas ? 'tarifas revisadas' : 'fatura lida',
-        tarifas, fontesANEEL: fontes, projecaoGD2: projecao, comparacaoFioB, premissas: simulacao.premissas
+        tarifas, fontesANEEL: fontes, projecaoGD2: projecao, referenciaGD2, comparacaoFioB, premissas: simulacao.premissas
       })
     };
     const resumo = {

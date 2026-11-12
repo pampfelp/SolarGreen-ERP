@@ -132,6 +132,7 @@ test('distingue créditos inferidos de créditos impressos na DANFE', () => {
   }));
   const danfe = [
     ...linha(790, [['Equatorial Pará', 21], ['Unidade Consumidora', 225]]),
+    ...linha(770, [['CLASSIFICAÇÃO: RESIDENCIAL PLENO', 23], ['MODALIDADE TARIFÁRIA: B1_RESID', 159]]),
     ...linha(750, [['Leitura anterior', 364], ['Leitura atual', 425]]),
     ...linha(730, [['01/2025', 48], ['20/01/2025', 125], ['R$ 130,00', 210]]),
     ...linha(550, [['Consumo (kWh)', 21], ['100,00', 158, 174], ['1,00', 205, 224],
@@ -145,6 +146,12 @@ test('distingue créditos inferidos de créditos impressos na DANFE', () => {
   assert.equal(inferida.status, 'lido');
   assert.equal(inferida.creditosAntigosUsados, 10);
   assert.equal(inferida.origem.creditosAntigosUsados, 'inferido');
+  // Mesmo vocabulário das tarifas observadas: "residencial" e "convencional".
+  assert.equal(inferida.subclasse, 'residencial');
+  assert.equal(inferida.modalidade, 'convencional');
+  const branca = lerTextoPosicional([danfe.map(i => i.str.startsWith('MODALIDADE')
+    ? { ...i, str: 'MODALIDADE TARIFÁRIA: B1_RESID_BRANCA' } : i)]);
+  assert.equal(branca.modalidade, 'tarifa branca');
   assert.equal(inferida.saldoDisponivel, null);
 
   const comValorImpresso = lerTextoPosicional([danfe.concat(

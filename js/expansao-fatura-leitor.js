@@ -402,9 +402,15 @@
     fatura.subgrupo = subgrupo?.toUpperCase() || null;
     fatura.grupo = subgrupo ? 'B' : primeiraCaptura(linhas, /\bgrupo\s*:?\s*([ab])\b/)?.toUpperCase() || null;
     const classificacao = primeiraCaptura(linhas, /\bclassificacao\s*:\s*((?:residencial\s+)?(?:desconto social|tarifa social|baixa renda|residencial(?: pleno)?|rural|comercial|industrial))\b/);
-    fatura.subclasse = classificacao?.replace(/^residencial (?=desconto social|tarifa social|baixa renda)/, '')
+    // "Residencial pleno" é a classe residencial sem benefício social; o resto do sistema chama de "residencial".
+    fatura.subclasse = classificacao?.replace(/^residencial (?=desconto social|tarifa social|baixa renda)/, '').replace(/^residencial pleno$/, 'residencial')
       ?? primeiraCaptura(linhas, /\b(desconto social|tarifa social|baixa renda|residencial|rural|comercial|industrial)\b/);
-    fatura.modalidade = primeiraCaptura(linhas, /\b(?:modalidade(?: tarifaria)?\s*:?\s*)?(tarifa branca|convencional)\b/);
+    // A DANFE imprime só o código (ex.: "MODALIDADE TARIFÁRIA: B1_RESID"). Sem "branca" no código e sem
+    // linha por posto horário, a modalidade é a convencional.
+    const codigoModalidade = primeiraCaptura(linhas, /\bmodalidade tarifaria\s*:?\s*(b[1-4]_[a-z_]+)/);
+    const temPosto = itens.some(item => /\b(?:ponta|intermediari[oa])\b/.test(normalizar(item.descricao)));
+    fatura.modalidade = primeiraCaptura(linhas, /\b(?:modalidade(?: tarifaria)?\s*:?\s*)?(tarifa branca|convencional)\b/)
+      ?? (!codigoModalidade ? null : /branca/.test(codigoModalidade) ? 'tarifa branca' : temPosto ? null : 'convencional');
     fatura.tipoFornecimento = primeiraCaptura(linhas, /\b(monofasic[oa]|bifasic[oa]|trifasic[oa])\b/);
     fatura.vencimento = danfe?.vencimento ?? dataISO(primeiraCaptura(linhas, /\bvencimento\s*:?\s*(\d{2}\/\d{2}\/\d{4})\b/));
     fatura.dataLeituraAnterior = danfe?.dataLeituraAnterior ?? dataISO(primeiraCaptura(linhas, /\b(?:data (?:da |de )?)?leitura anterior\s*:?\s*(\d{2}\/\d{2}\/\d{4})\b/));

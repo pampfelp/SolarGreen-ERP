@@ -400,8 +400,75 @@
     return observada * percentualProjetado / percentualObservado * variacaoFioB;
   }
 
+  // Referência GD II tirada de uma fatura lida: a linha "Parc. Inj. s/ Desc. – GD II".
+  // Linhas com tarifas diferentes no mesmo ciclo não viram referência.
+  function referenciaGD2DaFatura(f) {
+    const linhas = (f?.itens || []).filter(i => i.tipo === 'gd2' && i.noTotal !== false);
+    if (!linhas.length || !/^\d{4}-(0[1-9]|1[0-2])$/.test(f.referencia || '')) return null;
+    if (!linhas.every(i => i.quantidade > 0 && valor(i.tarifaSemTributos) && valor(i.precoComTributos))) return null;
+    if (new Set(linhas.map(i => i.tarifaSemTributos + '|' + i.precoComTributos)).size !== 1) return null;
+    const qtd = linhas.reduce((s, i) => s + i.quantidade, 0);
+    const porKWh = campo => linhas.every(i => Number.isFinite(i[campo]))
+      ? linhas.reduce((s, i) => s + Math.abs(i[campo]), 0) / qtd : null;
+    const { tarifaSemTributos, precoComTributos } = linhas[0];
+    if (!(precoComTributos > tarifaSemTributos && tarifaSemTributos > 0)) return null;
+    return { referencia: f.referencia, tarifaSemTributos, precoComTributos,
+      pisCofinsPorKWh: porKWh('pisCofins'), icmsPorKWh: porKWh('icms'),
+      subclasse: f.subclasse || null, modalidade: f.modalidade || null };
+  }
+
+  // Tarifa do kWh compensado nesta UC: a linha de consumo compensado ou, sem SCEE, a faixa única de consumo.
+  function tarifaCompensadaDaFatura(f, tarifas = {}) {
+    const linhas = (f?.itens || []).filter(i => i.tipo === 'consumoCompensado' && i.noTotal !== false
+      && i.quantidade > 0 && valor(i.precoComTributos) && valor(i.tarifaSemTributos));
+    if (linhas.length && new Set(linhas.map(i => i.tarifaSemTributos + '|' + i.precoComTributos)).size === 1) {
+      const qtd = linhas.reduce((s, i) => s + i.quantidade, 0);
+      const porKWh = campo => linhas.every(i => Number.isFinite(i[campo]))
+        ? linhas.reduce((s, i) => s + Math.abs(i[campo]), 0) / qtd : null;
+      return { precoComTributos: linhas[0].precoComTributos, tarifaSemTributos: linhas[0].tarifaSemTributos,
+        pisCofinsPorKWh: porKWh('pisCofins'), icmsPorKWh: porKWh('icms') };
+    }
+    const faixas = tarifas.faixasConsumo || [];
+    if (!linhas.length && faixas.length === 1 && valor(faixas[0].precoComTributos) && valor(faixas[0].tarifaSemTributos)) {
+      const { precoComTributos, tarifaSemTributos, pisCofinsPorKWh = null, icmsPorKWh = null } = faixas[0];
+      return { precoComTributos, tarifaSemTributos, pisCofinsPorKWh, icmsPorKWh };
+    }
+    return null;
+  }
+
+  // Rubricas GD II montadas com a referência, pelo atalho da skill (seção 4):
+  // líquido = kWh × (tarifa compensada s/ trib − GD II s/ trib);
+  // bruto = líquido × (GD II c/ trib ÷ GD II s/ trib).
+  // `fator` ajusta a GD II ao percentual do Fio B do ano simulado.
+  function rubricasGD2DaReferencia({ referencia, compensado, fator = 1 }) {
+    if (!referencia || !compensado || !(fator > 0 && Number.isFinite(fator))) return null;
+    const gdS = referencia.tarifaSemTributos * fator;
+    const gdC = referencia.precoComTributos * fator;
+    if (!(gdS > 0 && gdC > gdS)) return null;
+    const liquido = compensado.tarifaSemTributos - gdS;
+    if (!(liquido > 0)) return null;
+    const bruto = liquido * gdC / gdS;
+    const pis = referencia.pisCofinsPorKWh, icms = referencia.icmsPorKWh;
+    const fracaoIcms = Number.isFinite(pis) && Number.isFinite(icms) && pis + icms > 0 ? icms / (pis + icms) : null;
+    const tributosBruto = bruto - liquido;
+    const compensada = { precoComTributos: compensado.precoComTributos, tarifaSemTributos: compensado.tarifaSemTributos,
+      pisCofinsPorKWh: compensado.pisCofinsPorKWh, icmsPorKWh: compensado.icmsPorKWh };
+    return [
+      { ...compensada, tipo: 'consumoCompensado', descricao: 'Consumo compensado' },
+      { ...compensada, tipo: 'energiaInjetada', descricao: 'Energia ativa injetada usada na compensação', sinal: -1 },
+      { tipo: 'gd2', descricao: 'Parc. Inj. s/ Desc. – GD II', precoComTributos: gdC, tarifaSemTributos: gdS,
+        pisCofinsPorKWh: Number.isFinite(pis) ? pis * fator : null, icmsPorKWh: Number.isFinite(icms) ? icms * fator : null },
+      { tipo: 'sceeBruto', descricao: 'Benefício tarifário bruto SCEE', valorPorKWh: bruto, ocultarQuantidade: true,
+        pisCofinsPorKWh: fracaoIcms === null ? null : tributosBruto * (1 - fracaoIcms),
+        icmsPorKWh: fracaoIcms === null ? null : tributosBruto * fracaoIcms },
+      { tipo: 'sceeLiquido', descricao: 'Benefício tarifário líquido SCEE', valorPorKWh: liquido, sinal: -1,
+        ocultarQuantidade: true }
+    ];
+  }
+
   const api = { conferirFatura, calcularRecuperacao, dimensionar, sugerirInversor,
-    tarifasDaFatura, montarFaturaSimulada, simularCenarios, compararFioB, projetarTarifaGD2 };
+    tarifasDaFatura, montarFaturaSimulada, simularCenarios, compararFioB, projetarTarifaGD2,
+    referenciaGD2DaFatura, tarifaCompensadaDaFatura, rubricasGD2DaReferencia };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.SGExpansaoCalculo = api;
 })(typeof window === 'undefined' ? globalThis : window);

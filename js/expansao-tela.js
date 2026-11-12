@@ -89,7 +89,7 @@
     let liberado = false, entrou = false, ocupacao = false, visualizacao = false, recalc = false;
     let acessoPendente, comboCliente;
     let atualizaPendente = false, observacaoAnterior = '', cidadeManual = '', alterou = false;
-    let produtividadeAutomatica = null, produtividadeEditada = false;
+    let produtividadeAutomatica = null, produtividadeEditada = false, editandoRefGD2 = false;
     const nomesOrigem = { lido: 'Lido', editado: 'Editado', 'não encontrado': 'Não encontrado' };
 
     function aviso(texto) {
@@ -236,7 +236,87 @@
       const [padrao, fiob, tarifasAtuais] = await Promise.all(
         ['expansao_padrao', 'fiob_gd2', 'tarifas_equatorial_pa'].map(id => db.collection('config').doc(id).get({ source: 'server' }))
       );
-      config = { ...padrao.data(), fiob: fiob.data() || {}, tarifas: tarifasAtuais.data() || {} };
+      // A referência é opcional: se a leitura falhar, a aba continua e a premissa avisa que ela falta.
+      const refGD2 = await lerDocReferenciaGD2().catch(() => null);
+      config = { ...padrao.data(), fiob: fiob.data() || {}, tarifas: tarifasAtuais.data() || {}, referenciaGD2: refGD2 };
+    }
+
+    async function lerDocReferenciaGD2() {
+      const doc = await window.firebase.firestore().collection('expansao_referencias').doc('gd2').get({ source: 'server' });
+      const d = doc.exists ? doc.data() : null;
+      return d ? {
+        referencia: d.Referencia, tarifaSemTributos: d.TarifaSemTributos, precoComTributos: d.PrecoComTributos,
+        pisCofinsPorKWh: d.PisCofinsPorKWh ?? null, icmsPorKWh: d.IcmsPorKWh ?? null,
+        subclasse: d.Subclasse ?? null, modalidade: d.Modalidade ?? null, fonte: d.Fonte, origem: d.Origem,
+        atualizadoPorNome: d.AtualizadoPorNome || ''
+      } : null;
+    }
+
+    const mesAno = ref => /^\d{4}-\d{2}$/.test(ref || '') ? ref.slice(5) + '/' + ref.slice(0, 4) : '—';
+
+    function renderReferenciaGD2() {
+      const host = $('expReferenciaGD2');
+      if (!host) return;
+      const r = config.referenciaGD2;
+      if (!editandoRefGD2) {
+        host.innerHTML = (r
+          ? '<div class="exp-medida"><span>Fatura de ' + esc(mesAno(r.referencia)) + ' · ' + (r.origem === 'manual' ? 'editada' : 'lida') +
+            '</span><strong>R$ ' + fmt(r.tarifaSemTributos, 6) + ' sem tributos · R$ ' + fmt(r.precoComTributos, 6) +
+            ' com tributos, por kWh</strong><span class="exp-copy">' + esc(r.fonte) +
+            (r.atualizadoPorNome ? ' · ' + esc(r.atualizadoPorNome) : '') + '</span></div>'
+          : '<p class="exp-copy">Nenhuma referência salva. Ela é gravada ao salvar uma proposta cuja fatura tem a parcela GD II.</p>') +
+          '<p class="exp-copy">Usada quando a fatura do cliente não tem a parcela GD II (usina em GD I ou sem compensação). ' +
+          'Cada fatura nova com a parcela atualiza a referência.</p>' +
+          '<button type="button" class="btn btn-secondary" data-ref-gd2="editar">' + (r ? 'Editar referência' : 'Cadastrar referência') + '</button>';
+        return;
+      }
+      host.innerHTML = '<div class="frow">' +
+        campoDinamico('Mês da fatura', 'data-ref-gd2-campo="referencia"', r?.referencia || '', 'month') +
+        campoDinamico('GD II sem tributos (R$/kWh)', 'data-ref-gd2-campo="tarifaSemTributos"', r?.tarifaSemTributos, 'n') +
+        campoDinamico('GD II com tributos (R$/kWh)', 'data-ref-gd2-campo="precoComTributos"', r?.precoComTributos, 'n') +
+        campoDinamico('PIS/Cofins da GD II (R$/kWh)', 'data-ref-gd2-campo="pisCofinsPorKWh"', r?.pisCofinsPorKWh, 'n') +
+        campoDinamico('ICMS da GD II (R$/kWh)', 'data-ref-gd2-campo="icmsPorKWh"', r?.icmsPorKWh, 'n') +
+        campoDinamico('Fonte', 'data-ref-gd2-campo="fonte"', r?.origem === 'manual' ? r.fonte : '') +
+        '</div><div class="actions-row"><button type="button" class="btn btn-primary" data-ref-gd2="salvar">Salvar referência</button>' +
+        '<button type="button" class="btn btn-secondary" data-ref-gd2="cancelar">Cancelar</button></div>';
+    }
+
+    async function recarregarReferenciaGD2() {
+      config.referenciaGD2 = await lerDocReferenciaGD2();
+      renderReferenciaGD2();
+      agendarResultado();
+    }
+
+    async function salvarReferenciaManual() {
+      const v = campo => painel.querySelector('[data-ref-gd2-campo="' + campo + '"]')?.value ?? '';
+      const referencia = {
+        referencia: v('referencia'), tarifaSemTributos: numero(v('tarifaSemTributos')), precoComTributos: numero(v('precoComTributos')),
+        pisCofinsPorKWh: numero(v('pisCofinsPorKWh')), icmsPorKWh: numero(v('icmsPorKWh')), fonte: v('fonte').trim()
+      };
+      checarResposta(await apiCall('salvarReferenciaGD2', { referencia, origem: 'manual', nomeUsuario: sessao().nome || '' }),
+        'A referência GD II não foi salva.');
+      editandoRefGD2 = false;
+      await recarregarReferenciaGD2();
+      showToast('Referência GD II salva.');
+    }
+
+    // Depois de salvar uma proposta cuja fatura revisada tem a parcela GD II, ela vira a referência das próximas.
+    async function atualizarReferenciaPelaFatura(numeroProposta) {
+      if (!fatura.revisada) return;
+      const ref = window.SGExpansaoCalculo.referenciaGD2DaFatura(fatura);
+      if (!ref) return;
+      try {
+        const r = checarResposta(await apiCall('salvarReferenciaGD2', {
+          referencia: { ...ref, fonte: 'Fatura de ' + mesAno(ref.referencia) + ', proposta ' + numeroProposta },
+          origem: 'fatura', nomeUsuario: sessao().nome || ''
+        }), 'A referência GD II não foi atualizada.');
+        if (r.alterada) {
+          await recarregarReferenciaGD2();
+          showToast('Referência GD II atualizada pela fatura de ' + mesAno(ref.referencia) + '.');
+        }
+      } catch (e) {
+        showToast('A referência GD II não foi atualizada. ' + e.message, false);
+      }
     }
 
     async function carregarAba() {
@@ -262,6 +342,7 @@
           ]);
           entrou = true;
           aviso('');
+          renderReferenciaGD2();
           atualizarProdutividade();
         } catch (e) {
           liberado = false;
@@ -779,6 +860,7 @@
       agendarResultado();
       carregarHistorico().catch(erros);
       registrarObservacao();
+      atualizarReferenciaPelaFatura(salvo.Numero || p.Numero);
       return salvo;
     }
 
@@ -846,6 +928,8 @@
       $('expFormulario').disabled = !liberado || ocupacao;
       for (const el of $('expFormulario').querySelectorAll('input,select,textarea,button')) {
         if (el.matches('[data-ver-anexo]')) continue;
+        // A referência GD II vale para todas as propostas; não depende da proposta aberta estar congelada.
+        if (el.matches('[data-ref-gd2],[data-ref-gd2-campo]')) { el.disabled = !liberado; continue; }
         if (el.matches('[data-proposta]')) { el.disabled = somenteLeitura; continue; }
         if (el.matches('[data-anexo],[data-escolher-anexo]')) el.disabled = somenteLeitura || congelado || !clienteId;
         else if (el.id === 'expLerFatura') el.disabled = somenteLeitura || congelado || !(locais.has('Fatura') || anexos.Fatura);
@@ -997,6 +1081,12 @@
         const d = botao.dataset;
         if (d.escolherAnexo) $('expArquivo' + d.escolherAnexo).click();
         if (d.verAnexo) executar(() => verAnexo(d.verAnexo));
+        if (d.refGd2 === 'editar' || d.refGd2 === 'cancelar') {
+          editandoRefGD2 = d.refGd2 === 'editar';
+          renderReferenciaGD2();
+          atualizarModo();
+        }
+        if (d.refGd2 === 'salvar') executar(salvarReferenciaManual);
         if (d.abrirProposta) abrirComConfirmacao(d.abrirProposta, false);
         if (d.editarProposta) abrirComConfirmacao(d.editarProposta, true);
         const alterar = (lista, indice, criarItem, atualizar) => {

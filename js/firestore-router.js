@@ -652,6 +652,52 @@
     }catch(err){ return {ok:false, erro:err.message}; }
   }
 
+  // Referência GD II usada quando a fatura do cliente não traz a parcela GD II.
+  // Toda fatura lida com a parcela atualiza a referência (se for do mesmo mês ou mais nova);
+  // a equipe também pode editar. Cada gravação deixa uma cópia no histórico.
+  var CAMPOS_REFERENCIA_GD2=['Referencia','TarifaSemTributos','PrecoComTributos','PisCofinsPorKWh','IcmsPorKWh'];
+
+  async function salvarReferenciaGD2(p){
+    try{
+      var uid=autorPropostaExpansao();
+      var r=(p&&p.referencia)||{}, origem=p&&p.origem;
+      var positivo=function(n){return typeof n==='number'&&isFinite(n)&&n>0&&n<=5;};
+      var opcional=function(n){return n===null||n===undefined||positivo(n);};
+      var texto=function(s,max){return typeof s==='string'&&s.trim()?s.trim().slice(0,max):null;};
+      if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(r.referencia||'')||!positivo(r.tarifaSemTributos)
+        ||!positivo(r.precoComTributos)||r.precoComTributos<=r.tarifaSemTributos
+        ||!opcional(r.pisCofinsPorKWh)||!opcional(r.icmsPorKWh)
+        ||['fatura','manual'].indexOf(origem)<0||!texto(r.fonte,200)){
+        throw new Error('Revise o mês, as tarifas e a fonte da referência GD II.');
+      }
+      var dados={
+        Referencia:r.referencia, TarifaSemTributos:r.tarifaSemTributos, PrecoComTributos:r.precoComTributos,
+        PisCofinsPorKWh:positivo(r.pisCofinsPorKWh)?r.pisCofinsPorKWh:null,
+        IcmsPorKWh:positivo(r.icmsPorKWh)?r.icmsPorKWh:null,
+        Subclasse:texto(r.subclasse,60), Modalidade:texto(r.modalidade,60),
+        Fonte:texto(r.fonte,200), Origem:origem
+      };
+      var ref=db().collection('expansao_referencias').doc('gd2');
+      return await db().runTransaction(async function(tx){
+        var snap=await tx.get(ref), atual=snap.exists?snap.data():null;
+        if(atual&&origem==='fatura'&&(atual.Referencia>dados.Referencia||CAMPOS_REFERENCIA_GD2.every(function(c){
+          return atual[c]===dados[c];
+        }))){
+          return {ok:true, alterada:false};
+        }
+        var registro=Object.assign({},dados,{
+          AtualizadoEm:firebase.firestore.FieldValue.serverTimestamp(), AtualizadoPor:uid,
+          AtualizadoPorNome:texto(p.nomeUsuario,120)||''
+        });
+        tx.set(ref,registro);
+        tx.set(db().collection('expansao_referencias_historico').doc(),Object.assign({},registro,{
+          Anterior:atual?camposExpansao(atual,CAMPOS_REFERENCIA_GD2.concat(['Fonte','Origem'])):null
+        }));
+        return {ok:true, alterada:true};
+      });
+    }catch(err){ return {ok:false, erro:err.message}; }
+  }
+
 
   function paraNumero(v){
     if(v===''||v===null||v===undefined)return 0;
@@ -1280,6 +1326,7 @@
 
     getPropostasExpansao:comAuthPronto(getPropostasExpansao),
     salvarPropostaExpansao:comSync('propostas_expansao',function(p){return p.proposta&&p.proposta.Numero||'proposta de expansão';},comAuthPronto(salvarPropostaExpansao)),
+    salvarReferenciaGD2:comAuthPronto(salvarReferenciaGD2),
 
     listVendedoresAdmin:comAuthPronto(listVendedoresAdmin),
     salvarVendedor:comSync('vendedores',function(p){return p.nome||p.idVendedor;},comAuthPronto(salvarVendedor)),
