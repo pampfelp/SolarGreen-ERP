@@ -293,7 +293,12 @@
       c.entrada.disabled = select.disabled;
       if (document.activeElement === c.entrada) return;
       const opcao = select.selectedOptions[0];
-      c.combo?.setValor(select.value, opcao && (opcao.value !== '' || select.hasAttribute('data-combo-vazio')) ? opcao.text : '');
+      if (select.value === '' && !(FIXOS[select.dataset.fatura] || []).some(([v]) => v === '')) {
+        c.entrada.placeholder = opcao?.text || 'Clique e escolha';
+        c.combo?.setValor('', '');
+        return;
+      }
+      c.combo?.setValor(select.value, opcao ? opcao.text : '');
     }
 
     function sincronizarCombos() {
@@ -776,7 +781,8 @@
           dinheiro(comp.diferencaReaisComTributos) + ' com tributos</span><span class="exp-copy">' +
           esc([...new Set((comp.fontes || []).map(v => v.resolucao).filter(Boolean))].join(' / ')) +
           ' · Lei 14.300, art. 27</span></div>'
-        : '<p class="exp-copy">Fio B não comparável. ' + esc(comp.motivo || '') + '</p>';
+        : Number.isFinite(fatura.tarifaGD2SemTributos)
+          ? '<p class="exp-copy">Fio B não comparável. ' + esc(comp.motivo || '') + '</p>' : '';
     }
 
     function kpi(label, valor, detalhe = '') {
@@ -863,7 +869,8 @@
       $('expDiagnostico').innerHTML = html;
       const atual = resultado?.regimeAtual;
       $('expRegimeInfo').textContent = resultado
-        ? 'Enquadramento: usina atual ' + (atual || 'não identificado') + (u.regimeAtual ? ' (informado)' : atual ? ' (lido da fatura)' : '') +
+        ? 'Enquadramento: usina atual ' + (atual || 'não identificado na fatura, considerado ' + (resultado.regimeExpansao || 'GD II')) +
+          (u.regimeAtual ? ' (informado)' : atual ? ' (lido da fatura)' : '') +
           ' · placas novas ' + (resultado.regimeExpansao || 'GD II') + ' (ligações a partir de 2023).'
         : '';
     }
@@ -887,14 +894,14 @@
       const modelos = (inversor?.modelos || []).map(m => [m.Marca, m.Modelo].filter(Boolean).join(' '));
       const listaModelos = modelos.slice(0, 6).join(', ') + (modelos.length > 6 ? ' e mais ' + (modelos.length - 6) : '');
       const p = destaque.principal || {};
-      host.innerHTML = '<div class="exp-destaques">' +
+      host.innerHTML = '<div class="perda-card exp-destaques-card"><div class="exp-destaques">' +
         kpi('Adicionar', fmt(d.placasNovas, 0) + ' placas', fmt(exp.wp, 0) + ' Wp cada · ' + fmt(d.kwpAdicional) +
           ' kWp · total da usina ' + fmt(d.kwpTotal) + ' kWp') +
         kpi('Inversor sugerido', inversor?.kw ? fmt(inversor.kw, 0) + ' kW' : 'Sem sugestão',
           inversor?.kw ? 'Overload ' + fmt(inversor.overload) + (modelos.length ? ' · ' + modelos.length + ' modelos no catálogo' : '')
             : 'Nenhum modelo do catálogo serve para este fornecimento') +
         kpi('Economia por mês', dinheiro(p.valor), dinheiro(p.contaReferencia) + ' → ' + dinheiro(p.contaExpansao)) +
-        '</div>' +
+        '</div></div>' +
         (destaque.contaDeHoje ? '<p class="exp-help">A fatura usou créditos antigos. Comparado com a conta de hoje (' +
           dinheiro(destaque.contaDeHoje.contaReferencia) + '), a economia é de ' + dinheiro(destaque.contaDeHoje.valor) +
           '. Quando os créditos acabarem, a diferença passa a ser a de cima.</p>' : '') +

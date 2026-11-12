@@ -286,6 +286,9 @@
       if (!Number.isInteger(meses)) avisos.push('O período de recuperação foi convertido em meses proporcionais pelos dias de cada mês.');
     }
     const recuperacaoMensal = recuperacao?.recuperacaoMensal ?? 0;
+    if (!regimeAtual && recuperacaoMensal > 0) {
+      avisos.push('A fatura não mostra o enquadramento da usina atual; a recuperação foi considerada no regime ' + regimeExpansao + '.');
+    }
     const recorrente = expansao.meta === 'recorrente';
     if (recorrente) {
       avisos.push('A meta recorrente usa o consumo da fatura como referência mensal. Encargos eventuais são mostrados à parte.');
@@ -321,7 +324,10 @@
       : null;
     const faturaSimulada = referenciaFutura ? { ...fatura, saldoInicialElegivel: saldoElegivel } : fatura;
     const simulacao = calc.simularCenarios({
-      fatura: faturaSimulada, tarifas, regimeAtual, regimeExpansao, recuperacaoMensal, geracaoNova: dimensionamento.geracaoNova,
+      // Sem compensação na fatura não há como ler o enquadramento da usina atual; a geração recuperada
+      // entra no mesmo regime das placas novas, com aviso.
+      fatura: faturaSimulada, tarifas, regimeAtual: regimeAtual || regimeExpansao, regimeExpansao, recuperacaoMensal,
+      geracaoNova: dimensionamento.geracaoNova,
       fracaoUtil: expansao.fracaoUtil,
       fracaoAutoconsumoRecuperacao: usinaAtual.fracaoAutoconsumoRecuperacao ?? expansao.fracaoAutoconsumoRecuperacao,
       fracaoAutoconsumoNova: expansao.fracaoAutoconsumoNova,
