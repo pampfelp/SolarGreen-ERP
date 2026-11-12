@@ -12,6 +12,7 @@ const source = fs.readFileSync(path.join(__dirname, '../legado/CODE GS.txt'), 'u
 const config = 'config/tarifas_equatorial_pa';
 const lei = 'config/fiob_gd2';
 const recurso = 'e8717aa8-2521-453f-bf16-fbb9a16eea39';
+const recursoAnterior = '0a1b2c3d-0000-4000-8000-000000002025';
 const reg = {
   SigNomeAgente: 'EQUATORIAL PA', DscComponenteTarifario: 'TUSD_FioB',
   DscSubGrupoTarifario: 'B1', DscBaseTarifaria: 'Tarifa de Aplicação', DscUnidade: 'R$/MWh',
@@ -22,7 +23,8 @@ const reg = {
 };
 const social = { ...reg, DscSubClasseConsumidor: 'Residencial Desconto Social – faixa 02' };
 
-function ambiente({ data = '2026-11-11', registros = [reg], documentos = {}, equipe = true } = {}) {
+function ambiente({ data = '2026-11-11', registros = [reg], anteriores = null, falhaAnterior = false,
+  documentos = {}, equipe = true } = {}) {
   const banco = new Map(Object.entries(documentos).map(([k, dados]) => [k, { dados, updateTime: '1' }]));
   const chamadas = [];
   const pushes = [];
@@ -30,6 +32,7 @@ function ambiente({ data = '2026-11-11', registros = [reg], documentos = {}, equ
   let sequencia = 0;
   const ctx = vm.createContext({
     console,
+    Logger: { log() {} },
     Date: class extends Date { static now() { return Date.parse(data + 'T12:00:00Z'); } },
     Utilities: {
       formatDate(d, fuso, formato) {
@@ -50,12 +53,17 @@ function ambiente({ data = '2026-11-11', registros = [reg], documentos = {}, equ
         if (u.pathname.endsWith('package_show')) {
           result = { resources: [
             { name: 'componentes-tarifarias-' + data.slice(0, 4) + '.parquet', id: 'parquet' },
-            { name: 'componentes-tarifarias-' + data.slice(0, 4) + '.csv', id: recurso, datastore_active: true }
+            { name: 'componentes-tarifarias-' + data.slice(0, 4) + '.csv', id: recurso, datastore_active: true },
+            ...(anteriores ? [{ name: 'componentes-tarifarias-' + (Number(data.slice(0, 4)) - 1) + '.csv',
+              id: recursoAnterior, datastore_active: true }] : [])
           ] };
         } else {
+          const doAnterior = u.searchParams.get('resource_id') === recursoAnterior;
+          if (doAnterior && falhaAnterior) return { getResponseCode: () => 503 };
+          const lista = doAnterior ? anteriores : registros;
           const offset = Number(u.searchParams.get('offset'));
           const limit = Number(u.searchParams.get('limit'));
-          result = { records: registros.slice(offset, offset + limit), total: registros.length };
+          result = { records: lista.slice(offset, offset + limit), total: lista.length };
         }
         return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ success: true, result }) };
       }
@@ -110,6 +118,31 @@ test('seleciona a tarifa de aplicação, pagina e preserva subclasse, modalidade
   assert.equal(tarifa.fim, '2027-08-06');
   assert.match(tarifa.fonte, new RegExp(recurso));
   assert.equal(banco.get(lei).dados.percentualVigente, 0.60);
+});
+
+test('traz do arquivo do ano anterior a resolução que ainda vale no começo do ano', () => {
+  const antiga = { ...reg, DatInicioVigencia: '2025-08-07', DatFimVigencia: '2026-09-17',
+    DscResolucaoHomologatoria: 'REH 3.480', VlrComponenteTarifario: '351,1' };
+  const encerrada = { ...antiga, DatInicioVigencia: '2024-08-07', DatFimVigencia: '2025-08-06' };
+  const { ctx, banco } = ambiente({ anteriores: [antiga, encerrada] });
+  assert.equal(ctx.atualizarTarifasEquatorialPA().ok, true);
+  const dados = banco.get(config).dados;
+  assert.deepEqual(dados.vigencias.map(v => [v.inicio, v.fim]), [['2025-08-07', '2026-09-17'], ['2026-09-18', '2027-08-06']]);
+  assert.match(dados.vigencias[0].fonte, new RegExp(recursoAnterior));
+  assert.deepEqual(dados.vigentes.map(v => v.inicio), ['2026-09-18']);
+  // Ciclo 04/09 a 06/10 cruza o reajuste: com as duas resoluções, o Fio B do ciclo fica comparável.
+  const r = compararFioB({ inicio: '2026-09-04', fim: '2026-10-06', vigencias: dados.vigencias,
+    subclasse: 'Residencial', modalidade: 'Convencional', percentuais: { 2026: 0.6 }, cobrado: 0.22 });
+  assert.equal(r.comparavel, true);
+  assert.deepEqual(r.fontes.map(f => f.resolucao), ['REH 3.480', 'REH 3.608']);
+});
+
+test('falha no arquivo do ano anterior não impede a atualização do ano corrente', () => {
+  const { ctx, banco } = ambiente({ anteriores: [reg], falhaAnterior: true });
+  assert.equal(ctx.atualizarTarifasEquatorialPA().ok, true);
+  const dados = banco.get(config).dados;
+  assert.equal(dados.ultimaFalha, '');
+  assert.deepEqual(dados.vigencias.map(v => v.inicio), ['2026-09-18']);
 });
 
 test('mudança gera histórico, um aviso e push somente para admin ativo', () => {

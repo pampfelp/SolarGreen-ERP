@@ -7854,13 +7854,7 @@ function expansaoNormalizarFioB_(registros, recurso) {
   return Object.keys(chaves).sort().map(function (chave) { return chaves[chave]; });
 }
 
-function expansaoConsultarFioB_(hoje) {
-  var ano = Number(hoje.slice(0, 4));
-  var pacote = expansaoAneelJson_('package_show?id=componentes-tarifarias');
-  var recurso = (pacote.resources || []).find(function (r) {
-    return r.name === 'componentes-tarifarias-' + ano + '.csv' && r.datastore_active !== false;
-  });
-  if (!recurso || !/^[\da-f-]{36}$/i.test(recurso.id)) throw new Error('Recurso tarifário do ano ainda indisponível.');
+function expansaoRegistrosFioB_(recurso) {
   var filtros = {
     SigNomeAgente: 'EQUATORIAL PA', DscComponenteTarifario: 'TUSD_FioB',
     DscSubGrupoTarifario: 'B1', DscBaseTarifaria: 'Tarifa de Aplicação'
@@ -7879,11 +7873,39 @@ function expansaoConsultarFioB_(hoje) {
     }
     if (registros.length >= 5000) throw new Error('Consulta tarifária ultrapassou o limite de páginas.');
   }
-  var vigencias = expansaoNormalizarFioB_(registros, recurso.id);
+  return expansaoNormalizarFioB_(registros, recurso.id);
+}
+
+function expansaoConsultarFioB_(hoje) {
+  var ano = Number(hoje.slice(0, 4));
+  var pacote = expansaoAneelJson_('package_show?id=componentes-tarifarias');
+  function recursoDoAno(a) {
+    var r = (pacote.resources || []).find(function (x) {
+      return x.name === 'componentes-tarifarias-' + a + '.csv' && x.datastore_active !== false;
+    });
+    return r && /^[\da-f-]{36}$/i.test(r.id) ? r : null;
+  }
+  var recurso = recursoDoAno(ano);
+  if (!recurso) throw new Error('Recurso tarifário do ano ainda indisponível.');
+  var vigencias = expansaoRegistrosFioB_(recurso);
   var residencial = vigencias.filter(function (v) {
     return v.subclasse === 'Residencial' && v.modalidade === 'Convencional' && v.inicio <= hoje && v.fim >= hoje;
   });
   if (residencial.length !== 1) throw new Error('A ANEEL não retornou uma tarifa residencial convencional vigente e única.');
+  // Faturas do começo do ano e ciclos que cruzam o reajuste usam a resolução anterior, publicada no arquivo do
+  // ano passado. Só entram as vigências que terminam neste ano; se o arquivo faltar ou falhar, segue sem elas.
+  var recursoAnterior = recursoDoAno(ano - 1);
+  if (recursoAnterior) {
+    try {
+      var chaves = Object.create(null);
+      vigencias.forEach(function (v) { chaves[expansaoTarifaId_(v)] = true; });
+      expansaoRegistrosFioB_(recursoAnterior).forEach(function (v) {
+        if (v.fim >= ano + '-01-01' && !chaves[expansaoTarifaId_(v)]) vigencias.push(v);
+      });
+    } catch (e) {
+      Logger.log('Tarifas do ano anterior indisponíveis: ' + (e.message || e));
+    }
+  }
   return vigencias;
 }
 
