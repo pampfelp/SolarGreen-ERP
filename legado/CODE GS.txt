@@ -4795,14 +4795,20 @@ function disparoGraph_(props, corpo) {
   });
   var txt = resp.getContentText(), json = {};
   try { json = JSON.parse(txt); } catch (e) { /* resposta fora do padrão: vai como texto no erro */ }
-  if (resp.getResponseCode() === 200 && json.messages && json.messages[0]) return { ok: true, wamid: json.messages[0].id };
+  var http = resp.getResponseCode();
+  if (http === 200 && json.messages && json.messages[0] && json.messages[0].id) return { ok: true, wamid: json.messages[0].id };
   var err = json.error || {};
-  return { ok: false, codigo: Number(err.code || 0), erro: String(err.message || txt).slice(0, 300) };
+  return { ok: false, http: http, codigo: Number(err.code || 0), erro: String(err.message || txt).slice(0, 300) };
 }
 
 // Mensagem de texto livre: só vale dentro das 24h depois que o lead escreveu.
 function disparoMandarTexto_(props, para, texto) {
   return disparoGraph_(props, { messaging_product: 'whatsapp', to: para, type: 'text', text: { body: texto, preview_url: true } });
+}
+
+function disparoTextoAtendimento_(nome, telefone) {
+  var link = 'https://wa.me/' + telefone + '?text=' + encodeURIComponent(DISPARO_TEXTO_SOLTO_VENDEDOR);
+  return 'Oi! Aqui é da Solar Green. Quem vai te atender é ' + nome + '. Toque aqui pra falar direto: ' + link;
 }
 
 // Manda o texto e guarda a mensagem de saída em mensagens_disparo.
@@ -4899,7 +4905,7 @@ function actionDisparoWebhook(body) {
       var v = ch.value || {};
       if (ch.field === 'message_template_status_update') { disparoTratarStatusModelo_(cfg, v); return; }
       // Resposta a uma cobrança (2026-11-02) não passa pela lógica do disparo.
-      (v.messages || []).forEach(function (m) { if (!cobrancaTratarMensagem_(cfg, m) && disparoTratarMensagem_(cfg, props, m)) feitos++; });
+      (v.messages || []).forEach(function (m) { if (!cobrancaTratarMensagem_(cfg, props, m) && disparoTratarMensagem_(cfg, props, m)) feitos++; });
       (v.statuses || []).forEach(function (s) { disparoTratarStatus_(cfg, s); cobrancaTratarStatus_(cfg, s); });
     });
   });
@@ -4942,9 +4948,8 @@ function disparoTratarMensagem_(cfg, props, m) {
       tipoSolto === 'text' ? (m.text || {}).body : tipoSolto === 'button' ? infoSolta.text : infoSolta.caption);
     if (idSolto) disparoAnexarMidia_(cfg, props, infoSolta, idSolto);
     if (solto && solto.responder) {
-      var linkSolto = 'https://wa.me/' + solto.dados.telVendedor + '?text=' + encodeURIComponent(DISPARO_TEXTO_SOLTO_VENDEDOR);
-      var rSolto = disparoEnviarTexto_(cfg, props, dSolto, m.from, 'Oi! Aqui é da Solar Green. Quem vai te atender é ' +
-        solto.dados.nomeVendedor + '. Toque aqui pra falar direto: ' + linkSolto);
+      var rSolto = disparoEnviarTexto_(cfg, props, dSolto, m.from,
+        disparoTextoAtendimento_(solto.dados.nomeVendedor, solto.dados.telVendedor));
       if (!rSolto.ok) console.error('Resposta ao contato sem campanha (final ' + fim8.slice(-4) + ') não saiu.');
     }
     console.log('Mensagem no número do disparo sem disparo correspondente (final ' + fim8.slice(-4) + ').');
@@ -5665,7 +5670,7 @@ function fsBatchGet_(cfg, caminhos, campos) {
 //                         venda ligada à OS e agradece se não sobrou cobrança
 //   cobrancaLembretes     gatilho de hora em hora: nos horários, manda o lembrete
 //   cobrancaTratarMensagem_  resposta do cliente a uma cobrança não entra na
-//                         lógica do disparo; vira aviso para o vendedor
+//                         lógica do disparo; avisa o vendedor e envia o contato dele
 //   cobrancaCriarModelos  pelo editor, cria os seis modelos na Meta
 //
 // Script Properties (nenhuma vai pro repositório):
@@ -6268,9 +6273,9 @@ function cobrancaLembretes() {
 // Mensagem que chega no número do disparo: se a última coisa que o telefone
 // recebeu foi uma cobrança (ou se ele respondeu citando uma), é conversa de
 // cobrança e não passa pela lógica do disparo (resposta automática, funil,
-// "não quero receber"). Vira aviso para o vendedor do cliente. Devolve true
-// quando tratou.
-function cobrancaTratarMensagem_(cfg, m) {
+// "não quero receber"). A cobrança avisa o vendedor e envia o contato dele.
+// Devolve true quando tratou.
+function cobrancaTratarMensagem_(cfg, props, m) {
   var fim8 = disparoFim8_(m.from);
   var nossa = fsConsulta_(cfg, 'cobranca_mensagens', 'telFim8', fim8, 100).filter(function (x) { return x.direcao === 'saida'; });
   if (!nossa.length) return false;
@@ -6286,22 +6291,35 @@ function cobrancaTratarMensagem_(cfg, m) {
   var tipo = m.type || 'text';
   var info = m[tipo] && typeof m[tipo] === 'object' ? m[tipo] : {};
   var texto = tipo === 'text' ? (m.text || {}).body : (tipo === 'button' ? info.text : info.caption);
+  var agora = Date.now();
+  var recebidoEm = Number(m.timestamp) * 1000;
+  if (!Number.isFinite(recebidoEm) || recebidoEm <= 0 || recebidoEm > agora) recebidoEm = 0;
   // A mensagem é de uma OS ou da mensalidade de um plano.
   var dono = ref.idPlano ? { idPlano: String(ref.idPlano) } : { idAgendamento: String(ref.idAgendamento) };
   var ok = fsCommit_(cfg, [fsUpdate_(cfg, 'cobranca_mensagens/in-' + String(m.id || Date.now()).replace(/[^A-Za-z0-9_.=-]/g, ''), cobrancaJuntar_({
-    direcao: 'entrada', telFim8: fim8, em: Date.now(), tipo: tipo, texto: String(texto || '').slice(0, 1000)
+    direcao: 'entrada', telFim8: fim8, em: recebidoEm || agora, tipo: tipo, texto: String(texto || '').slice(0, 1000)
   }, dono), { exists: false })]);
   if (!ok) return true; // a Meta repetiu a entrega
   var c = ref.idPlano ? cobrancaPlanoContexto_(cfg, dono.idPlano) : cobrancaContexto_(cfg, dono.idAgendamento);
   var vendedor = c ? String(c.cliente['Vendedor Responsavel'] || '') : '';
   var nome = c ? String(c.cliente['Nome Razao Social'] || c.cliente.Nome || 'Cliente') : 'Cliente';
   var chave = ref.idPlano ? 'plano-' + dono.idPlano : dono.idAgendamento;
+  var telLead = cobrancaTelefone_(m.from);
+  if (!c || cobrancaTelefoneCanonico_(telLead) !== cobrancaTelefoneCanonico_(c.cliente.Telefone)) telLead = '';
   fsCommit_(cfg, [cobrancaEspelho_(cfg, 'entrada', m.id, c ? c.cliente : null, cobrancaJuntar_({
-    telFim8: fim8, tipo: tipo, texto: String(texto || '').slice(0, 1000)
+    telFim8: fim8, telLead: telLead, em: recebidoEm || agora, tipo: tipo, texto: String(texto || '').slice(0, 1000)
   }, dono))]);
-  disparoAnexarMidia_(cfg, disparoProps_(), info, cobrancaIdEspelho_('entrada', m.id));
+  disparoAnexarMidia_(cfg, props, info, cobrancaIdEspelho_('entrada', m.id));
   // Resposta à confirmação da OS não é conversa de cobrança: texto neutro no aviso.
   var daConfirmacao = !ref.idPlano && ref.tipo === 'confirmacao';
+  if (c && !daConfirmacao && ['reaction', 'system', 'unsupported'].indexOf(tipo) === -1) {
+    try {
+      var atendimento = cobrancaEnviarAtendimento_(cfg, props, c.cliente, dono, m.from, recebidoEm);
+      if (atendimento.erro) console.error('Resposta de atendimento da cobrança: ' + atendimento.erro);
+    } catch (e) {
+      console.error('Erro ao encaminhar atendimento da cobrança: ' + e.message);
+    }
+  }
   enviarPush_(cfg, vendedor ? [vendedor] : cobrancaGestao_(cfg), {
     titulo: daConfirmacao ? 'Cliente respondeu a confirmação da OS' : 'Cliente respondeu a cobrança',
     corpo: nome + ': ' + String(texto || '[' + tipo + ']').slice(0, 120),
@@ -6309,6 +6327,67 @@ function cobrancaTratarMensagem_(cfg, m) {
     tag: 'cobranca-' + chave, notifId: 'cobranca:in:' + String(m.id || ''), tipo: daConfirmacao ? 'os' : 'cobranca'
   });
   return true;
+}
+
+// A Meta pode trazer o celular com ou sem o nono dígito. Compare país, DDD
+// e número para confirmar que o contato é do cliente vinculado à cobrança.
+function cobrancaTelefoneCanonico_(tel) {
+  return cobrancaTelefone_(tel).replace(/^(55\d{2})9(\d{8})$/, '$1$2');
+}
+
+function cobrancaEnviarAtendimento_(cfg, props, cliente, dono, de, recebidoEm) {
+  var agora = Date.now();
+  var janela = 24 * 60 * 60 * 1000;
+  if (!(recebidoEm > agora - janela && recebidoEm <= agora)) return { ok: false, motivo: 'Janela de atendimento encerrada.' };
+  var para = cobrancaTelefone_(de);
+  var canonico = cobrancaTelefoneCanonico_(para);
+  if (!canonico || canonico !== cobrancaTelefoneCanonico_(cliente.Telefone)) {
+    return { ok: false, motivo: 'O telefone da conversa não confere com o cadastro.' };
+  }
+  var id = String(cliente['Vendedor Responsavel'] || '').trim();
+  if (!id) return { ok: false, motivo: 'Cliente sem vendedor responsável.' };
+  var doc = fsGet_(cfg, 'vendedores/' + id);
+  var vendedor = doc ? doc.dados : fsConsulta_(cfg, 'vendedores', 'IdVendedor', id, 1)[0];
+  var nome = vendedor ? String(vendedor.Nome || '').trim().split(/\s+/)[0] : '';
+  var tel = vendedor ? cobrancaTelefone_(vendedor.Telefone) : '';
+  if (!nome || !tel || String(vendedor.Status || '').trim() !== 'Ativo' || cobrancaTelefoneCanonico_(tel) === canonico) {
+    return { ok: false, motivo: 'O vendedor responsável não tem um contato ativo válido.' };
+  }
+  if (!props.token || !props.phoneId) return { ok: false, erro: 'WhatsApp não configurado.' };
+
+  // A reserva atômica evita duas respostas se mensagens distintas chegam juntas.
+  var caminho = 'cobranca_mensagens/atendimento-' + canonico;
+  var anterior = fsGet_(cfg, caminho);
+  if (anterior && Number(anterior.dados.em) > agora - janela) return { ok: false, motivo: 'Atendimento já encaminhado nas últimas 24 horas.' };
+  var condicao = anterior ? { updateTime: anterior.updateTime } : { exists: false };
+  if (!fsCommit_(cfg, [fsUpdate_(cfg, caminho, { em: agora }, condicao)])) {
+    return { ok: false, motivo: 'Outra execução já encaminhou o atendimento.' };
+  }
+
+  var texto = disparoTextoAtendimento_(nome, tel);
+  var r = disparoMandarTexto_(props, para, texto);
+  if (!r.ok) {
+    // Libera para uma nova mensagem se houve rejeição explícita. Com falha
+    // de rede ou resposta ambígua, conserva a reserva para evitar duplicata.
+    if (r.codigo && r.http >= 400 && r.http < 500) {
+      var reserva = fsGet_(cfg, caminho);
+      if (reserva && reserva.dados.em === agora) {
+        fsCommit_(cfg, [fsUpdate_(cfg, caminho, { em: 0 }, { updateTime: reserva.updateTime })]);
+      }
+    }
+    return { ok: false, erro: 'A Meta não confirmou o envio (' + r.codigo + ').' };
+  }
+  var campos = cobrancaJuntar_({
+    direcao: 'saida', tipo: 'atendimento', telFim8: disparoFim8_(para), em: Date.now(), status: 'enviado'
+  }, dono);
+  var gravou = fsCommit_(cfg, [
+    fsUpdate_(cfg, 'cobranca_mensagens/out-' + r.wamid, campos),
+    cobrancaEspelho_(cfg, 'saida', r.wamid, cliente, cobrancaJuntar_(campos, {
+      tipo: 'text', cobrancaTipo: 'atendimento', telLead: para, texto: texto
+    }))
+  ]);
+  if (!gravou) return { ok: true, wamid: r.wamid, erro: 'A Meta aceitou, mas o histórico não foi gravado.' };
+  return { ok: true, wamid: r.wamid };
 }
 
 // Entrega ou falha de uma mensagem da cobrança.
