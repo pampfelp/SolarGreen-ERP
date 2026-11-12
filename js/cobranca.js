@@ -863,7 +863,7 @@
   // Mensagens da cobrança pelo número da API, por cliente. Lê mensagens_disparo
   // com campanha 'cobranca' (o Apps Script copia ali o que envia e recebe).
   var msgsCob=null,cvIniciado=false,cvSelecionado='';
-  var COB_ROTULO={inicio:'Primeiro aviso','8h':'Lembrete da manhã','15h':'Lembrete da tarde','18h':'Lembrete da noite',parcial:'Saldo após pagamento parcial',obrigado:'Agradecimento',plano:'Mensalidade do plano'};
+  var COB_ROTULO={inicio:'Primeiro aviso',inicio_sem_cobranca:'Aviso sem cobrança','8h':'Lembrete da manhã','15h':'Lembrete da tarde','18h':'Lembrete da noite',parcial:'Saldo após pagamento parcial',obrigado:'Agradecimento',plano:'Mensalidade do plano'};
   function assinarConversas(){
     if(cvIniciado)return;
     cvIniciado=true;

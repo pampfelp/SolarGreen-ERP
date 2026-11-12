@@ -5712,6 +5712,13 @@ var COBRANCA_MODELOS = {
   // CobrancaPdfFileId; se a Meta recusar, cai no de cima, sem o PDF.
   inicio_pdf: { nome: 'cobranca_inicio_pdf', pagar: true, pdf: true, campos: ['nome', 'servico', 'data', 'valor'],
     texto: 'Olá, {{1}}! Aqui é da Solar Green. O serviço de {{2}} do dia {{3}} foi concluído, e a ordem de serviço foi enviada para assinatura no seu e-mail. O valor é {{4}} e você pode pagar por Pix ou cartão pelo botão abaixo.' },
+  // OS enviada para assinatura sem saldo a cobrar (menos de R$ 1, a mesma regra
+  // de não cobrar): o cliente fica sabendo que não há valor (pedido do Felipe, 12/11).
+  // cobrancaEnviar_ troca 'inicio' por este sozinho; o _pdf sai quando há o PDF da OS.
+  inicio_sem_cobranca: { nome: 'cobranca_inicio_sem_valor', pagar: false, campos: ['nome', 'servico', 'data'],
+    texto: 'Olá, {{1}}! Aqui é da Solar Green. O serviço de {{2}} do dia {{3}} foi concluído, e a ordem de serviço foi enviada para assinatura no seu e-mail. Não há nenhum valor a pagar por este serviço.' },
+  inicio_sem_cobranca_pdf: { nome: 'cobranca_inicio_sem_valor_pdf', pagar: false, pdf: true, campos: ['nome', 'servico', 'data'],
+    texto: 'Olá, {{1}}! Aqui é da Solar Green. O serviço de {{2}} do dia {{3}} foi concluído, e a ordem de serviço foi enviada para assinatura no seu e-mail. Não há nenhum valor a pagar por este serviço.' },
   '8h': { nome: 'cobranca_lembrete_manha', pagar: true, campos: ['nome', 'valor', 'servico', 'data'],
     texto: 'Bom dia, {{1}}! Passando para lembrar do pagamento de {{2}}, referente ao serviço de {{3}} do dia {{4}}. É só tocar no botão abaixo para pagar por Pix ou cartão.' },
   '15h': { nome: 'cobranca_lembrete_tarde', pagar: true, campos: ['nome', 'servico', 'valor'],
@@ -5999,6 +6006,7 @@ function cobrancaPedirReserva_(cfg, cliente, reserva, chave) {
 // 18h, parcial ou obrigado. Devolve {ok} ou {ok:false, erro}; a tentativa fica
 // registrada na OS nos dois casos. Se a Meta recusou, vem também reserva {tel, texto}.
 function cobrancaEnviar_(cfg, c, tipo, por) {
+  if (tipo === 'inicio' && c.saldo < 1) tipo = 'inicio_sem_cobranca';
   var modelo = COBRANCA_MODELOS[tipo];
   if (!modelo) return { ok: false, erro: 'Tipo de mensagem desconhecido.' };
   var props = disparoProps_();
@@ -6031,11 +6039,12 @@ function cobrancaEnviar_(cfg, c, tipo, por) {
   };
   registro.Texto = cobrancaTextoModelo_(modelo, dados, url);
   var pdf = '';
-  if (tipo === 'inicio') { try { pdf = cobrancaPdfDaOS_(c); } catch (e) { console.error('PDF da OS ' + c.id + ': ' + e.message); } }
+  var modeloPdf = COBRANCA_MODELOS[tipo + '_pdf'];
+  if (modeloPdf) { try { pdf = cobrancaPdfDaOS_(c); } catch (e) { console.error('PDF da OS ' + c.id + ': ' + e.message); } }
   var r = null;
   if (pdf) {
     try {
-      r = cobrancaMandarModelo_(props, tel, COBRANCA_MODELOS.inicio_pdf, dados, url, cobrancaSubirPdf_(props, pdf));
+      r = cobrancaMandarModelo_(props, tel, modeloPdf, dados, url, cobrancaSubirPdf_(props, pdf));
       if (r.ok) { registro.Pdf = true; registro.Texto = '[PDF da ordem de serviço anexado]\n\n' + registro.Texto; }
       else console.error('Cobrança da OS ' + c.id + ' com PDF recusada (' + r.codigo + '): ' + r.erro + '; vai sem o PDF.');
     } catch (e) { console.error('PDF da OS ' + c.id + ': ' + e.message + '; vai sem o PDF.'); }
@@ -6059,7 +6068,7 @@ function cobrancaEnviar_(cfg, c, tipo, por) {
   ];
   if (tipo === 'obrigado') writes.push(fsUpdate_(cfg, 'agendamentos/' + c.id, { CobrancaAgradecer: false, CobrancaAgradecidoEm: registro.Em }));
   fsCommit_(cfg, writes);
-  cobrancaAvisarEnvio_(cfg, c.cliente, tipo === 'obrigado' ? 'Agradecimento enviado para' : 'Cobrança enviada para',
+  cobrancaAvisarEnvio_(cfg, c.cliente, tipo === 'obrigado' ? 'Agradecimento enviado para' : (tipo === 'inicio_sem_cobranca' ? 'Aviso de OS sem cobrança enviado para' : 'Cobrança enviada para'),
     'index.html?cobranca=' + c.id, 'cobranca-' + c.id, 'cobranca:envio:' + r.wamid, 'cobranca');
   return { ok: true };
 }
