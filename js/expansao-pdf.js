@@ -133,6 +133,44 @@
     return Number.isFinite(a) && Number.isFinite(b) ? Math.round((a - b) * 100) / 100 : null;
   }
 
+  // Faturas e KPIs da proposta, na ordem decidida pelo Felipe (12/11). Sem solar: atual e simulada com solar;
+  // com solar: atual, sem solar e com 100% de abatimento. A tela e o PDF usam a mesma lista.
+  function comparacaoFaturas({ simulacao = {}, dimensionamento: d = {}, fatura = {} } = {}) {
+    const porNome = Object.fromEntries((simulacao.cenarios || []).map(c => [c.nome, c]));
+    const atual = porNome.atualCom || {};
+    const usouCreditos = (atual.creditoUsado || 0) > 0.005;
+    const temSolar = d.kwpAtual > 0 || atual.injetado > 0 || atual.compensado > 0;
+    const contaHoje = Number.isFinite(atual.total) ? atual.total : fatura.total;
+    const simulada = porNome[usouCreditos ? 'expansaoSem' : 'expansaoCom'] || {};
+    const semSolar = porNome.semSolar || {};
+    const semEventuais = Number.isFinite(fatura.total) && Number.isFinite(contaHoje) && Math.abs(fatura.total - contaHoje) > 0.005;
+    const faturas = temSolar ? [
+      { titulo: 'Fatura atual', atual: true, total: contaHoje, nota: semEventuais, kpis: [
+        { titulo: 'Economia frente a uma conta sem energia solar', valor: diferenca(semSolar.total, contaHoje), classe: 'ganho' },
+        usouCreditos && { titulo: 'Abatido com créditos de meses anteriores', valor: diferenca(porNome.atualSem?.total, contaHoje),
+          nota: 'Não se repete nas próximas faturas', classe: 'alerta' },
+        usouCreditos && { titulo: 'Conta sem esse abatimento', valor: porNome.atualSem?.total }
+      ].filter(Boolean) },
+      { titulo: 'Fatura sem energia solar', cenario: semSolar, total: semSolar.total, kpis: [
+        { titulo: 'Valor a mais que a fatura atual', valor: diferenca(semSolar.total, contaHoje), sinal: true, classe: 'alerta' }
+      ] },
+      { titulo: 'Fatura com 100% de abatimento', cenario: simulada, total: simulada.total, kpis: [
+        { titulo: 'Economia frente à fatura atual', valor: diferenca(contaHoje, simulada.total), classe: 'ganho' }
+      ] }
+    ] : [
+      { titulo: 'Fatura atual', atual: true, total: contaHoje, kpis: [] },
+      { titulo: 'Fatura simulada com energia solar', cenario: simulada, total: simulada.total, nota: semEventuais, kpis: [
+        { titulo: 'Economia por mês', valor: diferenca(contaHoje, simulada.total), classe: 'ganho' }
+      ] }
+    ];
+    return { temSolar, contaHoje, semEventuais, faturas };
+  }
+
+  // O banco guarda o link da lei; no PDF vai o nome.
+  function fonteFioB(fonte) {
+    return /legis\.senado\.gov\.br\/norma\/35420157/.test(fonte || '') ? 'Lei 14.300/2022, art. 27' : fonte;
+  }
+
   function montarHtml(model = {}, { paginasDocumento = [] } = {}) {
     const { cliente = {}, fatura = {}, dimensionamento: d = {}, inversor = {}, expansao = {}, geracao: g = {},
       simulacao = {}, comparacaoFioB = {}, imagemTelhado, numeroProposta, vendedor } = model;
@@ -146,14 +184,14 @@
     const identificacao = secao('Cliente', grupos([
       ['Nome', cliente.Nome ?? cliente.nome], ['CPF / CNPJ', cliente['CPF ou CNPJ'] ?? cliente.CPF ?? cliente.cpf ?? cliente.cpfCnpj],
       ['Telefone', cliente.Telefone ?? cliente.telefone], ['E-mail', cliente.Email ?? cliente.email],
-      ['Endereço', cliente.Endereco ?? cliente.endereco], ['Cidade', cliente.Cidade ?? cliente.cidade],
+      ['Endereço', cliente.Endereco ?? cliente.endereco], ['Cidade', cliente.Cidade || cliente.cidade || expansao.Cidade || expansao.cidade],
       ['CPF do titular Equatorial', cliente.CPFEquatorial ?? cliente.cpfEquatorial],
       ['Nascimento do titular Equatorial', cliente.DataNascimentoEquatorial ?? cliente.dataNascimentoEquatorial],
       ['Unidade consumidora', fatura.uc], ['Referência da fatura', fatura.referencia],
       ['Proposta', numeroProposta], ['Vendedor', vendedor], ['Geração (Belém)', data(g.DataGeracao, true)]
     ]) + '<h3>Parâmetros tarifários</h3>' + grupos([
       ['Ano do ciclo', g.AnoFioB], ['Percentual Fio B GD II', percentualFioB],
-      ['Fonte do percentual Fio B', g.FonteFioBPercentual], ...tarifaAneel,
+      ['Fonte do percentual Fio B', fonteFioB(g.FonteFioBPercentual)], ...tarifaAneel,
       ['ICMS', percentual(g.AliquotaICMS)], ['PIS', percentual(g.AliquotaPIS)],
       ['Cofins', percentual(g.AliquotaCofins)], ['Origem dos tributos',
         typeof g.OrigemTributos === 'object' && g.OrigemTributos
@@ -176,39 +214,13 @@
       ['Produtividade', numero(expansao.Produtividade ?? expansao.produtividade, 2, ' kWh/kWp/mês')]
     ]) + telhado);
 
-    // Ordem das faturas (decisão do Felipe, 12/11): sem solar, atual e simulada com solar; com solar,
-    // atual, sem solar e com 100% de abatimento.
-    const porNome = Object.fromEntries((simulacao.cenarios || []).map(c => [c.nome, c]));
-    const atual = porNome.atualCom || {};
-    const usouCreditos = (atual.creditoUsado || 0) > 0.005;
-    const temSolar = d.kwpAtual > 0 || atual.injetado > 0 || atual.compensado > 0;
-    const contaHoje = Number.isFinite(atual.total) ? atual.total : fatura.total;
-    const simulada = porNome[usouCreditos ? 'expansaoSem' : 'expansaoCom'] || {};
-    const semSolar = porNome.semSolar || {};
+    const comparacao = comparacaoFaturas({ simulacao, dimensionamento: d, fatura });
     const financeiros = fatura.itensFinanceiros || [];
-    const semEventuais = Number.isFinite(fatura.total) && Number.isFinite(contaHoje) && Math.abs(fatura.total - contaHoje) > 0.005
-      ? '<p class="lembrete">Comparações sem multa, juros e outros valores eventuais desta fatura (conta de referência ' +
-        esc(reais(contaHoje)) + ').</p>' : '';
-    const tabelaAtual = tabelaFatura(fatura.itens, fatura.total) + quadroFioB(comparacaoFioB, fatura.referencia);
-    const faturas = temSolar ? [
-      secao('Fatura atual', kpis([
-        { titulo: 'Economia frente a uma conta sem energia solar', valor: diferenca(semSolar.total, contaHoje), classe: 'ganho' },
-        usouCreditos && { titulo: 'Abatido com créditos de meses anteriores', valor: diferenca(porNome.atualSem?.total, contaHoje),
-          nota: 'Não se repete nas próximas faturas', classe: 'alerta' },
-        usouCreditos && { titulo: 'Conta sem esse abatimento', valor: porNome.atualSem?.total }
-      ]) + semEventuais + tabelaAtual),
-      secao('Fatura sem energia solar', kpis([
-        { titulo: 'Valor a mais que a fatura atual', valor: diferenca(semSolar.total, contaHoje), sinal: true, classe: 'alerta' }
-      ]) + tabelaFatura(semSolar.linhas, semSolar.total, financeiros)),
-      secao('Fatura com 100% de abatimento', kpis([
-        { titulo: 'Economia frente à fatura atual', valor: diferenca(contaHoje, simulada.total), classe: 'ganho' }
-      ]) + tabelaFatura(simulada.linhas, simulada.total, financeiros))
-    ] : [
-      secao('Fatura atual', tabelaAtual),
-      secao('Fatura simulada com energia solar', kpis([
-        { titulo: 'Economia por mês', valor: diferenca(contaHoje, simulada.total), classe: 'ganho' }
-      ]) + semEventuais + tabelaFatura(simulada.linhas, simulada.total, financeiros))
-    ];
+    const semEventuais = '<p class="lembrete">Comparações sem multa, juros e outros valores eventuais desta fatura ' +
+      '(conta de referência ' + esc(reais(comparacao.contaHoje)) + ').</p>';
+    const faturas = comparacao.faturas.map(f => secao(f.titulo, kpis(f.kpis) + (f.nota ? semEventuais : '') + (f.atual
+      ? tabelaFatura(fatura.itens, fatura.total) + quadroFioB(comparacaoFioB, fatura.referencia)
+      : tabelaFatura(f.cenario.linhas, f.cenario.total, financeiros))));
 
     const partes = [identificacao, resumo, ...faturas];
     const paginas = paginasDocumento.filter(imagemLocal);
@@ -280,7 +292,7 @@
     }
   }
 
-  const api = { montarHtml, abrirJanela, imprimir };
+  const api = { montarHtml, comparacaoFaturas, abrirJanela, imprimir };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.SGExpansaoPdf = api;
 })(typeof window !== 'undefined' ? window : null);

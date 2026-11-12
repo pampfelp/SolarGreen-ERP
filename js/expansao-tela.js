@@ -795,15 +795,15 @@
         esc(valor) + '</strong><span class="exp-copy">' + esc(detalhe) + '</span></div>';
     }
 
-    // Só os cenários que valem para este cliente (SGExpansaoProposta.cenariosAplicaveis).
-    function tabelaCenarios(s, recuperacao) {
-      const linhas = window.SGExpansaoProposta.cenariosAplicaveis(s, recuperacao);
-      return '<div class="exp-table" tabindex="0" aria-label="Comparação de contas"><table><thead><tr>' +
-        ['Situação', 'Energia da rede (kWh)', 'Compensado (kWh)', 'Sem compensação (kWh)', 'Conta']
-          .map(h => '<th scope="col">' + h + '</th>').join('') +
-        '</tr></thead><tbody>' + linhas.map(c => '<tr><th scope="row">' + esc(c.rotulo) + '</th>' +
-          [c.rede, c.compensado, c.semCompensacao].map(n => '<td>' + fmt(n) + '</td>').join('') +
-          '<td>' + dinheiro(c.total) + '</td></tr>').join('') + '</tbody></table></div>';
+    // As mesmas faturas e KPIs do PDF (SGExpansaoPdf.comparacaoFaturas), no lugar da antiga tabela de cenários.
+    function faturasDaProposta(r) {
+      const c = window.SGExpansaoPdf.comparacaoFaturas({ simulacao: r.simulacao, dimensionamento: r.dimensionamento, fatura });
+      return '<div class="exp-faturas">' + c.faturas.map(f => '<div class="exp-medida"><span>' + esc(f.titulo) + '</span><strong>' +
+        dinheiro(f.total) + '</strong>' + f.kpis.filter(k => Number.isFinite(k.valor)).map(k =>
+          '<span class="exp-fatura-kpi ' + (k.classe || '') + '">' + esc(k.titulo) + ': <b>' +
+          (k.sinal && k.valor > 0 ? '+' : '') + dinheiro(k.valor) + '</b>' + (k.nota ? ' · ' + esc(k.nota) : '') + '</span>').join('') +
+        '</div>').join('') + '</div>' + (c.semEventuais ? '<p class="exp-copy">Comparações sem multa, juros e outros valores ' +
+        'eventuais desta fatura (conta de referência ' + dinheiro(c.contaHoje) + ').</p>' : '');
     }
 
     // O que impede a conta de algum cenário, em linguagem de operador e com o lugar onde preencher.
@@ -911,7 +911,7 @@
         renderResumo();
         return;
       }
-      const { dimensionamento: d, inversor, simulacao: s, recuperacao } = resultado;
+      const { dimensionamento: d, inversor, simulacao: s } = resultado;
       const exp = dataCampos('expansao');
       const destaque = window.SGExpansaoProposta.economiaDestaque(s);
       const modelos = (inversor?.modelos || []).map(m => [m.Marca, m.Modelo].filter(Boolean).join(' '));
@@ -934,7 +934,7 @@
           (typeof inversor.atualSuporta === 'boolean' ? ' O inversor instalado ' + (inversor.atualSuporta ? 'comporta' : 'não comporta') +
             ' a potência total.' : '') + ' A compatibilidade elétrica depende do projeto e da distribuidora.</p>' : '') +
         '<h3 class="exp-subhead">Arranjo dos módulos</h3><div id="expTelhado"></div>' +
-        '<h3 class="exp-subhead">Comparação de contas</h3>' + tabelaCenarios(s, recuperacao) +
+        '<h3 class="exp-subhead">Faturas da proposta</h3>' + faturasDaProposta(resultado) +
         (s.premissas.length ? '<details><summary>Premissas do cálculo (' + s.premissas.length + ')</summary><ul class="exp-copy">' +
           s.premissas.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></details>' : '');
       montarTelhado(d, exp, antigoTelhado);

@@ -154,4 +154,24 @@ test('renderiza cada página do PDF com bytes locais e imprime só após decodif
   assert.equal([...html.matchAll(/class="folha anexo"/g)].length, 2);
 });
 
+test('fonte do Fio B pelo nome da lei e cidade da fatura quando o cadastro não tem', () => {
+  const html = pdf.montarHtml({ ...model, cliente: { Nome: 'Cliente', Cidade: '' },
+    geracao: { ...model.geracao, FonteFioBPercentual: 'https://legis.senado.gov.br/norma/35420157/publicacao/35420471' } });
+  assert.match(html, /Fonte do percentual Fio B<\/dt><dd>Lei 14\.300\/2022, art\. 27/);
+  assert.doesNotMatch(html, /legis\.senado/);
+  assert.match(html, /Cidade<\/dt><dd>Ananindeua/);
+  assert.doesNotMatch(html, /Cidade<\/dt><dd>Não informado/);
+});
+
+test('a tela recebe as mesmas faturas e KPIs do PDF', () => {
+  const c = pdf.comparacaoFaturas(model);
+  assert.equal(c.temSolar, true);
+  assert.deepEqual(c.faturas.map(f => [f.titulo, f.total, f.kpis.map(k => [k.titulo, k.valor])]), [
+    ['Fatura atual', 1440.59, [['Economia frente a uma conta sem energia solar', 909.51],
+      ['Abatido com créditos de meses anteriores', 412.47], ['Conta sem esse abatimento', 1853.06]]],
+    ['Fatura sem energia solar', 2350.10, [['Valor a mais que a fatura atual', 909.51]]],
+    ['Fatura com 100% de abatimento', 955.89, [['Economia frente à fatura atual', 484.70]]]
+  ]);
+});
+
 module.exports = { model, figura };
