@@ -93,7 +93,10 @@
       if(novoStatus&&novoStatus!==statusAtual){
         var patch={'Status Agendamento':novoStatus};
         if(novoStatus==='Concluído')patch.DataRelatorio=new Date().toISOString();
-        return agRef.update(patch).then(function(){ return novoStatus; });
+        return agRef.update(patch).then(function(){
+          if(novoStatus==='Concluído'&&window.SGNotifOSConcluida)window.SGNotifOSConcluida.avisar(idAgendamento);
+          return novoStatus;
+        });
       }
       return null;
     });
@@ -202,7 +205,10 @@
     var patch={'Status Agendamento':status,'Motivo Cancelamento':statusNorm==='cancelado'?p.motivoCancelamento:''};
     if(statusNorm==='concluido')patch.DataRelatorio=new Date().toISOString();
     return db().collection('agendamentos').doc(idAgendamento).update(patch)
-      .then(function(){ return {ok:true}; })
+      .then(function(){
+        if(statusNorm==='concluido'&&window.SGNotifOSConcluida)window.SGNotifOSConcluida.avisar(idAgendamento);
+        return {ok:true};
+      })
       .catch(function(err){ return {ok:false,erro:err.message}; });
   }
 

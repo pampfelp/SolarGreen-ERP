@@ -39,6 +39,8 @@
     {id:'sup:1',para:['V1'],tipo:'supervisor_contato',titulo:'Falar com Ana Paula hoje',corpo:'Mensagem pronta para a etapa Proposta',url:'index.html',acao:{tipo:'supervisor_enviar',lead:'op000010'},criadoEmMs:_agora-900000,enviarEmMs:_agora-800000},
     {id:'sup:agendado',para:['V1'],tipo:'supervisor_lembrete',titulo:'Lembrete agendado',corpo:'Aparece sozinho em instantes',url:'index.html',criadoEmMs:_agora-1000,enviarEmMs:_agora+8000},
     {id:'sup:resolvida',para:['V1'],tipo:'supervisor_pergunta',titulo:'Qual a próxima data?',corpo:'Já respondida',url:'index.html',criadoEmMs:_agora-2*3600000,resolvidaEm:_agora-3600000},
+    // Técnico concluiu a OS (16/11): o clique abre a OS em Agendamentos.
+    {id:'os_concluida:ag1',para:['V1'],tipo:'os_concluida',titulo:'Serviço concluído',corpo:'Maria Souza · Limpeza de placas · por João',url:'index.html?agendamento=ag1&notif=os_concluida%3Aag1',criadoEmMs:_agora-30000},
     {id:'L1:lead',para:['V1'],tipo:'lead',titulo:'Novo lead do site pra você',corpo:'Maria das Graças · Limpeza',url:'index.html?lead=op000001&notif=L1:lead',criadoEmMs:_agora-3*60000},
     {id:'outra:pessoa',para:['V2'],tipo:'cobranca',titulo:'De outra pessoa',corpo:'Não deve aparecer',url:'index.html',criadoEmMs:_agora-1000}
   ];
@@ -54,6 +56,7 @@
   window.SGToast={mostrar:function(t){ console.log('toast:',t); }};
   window.SGControllerSwitchTo=function(n){ window.__tela=n; };
   window.funilApp={abrirLead:function(id){ window.__lead=id; }};
+  window.agendamentosApp={abrirDaNotificacao:function(id){ window.__os=id; }};
   window.__gravacoes=[];
   var lidas={};
   window.firebase={firestore:function(){ return {collection:function(c){ return {where:function(){ return this; },doc:function(id){ return {

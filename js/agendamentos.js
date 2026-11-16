@@ -93,6 +93,7 @@
       if(lista.length&&semNomeAg>lista.length*0.2)garantirClientesCarregadosAg();
       salvarCacheAgendamentos();
       render();
+      abrirPendenteDaNotificacao();
     });
     // `clientes` NÃO é assinado aqui (2026-09-03): o nome já vem desnormalizado
     // em cada agendamento. A coleção só carrega sob demanda —
@@ -1840,7 +1841,29 @@
   }
 // --- Fim: Edição de Resposta Texto/Número ---
 
-  window.agendamentosApp={init:init,atualizarClienteCache:atualizarClienteCache,editarResposta:editarResposta};
+  // Clique no aviso "Serviço concluído" do sininho (js/notificacoes.js,
+  // 2026-11-16): vai para Agendamentos e abre a OS. Com o ERP recém-aberto a
+  // lista ainda não chegou; a OS abre quando o primeiro snapshot chegar.
+  var _abrirAoCarregar=null;
+  function abrirDaNotificacao(idAgendamento){
+    if(!idAgendamento)return;
+    if(window.SGPermissoes&&!window.SGPermissoes.podeVer('agendamentos')){
+      window.SGToast.mostrar('Seu cargo não tem acesso à tela de Agendamentos.',true);
+      return;
+    }
+    _abrirAoCarregar=String(idAgendamento);
+    if(window.SGControllerSwitchTo)window.SGControllerSwitchTo('agendamentos');
+    abrirPendenteDaNotificacao();
+  }
+  function abrirPendenteDaNotificacao(){
+    if(!_abrirAoCarregar)return;
+    var id=_abrirAoCarregar;
+    if(!agendamentos.some(function(x){return String(x.IdAgendamento)===id;}))return;
+    _abrirAoCarregar=null;
+    abrirPainelDetalhe(id);
+  }
+
+  window.agendamentosApp={init:init,atualizarClienteCache:atualizarClienteCache,editarResposta:editarResposta,abrirDaNotificacao:abrirDaNotificacao};
 })();
 
 

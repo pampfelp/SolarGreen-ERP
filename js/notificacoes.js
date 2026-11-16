@@ -346,6 +346,8 @@
     if(p.get('lead')||p.get('tela'))abrirDestino({lead:p.get('lead'),tela:p.get('tela')});
     if(p.get('cobranca')&&window.SGCobranca)window.SGCobranca.abrirDaNotificacao(p.get('cobranca'),p.get('msg'));
     if(p.get('cobrancaPlano')&&window.SGCobranca)window.SGCobranca.abrirPlano(p.get('cobrancaPlano'));
+    // Serviço concluído pelo técnico (js/notif-os-concluida.js, 16/11): abre a OS.
+    if(p.get('agendamento')&&window.agendamentosApp)window.agendamentosApp.abrirDaNotificacao(p.get('agendamento'));
     // Push de resumo do supervisor (05/11): com o ERP já aberto, o clique chega
     // por aqui; antes não abria nada.
     if(p.get('supervisao')==='1')abrirSupervisao();
