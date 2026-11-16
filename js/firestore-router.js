@@ -106,6 +106,8 @@
       'Vendedor Responsavel':p.vendedorResponsavel||'',
       CPFEquatorial:p.cpfEquatorial||'',
       DataNascimentoEquatorial:p.dataNascimentoEquatorial||'',
+      EmailEquatorial:p.emailEquatorial||'',
+      SenhaEquatorial:p.senhaEquatorial||'',
       NumeroUnidadeGeradora:p.numeroUnidadeGeradora||'',
       UnidadesBeneficiarias:p.unidadesBeneficiarias||[]
     };

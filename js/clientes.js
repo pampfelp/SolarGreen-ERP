@@ -341,10 +341,12 @@
       '<div class="ad-row"><span class="dl">Vendedor responsável</span><span class="dv">'+escapeHtml(nomeVendedor(c['Vendedor Responsavel']))+'</span></div>'+
     '</div>';
 
-    if(c.CPFEquatorial||c.DataNascimentoEquatorial||c.NumeroUnidadeGeradora||(c.UnidadesBeneficiarias&&c.UnidadesBeneficiarias.length)){
+    if(c.CPFEquatorial||c.DataNascimentoEquatorial||c.EmailEquatorial||c.SenhaEquatorial||c.NumeroUnidadeGeradora||(c.UnidadesBeneficiarias&&c.UnidadesBeneficiarias.length)){
       html+='<div class="ad-section"><h4>Conta Equatorial</h4>'+
         (c.CPFEquatorial?'<div class="ad-row"><span class="dl">CPF do titular Equatorial</span><span class="dv">'+escapeHtml(window.SGUtil.formatarCpfCnpj(c.CPFEquatorial))+'</span></div>':'')+
         (c.DataNascimentoEquatorial?'<div class="ad-row"><span class="dl">Nascimento do titular Equatorial</span><span class="dv">'+escapeHtml(fmtDataCl(c.DataNascimentoEquatorial))+'</span></div>':'')+
+        (c.EmailEquatorial?'<div class="ad-row"><span class="dl">Email de acesso Equatorial</span><span class="dv">'+escapeHtml(c.EmailEquatorial)+'</span></div>':'')+
+        (c.SenhaEquatorial?'<div class="ad-row"><span class="dl">Senha de acesso Equatorial</span><span class="dv">'+escapeHtml(c.SenhaEquatorial)+'</span></div>':'')+
         (c.NumeroUnidadeGeradora?'<div class="ad-row"><span class="dl">Nº Unidade Geradora</span><span class="dv">'+escapeHtml(c.NumeroUnidadeGeradora)+'</span></div>':'')+
       '</div>';
       if(c.UnidadesBeneficiarias&&c.UnidadesBeneficiarias.length){
@@ -406,6 +408,8 @@
     var cpfEq=c?(c.CPFEquatorial||''):'';
     var dtNascEq=c?parseBRDateCl(c.DataNascimentoEquatorial):null;
     document.getElementById('cm-dataNascimentoEquatorial').value=dtNascEq?dateKeyDoISOCl(dtNascEq):'';
+    document.getElementById('cm-emailEquatorial').value=c?(c.EmailEquatorial||''):'';
+    document.getElementById('cm-senhaEquatorial').value=c?(c.SenhaEquatorial||''):'';
     // se o CPF Equatorial já registrado bate com o CPF do próprio cliente, assume "Sim";
     // se tem CPF Equatorial mas é diferente, assume "Não"; sem nenhum registro ainda, deixa em branco
     var cpfCliente=(c&&c['CPF ou CNPJ']||'').replace(/\D/g,'');
@@ -479,6 +483,8 @@
     var vendedorResponsavel=document.getElementById('cm-vendedor').value;
     var cpfEquatorial=document.getElementById('cm-cpfEquatorial').value.trim();
     var dataNascimentoEquatorialVal=document.getElementById('cm-dataNascimentoEquatorial').value;
+    var emailEquatorial=document.getElementById('cm-emailEquatorial').value.trim();
+    var senhaEquatorial=document.getElementById('cm-senhaEquatorial').value;
     var nomeMae=document.getElementById('cm-nomeMae').value.trim();
     var rg=document.getElementById('cm-rg').value.trim();
     var dataExpedicaoRgVal=document.getElementById('cm-dataExpedicaoRg').value;
@@ -512,6 +518,7 @@
       'CPF ou CNPJ':cpfCnpj, Email:email, Endereco:endereco, 'Status Cliente':statusCliente, Origem:origem,
       'Vendedor Responsavel':vendedorResponsavel, CPFEquatorial:cpfEquatorial,
       DataNascimentoEquatorial:dataNascimentoEquatorialVal?dataNascimentoEquatorialVal.split('-').reverse().join('/'):'',
+      EmailEquatorial:emailEquatorial, SenhaEquatorial:senhaEquatorial,
       NomeMae:nomeMae, RG:rg, DataExpedicaoRG:dataExpedicaoRgVal, DataNascimento:dataNascimentoVal,
       CEP:cep, Ocupacao:ocupacao, Renda:renda,
       NumeroUnidadeGeradora:numeroUnidadeGeradora, UnidadesBeneficiarias:unidadesBeneficiarias
@@ -533,6 +540,7 @@
       statusCliente:statusCliente, vendedorResponsavel:vendedorResponsavel,
       confirmarClienteDiferente:confirmado,
       cpfEquatorial:cpfEquatorial, dataNascimentoEquatorial:dataNascimentoEquatorialVal,
+      emailEquatorial:emailEquatorial, senhaEquatorial:senhaEquatorial,
       nomeMae:nomeMae, rg:rg, dataExpedicaoRg:dataExpedicaoRgVal, dataNascimento:dataNascimentoVal,
       cep:cep, ocupacao:ocupacao, renda:renda,
       numeroUnidadeGeradora:numeroUnidadeGeradora, unidadesBeneficiarias:unidadesBeneficiarias

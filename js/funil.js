@@ -1883,6 +1883,8 @@
     document.getElementById('cr-cpfEquatorial').value='';
     document.getElementById('cr-cpfEquatorial').readOnly=false;
     document.getElementById('cr-dataNascimentoEquatorial').value='';
+    document.getElementById('cr-emailEquatorial').value='';
+    document.getElementById('cr-senhaEquatorial').value='';
     document.getElementById('cr-numeroUnidadeGeradora').value='';
     renderBeneficiariasRapido([]);
     window.SGCombo.criar({
@@ -1949,6 +1951,8 @@
     var vendedorResponsavel=document.getElementById('cr-vendedor').value||(window.SG_SESSION?window.SG_SESSION.idVendedor:'');
     var cpfEquatorial=document.getElementById('cr-cpfEquatorial').value.trim();
     var dataNascimentoEquatorialVal=document.getElementById('cr-dataNascimentoEquatorial').value;
+    var emailEquatorial=document.getElementById('cr-emailEquatorial').value.trim();
+    var senhaEquatorial=document.getElementById('cr-senhaEquatorial').value;
     var nomeMae=document.getElementById('cr-nomeMae').value.trim();
     var rg=document.getElementById('cr-rg').value.trim();
     var dataExpedicaoRgVal=document.getElementById('cr-dataExpedicaoRg').value;
@@ -1978,6 +1982,7 @@
       IdCliente:idCliente,Nome:nome,'Nome Razao Social':nome,Telefone:telefone,'Tipo Pessoa':tipoPessoa, Origem:origem,
       'CPF ou CNPJ':cpfCnpj,Email:email,Endereco:endereco,CPFEquatorial:cpfEquatorial,
       DataNascimentoEquatorial:dataNascimentoEquatorialVal?dataNascimentoEquatorialVal.split('-').reverse().join('/'):'',
+      EmailEquatorial:emailEquatorial,SenhaEquatorial:senhaEquatorial,
       NomeMae:nomeMae,RG:rg,DataExpedicaoRG:dataExpedicaoRgVal,DataNascimento:dataNascimentoVal,
       CEP:cep,Ocupacao:ocupacao,Renda:renda,
       NumeroUnidadeGeradora:numeroUnidadeGeradora,UnidadesBeneficiarias:unidadesBeneficiarias
@@ -2003,6 +2008,7 @@
       cpfCnpj:cpfCnpj, email:email, endereco:endereco, vendedorResponsavel:vendedorResponsavel,
       confirmarClienteDiferente:confirmado,
       cpfEquatorial:cpfEquatorial, dataNascimentoEquatorial:dataNascimentoEquatorialVal,
+      emailEquatorial:emailEquatorial, senhaEquatorial:senhaEquatorial,
       nomeMae:nomeMae, rg:rg, dataExpedicaoRg:dataExpedicaoRgVal, dataNascimento:dataNascimentoVal,
       cep:cep, ocupacao:ocupacao, renda:renda,
       numeroUnidadeGeradora:numeroUnidadeGeradora, unidadesBeneficiarias:unidadesBeneficiarias

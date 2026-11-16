@@ -227,14 +227,17 @@
 
     // O plano depende de saber acessar a fatura de energia (Equatorial) do
     // titular — que pode ser uma pessoa diferente de quem assina o contrato.
-    // Sem esses dois dados no cadastro do cliente, não dá pra operar o plano.
-    var clienteDoPlano=clientesMap[idCliente];
-    var cpfEqOk=clienteDoPlano&&String(clienteDoPlano.CPFEquatorial||'').trim();
-    var dataNascEqOk=clienteDoPlano&&String(clienteDoPlano.DataNascimentoEquatorial||'').trim();
-    if(!cpfEqOk||!dataNascEqOk){
+    // Desde 2026-11-16 o site da Equatorial entra com email e senha (o CPF
+    // serve pro "Primeiro acesso"); a data de nascimento passou a opcional.
+    var clienteDoPlano=clientesMap[idCliente]||{};
+    var faltaEq=[];
+    if(!String(clienteDoPlano.CPFEquatorial||'').trim())faltaEq.push('CPF do titular');
+    if(!String(clienteDoPlano.EmailEquatorial||'').trim())faltaEq.push('email de acesso');
+    if(!String(clienteDoPlano.SenhaEquatorial||'').trim())faltaEq.push('senha de acesso');
+    if(faltaEq.length){
       var m2=document.getElementById('pm-msg');
       m2.className='uform-msg error sg-msg-fix';
-      m2.innerHTML='Esse cliente ainda não tem CPF e data de nascimento do titular Equatorial cadastrados — <strong>clique aqui pra preencher no cadastro do cliente</strong>.';
+      m2.innerHTML='Falta no cadastro do cliente, conta Equatorial: '+faltaEq.join(', ')+' — <strong>clique aqui pra preencher no cadastro do cliente</strong>.';
       m2.onclick=function(){
         if(window.clientesApp&&window.clientesApp.abrirEdicao)window.clientesApp.abrirEdicao(idCliente);
       };
