@@ -275,7 +275,9 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 }
 
 /* ── Tabs (Proposta / Contrato) ── */
-.tab-bar{display:flex;gap:6px;padding:0 40px;background:#003122;border-bottom:3px solid var(--accent);}
+.tab-bar{display:flex;gap:6px;padding:0 40px;background:#003122;border-bottom:3px solid var(--accent);overflow-x:auto;scrollbar-width:none;}
+.tab-bar::-webkit-scrollbar{display:none;}
+.tab-btn{flex:none;}
 .tab-btn{font-family:var(--sans);font-size:13px;font-weight:700;color:rgba(255,255,255,0.55);background:none;border:none;padding:12px 18px;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-3px;transition:all .12s;}
 .tab-btn:hover{color:#fff;}
 .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
@@ -398,6 +400,76 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 #tab-expansao summary{color:#003122;cursor:pointer;font-weight:600;font-size:12px;margin-bottom:10px;}
 @media(min-width:1101px){#expHistorico{max-height:55vh;overflow:auto;}}
 @media(max-width:1100px){#tab-expansao .exp-aside{position:static;}}
+/* ── Análise de Fatura ── */
+#tab-analise .af-aside{align-self:start;position:sticky;top:12px;min-width:0;}
+#tab-analise ul{list-style:none;margin:0;padding:0;}
+#tab-analise [hidden]{display:none!important;}
+#tab-analise button:focus-visible,#tab-analise .af-anexar:focus-within{outline:2px solid var(--accent-deep);outline-offset:2px;}
+.af-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
+.af-aviso:not(:empty){margin-bottom:12px;}
+.af-topo-linha{display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:14px;}
+.af-cliente{font-family:var(--sans);font-size:18px;font-weight:600;color:#003122;}
+.af-cliente strong{font-weight:800;}
+.af-cliente span{font-weight:500;color:var(--ink-soft);}
+.af-busca{width:300px;max-width:100%;}
+#anlSelClienteBusca{font:13px var(--sans);border:1px solid var(--line);border-radius:7px;padding:8px 12px;background:#fff;color:var(--ink);}
+#anlSelClienteBusca:focus{outline:none;border-color:var(--accent-deep);}
+.af-fatura-info small strong{color:var(--ink);font-weight:600;}
+.af-modo{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--ink-soft);}
+.af-seg{display:flex;gap:6px;flex-wrap:wrap;}
+.af-seg button{font:600 13px var(--sans);padding:8px 14px;border-radius:8px;border:1.5px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;transition:all .12s;}
+.af-seg button:hover{border-color:var(--accent-deep);}
+.af-seg button.on{border-color:#003122;background:var(--accent-soft);color:#003122;box-shadow:inset 0 0 0 1px #003122;}
+.af-duas{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;margin-bottom:20px;}
+.af-duas .card{margin-bottom:0;}
+.af-distrib{font-size:12.5px;color:var(--ink-soft);padding-bottom:10px;}
+.af-distrib strong{color:var(--ink);margin-left:6px;}
+.af-fatura{display:grid;grid-template-columns:76px 1fr auto;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line);}
+.af-ref{font-family:var(--unbounded);font-weight:700;font-size:14px;color:#003122;}
+.af-fatura-info{border-left:1px solid var(--line);padding-left:12px;font-size:13.5px;color:var(--ink);min-width:0;}
+.af-fatura-info small{display:block;color:var(--ink-soft);font-size:11.5px;margin-top:2px;}
+.af-dias{color:var(--ink-soft);}
+.af-remover{width:30px;height:30px;border-radius:7px;border:1px solid transparent;background:none;cursor:pointer;color:var(--ink-faint);display:flex;align-items:center;justify-content:center;}
+.af-remover:hover{border-color:var(--line);color:var(--debit);}
+.af-remover svg,.af-anexar svg,.af-orienta svg,.af-alerta svg{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.af-anexar{display:flex;justify-content:center;align-items:center;gap:6px;padding:11px;border:2px dashed var(--line);border-radius:var(--radius);color:#003122;font-weight:600;font-size:13px;cursor:pointer;margin-top:12px;transition:border-color .12s;position:relative;}
+.af-anexar:hover{border-color:var(--accent-deep);}
+.af-anexar input{position:absolute;opacity:0;width:1px;height:1px;}
+.af-orienta{display:flex;gap:8px;align-items:center;background:var(--bg);border-radius:8px;padding:10px 12px;font-size:13px;color:#003122;margin:0;}
+.af-colar{display:block;width:100%;min-height:120px;border:1.5px dashed var(--line);border-radius:var(--radius);padding:12px;font:12px/1.5 var(--mono);color:var(--ink);background:#fff;margin-top:12px;resize:vertical;}
+.af-colar:focus{outline:none;border-color:var(--accent-deep);border-style:solid;}
+.af-sub{font:700 12.5px var(--sans);color:#003122;margin:16px 0 10px;}
+.af-conf{font-size:13px;margin-bottom:12px;color:var(--ink);}
+.af-barra{height:8px;background:#e5eee5;border-radius:4px;margin-top:6px;overflow:hidden;}
+.af-barra i{display:block;height:100%;background:#003122;border-radius:4px;}
+.af-alerta{display:flex;gap:8px;align-items:flex-start;background:var(--warn-soft);border:1px solid #f3d27c;color:#6b4100;border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.45;margin-top:10px;}
+.af-alerta svg{color:var(--warn);margin-top:1px;}
+.af-resultado{padding-top:18px;}
+.af-hero{text-align:center;margin:2px 0 8px;}
+.af-hero span{display:block;font-family:var(--unbounded);font-size:19px;font-weight:700;color:#003122;}
+.af-hero strong{display:block;font-family:var(--unbounded);font-size:30px;font-weight:900;color:#003122;line-height:1.15;}
+.af-hero small{display:block;font-size:12.5px;color:var(--ink-soft);margin-top:4px;}
+.af-comparar{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;font-size:12px;color:var(--ink-soft);margin:4px 0 6px;}
+.af-comparar select{font:12px var(--sans);border:1px solid var(--line);border-radius:6px;padding:3px 6px;margin-left:4px;background:#fff;}
+.af-cascata svg{display:block;width:100%;height:auto;}
+.af-cv{font:600 10.5px var(--sans);fill:#0b0b0b;}
+.af-cl{font:10px var(--sans);fill:#52514e;}
+#anlBlocoDesempenhoRes{border-top:1px solid var(--line);margin-top:8px;}
+.af-desemp li{display:grid;grid-template-columns:1fr auto 20px;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--bg);font-size:13px;}
+.af-desemp strong{font-family:var(--unbounded);font-size:13px;font-weight:700;color:#003122;text-align:right;}
+.af-seta{font-weight:700;text-align:center;}
+.af-seta.desce{color:#b3261e;}.af-seta.sobe{color:#4e9b00;}
+.af-btn{width:100%;margin-top:10px;}
+.af-falta:not(:empty){margin-top:8px;text-align:center;}
+.af-link{display:block;width:100%;background:none;border:none;color:var(--ink-soft);font:12px var(--sans);text-decoration:underline;margin-top:10px;cursor:pointer;}
+.af-salvas li{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--line);font-size:13px;flex-wrap:wrap;}
+.af-salvas li:first-child{border-top:none;}
+.af-salva-acoes{display:flex;gap:6px;}
+.af-salva-acoes .btn{padding:6px 12px;font-size:12px;}
+.af-vazio{color:var(--ink-faint);font-size:12.5px;line-height:1.5;}
+@media(max-width:1100px){#tab-analise .af-aside{position:static;}.af-duas{grid-template-columns:1fr;}}
+@media(max-width:560px){.af-busca{width:100%;}.af-fatura{grid-template-columns:60px 1fr auto;gap:8px;}.af-hero strong{font-size:26px;}}
+
 @media(max-width:700px){
   .tab-bar{padding:0 8px;gap:0;}
   .tab-btn{font-size:11px;padding:11px 7px;}
@@ -453,6 +525,7 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
   <button type="button" class="tab-btn active" id="tabBtnProposta" data-tab="proposta" aria-controls="tab-proposta" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19H5V5h9l5 5v3M14 5v5h5m-7 7 5-5 2 2-5 5-3 1z"/></svg> Proposta</button>
   <button type="button" class="tab-btn" id="tabBtnContrato" data-tab="contrato" aria-controls="tab-contrato" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h7"/></svg> Contrato</button>
   <button type="button" class="tab-btn" id="tabBtnExpansao" data-tab="expansao" aria-controls="tab-expansao" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7v8H3zM8 13h8m-4-4v8"/></svg> Proposta de Expansão</button>
+  <button type="button" class="tab-btn" id="tabBtnAnalise" data-tab="analise" aria-controls="tab-analise" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7zM14 3v5h5M10 17v-3m3 3v-6m3 6v-4"/></svg> Análise de Fatura</button>
 </nav>
 
 <div id="tab-proposta" class="tabpane active">
@@ -795,6 +868,75 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
   </div>
 </div>
 
+<div id="tab-analise" class="tabpane" aria-labelledby="tabBtnAnalise">
+  <div class="container">
+    <main class="main">
+      <p id="anlAviso" class="exp-help af-aviso" role="status"></p>
+      <section class="card" aria-labelledby="anlClienteTitulo">
+        <div class="af-topo-linha">
+          <h2 id="anlClienteTitulo" class="af-cliente">Escolha o cliente para começar</h2>
+          <div class="combo-wrap af-busca">
+            <label class="af-sr" for="anlSelClienteBusca">Cliente</label>
+            <input type="text" id="anlSelClienteBusca" placeholder="Buscar cliente…" autocomplete="off">
+            <input type="hidden" id="anlSelCliente">
+            <div class="combo-dropdown hidden" id="anlSelClienteDropdown"></div>
+          </div>
+        </div>
+        <div class="af-modo"><span id="anlModoRotulo">Análise baseada em:</span>
+          <div id="anlModos" class="af-seg" role="group" aria-labelledby="anlModoRotulo">
+            <button type="button" data-modo="geracao" class="on" aria-pressed="true">Com geração do inversor</button>
+            <button type="button" data-modo="desempenho" aria-pressed="false">Só % de desempenho</button>
+            <button type="button" data-modo="semSolar" aria-pressed="false">Sem energia solar</button>
+          </div>
+        </div>
+      </section>
+      <div class="af-duas">
+        <section class="card" aria-labelledby="anlFaturasTitulo">
+          <h2 class="card-head" id="anlFaturasTitulo">Faturas</h2>
+          <div id="anlFaturas"></div>
+          <label class="af-anexar"><input type="file" id="anlArquivo" accept="application/pdf,.pdf" multiple><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg> Anexar faturas (PDF)</label>
+          <p class="exp-help exp-copy">A leitura é feita no navegador. Confira os números com a fatura antes de enviar o PDF ao cliente.</p>
+        </section>
+        <section class="card" id="anlCardGeracao" aria-labelledby="anlTituloGeracao">
+          <h2 class="card-head" id="anlTituloGeracao">Geração do inversor</h2>
+          <div id="anlBlocoColar">
+            <p class="af-orienta"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8v.01"/></svg><span id="anlOrientacao"></span></p>
+            <label class="af-sr" for="anlColar">Tabela de geração diária do inversor</label>
+            <textarea id="anlColar" class="af-colar" spellcheck="false" placeholder="Cole a tabela de geração aqui (Ctrl+V)&#10;Dia · Gerado · Prognóstico · Variação"></textarea>
+          </div>
+          <div id="anlBlocoDesempenho" hidden>
+            <div class="frow">
+              <div class="field"><label for="anlKwp">Potência da usina (kWp)</label><input id="anlKwp" type="text" inputmode="decimal" placeholder="ex.: 9,8"></div>
+              <div class="field"><label for="anlCidade">Cidade da produtividade</label><select id="anlCidade"><option value="">Identificar pela fatura</option></select></div>
+            </div>
+            <p class="exp-help" id="anlProdInfo"></p>
+            <h3 class="af-sub">Desempenho informado em cada fatura</h3>
+            <div id="anlPercentuais" class="frow"></div>
+          </div>
+          <div id="anlConferencia" aria-live="polite"></div>
+        </section>
+      </div>
+      <section class="card" aria-labelledby="anlSalvasTitulo">
+        <h2 class="card-head" id="anlSalvasTitulo">Análises salvas deste cliente</h2>
+        <ul id="anlSalvas" class="af-salvas"></ul>
+      </section>
+    </main>
+    <aside class="aside af-aside">
+      <section class="card af-resultado" aria-labelledby="anlResTitulo">
+        <h2 class="card-head" id="anlResTitulo">Análise do período</h2>
+        <div class="af-hero" aria-live="polite"><span id="anlHeroRotulo">Análise do período</span><strong id="anlHeroValor">—</strong><small id="anlHeroSub"></small></div>
+        <div id="anlComparar" class="af-comparar" hidden><label>Comparar<select id="anlBase"></select></label><label>com<select id="anlComparada"></select></label></div>
+        <div id="anlCascata" class="af-cascata"></div>
+        <div id="anlBlocoDesempenhoRes"><h3 class="af-sub">Desempenho da usina por ciclo de fatura</h3><ul id="anlDesempenho" class="af-desemp"></ul></div>
+        <button type="button" class="btn btn-primary af-btn" id="anlSalvar">Salvar no cliente</button>
+        <button type="button" class="btn btn-secondary af-btn" id="anlGerarPdf">Gerar PDF</button>
+        <p id="anlFalta" class="exp-help af-falta" role="status"></p>
+        <button type="button" class="af-link" id="anlNova">Nova análise</button>
+      </section>
+    </aside>
+  </div>
+</div>
+
 <dialog id="expAnexoDialog" class="card" aria-labelledby="expAnexoTitulo">
   <h2 class="card-head" id="expAnexoTitulo">Anexo</h2>
   <div id="expAnexoConteudo"></div>
@@ -832,6 +974,9 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 <script src="../js/expansao-proposta.js?v=20261112e"></script>
 <script src="../js/expansao-pdf.js?v=20261112c"></script>
 <script src="../js/expansao-tela.js?v=20261112g"></script>
+<script src="../js/analise-fatura-calculo.js?v=20261116a"></script>
+<script src="../js/analise-fatura-pdf.js?v=20261116a"></script>
+<script src="../js/analise-fatura-tela.js?v=20261116a"></script>
 
 <script>
 (function(){
@@ -2768,7 +2913,7 @@ function resetContrato(){
 }
 
 // ── Tabs ──────────────────────────────────────────────────────────────
-var expansaoTela;
+var expansaoTela, analiseTela;
 function switchTab(name){
   document.querySelectorAll('.tabpane').forEach(function(p){p.classList.toggle('active',p.id==='tab-'+name);});
   document.querySelectorAll('.tab-btn').forEach(function(b){
@@ -2776,6 +2921,13 @@ function switchTab(name){
     b.classList.toggle('active',ativo);
     b.setAttribute('aria-pressed',String(ativo));
   });
+  if(name==='analise'){
+    Promise.resolve(window.SGFireReady).then(function(){
+      if(!analiseTela)analiseTela=window.SGAnaliseFaturaTela.criar({getClientes:function(){return S.clientesArray||[];},showToast:showToast});
+      return analiseTela.abrir();
+    }).catch(function(erro){ document.getElementById('anlAviso').textContent=erro.message||'Falha ao abrir a análise de fatura.'; });
+    return;
+  }
   if(name!=='expansao')return;
   Promise.resolve(window.SGFireReady).then(function(){
     if(!expansaoTela)expansaoTela=window.SGExpansaoTela.criar({

@@ -120,7 +120,8 @@
       ['quantidade', 154, 174], ['precoComTributos', 199, 224], ['tarifaSemTributos', 248, 273],
       ['pisCofins', 308, 323], ['icms', 354, 373], ['valor', 402, 422]
     ].map(([nome, x, direita]) => ({ nome, x, direita }));
-    const primeira = pagina.find(linha => extrair(linha, 18, 25, /^consumo \(kwh\)$/)
+    // Sem consumo a pagar (tudo compensado) a tabela começa em "Consumo Compensado (kWh)".
+    const primeira = pagina.find(linha => extrair(linha, 18, 25, /^consumo(?: compensado)? \(kwh\)$/)
       && colunas.every(({ x, direita }) => linha.pontos.some(ponto => naFaixa(ponto, x - 5, direita)
         && Math.abs(ponto.x + ponto.largura - direita) < 4 && numero(ponto.texto) !== null)));
     if (!leitura || !resumo || !primeira) return null;
@@ -381,6 +382,27 @@
     return tributos;
   }
 
+  // Mensagens impressas que a Análise de Fatura usa no PDF: reajuste, bandeiras do período,
+  // débitos em aberto e data de suspensão. O texto pode quebrar entre linhas, então junta tudo.
+  function mensagensDaFatura(linhas) {
+    const texto = linhas.map(linha => linha.normalizado).join(' ');
+    const reaj = texto.match(/\breajuste tarifario com efeito medio (positivo|negativo) de (\d+(?:,\d+)?)%,?\s*(reh\s*[\d.]+\/\d{4})?.*?vigencia em (\d{2}\/\d{2}\/\d{4})/);
+    const bandeiras = [...texto.matchAll(/\b(verde|amarela|vermelha(?:\s+(?:patamar\s+)?(?:1|2|i|ii))?)\s*:\s*(\d{2}\/\d{2})\s*-\s*(\d{2}\/\d{2})/g)]
+      .map(([, cor, inicio, fim]) => ({ cor, inicio, fim }));
+    const debitos = texto.match(/\bpagamento do\(?s?\)? debito\(?s?\)? a seguir:\s*((?:\d{2}\/\d{4}\s+(?:\d{1,3}(?:\.\d{3})+|\d+),\d{2}[.,;\s]*)+)/);
+    const suspensao = texto.match(/\bsuspenso a partir de (\d{2}\/\d{2}\/\d{4})/);
+    return {
+      reajuste: reaj ? {
+        percentual: (reaj[1] === 'negativo' ? -1 : 1) * numero(reaj[2]),
+        norma: reaj[3] ? reaj[3].toUpperCase().replace(/\s+/, ' ') : null, vigencia: dataISO(reaj[4])
+      } : null,
+      bandeiras,
+      debitosEmAberto: debitos ? [...debitos[1].matchAll(/(\d{2})\/(\d{4})\s+((?:\d{1,3}(?:\.\d{3})+|\d+),\d{2})/g)]
+        .map(([, mes, ano, valor]) => ({ referencia: ano + '-' + mes, valor: numero(valor) })) : [],
+      suspensaoAPartirDe: suspensao ? dataISO(suspensao[1]) : null
+    };
+  }
+
   function lerTextoPosicional(paginas) {
     const linhas = remontarLinhas(paginas);
     if (!linhas.length) return vazio('sem-texto', 'Este PDF não contém texto selecionável. Preencha a fatura manualmente.');
@@ -452,6 +474,12 @@
     }
     fatura.saldoInicialElegivel = dadoEnergia(linhas, '\\b(?:saldo inicial elegivel|saldo anterior de creditos)');
     fatura.saldoDisponivel = dadoEnergia(linhas, '\\bsaldo (?:atualizado|acumulado|disponivel|de creditos disponivel|de creditos)');
+    // 2ª via de 2026: "Saldo Acumulado Geral Total: 223,06" na mensagem da UC geradora, sem "kWh".
+    if (fatura.saldoDisponivel === null) {
+      const acumulado = primeiraCaptura(linhas, /\bsaldo acumulado geral total\s*:?\s*((?:\d{1,3}(?:\.\d{3})+|\d+),\d{2}|\d+\.\d{1,2}(?![\d,]))/);
+      fatura.saldoDisponivel = acumulado == null ? null
+        : acumulado.includes(',') ? numero(acumulado) : Number(acumulado);
+    }
     fatura.saldoAExpirar = dadoEnergia(linhas, '\\bsaldo a expirar');
     fatura.creditosExpirados = dadoEnergia(linhas, '\\bcreditos expirados')
       ?? numero(primeiraCaptura(linhas, new RegExp('\\bsaldo de creditos expirados no ciclo ref\\s+\\d{2}/\\d{2,4}:\\s*' + energia)))
@@ -473,6 +501,7 @@
     }
     fatura.avisosFinanceiros = linhas.filter(linha => /\b(?:debitos? anteriores?|contas? em atraso)\b/.test(linha.normalizado))
       .map(linha => ({ descricao: linha.texto, noTotal: false }));
+    fatura.mensagens = mensagensDaFatura(linhas);
     for (const campo of Object.keys(fatura.origem)) {
       if (Array.isArray(fatura[campo]) ? fatura[campo].length : fatura[campo] !== null) fatura.origem[campo] = 'lido';
     }

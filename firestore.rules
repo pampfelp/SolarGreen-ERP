@@ -151,6 +151,16 @@ service cloud.firestore {
     match /propostas/{id} {
       allow read, write: if isSignedIn();
     }
+    // Análise de Fatura (aba do gerador, 2026-11-16): faturas lidas, geração e resumo.
+    // Qualquer usuário logado lê e cria; só quem criou altera ou apaga.
+    match /analises_fatura/{id} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.OwnerUid == request.auth.uid
+        && request.resource.data.IdCliente is string && request.resource.data.IdCliente.size() > 0;
+      allow update: if isSignedIn() && resource.data.OwnerUid == request.auth.uid
+        && request.resource.data.OwnerUid == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.OwnerUid == request.auth.uid;
+    }
 
     function authenticatedExpansionUser() {
       return isSignedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous';

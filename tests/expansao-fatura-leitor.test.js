@@ -177,6 +177,41 @@ test('distingue créditos inferidos de créditos impressos na DANFE', () => {
   assert.equal(lerTextoPosicional([outraChave]).status, 'layout-desconhecido');
 });
 
+test('lê a DANFE sem consumo a pagar, quando a tabela começa no consumo compensado', () => {
+  // Faturas reais de um cliente: tudo compensado, sem a linha "Consumo (kWh)".
+  const linha = (y, pontos) => pontos.map(([str, x, direita]) => ({
+    str, width: direita ? direita - x : str.length * 3,
+    transform: [6, 0, 0, 6, x, y]
+  }));
+  const danfe = [
+    ...linha(790, [['Equatorial Pará', 21], ['Unidade Consumidora', 225]]),
+    ...linha(750, [['Leitura anterior', 364], ['Leitura atual', 425]]),
+    ...linha(730, [['10/2026', 48], ['21/10/2026', 125], ['R$ 431,06', 210]]),
+    ...linha(550, [['Consumo Compensado (kWh)', 21], ['709,48', 158, 174], ['0,931358', 205, 224],
+      ['0,736516', 252, 273], ['12,69', 310, 323], ['125,55', 358, 373], ['660,78', 403, 422]]),
+    ...linha(541, [['Energia Ativa Injetada (kWh)', 21], ['625', 158, 174], ['0,931360', 205, 224],
+      ['0,736516', 252, 273], ['-11,18', 310, 323], ['-110,60', 358, 373], ['-582,10', 403, 422]]),
+    ...linha(530, [['Total', 21]]),
+    ...linha(350, [['Energia injetada', 76], ['Ativo total', 154], ['625 kWh', 312]]),
+    ...linha(600, [['0.000.000.000-00: Saldo do Mês Geral Total: 0.00, Saldo Acumulado Geral Total: 138,58, Saldo atualizado a expirar de 0,00 na ref 11/26', 21]])
+  ];
+  danfe.push(...linha(640, [['Prezado Cliente, Até a emissão desta fatura não identificamos o pagamento do(s) Débito(s) a seguir: 09/2026 398,23.. Você poderá ter o fornecimento de energia', 21]]),
+    ...linha(632, [['SUSPENSO A PARTIR DE 30/10/2026, conforme Art. 356 REN 1000/021 ANEEL', 21]]),
+    ...linha(620, [['Reajuste Tarifário com efeito médio positivo de 6,94%, REH 3.608/2026 com vigência em 18/09/2026. Períodos: Band. Tarif.: Amarela : 09/09 - 30/09 Verde : 01/10 - 08/10', 21]]));
+  const lida = lerTextoPosicional([danfe]);
+  assert.equal(lida.saldoDisponivel, 138.58);
+  assert.deepEqual(lida.mensagens.reajuste, { percentual: 6.94, norma: 'REH 3.608/2026', vigencia: '2026-09-18' });
+  assert.deepEqual(lida.mensagens.bandeiras.map(b => b.cor), ['amarela', 'verde']);
+  assert.deepEqual(lida.mensagens.debitosEmAberto, [{ referencia: '2026-09', valor: 398.23 }]);
+  assert.equal(lida.mensagens.suspensaoAPartirDe, '2026-10-30');
+  assert.equal(lida.status, 'lido');
+  assert.equal(lida.referencia, '2026-10');
+  assert.equal(lida.total, 431.06);
+  assert.equal(lida.consumoCompensado, 709.48);
+  assert.ok(lida.itens.some(i => i.tipo === 'consumoCompensado' && i.valor === 660.78));
+  assert.ok(!lida.itens.some(i => i.tipo === 'consumo'));
+});
+
 test('envia somente bytes ao PDF.js, lê todas as páginas e encerra o worker', async () => {
   const bytes = new TextEncoder().encode('%PDF-1.7\nExemplo sintético');
   const arquivo = { size: bytes.length, arrayBuffer: async () => bytes.buffer };
