@@ -367,10 +367,30 @@
       .sort((a, c) => c.valor - a.valor);
   }
 
+  // Uma fatura só (ou base = comparada): sem divisão do aumento, só o retrato do ciclo.
+  function secaoResumoUnico(m, ctx) {
+    const cp = ctx.cp, f = ctx.fp;
+    const aprox = ctx.modo === 'desempenho' ? '~' : '';
+    let texto = `A conta de ${ctx.mesP} foi de <b>${reais(f.total)}</b>, no ciclo de ${dataBr(cp.inicio)} a ${dataBr(cp.fim)} (${cp.dias} dias). `;
+    if (!ctx.semSolar && f.consumoSemCompensacao > 0 && !(f.saldoDisponivel > 0)) {
+      const preco = m.precos[m.comparada].kwhSemCredito;
+      texto += `Os créditos guardados não deram conta e ${num(f.consumoSemCompensacao)} kWh foram cobrados pela tarifa cheia` + (finito(preco) ? `, a ${reais(preco)} cada.` : '.');
+    }
+    texto += ' Para ver o que fez a conta subir ou descer, anexe também uma fatura anterior.';
+    const kpis = ctx.semSolar
+      ? [kpi(`${num(cp.porDia.rede, 1)} kWh`, 'consumo da casa<br/>por dia'), kpi(reais(f.total), `valor da fatura<br/>de ${ctx.mesP}`)]
+      : [kpi(`${num(cp.porDia.casa, 1)} kWh`, `consumo da casa<br/>por dia${aprox ? ' (estimado)' : ''}`), kpi(`${num(cp.porDia.geracao, 1)} kWh`, `geração<br/>por dia${aprox ? ' (estimada)' : ''}`),
+        kpi(pct(cp.desempenho), 'geração / previsto<br/>no ciclo'),
+        kpi(`${num(finito(f.saldoDisponivel) ? f.saldoDisponivel : (f.consumoSemCompensacao > 0 ? 0 : null), 0)} kWh`, `créditos guardados<br/>em ${dataBr(cp.fim)}`)];
+    return '<h2>Resumo</h2>' + p(texto) + `<div class="kpis">${kpis.join('')}</div>`;
+  }
+
   function secaoResumo(m, ctx, causas) {
+    if (!m.divisao) return secaoResumoUnico(m, ctx);
     const d = m.divisao, cb = ctx.cb, cp = ctx.cp;
     const total = d.total;
-    let texto = `A conta passou de <b>${reais(ctx.fb.total)}</b> (${ctx.mesB}) para <b>${reais(ctx.fp.total)}</b> (${ctx.mesP}), <b>${reais(total)} a mais</b>. `;
+    const sobe = total >= 0;
+    let texto = `A conta passou de <b>${reais(ctx.fb.total)}</b> (${ctx.mesB}) para <b>${reais(ctx.fp.total)}</b> (${ctx.mesP}), <b>${reais(Math.abs(total))} a ${sobe ? 'mais' : 'menos'}</b>. `;
     const maior = causas.slice().sort((a, c) => c.valor - a.valor)[0];
     const parte = k => causas.find(c => c.nome === k);
     const consumo = parte('Consumo maior da casa'), tarifa = parte('Reajuste da tarifa e da CIP'), geracao = parte('Queda da geração');
@@ -404,7 +424,7 @@
       'Conta ' + mesAbrev(ctx.fb).toLowerCase(), 'Conta ' + mesAbrev(ctx.fp).toLowerCase());
     const linhas = causas.map(c => [c.nome, (c.valor < 0 ? '−' : '') + reais(Math.abs(c.valor)), pct(c.valor / total), c.texto]);
     linhas.push(['Total', reais(total), '100%', '']);
-    return '<h2>Resumo</h2>' + p(texto) + `<div class="kpis">${kpis.join('')}</div>` + '<h2>De onde veio o aumento</h2>' +
+    return '<h2>Resumo</h2>' + p(texto) + `<div class="kpis">${kpis.join('')}</div>` + `<h2>De onde veio ${sobe ? 'o aumento' : 'a redução'}</h2>` +
       `<figure id="grafico-cascata">${grafico}</figure>` +
       p(`Cada barra laranja é o quanto aquela causa somou à conta, de ${ctx.mesB} para ${ctx.mesP}. A barra verde é o que diminuiu.`, 'cap') +
       tabela(['Causa', 'Valor', 'Parte do aumento', 'O que é'], linhas, { ultimaEmDestaque: true, classe: 'causas' });
@@ -689,7 +709,9 @@
     } else {
       notas.push(`Fontes: faturas Equatorial Pará ${refs}. Sem usina solar: toda a energia vem da rede.`);
     }
-    if (!ctx.semSolar) {
+    if (!m.divisao) {
+      // sem comparação entre faturas, não há divisão do aumento a explicar
+    } else if (!ctx.semSolar) {
       const d = m.divisao;
       notas.push(`Divisão do aumento: o consumo sem compensação (${reais(ctx.fp.consumoSemCompensacao > 0 ? m.composicoes[m.comparada].semCompensacao : 0)}) foi dividido pela proporção de kWh perdidos em cada causa, ` +
         `comparando com o ritmo de ${ctx.mesB}: ${num(d.kwh.geracao, 0)} kWh por menos geração e ${num(d.kwh.consumo, 0)} kWh por mais consumo. ` +
@@ -730,7 +752,7 @@
 
   function montarHtml(m) {
     const ctx = montarContexto(m);
-    const causas = causasDoAumento(m, ctx);
+    const causas = m.divisao ? causasDoAumento(m, ctx) : [];
     const cli = m.cliente || {};
     const subtitulo = ctx.semSolar ? `Consumo e custo da energia ${periodoTexto(m)}` : `Geração, autoconsumo e consumo ${periodoTexto(m)}`;
     const faixa = '<header class="faixa"><div><h1>Análise da conta de energia</h1>' + `<p>${esc(subtitulo)}</p>` +

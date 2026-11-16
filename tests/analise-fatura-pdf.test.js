@@ -97,3 +97,27 @@ test('sem os fatos do caso, as frases fixas ficam de fora', () => {
     assert.ok(!html.includes(fora), 'não devia ter: ' + fora);
   }
 });
+
+test('uma fatura só: gera o PDF sem divisão do aumento (erro "partes" de null)', () => {
+  const f = [faturas[2]];
+  const des = calc.analisarCiclos(f, { modo: 'desempenho', desempenhos: [0.782], kwp: 78.2, produtividadeMensal: Array(12).fill(113.55) });
+  for (const [modo, ciclos] of [['desempenho', des], ['semSolar', calc.analisarCiclos(f, { modo: 'semSolar' })]]) {
+    const html = pdf.montarHtml({
+      cliente: { nome: 'Cliente de Teste', uc: '0000000', cidade: 'Cidade-PA' }, dataEmissao: '2026-11-16', modo,
+      faturas: f, ciclos, dias: [], excluir: [], composicoes: f.map(calc.composicao), precos: f.map(calc.precos),
+      base: 0, comparada: 0, divisao: null, cenario: modo === 'semSolar' ? null : calc.cenario100(f, ciclos, {})
+    });
+    assert.match(html, /A conta de novembro foi de <b>R\$ 579,36<\/b>/);
+    assert.doesNotMatch(html, /De onde veio o aumento/);
+    assert.match(html, /anexe também uma fatura anterior/);
+  }
+});
+
+test('redução: título e texto falam em redução', () => {
+  const m = modelo();
+  const inv = { ...m, base: 2, comparada: 0,
+    divisao: calc.dividirAumento({ fatura: m.faturas[2], ciclo: m.ciclos[2] }, { fatura: m.faturas[0], ciclo: m.ciclos[0] }) };
+  const html = pdf.montarHtml(inv);
+  assert.match(html, /De onde veio a redução/);
+  assert.match(html, /R\$ 181,13<\/b> a menos|R\$ 181,13 a menos<\/b>/);
+});

@@ -171,7 +171,10 @@
         }).join('') + avisos.concat(avisosGeracao).map(textoAviso).filter(Boolean)
           .map(t => '<div class="af-alerta" role="note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 21h20zM12 10v5m0 3v.01"/></svg><span>' + esc(t) + '</span></div>').join('');
       } else if (modo === 'desempenho') {
-        $('anlPercentuais').innerHTML = faturas.map((f, i) =>
+        // Os campos de % só são redesenhados quando a lista de faturas muda: assim não perdem o foco nem o que foi digitado.
+        const chave = faturas.map(f => f.referencia).join('|') + '#' + (salvoId || '');
+        const pcts = $('anlPercentuais');
+        if (pcts.dataset.chave !== chave) pcts.dataset.chave = chave, pcts.innerHTML = faturas.map((f, i) =>
           '<div class="field"><label for="anlPct' + i + '">Fatura ' + esc(refBR(f.referencia)) + ' (%)</label>' +
           '<input id="anlPct' + i + '" data-pct="' + i + '" type="text" inputmode="decimal" placeholder="ex.: 85" value="' +
           (Number.isFinite(desempenhos[i]) ? +(desempenhos[i] * 100).toFixed(1) : '') + '"></div>').join('') ||
@@ -179,9 +182,19 @@
         $('anlProdInfo').textContent = produtividade?.status === 'ok'
           ? 'Previsto: kWp × ' + fmt(produtividade.mediaMensal) + ' kWh/kWp ao mês em média (' + (produtividade.cidade || 'média regional') + '), mês a mês. Fonte: ' + produtividade.fonte + '.'
           : (produtividade?.aviso || 'Escolha a cidade para buscar a produtividade.');
-        conf.innerHTML = '';
+        // Conferência de plausibilidade: a geração estimada não pode ser menor que a injeção medida,
+        // e o sol usado na hora raramente passa de 70% do consumo da casa.
+        const alertas = (ciclos || []).flatMap((c, i) => {
+          const ref = refBR(faturas[i].referencia);
+          if (c.geracao < (faturas[i].injetadoNoCiclo || 0)) return ['Fatura ' + ref + ': a geração estimada (' + fmt(c.geracao, 0) + ' kWh) é menor que a injeção medida (' + fmt(faturas[i].injetadoNoCiclo, 0) + ' kWh). Confira o kWp e o %.'];
+          if (c.casa > 0 && c.autoconsumo / c.casa > 0.7) return ['Fatura ' + ref + ': com ' + fmt(kwp, 1) + ' kWp a geração estimada fica em ' + fmt(c.porDia.geracao, 1) + ' kWh/dia, alta para esta conta. Confira a potência da usina (kWp).'];
+          return [];
+        });
+        conf.innerHTML = alertas.map(t => '<div class="af-alerta" role="note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 21h20zM12 10v5m0 3v.01"/></svg><span>' + esc(t) + '</span></div>').join('');
       } else conf.innerHTML = '';
     }
+
+    function renderAlertasDesempenho() { renderGeracao(); }
 
     function textoAviso(a) {
       if (a.codigo === 'acumulo') return dataBR(a.data, false) + ' com ' + fmt(a.gerado, 0) + ' kWh parece acúmulo de dias sem dado; ficou fora da média.';
@@ -218,7 +231,8 @@
         const ant = i ? ciclos[i - 1].desempenho : null;
         const seta = Number.isFinite(ant) && Number.isFinite(c.desempenho) && Math.abs(c.desempenho - ant) >= 0.005
           ? (c.desempenho < ant ? '<span class="af-seta desce" aria-label="caiu">↘</span>' : '<span class="af-seta sobe" aria-label="subiu">↗</span>') : '';
-        return '<li><span>' + esc(refBR(faturas[i].referencia)) + '</span><strong>' + (c.estimada ? '~' : '') + pct(c.desempenho) + '</strong>' + seta + '</li>';
+        // "~" na fonte Unbounded parece sinal de menos: o aproximado vira um rótulo em texto.
+        return '<li><span>' + esc(refBR(faturas[i].referencia)) + (c.estimada ? ' <small class="af-est">estimado</small>' : '') + '</span><strong>' + pct(c.desempenho) + '</strong>' + seta + '</li>';
       }).join('') : '<li class="af-vazio">' + (modo === 'desempenho' ? 'Informe kWp, cidade e o % de cada fatura.' : 'Cole a geração para ver o desempenho.') + '</li>';
       const falta = !faturas.length ? 'Leia as faturas para gerar o PDF.'
         : modo === 'semSolar' && faturas.some(f => f.consumoCompensado > 0) ? 'Estas faturas têm energia compensada: escolha um modo com usina.'
@@ -417,7 +431,7 @@
         if (i == null) return;
         const v = numero(e.target.value);
         desempenhos[Number(i)] = Number.isFinite(v) ? v / 100 : null;
-        calcular(); renderResultado();
+        calcular(); renderResultado(); renderAlertasDesempenho();
       });
       $('anlBase').addEventListener('change', e => { base = Number(e.target.value); render(); });
       $('anlComparada').addEventListener('change', e => { comparada = Number(e.target.value); render(); });
