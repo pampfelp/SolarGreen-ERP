@@ -798,10 +798,17 @@
     // As mesmas faturas e KPIs do PDF (SGExpansaoPdf.comparacaoFaturas), no lugar da antiga tabela de cenários.
     function faturasDaProposta(r) {
       const c = window.SGExpansaoPdf.comparacaoFaturas({ simulacao: r.simulacao, dimensionamento: r.dimensionamento, fatura });
-      return '<div class="exp-faturas">' + c.faturas.map(f => '<div class="exp-medida"><span>' + esc(f.titulo) + '</span><strong>' +
-        dinheiro(f.total) + '</strong>' + f.kpis.filter(k => Number.isFinite(k.valor)).map(k =>
-          '<span class="exp-fatura-kpi ' + (k.classe || '') + '">' + esc(k.titulo) + ': <b>' +
-          (k.sinal && k.valor > 0 ? '+' : '') + dinheiro(k.valor) + '</b>' + (k.nota ? ' · ' + esc(k.nota) : '') + '</span>').join('') +
+      // Cada fatura aparece como documento, com os KPIs dela em cima (mesmo desenho do PDF).
+      const financeiros = fatura.itensFinanceiros || [];
+      const cliente = clienteAtual();
+      return '<div class="exp-faturas">' + c.faturas.map(f => '<div class="exp-fatura"><h4 class="exp-subhead">' + esc(f.titulo) + '</h4>' +
+        '<div class="exp-kpis exp-fatura-kpis">' + f.kpis.filter(k => Number.isFinite(k.valor)).map(k =>
+          '<div class="perda-kpi ' + (k.classe === 'ganho' ? 'destaque' : k.classe || '') + '"><div class="pk-label">' + esc(k.titulo) +
+          '</div><div class="pk-val">' + (k.sinal && k.valor > 0 ? '+' : '') + dinheiro(k.valor) + '</div>' +
+          (k.nota ? '<div class="pk-sub">' + esc(k.nota) + '</div>' : '') + '</div>').join('') + '</div>' +
+        window.SGExpansaoPdf.documentoFatura(f.atual
+          ? { titulo: f.titulo, itens: fatura.itens, total: fatura.total, fatura, cliente, atual: true }
+          : { titulo: f.titulo, itens: f.cenario?.linhas, total: f.cenario?.total, financeirosDaFatura: financeiros, fatura, cliente }) +
         '</div>').join('') + '</div>' + (c.semEventuais ? '<p class="exp-copy">Comparações sem multa, juros e outros valores ' +
         'eventuais desta fatura (conta de referência ' + dinheiro(c.contaHoje) + ').</p>' : '');
     }
@@ -1139,6 +1146,7 @@
         const r = p?.Resumo?.Resultado;
         if (!p?.Geracao || !r) throw new Error('Calcule e salve uma geração antes de imprimir.');
         const documento = p.Anexos?.Documento ? await obterAnexo('Documento') : null;
+        const faturaPdf = p.Anexos?.Fatura ? await obterAnexo('Fatura').catch(() => null) : null;
         if (!telhado) {
           await import('./expansao-telhado3d.js?v=20261111c');
           const e = p.Expansao;
@@ -1155,7 +1163,7 @@
         await window.SGExpansaoPdf.imprimir({
           cliente: p.Resumo.Cliente, fatura: p.Fatura, dimensionamento: r.dimensionamento,
           inversor: r.inversor || {}, expansao: p.Expansao, geracao: p.Geracao, simulacao: r.simulacao,
-          comparacaoFioB: r.comparacaoFioB, recuperacao: r.recuperacao, imagemTelhado: imagem, documento,
+          comparacaoFioB: r.comparacaoFioB, recuperacao: r.recuperacao, imagemTelhado: imagem, documento, faturaPdf,
           numeroProposta: p.Numero, vendedor: p.NomeVendedor
         }, { janela });
       } catch (e) {

@@ -22,6 +22,13 @@
     '.kpi span{display:block;color:#42564b;font-size:9pt}.kpi strong{display:block;font-size:15pt;color:#003122}.kpi small{display:block;color:#42564b;font-size:8pt}' +
     '.kpi.ganho strong{color:#4d7a17}.kpi.alerta{background:#fdf0ef;border-color:#efc4bf}.kpi.alerta strong,.kpi.alerta small{color:#b3261e}' +
     'figure{margin:3mm 0;text-align:center}img{max-width:100%;max-height:217mm;object-fit:contain}.telhado{break-inside:avoid}.telhado img{max-height:115mm}' +
+    '.fatura-original{margin:0 0 4mm;break-inside:avoid}.fatura-original img{max-height:200mm;border:1pt solid #c9d6cb}.fd{border:1pt solid #c9d6cb;border-radius:2mm;overflow:hidden;margin:0 0 4mm}.fd table{margin:0}' +
+    '.fd-topo{display:flex;justify-content:space-between;align-items:center;gap:4mm;background:#003122;color:#fff;padding:3.5mm 4mm}' +
+    '.fd .total td{white-space:nowrap}' +
+    '.fd-topo b{display:block;font-size:12pt}.fd-topo small{display:block;font-size:8.5pt;opacity:.85}' +
+    '.fd-total{text-align:right}.fd-total strong{display:block;font-size:17pt}' +
+    '.fd-dados{display:grid;grid-template-columns:repeat(auto-fit,minmax(38mm,1fr));gap:2mm 4mm;margin:0;padding:3mm 4mm;background:#f2f7f2;border-bottom:1px solid #d9e3db}' +
+    '.fd-dados dt{font-size:8pt}.fd-dados dd{font-size:9pt}' +
     '.comparacao{break-inside:avoid}.comparacao td:first-child{width:auto}.lembrete{color:#42564b;font-size:8.5pt}.anexo{break-inside:avoid}' +
     'footer{border-top:1px solid #d9e3db;padding-top:2mm;font-size:8pt;color:#42564b;text-align:center}' +
     '@media screen{tfoot{display:none}body{max-width:210mm;margin:8mm auto;padding:0 14mm}.folha{margin:0 0 12mm}.folha+.folha{border-top:1px solid #d9e3db;padding-top:5mm}}' +
@@ -95,6 +102,23 @@
       ? '<tr class="financeiro"><th colspan="7">Itens financeiros</th></tr>' + financeiros.map(linhaFatura).join('') : '');
     return '<table>' + cabecalho + '<tbody>' + (corpo || '<tr><td colspan="7">Itens não informados.</td></tr>') +
       '<tr class="total"><th colspan="6">Total a pagar</th><td>' + esc(reais(total)) + '</td></tr></tbody><tfoot><tr><td colspan="7"></td></tr></tfoot></table>';
+  }
+
+  // A fatura desenhada como documento: cabeçalho com os dados da unidade e o total em destaque, depois os itens.
+  // Os KPIs ficam por quem chama, acima dela. Serve ao PDF e à tela (as classes .fd-* têm CSS nos dois).
+  function documentoFatura({ titulo, itens, total, financeirosDaFatura, fatura = {}, cliente = {}, atual = false } = {}) {
+    const leitura = data(fatura.dataLeituraAnterior) !== AUSENTE && data(fatura.dataLeituraAtual) !== AUSENTE
+      ? data(fatura.dataLeituraAnterior) + ' a ' + data(fatura.dataLeituraAtual) : '';
+    const referencia = /^\d{4}-\d{2}$/.test(fatura.referencia || '') ? fatura.referencia.slice(5) + '/' + fatura.referencia.slice(0, 4) : '';
+    const dados = [['Cliente', cliente.Nome ?? cliente.nome], ['Unidade consumidora', fatura.uc], ['Referência', referencia],
+      ['Leituras', leitura], ...(atual ? [['Vencimento', fatura.vencimento ? data(fatura.vencimento) : '']] : [])]
+      .filter(([, valor]) => valor && valor !== AUSENTE);
+    return '<div class="fd"><div class="fd-topo"><div><b>Fatura de energia elétrica</b><small>' + esc(titulo) +
+      (atual ? '' : ' · simulação') + '</small></div><div class="fd-total"><small>Total a pagar</small><strong>' +
+      esc(reais(total)) + '</strong></div></div>' +
+      (dados.length ? '<dl class="fd-dados">' + dados.map(([rotulo, valor]) => '<div><dt>' + esc(rotulo) + '</dt><dd>' +
+        esc(valor) + '</dd></div>').join('') + '</dl>' : '') +
+      '<div class="fd-rolagem">' + tabelaFatura(itens, total, financeirosDaFatura) + '</div></div>';
   }
 
   function financeiro(item) {
@@ -171,7 +195,7 @@
     return /legis\.senado\.gov\.br\/norma\/35420157/.test(fonte || '') ? 'Lei 14.300/2022, art. 27' : fonte;
   }
 
-  function montarHtml(model = {}, { paginasDocumento = [] } = {}) {
+  function montarHtml(model = {}, { paginasDocumento = [], paginaFatura = null } = {}) {
     const { cliente = {}, fatura = {}, dimensionamento: d = {}, inversor = {}, expansao = {}, geracao: g = {},
       simulacao = {}, comparacaoFioB = {}, imagemTelhado, numeroProposta, vendedor } = model;
     const percentualFioB = percentual(Number.isFinite(g.PercentualFioBGD2)
@@ -219,8 +243,11 @@
     const semEventuais = '<p class="lembrete">Comparações sem multa, juros e outros valores eventuais desta fatura ' +
       '(conta de referência ' + esc(reais(comparacao.contaHoje)) + ').</p>';
     const faturas = comparacao.faturas.map(f => secao(f.titulo, kpis(f.kpis) + (f.nota ? semEventuais : '') + (f.atual
-      ? tabelaFatura(fatura.itens, fatura.total) + quadroFioB(comparacaoFioB, fatura.referencia)
-      : tabelaFatura(f.cenario.linhas, f.cenario.total, financeiros))));
+      ? (imagemLocal(paginaFatura) ? '<figure class="fatura-original"><img alt="Primeira página da fatura do cliente" src="' + paginaFatura + '"></figure>'
+        : documentoFatura({ titulo: f.titulo, itens: fatura.itens, total: fatura.total, fatura, cliente, atual: true })) +
+        quadroFioB(comparacaoFioB, fatura.referencia)
+      : documentoFatura({ titulo: f.titulo, itens: f.cenario.linhas, total: f.cenario.total, financeirosDaFatura: financeiros,
+        fatura, cliente }))));
 
     const partes = [identificacao, resumo, ...faturas];
     const paginas = paginasDocumento.filter(imagemLocal);
@@ -248,7 +275,7 @@
     });
   }
 
-  async function renderizarDocumento(blob) {
+  async function renderizarDocumento(blob, maxPaginas = Infinity) {
     if (!blob) return [];
     if (blob.type === 'image/png' || blob.type === 'image/jpeg') return [await imagemDoBlob(blob)];
     if (blob.type !== 'application/pdf') throw new Error('Use um documento em PDF, JPG ou PNG.');
@@ -258,7 +285,7 @@
       const pdf = await tarefa.promise;
       const imagens = [];
       const canvas = root.document.createElement('canvas');
-      for (let i = 1; i <= pdf.numPages; i++) {
+      for (let i = 1; i <= Math.min(pdf.numPages, maxPaginas); i++) {
         const pagina = await pdf.getPage(i);
         const original = pagina.getViewport({ scale: 1 });
         const viewport = pagina.getViewport({ scale: Math.min(1550 / original.width, 2100 / original.height) });
@@ -278,9 +305,11 @@
     if (!janela || janela.closed) throw new Error('Janela de impressão indisponível.');
     try {
       const paginasDocumento = await renderizarDocumento(model.documento);
+      // Só a primeira página da fatura original; sem ela, vale a fatura desenhada.
+      const paginaFatura = model.faturaPdf ? (await renderizarDocumento(model.faturaPdf, 1))[0] : null;
       if (janela.closed) throw new Error('Janela de impressão indisponível.');
       janela.document.open();
-      janela.document.write(montarHtml(model, { paginasDocumento }));
+      janela.document.write(montarHtml(model, { paginasDocumento, paginaFatura }));
       janela.document.close();
       await Promise.all(Array.from(janela.document.images, img => img.decode()));
       if (janela.closed) throw new Error('Janela de impressão indisponível.');
@@ -292,7 +321,7 @@
     }
   }
 
-  const api = { montarHtml, comparacaoFaturas, abrirJanela, imprimir };
+  const api = { montarHtml, comparacaoFaturas, documentoFatura, abrirJanela, imprimir };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.SGExpansaoPdf = api;
 })(typeof window !== 'undefined' ? window : null);

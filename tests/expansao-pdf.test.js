@@ -175,3 +175,10 @@ test('a tela recebe as mesmas faturas e KPIs do PDF', () => {
 });
 
 module.exports = { model, figura };
+
+test('com a página da fatura original, ela entra no lugar da fatura desenhada', () => {
+  const html = pdf.montarHtml(model, { paginaFatura: figura });
+  assert.match(html, /<figure class="fatura-original"><img alt="Primeira página da fatura do cliente"/);
+  assert.equal(html.match(/class="fd"/g).length, 2);
+  assert.doesNotMatch(pdf.montarHtml(model), /fatura-original"><img/);
+});
