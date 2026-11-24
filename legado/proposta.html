@@ -827,8 +827,9 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
           </details>
           <details>
             <summary>Instalação nova: número de placas, investimento e retorno</summary>
-            <p class="exp-copy">Para o cliente sem usina. Com o número de placas informado, o cálculo pelo consumo vira só referência. Os valores informados abaixo substituem a simulação da fatura no PDF.</p>
+            <p class="exp-copy">Para o cliente sem usina. Com o consumo projetado, as faturas sem e com solar são simuladas por ele e a fatura atual continua a lida. Com o número de placas informado, o cálculo pelo consumo vira só referência. Os valores informados abaixo substituem a simulação no PDF.</p>
             <div class="frow">
+              <div class="field"><label for="expConsumoProjetado">Consumo depois da instalação (kWh/mês, opcional)</label><input id="expConsumoProjetado" data-expansao="consumoProjetado" type="number" min="0" step="any" placeholder="ex.: 1000 com ar-condicionado novo"></div>
               <div class="field"><label for="expPlacasManual">Número de placas (opcional)</label><input id="expPlacasManual" data-expansao="placasManual" type="number" min="1" step="1"></div>
               <div class="field"><label for="expInversorDescricao">Inversor (texto no PDF)</label><input id="expInversorDescricao" data-expansao="inversorDescricao" type="text" placeholder="ex.: SOLPLANET 6 kW"></div>
               <div class="field"><label for="expAreaTelhado">Área no telhado (m²)</label><input id="expAreaTelhado" data-expansao="areaTelhadoM2" type="number" min="0" step="any" placeholder="pelas medidas do módulo"></div>
@@ -991,12 +992,12 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 <script src="../js/firestore-router.js?v=20261112a"></script>
 <script src="../js/sg-auth.js?v=20261111b"></script>
 <script src="../js/expansao-produtividade.js?v=20261111b"></script>
-<script src="../js/expansao-calculo.js?v=20261124a"></script>
+<script src="../js/expansao-calculo.js?v=20261124b"></script>
 <script src="../js/expansao-fatura-leitor.js?v=20261112c"></script>
 <script src="../js/expansao-anexos.js?v=20261111c"></script>
-<script src="../js/expansao-proposta.js?v=20261124a"></script>
-<script src="../js/expansao-pdf.js?v=20261124a"></script>
-<script src="../js/expansao-tela.js?v=20261124a"></script>
+<script src="../js/expansao-proposta.js?v=20261124b"></script>
+<script src="../js/expansao-pdf.js?v=20261124b"></script>
+<script src="../js/expansao-tela.js?v=20261124b"></script>
 <script src="../js/analise-fatura-calculo.js?v=20261116a"></script>
 <script src="../js/analise-fatura-pdf.js?v=20261116b"></script>
 <script src="../js/analise-fatura-tela.js?v=20261116b"></script>

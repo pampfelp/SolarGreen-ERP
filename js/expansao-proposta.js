@@ -259,6 +259,10 @@
     // Cliente sem usina (instalação nova): nada existe no telhado, não há recuperação a calcular
     // e os campos da usina atual, mesmo preenchidos por engano, não entram na conta.
     const semUsina = usinaAtual.semUsina === true;
+    // Consumo que o cliente vai ter depois da instalação (ex.: ar-condicionado novo). As faturas sem e com
+    // solar são simuladas com ele; a fatura atual segue sendo a lida.
+    const projetado = semUsina && Number.isFinite(expansao.consumoProjetado) && expansao.consumoProjetado > 0
+      ? expansao.consumoProjetado : null;
     const modulosAtuais = semUsina ? [] : (usinaAtual.modulosAtuais || []);
     const kwp = semUsina ? 0 : modulosAtuais.length
       ? modulosAtuais.reduce((soma, m) => soma + m.qtd * m.wp, 0) / 1000 : usinaAtual.kwpAtual;
@@ -308,7 +312,7 @@
     }
     const saldoElegivel = referenciaFutura ? expansao.saldoElegivelFuturo : fatura.saldoInicialElegivel;
     const dimensionamento = calc.dimensionar({
-      ...expansao, consumoFaturado: fatura.consumoFaturado, injetadoNoCiclo: fatura.injetadoNoCiclo,
+      ...expansao, consumoFaturado: projetado ?? fatura.consumoFaturado, injetadoNoCiclo: fatura.injetadoNoCiclo,
       kwpAtual: semUsina ? 0 : usinaAtual.kwpAtual, wpAtual: semUsina ? null : usinaAtual.wpAtual,
       modulosAtuais, recuperacaoMensal, saldoElegivel,
       residualDesejado: expansao.meta === 'residual' ? expansao.residualDesejado : 0
@@ -340,7 +344,13 @@
     const projecao = referenciaFutura && usaGD2 && !referenciaGD2
       ? projetarGD2(fatura, referenciaFutura, janelaFutura, janelaOriginal, vigencias, fiob, observacoes, tarifas, avisos)
       : null;
-    const faturaSimulada = referenciaFutura ? { ...fatura, saldoInicialElegivel: saldoElegivel } : fatura;
+    if (projetado) {
+      avisos.push('Faturas sem e com solar simuladas com o consumo projetado de ' + projetado +
+        ' kWh/mês (fatura lida: ' + fatura.consumoFaturado + ' kWh).');
+    }
+    const faturaBase = projetado ? { ...fatura, consumoFaturado: projetado, consumoSemCompensacao: projetado,
+      consumoCompensado: 0, injetadoNoCiclo: 0, creditosAntigosUsados: 0, total: undefined } : fatura;
+    const faturaSimulada = referenciaFutura ? { ...faturaBase, saldoInicialElegivel: saldoElegivel } : faturaBase;
     const simulacao = calc.simularCenarios({
       // Sem compensação na fatura não há como ler o enquadramento da usina atual; a geração recuperada
       // entra no mesmo regime das placas novas, com aviso.
@@ -352,6 +362,7 @@
       autoconsumoOriginal: usinaAtual.autoconsumoOriginal ?? expansao.autoconsumoOriginal ?? autoconsumoDaFatura,
       recorrente, futuro: Boolean(referenciaFutura)
     });
+    simulacao.projecao = projetado ? { consumo: projetado, consumoFatura: fatura.consumoFaturado } : null;
     simulacao.premissas = [...new Set([
       ...simulacao.premissas, ...avisos, ...simulacao.cenarios.flatMap(c => c.dadosAusentes || [])
     ])];

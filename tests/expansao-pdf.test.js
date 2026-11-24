@@ -174,40 +174,56 @@ test('a tela recebe as mesmas faturas e KPIs do PDF', () => {
   ]);
 });
 
-test('instalação nova: capa, sistema, antes e depois, investimento e retorno, sem "existentes"', () => {
+test('instalação nova: mesmo documento do gerador, com telhado, três faturas, premissas, investimento e retorno', () => {
+  const lida = { referencia: '2026-11', total: 970.85, consumoFaturado: 760.46, itens: [itemConsumo, itemFinanceiro],
+    itensFinanceiros: [itemFinanceiro], uc: '185.301.013-14' };
+  const sem = { nome: 'semSolar', total: 1264.15, linhas: [{ ...itemConsumo, descricao: 'Consumo (kWh)', valor: 1102.97 }, itemFinanceiro] };
+  const com = { ...cenario, nome: 'expansaoCom', total: 600, linhas: [itemConsumo, itemCredito, itemFinanceiro] };
   const nova = {
     semUsina: true, cliente: { Nome: 'Cliente Novo', Cidade: 'Belém / PA' }, numeroProposta: 'SG-TESTE',
-    dataProposta: '2026-11-24', validadeAte: '2026-11-30', fatura: {}, simulacao: {}, inversor: {},
+    dataProposta: '2026-11-24', validadeAte: '2026-11-30', fatura: lida, inversor: {}, imagemTelhado: figura,
+    simulacao: { projecao: { consumo: 1000, consumoFatura: 760.46 }, premissas: ['Premissa de teste visível.'],
+      cenarios: [{ nome: 'atualCom', total: 1264.15 }, sem, com] },
     dimensionamento: { kwpAtual: 0, kwpAdicional: 9.3, kwpTotal: 9.3, placasExistentes: 0, placasNovas: 15, geracaoNova: 1078.8 },
     expansao: { Cidade: 'Belém', Produtividade: 116, wp: 620, areaTelhadoM2: 40.2, inversorDescricao: 'INVERSOR 6 kW',
-      valorSistema: 34600, formaPagamento: 'À vista', contaHojeInformada: 1320, consumoMedioInformado: 1000,
-      contaComSolarInformada: 382.8, reajusteAnualPct: 5.8, economia25AnosInformada: 595051.88 },
+      valorSistema: 34600, formaPagamento: 'À vista', reajusteAnualPct: 5.8 },
     geracao: { DataGeracao: new Date('2026-11-24T15:00:00Z'), AnoFioB: 2026, PercentualFioBGD2: 0.6 }
   };
   const c = pdf.resumoComercial(nova);
-  assert.equal(c.economiaMes, 937.2);
-  assert.equal(c.economiaAno, 11246.4);
-  assert.equal(Math.round(c.payback * 10) / 10, 3.1);
-  // Reajuste de 5,8% ao ano: 10 anos de uma conta de R$ 1.320,00 por mês.
-  assert.equal(c.gasto10Anos, 206833.14);
-  assert.equal(c.economia25Anos, 595051.88);
-  const html = pdf.montarHtml(nova);
+  // Hoje sem solar é a fatura sem solar simulada, não a lida: 1.264,15 contra 600,00.
+  assert.equal(c.contaHoje, 1264.15);
+  assert.equal(c.contaComSolar, 600);
+  assert.equal(c.economiaMes, 664.15);
+  assert.equal(Math.round(c.payback * 10) / 10, 4.3);
+  assert.equal(c.gasto10Anos, 1264.15 * 12 > 0 ? Math.round(c.gasto10Anos * 100) / 100 : 0);
+  const html = pdf.montarHtml(nova).replace(/\u00a0/g, ' ');
+  const titulos = [...html.matchAll(/<h2>([^<]+)<\/h2>/g)].map(m => m[1]);
+  assert.deepEqual(titulos, ['Cliente', 'Resumo do sistema', 'Fatura atual', 'Fatura sem energia solar, com 1.000 kWh',
+    'Fatura com energia solar, com 1.000 kWh', 'Premissas da simulação', 'Investimento', 'Retorno do investimento',
+    'Documento do cliente anexado']);
   assert.match(html, /Solar Green Suporte · Proposta de Energia Solar/);
-  assert.match(html, /<title>Proposta de Energia Solar · SG-TESTE<\/title>/);
-  assert.match(html, /Preparada para<\/p><h2>Cliente Novo/);
-  assert.match(html, /Proposta de 24\/11\/2026 · válida até 30\/11\/2026/);
-  for (const trecho of ['9,30 kWp', '15 × 620 W', 'INVERSOR 6 kW', '40,2 m²', '1.079 kWh', 'R$ 1.320,00', 'R$ 382,80',
-    'R$ 937,20', 'R$ 11.246,40', 'R$ 34.600,00', 'À vista', '3,1 anos', 'R$ 206.833,14', 'R$ 595.051,88']) {
-    assert.ok(html.replace(/\u00a0/g, ' ').includes(trecho), trecho);
+  assert.match(html, /<figure class="telhado"><img alt="Arranjo ilustrativo dos módulos"/);
+  assert.match(html, /15 placas · Desenho ilustrativo/);
+  assert.match(html, /Data da proposta<\/dt><dd>24\/11\/2026/);
+  assert.match(html, /Válida até<\/dt><dd>30\/11\/2026/);
+  assert.match(html, /Unidade consumidora<\/dt><dd>185\.301\.013-14/);
+  for (const trecho of ['9,30 kWp', '15 × 620 W', 'INVERSOR 6 kW', '40,2 m²', 'Premissa de teste visível.', 'R$ 970,85',
+    'R$ 1.264,15', 'R$ 600,00', 'R$ 34.600,00', 'À vista', 'Valor a mais que a fatura atual', 'Economia frente à fatura sem solar']) {
+    assert.ok(html.includes(trecho), trecho);
   }
-  const titulosNovos = [...html.matchAll(/<h2>([^<]+)<\/h2>/g)].map(m => m[1]);
-  assert.deepEqual(titulosNovos, ['Cliente Novo', 'Cliente', 'Seu sistema fotovoltaico', 'Sua conta de energia hoje',
-    'Antes e depois', 'Investimento', 'Retorno do investimento']);
-  assert.doesNotMatch(html, /existentes|Documento do cliente anexado|Não informado/);
-  // Sem os campos comerciais, as seções de investimento e retorno não aparecem.
+  assert.doesNotMatch(html, /existentes/);
+  const c3 = pdf.comparacaoFaturas(nova);
+  assert.equal(c3.contaHoje, 970.85);
+  assert.deepEqual(c3.faturas.map(f => f.total), [970.85, 1264.15, 600]);
+  // Sem os campos comerciais, investimento e retorno não aparecem; o resto do documento fica.
   const semValores = pdf.montarHtml({ ...nova, expansao: { Cidade: 'Belém', wp: 620 } });
   assert.doesNotMatch(semValores, /<h2>Investimento<\/h2>|<h2>Retorno do investimento<\/h2>/);
-  // O documento de expansão segue como era: com usina, as seções e a marca não mudam.
+  // Com valores informados pelo vendedor, eles substituem os simulados.
+  const informado = pdf.resumoComercial({ ...nova, expansao: { ...nova.expansao, contaHojeInformada: 1320,
+    contaComSolarInformada: 382.8, economia25AnosInformada: 595051.88 } });
+  assert.equal(informado.economiaMes, 937.2);
+  assert.equal(informado.economia25Anos, 595051.88);
+  // O documento de expansão com usina segue como era.
   assert.match(pdf.montarHtml(model), /Solar Green Suporte · Proposta de Expansão/);
 });
 
