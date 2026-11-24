@@ -838,8 +838,10 @@
         { passo: 2, ok: Boolean(locais.has('Fatura') || anexos.Fatura), texto: 'Anexar a fatura em PDF' },
         { passo: 2, ok: lida, texto: 'Clicar em Ler fatura' },
         { passo: 2, ok: Boolean(fatura.revisada), texto: 'Conferir os números e marcar a confirmação' },
-        { passo: 3, ok: kwp > 0, texto: 'Informar as placas instaladas' },
-        { passo: 3, ok: u.desempenho > 0, texto: 'Informar o desempenho da usina', opcional: true },
+        ...(u.semUsina
+          ? [{ passo: 3, ok: true, texto: 'Cliente sem usina (instalação nova)' }]
+          : [{ passo: 3, ok: kwp > 0, texto: 'Informar as placas instaladas' },
+            { passo: 3, ok: u.desempenho > 0, texto: 'Informar o desempenho da usina', opcional: true }]),
         { passo: 4, ok: e.wp > 0, texto: 'Escolher o módulo novo' },
         { passo: 4, ok: e.produtividade > 0, texto: 'Produtividade da cidade' },
         Number.isFinite(economia?.valor)
@@ -1059,7 +1061,9 @@
     function conferirGeracao(r) {
       if (!fatura.revisada) throw new Error('Confirme a revisão dos dados e dos itens da fatura.');
       if (!Number.isFinite(fatura.total) || !fatura.referencia) throw new Error('Revise a referência e o total da fatura.');
-      if (!r || !Number.isFinite(r.resumo.EconomiaComCreditos) || !Number.isFinite(r.resumo.EconomiaSemCreditos)) {
+      const informadas = r?.semUsina && Number.isFinite(dataCampos('expansao').contaHojeInformada)
+        && Number.isFinite(dataCampos('expansao').contaComSolarInformada);
+      if (!informadas && (!r || !Number.isFinite(r.resumo.EconomiaComCreditos) || !Number.isFinite(r.resumo.EconomiaSemCreditos))) {
         throw new Error('Complete os dados e as tarifas para calcular as duas economias.');
       }
     }
@@ -1156,7 +1160,8 @@
           cliente: p.Resumo.Cliente, fatura: p.Fatura, dimensionamento: r.dimensionamento,
           inversor: r.inversor || {}, expansao: p.Expansao, geracao: p.Geracao, simulacao: r.simulacao,
           comparacaoFioB: r.comparacaoFioB, recuperacao: r.recuperacao, imagemTelhado: imagem, documento,
-          numeroProposta: p.Numero, vendedor: p.NomeVendedor
+          numeroProposta: p.Numero, vendedor: p.NomeVendedor,
+          semUsina: r.semUsina === true, dataProposta: p.Data, validadeAte: p.Expansao?.validadeAte || null
         }, { janela });
       } catch (e) {
         janela?.close();
@@ -1166,6 +1171,9 @@
 
     function atualizarModo() {
       queueMicrotask(sincronizarCombos);
+      const semUsina = Boolean(noCampo('usina', 'semUsina')?.checked);
+      $('expUsinaAtualCampos').hidden = semUsina;
+      $('expPasso3Titulo').lastChild.textContent = semUsina ? 'Cliente sem usina' : 'Usina atual do cliente';
       const somenteLeitura = !liberado || visualizacao;
       const congelado = Boolean(salvo?.Geracao && !recalc);
       $('expFormulario').disabled = !liberado || ocupacao;

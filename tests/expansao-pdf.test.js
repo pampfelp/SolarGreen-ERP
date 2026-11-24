@@ -174,4 +174,41 @@ test('a tela recebe as mesmas faturas e KPIs do PDF', () => {
   ]);
 });
 
+test('instalação nova: capa, sistema, antes e depois, investimento e retorno, sem "existentes"', () => {
+  const nova = {
+    semUsina: true, cliente: { Nome: 'Cliente Novo', Cidade: 'Belém / PA' }, numeroProposta: 'SG-TESTE',
+    dataProposta: '2026-11-24', validadeAte: '2026-11-30', fatura: {}, simulacao: {}, inversor: {},
+    dimensionamento: { kwpAtual: 0, kwpAdicional: 9.3, kwpTotal: 9.3, placasExistentes: 0, placasNovas: 15, geracaoNova: 1078.8 },
+    expansao: { Cidade: 'Belém', Produtividade: 116, wp: 620, areaTelhadoM2: 40.2, inversorDescricao: 'INVERSOR 6 kW',
+      valorSistema: 34600, formaPagamento: 'À vista', contaHojeInformada: 1320, consumoMedioInformado: 1000,
+      contaComSolarInformada: 382.8, reajusteAnualPct: 5.8, economia25AnosInformada: 595051.88 },
+    geracao: { DataGeracao: new Date('2026-11-24T15:00:00Z'), AnoFioB: 2026, PercentualFioBGD2: 0.6 }
+  };
+  const c = pdf.resumoComercial(nova);
+  assert.equal(c.economiaMes, 937.2);
+  assert.equal(c.economiaAno, 11246.4);
+  assert.equal(Math.round(c.payback * 10) / 10, 3.1);
+  // Reajuste de 5,8% ao ano: 10 anos de uma conta de R$ 1.320,00 por mês.
+  assert.equal(c.gasto10Anos, 206833.14);
+  assert.equal(c.economia25Anos, 595051.88);
+  const html = pdf.montarHtml(nova);
+  assert.match(html, /Solar Green Suporte · Proposta de Energia Solar/);
+  assert.match(html, /<title>Proposta de Energia Solar · SG-TESTE<\/title>/);
+  assert.match(html, /Preparada para<\/p><h2>Cliente Novo/);
+  assert.match(html, /Proposta de 24\/11\/2026 · válida até 30\/11\/2026/);
+  for (const trecho of ['9,30 kWp', '15 × 620 W', 'INVERSOR 6 kW', '40,2 m²', '1.079 kWh', 'R$ 1.320,00', 'R$ 382,80',
+    'R$ 937,20', 'R$ 11.246,40', 'R$ 34.600,00', 'À vista', '3,1 anos', 'R$ 206.833,14', 'R$ 595.051,88']) {
+    assert.ok(html.replace(/\u00a0/g, ' ').includes(trecho), trecho);
+  }
+  const titulosNovos = [...html.matchAll(/<h2>([^<]+)<\/h2>/g)].map(m => m[1]);
+  assert.deepEqual(titulosNovos, ['Cliente Novo', 'Cliente', 'Seu sistema fotovoltaico', 'Sua conta de energia hoje',
+    'Antes e depois', 'Investimento', 'Retorno do investimento']);
+  assert.doesNotMatch(html, /existentes|Documento do cliente anexado|Não informado/);
+  // Sem os campos comerciais, as seções de investimento e retorno não aparecem.
+  const semValores = pdf.montarHtml({ ...nova, expansao: { Cidade: 'Belém', wp: 620 } });
+  assert.doesNotMatch(semValores, /<h2>Investimento<\/h2>|<h2>Retorno do investimento<\/h2>/);
+  // O documento de expansão segue como era: com usina, as seções e a marca não mudam.
+  assert.match(pdf.montarHtml(model), /Solar Green Suporte · Proposta de Expansão/);
+});
+
 module.exports = { model, figura };

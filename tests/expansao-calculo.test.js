@@ -237,3 +237,23 @@ test('desconto social: faixas de consumo saem das linhas da fatura e reproduzem 
   // Linhas fora de ordem de preço não viram faixa.
   assert.deepEqual(calc.tarifasDaFatura({ ...f, itens: [...f.itens].reverse() }).faixasConsumo, []);
 });
+
+test('instalação nova: o número de placas informado vale mais que o cálculo pelo consumo', () => {
+  const base = { consumoFaturado: 1000, injetadoNoCiclo: 0, recuperacaoMensal: 0, produtividade: 116, wp: 620,
+    residualDesejado: 50 };
+  const calculado = calc.dimensionar(base);
+  assert.equal(calculado.placasNovas, 14);
+  assert.equal(calculado.placasInformadas, false);
+  const fixo = calc.dimensionar({ ...base, placasManual: 15 });
+  assert.equal(fixo.placasNovas, 15);
+  assert.equal(fixo.placasInformadas, true);
+  assert.equal(fixo.placasCalculadas, 14);
+  assert.equal(arred(fixo.kwpAdicional), 9.3);
+  assert.equal(arred(fixo.geracaoNova), 1078.8);
+  assert.equal(fixo.kwpAtual, null);
+  // Campo em branco na tela chega como null e não interfere.
+  assert.equal(calc.dimensionar({ ...base, placasManual: null }).placasNovas, 14);
+  for (const ruim of [0, -2, 1.5]) {
+    assert.throws(() => calc.dimensionar({ ...base, placasManual: ruim }), /número inteiro de placas/);
+  }
+});

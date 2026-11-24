@@ -767,6 +767,8 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 
         <section class="card exp-passo" id="expPasso3" aria-labelledby="expPasso3Titulo">
           <h2 class="card-head" id="expPasso3Titulo"><span class="exp-num">3</span>Usina atual do cliente</h2>
+          <label class="exp-option"><input id="expSemUsina" data-usina="semUsina" type="checkbox"> Cliente ainda não tem usina (instalação nova)</label>
+          <div id="expUsinaAtualCampos">
           <p class="exp-orienta">Informe as placas que já estão instaladas e o desempenho da usina no período da fatura.</p>
           <div id="expModulosAtuais"></div>
           <button type="button" class="btn btn-secondary exp-inline" id="expAddModulo">Adicionar outro modelo de placa</button>
@@ -793,6 +795,7 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
               <div class="field"><label for="expAutoconsumoOriginal">Autoconsumo atual (kWh)</label><input id="expAutoconsumoOriginal" data-expansao="autoconsumoOriginal" type="number" min="0" step="any" placeholder="calculado"></div>
             </div>
           </details>
+          </div>
         </section>
 
         <section class="card exp-passo" id="expPasso4" aria-labelledby="expPasso4Titulo">
@@ -821,6 +824,25 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
               <div class="field"><label for="expSaldoElegivelFuturo">Saldo de créditos nesse mês (kWh)</label><input id="expSaldoElegivelFuturo" data-expansao="saldoElegivelFuturo" type="number" min="0" step="any"></div>
             </div>
             <label class="exp-option"><input data-expansao="usaCreditosAntigos" type="checkbox"> Usar créditos antigos para reduzir as placas</label>
+          </details>
+          <details>
+            <summary>Instalação nova: número de placas, investimento e retorno</summary>
+            <p class="exp-copy">Para o cliente sem usina. Com o número de placas informado, o cálculo pelo consumo vira só referência. Os valores informados abaixo substituem a simulação da fatura no PDF.</p>
+            <div class="frow">
+              <div class="field"><label for="expPlacasManual">Número de placas (opcional)</label><input id="expPlacasManual" data-expansao="placasManual" type="number" min="1" step="1"></div>
+              <div class="field"><label for="expInversorDescricao">Inversor (texto no PDF)</label><input id="expInversorDescricao" data-expansao="inversorDescricao" type="text" placeholder="ex.: SOLPLANET 6 kW"></div>
+              <div class="field"><label for="expAreaTelhado">Área no telhado (m²)</label><input id="expAreaTelhado" data-expansao="areaTelhadoM2" type="number" min="0" step="any" placeholder="pelas medidas do módulo"></div>
+              <div class="field"><label for="expValorSistema">Valor do sistema (R$)</label><input id="expValorSistema" data-expansao="valorSistema" type="number" min="0" step="any"></div>
+              <div class="field"><label for="expFormaPagamento">Forma de pagamento</label><input id="expFormaPagamento" data-expansao="formaPagamento" type="text" placeholder="ex.: À vista"></div>
+              <div class="field"><label for="expValidadeAte">Proposta válida até</label><input id="expValidadeAte" data-expansao="validadeAte" type="date"></div>
+              <div class="field"><label for="expContaHojeInformada">Conta de luz hoje (R$, opcional)</label><input id="expContaHojeInformada" data-expansao="contaHojeInformada" type="number" min="0" step="any" placeholder="da fatura"></div>
+              <div class="field"><label for="expConsumoMedioInformado">Consumo médio (kWh/mês, opcional)</label><input id="expConsumoMedioInformado" data-expansao="consumoMedioInformado" type="number" min="0" step="any" placeholder="da fatura"></div>
+              <div class="field"><label for="expContaComSolarInformada">Conta com solar (R$, opcional)</label><input id="expContaComSolarInformada" data-expansao="contaComSolarInformada" type="number" min="0" step="any" placeholder="da simulação"></div>
+              <div class="field"><label for="expReajusteAnualPct">Reajuste anual da tarifa (%)</label><input id="expReajusteAnualPct" data-expansao="reajusteAnualPct" type="number" min="0" step="any" placeholder="ex.: 5,8"></div>
+              <div class="field"><label for="expDegradacaoAnualPct">Degradação anual dos módulos (%)</label><input id="expDegradacaoAnualPct" data-expansao="degradacaoAnualPct" type="number" min="0" step="any" placeholder="ex.: 0,5"></div>
+              <div class="field"><label for="expGasto10AnosInformado">Gasto em 10 anos sem solar (R$, opcional)</label><input id="expGasto10AnosInformado" data-expansao="gasto10AnosInformado" type="number" min="0" step="any" placeholder="calculado pelo reajuste"></div>
+              <div class="field"><label for="expEconomia25AnosInformada">Economia em 25 anos (R$, opcional)</label><input id="expEconomia25AnosInformada" data-expansao="economia25AnosInformada" type="number" min="0" step="any" placeholder="calculado pelo reajuste"></div>
+            </div>
           </details>
           <details>
             <summary>Referência GD II (fatura sem a parcela GD II)</summary>
@@ -969,12 +991,12 @@ html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-siz
 <script src="../js/firestore-router.js?v=20261112a"></script>
 <script src="../js/sg-auth.js?v=20261111b"></script>
 <script src="../js/expansao-produtividade.js?v=20261111b"></script>
-<script src="../js/expansao-calculo.js?v=20261112d"></script>
+<script src="../js/expansao-calculo.js?v=20261124a"></script>
 <script src="../js/expansao-fatura-leitor.js?v=20261112c"></script>
 <script src="../js/expansao-anexos.js?v=20261111c"></script>
-<script src="../js/expansao-proposta.js?v=20261112e"></script>
-<script src="../js/expansao-pdf.js?v=20261112c"></script>
-<script src="../js/expansao-tela.js?v=20261112g"></script>
+<script src="../js/expansao-proposta.js?v=20261124a"></script>
+<script src="../js/expansao-pdf.js?v=20261124a"></script>
+<script src="../js/expansao-tela.js?v=20261124a"></script>
 <script src="../js/analise-fatura-calculo.js?v=20261116a"></script>
 <script src="../js/analise-fatura-pdf.js?v=20261116b"></script>
 <script src="../js/analise-fatura-tela.js?v=20261116b"></script>

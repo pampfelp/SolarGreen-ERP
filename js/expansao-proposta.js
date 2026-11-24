@@ -256,14 +256,19 @@
     const ano = referenciaSimulada ? Number(referenciaSimulada.slice(0, 4)) : null;
     const percentual = fiob.percentuais?.[ano] ?? null;
 
-    const modulosAtuais = usinaAtual.modulosAtuais || [];
-    const kwp = modulosAtuais.length
+    // Cliente sem usina (instalação nova): nada existe no telhado, não há recuperação a calcular
+    // e os campos da usina atual, mesmo preenchidos por engano, não entram na conta.
+    const semUsina = usinaAtual.semUsina === true;
+    const modulosAtuais = semUsina ? [] : (usinaAtual.modulosAtuais || []);
+    const kwp = semUsina ? 0 : modulosAtuais.length
       ? modulosAtuais.reduce((soma, m) => soma + m.qtd * m.wp, 0) / 1000 : usinaAtual.kwpAtual;
     let recuperacao = null;
     let autoconsumoDaFatura = null;
     const desempenhoAlvo = usinaAtual.desempenhoAlvo ?? config.desempenhoAlvo ?? 1;
     const periodoProprio = usinaAtual.periodoInicio || usinaAtual.periodoFim || numero(usinaAtual.geracaoReal);
-    if (!(kwp > 0) || usinaAtual.considerarRecuperacao === false) {
+    if (semUsina) {
+      avisos.push('Cliente sem usina: proposta de instalação nova, sem recuperação de geração.');
+    } else if (!(kwp > 0) || usinaAtual.considerarRecuperacao === false) {
       avisos.push('A expansão é calculada sem recuperar geração da usina atual.');
     } else if (!periodoProprio) {
       // Caminho simples: o desempenho (%) vale para o período de leitura da própria fatura.
@@ -304,10 +309,13 @@
     const saldoElegivel = referenciaFutura ? expansao.saldoElegivelFuturo : fatura.saldoInicialElegivel;
     const dimensionamento = calc.dimensionar({
       ...expansao, consumoFaturado: fatura.consumoFaturado, injetadoNoCiclo: fatura.injetadoNoCiclo,
-      kwpAtual: usinaAtual.kwpAtual, wpAtual: usinaAtual.wpAtual, modulosAtuais, recuperacaoMensal, saldoElegivel,
+      kwpAtual: semUsina ? 0 : usinaAtual.kwpAtual, wpAtual: semUsina ? null : usinaAtual.wpAtual,
+      modulosAtuais, recuperacaoMensal, saldoElegivel,
       residualDesejado: expansao.meta === 'residual' ? expansao.residualDesejado : 0
     });
-    if (dimensionamento.kwpAtual === null) avisos.push('A potência da usina atual não foi informada. Confira o total e a seleção do inversor.');
+    if (semUsina) avisos.push('Placas novas: ' + dimensionamento.placasNovas + (dimensionamento.placasInformadas
+      ? ' (número informado; o cálculo pelo consumo daria ' + dimensionamento.placasCalculadas + ').' : '.'));
+    else if (dimensionamento.kwpAtual === null) avisos.push('A potência da usina atual não foi informada. Confira o total e a seleção do inversor.');
     else if (dimensionamento.placasExistentes === null) avisos.push('Informe os módulos existentes para exibir a contagem no telhado.');
     const inversor = calc.sugerirInversor({
       kwpTotal: dimensionamento.kwpTotal, catalogo, potenciasInversorKW: config.potenciasInversorKW,
@@ -365,10 +373,10 @@
     const resumo = {
       KwpAtual: dimensionamento.kwpAtual, KwpAdicional: dimensionamento.kwpAdicional, KwpTotal: dimensionamento.kwpTotal,
       PlacasExistentes: dimensionamento.placasExistentes, PlacasNovas: dimensionamento.placasNovas,
-      InversorSugeridoKW: inversor?.kw ?? null, EconomiaComCreditos: simulacao.economiaComCreditos.valor,
+      SemUsina: semUsina, InversorSugeridoKW: inversor?.kw ?? null, EconomiaComCreditos: simulacao.economiaComCreditos.valor,
       EconomiaSemCreditos: simulacao.economiaSemCreditos.valor
     };
-    return { dimensionamento, inversor, simulacao, comparacaoFioB, geracao, resumo, regimeAtual, regimeExpansao,
+    return { semUsina, dimensionamento, inversor, simulacao, comparacaoFioB, geracao, resumo, regimeAtual, regimeExpansao,
       recuperacao, conferencia: calc.conferirFatura(fatura) };
   }
 

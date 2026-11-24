@@ -170,3 +170,41 @@ test('desempenho no período da própria fatura: recuperação, autoconsumo e ce
   assert.equal(branco.recuperacao, null);
   assert.match(branco.simulacao.premissas.join(' '), /Desempenho da usina não informado/);
 });
+
+test('cliente sem usina: nada existe, a recuperação some e o número de placas é o informado', () => {
+  const fatura = {
+    referencia: '2026-10', dataLeituraAnterior: '2026-09-23', dataLeituraAtual: '2026-10-23',
+    subgrupo: 'B1', subclasse: 'Residencial', modalidade: 'Convencional', tipoFornecimento: 'Bifásico',
+    consumoFaturado: 1000, consumoSemCompensacao: 1000, consumoCompensado: 0, injetadoNoCiclo: 0, total: 1320,
+    itens: [{ tipo: 'consumo', descricao: 'Consumo', quantidade: 1000, precoComTributos: 1.2, tarifaSemTributos: 0.9, valor: 1200 },
+      { tipo: 'cip', descricao: 'CIP', valor: 120 }],
+    itensFinanceiros: [{ tipo: 'cip', descricao: 'CIP', valor: 120 }]
+  };
+  const config = {
+    fiob: { percentuais: { 2026: 0.6 } }, tarifas: { vigencias: [], observacoes: {} },
+    referenciaGD2: { referencia: '2026-10', tarifaSemTributos: 0.26, precoComTributos: 0.35,
+      pisCofinsPorKWh: 0.02, icmsPorKWh: 0.07 }
+  };
+  // Campos da usina atual preenchidos por engano não entram na conta quando o cliente não tem usina.
+  const usinaAtual = { semUsina: true, modulosAtuais: [{ qtd: 10, wp: 500 }], desempenho: 0.7 };
+  const expansao = { wp: 620, produtividade: 116, meta: 'recorrente', placasManual: 15, bandeiraVerde: true };
+  const r = calcular({ fatura, usinaAtual, expansao, config, catalogo: [] });
+  assert.equal(r.semUsina, true);
+  assert.equal(r.resumo.SemUsina, true);
+  assert.equal(r.recuperacao, null);
+  assert.equal(r.dimensionamento.kwpAtual, 0);
+  assert.equal(r.dimensionamento.placasExistentes, 0);
+  assert.equal(r.dimensionamento.placasNovas, 15);
+  assert.equal(arred(r.dimensionamento.kwpTotal), 9.3);
+  assert.match(r.simulacao.premissas.join(' '), /Cliente sem usina: proposta de instalação nova/);
+  assert.match(r.simulacao.premissas.join(' '), /Placas novas: 15 \(número informado; o cálculo pelo consumo daria 14\)/);
+  // Sem usina, a conta de hoje é a da fatura e a simulada vem do cenário com as placas novas.
+  const porNome = Object.fromEntries(r.simulacao.cenarios.map(c => [c.nome, c]));
+  assert.equal(porNome.atualCom.total, 1320);
+  assert.equal(Number.isFinite(porNome.expansaoCom.total), true);
+  assert.equal(porNome.expansaoCom.total < 1320, true);
+  // Sem a marca, o mesmo cliente com módulos informados seria tratado como usina existente.
+  const comUsina = calcular({ fatura, usinaAtual: { ...usinaAtual, semUsina: false }, expansao, config, catalogo: [] });
+  assert.equal(comUsina.semUsina, false);
+  assert.equal(comUsina.dimensionamento.placasExistentes, 10);
+});

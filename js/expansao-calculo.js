@@ -103,11 +103,18 @@
     const kwhNovos = residual / fracaoUtil;
     const kwpTeorico = kwhNovos / produtividade;
     const numeroExato = kwhNovos * 1000 / produtividade / wp;
-    const placasNovas = Math.ceil(numeroExato - Number.EPSILON * numeroExato);
+    // O vendedor pode fixar o número de placas (proposta de instalação nova): o cálculo acima
+    // segue como referência, mas a geração e o kWp saem do número informado.
+    const informou = p.placasManual !== undefined && p.placasManual !== null && !Number.isNaN(p.placasManual);
+    if (informou && !(Number.isInteger(p.placasManual) && p.placasManual > 0)) {
+      throw new RangeError('Informe um número inteiro de placas maior que zero.');
+    }
+    const placasNovas = informou ? p.placasManual : Math.ceil(numeroExato - Number.EPSILON * numeroExato);
     const kwpAdicional = placasNovas * wp / 1000;
     const geracaoNova = kwpAdicional * produtividade;
 
     return { descoberto, residual, kwhNovos, kwpTeorico, placasNovas, kwpAdicional, geracaoNova,
+      placasCalculadas: Math.ceil(numeroExato - Number.EPSILON * numeroExato), placasInformadas: informou,
       sobra: Math.max(0, injetadoNoCiclo + recuperacaoMensal + geracaoNova * fracaoUtil - consumoFaturado),
       kwpAtual, placasExistentes, kwpTotal: kwpAtual === null ? null : kwpAtual + kwpAdicional };
   }
