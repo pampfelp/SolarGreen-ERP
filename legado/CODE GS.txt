@@ -4774,18 +4774,49 @@ function disparoMandarModelo_(props, d, prazo, modelo) {
   var parametros = [d.nomeLead, d.referencia, prazo || props.prazo].map(function (t) { return { type: 'text', text: t }; });
   var variaveis = Number(modelo && modelo.variaveis);
   if (variaveis >= 1 && variaveis <= 3) parametros = parametros.slice(0, variaveis);
+  // Botões montados pelo que o modelo tem (Black, 25/11: só "Quero minha vaga",
+  // sem link). Sem a lista do modelo, vão os dois botões do reativacao_usina_v1.
+  var botoes = modelo && Array.isArray(modelo.botoes) && modelo.botoes.length ? modelo.botoes
+    : [{ tipo: 'URL', texto: '' }, { tipo: 'QUICK_REPLY', texto: DISPARO_BOTAO_SAIR }];
+  var componentes = [{ type: 'body', parameters: parametros }];
+  var imagem = modelo && modelo.cabecalho === 'IMAGE' ? DISPARO_IMAGEM_MODELO[d.modelo] : '';
+  if (modelo && modelo.cabecalho === 'IMAGE' && !imagem) return { ok: false, erro: 'Modelo com imagem sem mídia em DISPARO_IMAGEM_MODELO: ' + d.modelo };
+  if (imagem) componentes.unshift({ type: 'header', parameters: [{ type: 'image', image: { id: imagem } }] });
+  botoes.forEach(function (b, i) {
+    if (b.tipo === 'URL') componentes.push({ type: 'button', sub_type: 'url', index: String(i), parameters: [{ type: 'text', text: sufixo }] });
+    if (b.tipo === 'QUICK_REPLY') {
+      var sair = /n[ãa]o (quero|tenho interesse)/i.test(b.texto || '');
+      componentes.push({ type: 'button', sub_type: 'quick_reply', index: String(i), parameters: [{ type: 'payload', payload: (sair ? 'SAIR:' : 'QUERO:') + d._id }] });
+    }
+  });
   var corpo = {
     messaging_product: 'whatsapp', to: d.telLead, type: 'template',
-    template: {
-      name: d.modelo, language: { code: 'pt_BR' },
-      components: [
-        { type: 'body', parameters: parametros },
-        { type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: sufixo }] },
-        { type: 'button', sub_type: 'quick_reply', index: '1', parameters: [{ type: 'payload', payload: 'SAIR:' + d._id }] }
-      ]
-    }
+    template: { name: d.modelo, language: { code: 'pt_BR' }, components: componentes }
   };
   return disparoGraph_(props, corpo);
+}
+
+// Mídia do cabeçalho dos modelos com imagem, subida em /{WA_PHONE_ID}/media.
+// O id vale 30 dias: o da Black (25/11) vai até cerca de 25/12. Trocar a arte é
+// subir outra e trocar o id aqui.
+var DISPARO_IMAGEM_MODELO = {
+  black_plantao_solar_img_2026_11: '1501999241873094'
+};
+
+// Teste da Black (25/11): manda os dois modelos ao Felipe, sem passar pela fila.
+// Rodar pelo editor. Não grava nada em disparos/.
+function disparoTesteBlack() {
+  var props = disparoProps_();
+  var cfg = fbConfig_();
+  var felipe = fsListar_(cfg, 'vendedores').filter(function (v) { return /felipe/i.test(String(v.Nome || '')) && cobrancaTelefone_(v.Telefone); })[0];
+  if (!felipe) throw new Error('Vendedor Felipe com telefone não encontrado.');
+  var tel = cobrancaTelefone_(felipe.Telefone);
+  ['black_plantao_solar_img_2026_11', 'black_plantao_solar_2026_11'].forEach(function (nome) {
+    var doc = fsGet_(cfg, 'modelos_disparo/' + nome);
+    var d = { _id: 'teste-black', telVendedor: tel, telLead: tel, nomeLead: 'Felipe', referencia: '', modelo: nome };
+    var r = disparoMandarModelo_(props, d, props.prazo, doc ? doc.dados : null);
+    Logger.log(nome + ' (doc ' + (doc ? 'ok, cabecalho=' + (doc.dados.cabecalho || '-') + ', variaveis=' + doc.dados.variaveis : 'FALTA') + '): ' + JSON.stringify(r));
+  });
 }
 
 function disparoGraph_(props, corpo) {
@@ -4980,7 +5011,9 @@ function disparoTratarMensagem_(cfg, props, m) {
 
   var payload = m.button && m.button.payload ? String(m.button.payload) : '';
   var botao = m.button ? String(m.button.text || '') : '';
-  if (payload.indexOf('SAIR') === 0 || /n[ãa]o (quero|tenho interesse)/i.test(botao)) {
+  // "SAIR" digitado (rodapé dos modelos da Black, 25/11) sai de tudo, como o botão antigo.
+  var sairDigitado = tipo === 'text' && /^\s*sair\s*[.!]*\s*$/i.test(String(texto || ''));
+  if (payload.indexOf('SAIR') === 0 || sairDigitado || /n[ãa]o (quero|tenho interesse)/i.test(botao)) {
     // "Não tenho interesse agora" (modelo novo) sai só da campanha; "Não quero
     // receber" (modelo antigo) e botão de sair sem texto conhecido saem de tudo.
     disparoSair_(cfg, props, m, d, daCampanha, /n[ãa]o tenho interesse/i.test(botao));
@@ -5403,8 +5436,9 @@ function disparoSincronizarModelosAgora_(cfg, props) {
     // Os modelos da cobrança (cobranca_*) não aparecem para escolha nas campanhas.
     return /^[A-Za-z0-9_]+$/.test(t.name || '') && !/^cobranca_/.test(t.name);
   }).map(function (t) {
-    var corpo = '', variaveis = 0, botoes = [];
+    var corpo = '', variaveis = 0, botoes = [], cabecalho = '';
     (t.components || []).forEach(function (c) {
+      if (c.type === 'HEADER') cabecalho = c.format || '';
       if (c.type === 'BODY') {
         corpo = c.text || '';
         (corpo.match(/\{\{\d+\}\}/g) || []).forEach(function (x) { variaveis = Math.max(variaveis, Number(x.replace(/\D/g, ''))); });
@@ -5412,7 +5446,7 @@ function disparoSincronizarModelosAgora_(cfg, props) {
       if (c.type === 'BUTTONS') botoes = (c.buttons || []).map(function (b) { return { tipo: b.type, texto: b.text || '' }; });
     });
     var campos = {
-      nome: t.name, idioma: t.language || '', categoria: t.category || '', corpo: corpo, variaveis: variaveis, botoes: botoes,
+      nome: t.name, idioma: t.language || '', categoria: t.category || '', corpo: corpo, variaveis: variaveis, botoes: botoes, cabecalho: cabecalho,
       status: t.status || '', motivo: t.rejected_reason && t.rejected_reason !== 'NONE' ? String(t.rejected_reason) : '',
       metaId: String(t.id || ''), atualizadoEm: agora
     };
