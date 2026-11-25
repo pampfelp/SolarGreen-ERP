@@ -5137,6 +5137,9 @@ function disparoSair_(cfg, props, m, d, daCampanha, soCampanha) {
 }
 
 function disparoTratarStatus_(cfg, s) {
+  // Falha de entrega fica no registro de execuções mesmo sem disparo ligado
+  // (teste da Black, 25/11: a Meta aceitou e a mensagem não chegou, sem motivo gravado).
+  if (s.status === 'failed') console.error('Entrega falhou (final ' + String(s.recipient_id || '').slice(-4) + '): ' + JSON.stringify(s.errors || []));
   if (s.status !== 'failed' && s.status !== 'delivered' && s.status !== 'read') return;
   var d = fsConsulta_(cfg, 'disparos', 'wamid', s.id, 1)[0];
   if (!d) return;
