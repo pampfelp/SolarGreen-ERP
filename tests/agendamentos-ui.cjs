@@ -107,10 +107,17 @@ const server=http.createServer((req,res)=>{
     await page.evaluate(()=>{const a=window.__fixture.agendamentos;a.push({...a[4],IdAgendamento:'SEM-HORA','Hora inicio':''});window.__assinaturas.agendamentos(a);});
     assert.equal(await page.locator('.ag-tecnico-card').filter({hasText:'Oziel Vanzeler'}).locator('.ag-dia-livre').count(),0);
     assert.match(await page.locator('#ag-diaKpiDisponiveis').textContent(),/parcial/);
-    // Ocupação de responsáveis antigos e sem técnico continua aparecendo.
-    await page.evaluate(()=>{const a=window.__fixture.agendamentos;a.push({...a[1],IdAgendamento:'ORFAO',TecnicoResponsavel:'ANTIGO'},{...a[1],IdAgendamento:'SEM-TECNICO',TecnicoResponsavel:''});window.__assinaturas.agendamentos(a);});
-    assert.equal(await page.locator('.ag-tecnico-card').count(),5);
-    assert.equal(await page.locator('.ag-tecnico-card').filter({hasText:'Sem responsável'}).locator('.ag-dia-livre').count(),0);
+    // Só técnicos ativos aparecem, mesmo que outros responsáveis tenham OS no dia.
+    await page.evaluate(()=>{const a=window.__fixture.agendamentos,v=window.__fixture.vendedores;v.push({IdVendedor:'INATIVO',Nome:'Técnico inativo de teste',Tipo:'Tecnico',Status:'Inativo'});window.__assinaturas.vendedores(v);a.push({...a[1],IdAgendamento:'ORFAO',TecnicoResponsavel:'ANTIGO'},{...a[1],IdAgendamento:'SEM-TECNICO',TecnicoResponsavel:''},{...a[1],IdAgendamento:'OS-INATIVO',TecnicoResponsavel:'INATIVO'});window.__assinaturas.agendamentos(a);});
+    assert.equal(await page.locator('.ag-tecnico-card').count(),3);
+    assert.equal(await page.locator('#ag-selTecnico option[value="INATIVO"]').count(),0);
+    assert.equal(await page.locator('#ag-selTecnico option[value="ANTIGO"]').count(),0);
+    assert.equal(await page.locator('#ag-diaKpiTecnicos').textContent(),'3');
+    assert.equal(await page.locator('#ag-diaKpiAgendamentos').textContent(),'9');
+    // Desativar em tempo real remove o técnico dos cards e do filtro.
+    await page.evaluate(()=>{window.__fixture.vendedores[0].Status='Inativo';window.__assinaturas.vendedores(window.__fixture.vendedores);});
+    assert.equal(await page.locator('.ag-tecnico-card').count(),2);
+    assert.equal(await page.locator('#ag-selTecnico option[value="T1"]').count(),0);
     // Restaura fixture para print mobile e casos de texto longo.
     await page.evaluate((fixture)=>{window.__fixture=fixture;window.__assinaturas.agendamentos(fixture.agendamentos);window.__assinaturas.vendedores(fixture.vendedores);},dados);
     await page.setViewportSize({width:390,height:844});
@@ -129,7 +136,7 @@ const server=http.createServer((req,res)=>{
     assert.equal(await page.locator('#ag-diaControles').isVisible(),false);
     assert.equal((await page.evaluate(()=>window.__calls)).some(c=>c.action==='salvarAgendamento'),false);
     assert.deepEqual(errors,[]);
-    const result={ok:true,viewportDesktop:1440,viewportMobile:390,pageErrors:errors,testes:['lista preservada','cards e KPIs','busca sem falsa disponibilidade','formulário preenchido por teclado','detalhe','virada mês/ano e Hoje','cancelado e união','OS vários dias','sem horário','responsáveis antigos','realtime','mobile sem overflow','texto longo','vazio','sem gravação real']};
+    const result={ok:true,viewportDesktop:1440,viewportMobile:390,pageErrors:errors,testes:['lista preservada','cards e KPIs','busca sem falsa disponibilidade','formulário preenchido por teclado','detalhe','virada mês/ano e Hoje','cancelado e união','OS vários dias','sem horário','somente técnicos ativos','realtime','mobile sem overflow','texto longo','vazio','sem gravação real']};
     fs.writeFileSync(path.join(out,'validacao-ui.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));
   }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1;});

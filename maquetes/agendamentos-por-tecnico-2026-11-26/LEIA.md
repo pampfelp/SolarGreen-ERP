@@ -6,6 +6,8 @@ Conceito aprovado em 26/11/2026, com a orientação de implementar usando o desi
 
 Diferenças deliberadas em relação à imagem: jornada de agendamento contínua das 08h às 18h, como no formulário existente, sem almoço presumido; técnicos em ordem alfabética; tipografia, seleção, bordas e espaçamentos do design system atual. Horas livres são recalculadas a partir dos compromissos; os totais do exemplo mudam por não haver bloqueio fictício de almoço.
 
+Ajuste solicitado em 26/11: a visão Por técnico mostra apenas os técnicos ativos, nos cards, no filtro e nos KPIs. Agendamentos de responsáveis inativos, desconhecidos ou sem responsável continuam acessíveis na Lista, mas não criam cards nesta visão. Mudanças de status do técnico atualizam os cards sem recarregar.
+
 Conferência: 11 testes de cálculo/período; 15 cenários no navegador com Edge/Chromium, sem gravação em produção nem erros de JavaScript, incluindo teclado nas novas ações, viradas de data, cancelamento, sobreposição, serviços de vários dias, dados incompletos, filtro/busca, atualização ao vivo, texto longo e celular sem rolagem horizontal. `validacao-ui.json` registra o resultado. O teste pode ser repetido com `tests/agendamentos-ui.cjs` e playwright-core instalado no ambiente, ou indicado pela variável `PLAYWRIGHT_MODULE`.
 
 PWA: verificador existente executado com Chrome e seletor adaptado, em uma cópia temporária, ao banner real `#sg-install-banner.show`. Passou service worker, manifest, instalabilidade Chromium, instruções iPhone e estado já instalado. A emulação não substitui teste de instalação em um iPhone físico.

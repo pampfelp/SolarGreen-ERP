@@ -994,12 +994,11 @@
   }
   function gruposTecnicosDia(){
     var grupos=Object.create(null);
-    opcoesTecnicoAg().forEach(function(t){grupos[String(t.id)]={id:String(t.id),nome:t.label||String(t.id),elegivel:true,itens:[]};});
+    opcoesTecnicoAg().forEach(function(t){grupos[String(t.id)]={id:String(t.id),nome:t.label||String(t.id),itens:[]};});
     agendamentos.forEach(function(a){
       if(!DIA.dataISO(a['Data Inicio'])||!PERIODO.ocupaEntre(a,diaSelecionado,diaSelecionado))return;
       var id=String(a.TecnicoResponsavel||'');
-      if(!grupos[id])grupos[id]={id:id,nome:id?nomeVendedor(id):'Sem responsável',elegivel:false,itens:[]};
-      grupos[id].itens.push(a);
+      if(grupos[id])grupos[id].itens.push(a);
     });
     var filtro=document.getElementById('ag-selTecnico').value;
     return Object.keys(grupos).map(function(id){return grupos[id];}).filter(function(g){return filtro==='__all__'||g.id===filtro;})
@@ -1011,10 +1010,10 @@
     var inicio=DIA.minutos(HORAS_INICIO[0]),fim=DIA.minutos(HORAS_FIM[HORAS_FIM.length-1]);
     grupos.forEach(function(g){
       g.agenda=DIA.calcular(g.itens,diaSelecionado,inicio,fim);
-      if(g.elegivel){ocupadas+=g.agenda.minutosOcupados;if(g.agenda.calculado)disponiveis+=g.agenda.minutosLivres;else incertos++;}
+      ocupadas+=g.agenda.minutosOcupados;if(g.agenda.calculado)disponiveis+=g.agenda.minutosLivres;else incertos++;
     });
     document.getElementById('ag-diaKpiAgendamentos').textContent=grupos.reduce(function(s,g){return s+g.itens.length;},0);
-    document.getElementById('ag-diaKpiTecnicos').textContent=grupos.filter(function(g){return g.elegivel;}).length;
+    document.getElementById('ag-diaKpiTecnicos').textContent=grupos.length;
     document.getElementById('ag-diaKpiOcupadas').textContent=duracaoDia(ocupadas)+(incertos?' + indefinidas':'');
     document.getElementById('ag-diaKpiDisponiveis').textContent=duracaoDia(disponiveis)+(incertos?' (parcial)':'');
     document.getElementById('ag-diaKpiAgendamentos').title='Total de agendamentos do dia, incluindo cancelados.';
@@ -1034,7 +1033,7 @@
           '<span class="ag-dia-conteudo"><strong>'+escapeHtml(nomeServico(a.IdServico))+'</strong><span>'+escapeHtml(nomeCliente(a.IdCliente))+'</span><span>'+(cancelado?'Histórico · cancelado':'Ocupado')+'</span></span>'+
           '<span class="ag-status-tag '+escapeHtml(statusSlug(a['Status Agendamento']||'Agendado'))+'">'+escapeHtml(a['Status Agendamento']||'Agendado')+'</span></button>'});
       });
-      if(g.elegivel&&g.agenda.calculado)g.agenda.livres.forEach(function(i){
+      if(g.agenda.calculado)g.agenda.livres.forEach(function(i){
         // O formulário atual oferece horas cheias; não preenche valores sem botão correspondente.
         var agIni=HORAS_INICIO.filter(function(h){return DIA.minutos(h)>=i.ini&&DIA.minutos(h)<i.fim;})[0];
         var agFim=HORAS_FIM.filter(function(h){return DIA.minutos(h)<=i.fim&&DIA.minutos(h)>(agIni?DIA.minutos(agIni):i.fim);}).pop();
@@ -1042,9 +1041,9 @@
         slots.push({ini:i.ini,cancelado:false,html:agIni&&agFim?'<button type="button" class="ag-dia-slot ag-dia-livre" data-tecnico="'+escapeHtml(g.id)+'" data-inicio="'+agIni+'" data-fim="'+agFim+'">'+conteudo+'</button>':'<div class="ag-dia-slot ag-dia-livre">'+conteudo+'</div>'});
       });
       slots.sort(function(a,b){return Number(a.cancelado)-Number(b.cancelado)||a.ini-b.ini;});
-      var aviso=!g.elegivel?'Disponibilidade não calculada: responsável fora da lista de técnicos ativos.':!g.agenda.calculado?'Disponibilidade não calculada: há agendamento sem horário válido.':'';
+      var aviso=!g.agenda.calculado?'Disponibilidade não calculada: há agendamento sem horário válido.':'';
       var iniciais=String(g.nome||'').trim().split(/\s+/).slice(0,2).map(function(n){return n.charAt(0);}).join('').toUpperCase();
-      return '<article class="ag-tecnico-card"><header class="ag-tecnico-head"><span class="ag-tecnico-avatar">'+escapeHtml(iniciais)+'</span><div class="ag-tecnico-identidade"><h3>'+escapeHtml(g.nome)+'</h3><p>'+g.itens.length+' '+(g.itens.length===1?'agendamento':'agendamentos')+'</p></div><span class="ag-tecnico-resumo">'+(g.elegivel&&g.agenda.calculado?duracaoDia(g.agenda.minutosOcupados)+' ocupadas · '+duracaoDia(g.agenda.minutosLivres)+' livres':'Disponibilidade não calculada')+'</span></header><div class="ag-tecnico-horarios">'+slots.map(function(s){return s.html;}).join('')+(aviso?'<p class="ag-dia-aviso">'+escapeHtml(aviso)+'</p>':'')+'</div></article>';
+      return '<article class="ag-tecnico-card"><header class="ag-tecnico-head"><span class="ag-tecnico-avatar">'+escapeHtml(iniciais)+'</span><div class="ag-tecnico-identidade"><h3>'+escapeHtml(g.nome)+'</h3><p>'+g.itens.length+' '+(g.itens.length===1?'agendamento':'agendamentos')+'</p></div><span class="ag-tecnico-resumo">'+(g.agenda.calculado?duracaoDia(g.agenda.minutosOcupados)+' ocupadas · '+duracaoDia(g.agenda.minutosLivres)+' livres':'Disponibilidade não calculada')+'</span></header><div class="ag-tecnico-horarios">'+slots.map(function(s){return s.html;}).join('')+(aviso?'<p class="ag-dia-aviso">'+escapeHtml(aviso)+'</p>':'')+'</div></article>';
     }).join('')||'<p class="ag-dia-aviso">Nenhum técnico encontrado para este dia e filtro.</p>';
     wrap.querySelectorAll('[data-agendamento]').forEach(function(btn){btn.addEventListener('click',function(){abrirPainelDetalhe(btn.getAttribute('data-agendamento'));});});
     wrap.querySelectorAll('button.ag-dia-livre').forEach(function(btn){btn.addEventListener('click',function(){openModal(null,{dia:diaSelecionado,tecnico:btn.getAttribute('data-tecnico'),inicio:btn.getAttribute('data-inicio'),fim:btn.getAttribute('data-fim')});});});
@@ -1136,14 +1135,7 @@
       .filter(function(v){return (v.Status||'').trim().toLowerCase()!=='inativo';})
       .sort(function(a,b){return (a.Nome||'').localeCompare(b.Nome||'','pt-BR');});
 
-    if(visaoTecnicos){
-      vendedoresLista=vendedoresLista.filter(ehTecnico);
-      agendamentos.forEach(function(a){
-        if(!DIA.dataISO(a['Data Inicio'])||!PERIODO.ocupaEntre(a,diaSelecionado,diaSelecionado))return;
-        var id=String(a.TecnicoResponsavel||'');
-        if(!vendedoresLista.some(function(v){return String(v.IdVendedor)===id;}))vendedoresLista.push({IdVendedor:id,Nome:id?nomeVendedor(id):'Sem responsável'});
-      });
-    }
+    if(visaoTecnicos)vendedoresLista=vendedoresLista.filter(ehTecnico);
     var selTecnicoFiltro=document.getElementById('ag-selTecnico'),curT=selTecnicoFiltro.value;
     if(curT===null||curT===undefined)curT='__all__';
     selTecnicoFiltro.innerHTML='<option value="__all__">Todos os técnicos</option>'+
