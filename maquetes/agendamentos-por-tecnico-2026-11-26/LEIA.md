@@ -12,6 +12,8 @@ Por técnico é a visualização inicial dos Agendamentos, no dia atual. Lista c
 
 Conteúdo de cada compromisso, após ajuste de 26/11: cliente em caixa alta na primeira linha, serviço em negrito na segunda e vendedor responsável do cliente na terceira, mantendo o status existente. Quando o cache só tem nome/telefone, consulta o documento dos clientes exibidos após a autenticação e reaproveita o cache por ID. Ausência de vendedor ou falha na consulta são informadas sem inventar atribuição; a coleção inteira de clientes não é carregada para isso.
 
+Faixas livres de até uma hora ficam ocultas nos cards. Continuam livres no cálculo de disponibilidade e podem ser escolhidas no formulário de Novo agendamento; o ajuste não cria bloqueios de horário.
+
 Conferência: 11 testes de cálculo/período; 15 cenários no navegador com Edge/Chromium, sem gravação em produção nem erros de JavaScript, incluindo teclado nas novas ações, viradas de data, cancelamento, sobreposição, serviços de vários dias, dados incompletos, filtro/busca, atualização ao vivo, texto longo e celular sem rolagem horizontal. `validacao-ui.json` registra o resultado. O teste pode ser repetido com `tests/agendamentos-ui.cjs` e playwright-core instalado no ambiente, ou indicado pela variável `PLAYWRIGHT_MODULE`.
 
 PWA: verificador existente executado com Chrome e seletor adaptado, em uma cópia temporária, ao banner real `#sg-install-banner.show`. Passou service worker, manifest, instalabilidade Chromium, instruções iPhone e estado já instalado. A emulação não substitui teste de instalação em um iPhone físico.

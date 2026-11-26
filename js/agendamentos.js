@@ -1054,6 +1054,7 @@
           '<span class="ag-status-tag '+escapeHtml(statusSlug(a['Status Agendamento']||'Agendado'))+'">'+escapeHtml(a['Status Agendamento']||'Agendado')+'</span></button>'});
       });
       if(g.agenda.calculado)g.agenda.livres.forEach(function(i){
+        if(i.fim-i.ini<=60)return; // Oculta apenas no card; o horário continua livre.
         // O formulário atual oferece horas cheias; não preenche valores sem botão correspondente.
         var agIni=HORAS_INICIO.filter(function(h){return DIA.minutos(h)>=i.ini&&DIA.minutos(h)<i.fim;})[0];
         var agFim=HORAS_FIM.filter(function(h){return DIA.minutos(h)<=i.fim&&DIA.minutos(h)>(agIni?DIA.minutos(agIni):i.fim);}).pop();

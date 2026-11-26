@@ -69,6 +69,9 @@ const server=http.createServer((req,res)=>{
     assert.equal(await page.locator('.ag-tecnico-card').count(),3);
     assert.equal(await page.locator('#ag-diaKpiOcupadas').textContent(),'12 h');
     assert.equal(await page.locator('#ag-diaKpiDisponiveis').textContent(),'18 h');
+    // A faixa livre 08h-09h não aparece no card, mas continua disponível no formulário.
+    assert.equal(await page.locator('button.ag-dia-livre[data-tecnico="T2"][data-inicio="08:00"]').count(),0);
+    assert.equal(await page.locator('button.ag-dia-livre[data-tecnico="T2"][data-inicio="11:00"][data-fim="16:00"]').count(),1);
     await page.waitForFunction(()=>document.querySelector('[data-agendamento="OS1"] .ag-dia-vendedor')?.textContent==='Vendedor: Vendedor de exemplo');
     assert.deepEqual(await page.locator('[data-agendamento="OS1"] .ag-dia-conteudo').evaluate(e=>[...e.children].map(x=>x.textContent)),['ANA COSTA','Vistoria de diagnóstico','Vendedor: Vendedor de exemplo']);
     assert.equal(await page.locator('[data-agendamento="OS1"] .ag-dia-servico').evaluate(e=>e.tagName),'STRONG');
@@ -102,6 +105,16 @@ const server=http.createServer((req,res)=>{
     assert.equal(await page.locator('#agendamentoModalTitle').textContent(),'Novo agendamento');
     assert.equal(await page.locator('#ag-statusField').isVisible(),false);
     await page.locator('#ag-cancelBtn').click();
+    await page.locator('#ag-selTecnico').selectOption('T2');
+    await page.locator('#ag-novoBtn').click();
+    await page.locator('#ag-horaInicioGrid [data-hora="08:00"]').click();
+    assert.equal(await page.locator('#ag-horaFimGrid [data-hora="09:00"]').isDisabled(),false);
+    await page.locator('#ag-horaFimGrid [data-hora="09:00"]').click();
+    assert.equal(await page.locator('#ag-horaInicio').inputValue(),'08:00');
+    assert.equal(await page.locator('#ag-horaFim').inputValue(),'09:00');
+    assert.equal(await page.locator('#ag-horarioMsg').textContent(),'');
+    await page.locator('#ag-cancelBtn').click();
+    await page.locator('#ag-selTecnico').selectOption('__all__');
     // Detalhe abre leitura; sair preserva o dia.
     await page.locator('button[data-agendamento="OS1"]').click();
     assert.match(await page.locator('#ad-title').textContent(),/Ana Costa/);
@@ -156,7 +169,7 @@ const server=http.createServer((req,res)=>{
     assert.equal(await page.locator('#ag-diaControles').isVisible(),false);
     assert.equal((await page.evaluate(()=>window.__calls)).some(c=>c.action==='salvarAgendamento'),false);
     assert.deepEqual(errors,[]);
-    const result={ok:true,viewportDesktop:1440,viewportMobile:390,pageErrors:errors,testes:['lista preservada','cards e KPIs','cliente em caixa alta, serviço em negrito e vendedor','vendedor por cliente com cache e falha de consulta','busca sem falsa disponibilidade','formulário preenchido por teclado','detalhe','virada mês/ano e Hoje','cancelado e união','OS vários dias','sem horário','somente técnicos ativos','realtime','mobile sem overflow','texto longo','vazio','sem gravação real']};
+    const result={ok:true,viewportDesktop:1440,viewportMobile:390,pageErrors:errors,testes:['lista preservada','cards e KPIs','cliente em caixa alta, serviço em negrito e vendedor','vendedor por cliente com cache e falha de consulta','busca sem falsa disponibilidade','formulário preenchido por teclado','faixas livres de até 1h ocultas sem bloqueio','detalhe','virada mês/ano e Hoje','cancelado e união','OS vários dias','sem horário','somente técnicos ativos','realtime','mobile sem overflow','texto longo','vazio','sem gravação real']};
     fs.writeFileSync(path.join(out,'validacao-ui.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));
   }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1;});
