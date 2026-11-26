@@ -4561,7 +4561,7 @@ function conferirNotificacoes() {
 // Toda interação vira interacoes_disparo/{id} (o sininho do ERP lê dali) e
 // push "Fulano interagiu com o disparo" pro vendedor e pra gestão. A primeira
 // interação de cada lead também mexe no funil: dono passa a ser o vendedor do
-// disparo, atividade "Conversa no WhatsApp" e etapa "Retomar Contato" (lead
+// disparo, atividade "Interação com disparo" e etapa "Retomar Contato" (lead
 // sem funil ganha um lead novo nessa etapa).
 //
 // Script Properties (nenhuma vai pro repositório):
@@ -5252,54 +5252,59 @@ function disparoMexerNoFunil_(cfg, d, tipo, texto, nomes) {
     extras.push({ fieldPath: 'EtapasPassadas', appendMissingElements: { values: [fsValorRico_(DISPARO_ETAPA_RETORNO)] } });
     extras.push({ fieldPath: 'Transicoes', appendMissingElements: { values: [fsValorRico_({ Etapa: DISPARO_ETAPA_RETORNO, Em: agoraIso })] } });
   }
-  extras.push({ fieldPath: 'Atividades', appendMissingElements: { values: [fsValorRico_({ Tipo: 'Conversa no WhatsApp', Em: agoraIso, Observacao: disparoObsInteracao_(tipo, texto) })] } });
+  extras.push({ fieldPath: 'Atividades', appendMissingElements: { values: [fsValorRico_({ Tipo: DISPARO_TIPO_ATIVIDADE, Em: agoraIso, Observacao: disparoObsInteracao_(tipo, texto) })] } });
   var w = fsUpdate_(cfg, caminho, campos, { exists: true });
   w.updateTransforms = extras;
   fsCommit_(cfg, [w]);
   disparoDonoNoCliente_(cfg, d.idCliente || f.IdCliente, d.idVendedor);
 }
 
-// Uma vez, pelo editor (26/11): leads criados pelo disparo antes da correção
-// ganham a resposta como atividade, com a data em que ela chegou. Só mexe em
-// lead com "Lead criado pelo disparo" nas observações e sem atividade do
-// disparo. Conferir mostra no log; Gravar grava.
-function disparoAtividadesConferir() { return disparoAtividadesAntigas_(false); }
-function disparoAtividadesGravar() { return disparoAtividadesAntigas_(true); }
-function disparoAtividadesAntigas_(gravar) {
+// Uma vez, pelo editor (26/11): a resposta ao disparo era gravada como
+// "Conversa no WhatsApp" e contava como conversa do vendedor (supervisor, data
+// do lead). Troca o tipo para DISPARO_TIPO_ATIVIDADE nas atividades que começam
+// com "Disparo de reativação:". Mexe no registro cru do Firestore, só no Tipo,
+// e grava com updateTime (se o vendedor mexeu no meio, pula). Conferir só lê.
+function disparoAtividadesTipoConferir() { return disparoAtividadesTipo_(false); }
+function disparoAtividadesTipoGravar() { return disparoAtividadesTipo_(true); }
+function disparoAtividadesTipo_(gravar) {
   var cfg = fbConfig_();
-  var porLead = {};
+  var ids = {};
   fsListar_(cfg, 'interacoes_disparo').forEach(function (it) {
-    if (it.tipo !== 'resposta' && it.tipo !== 'toque') return;
     var idLead = it.idOportunidade || '';
     if (!idLead && it.disparo) { var dd = fsGet_(cfg, 'disparos/' + it.disparo); idLead = dd ? (dd.dados.idOportunidade || '') : ''; }
-    if (!idLead) return;
-    var atual = porLead[idLead];
-    if (!atual || Number(it.criadoEmMs || 0) < atual.em) {
-      porLead[idLead] = { em: Number(it.criadoEmMs || 0), obs: disparoObsInteracao_(it.tipo, it.texto) };
-    }
+    if (idLead) ids[idLead] = true;
   });
-  fsConsulta_(cfg, 'disparos', 'status', 'saiu', 5000).forEach(function (d) {
-    if (d.idOportunidade && !porLead[d.idOportunidade]) porLead[d.idOportunidade] = { em: 0, obs: DISPARO_OBS_SAIR, sair: true };
-  });
-  var feitos = 0, pulados = 0;
-  Object.keys(porLead).forEach(function (idLead) {
-    var doc = fsGet_(cfg, 'funil/' + idLead);
-    if (!doc) { pulados++; return; }
-    var f = doc.dados;
-    var p = porLead[idLead];
-    var tem = (f.Atividades || []).some(function (a) { return String(a.Observacao || '') === p.obs; });
-    if (tem || String(f.Observacoes || '').indexOf('Lead criado pelo disparo') !== 0) { pulados++; return; }
-    var emIso = p.em ? new Date(p.em).toISOString() : String(((f.Transicoes || [])[0] || {}).Em || new Date().toISOString());
-    console.log((gravar ? 'Gravando ' : 'Gravaria ') + idLead + ' (' + (f.NomeCliente || '') + ', ' + emIso.slice(0, 10) + '): ' + p.obs);
-    feitos++;
+  fsConsulta_(cfg, 'disparos', 'status', 'saiu', 5000).forEach(function (d) { if (d.idOportunidade) ids[d.idOportunidade] = true; });
+  var leads = 0, atividades = 0, mexeram = 0;
+  Object.keys(ids).forEach(function (idLead) {
+    var resp = fsPedir_(cfg, 'get', cfg.base + '/funil/' + idLead);
+    if (resp.getResponseCode() !== 200) return;
+    var doc = JSON.parse(resp.getContentText());
+    var lista = (((doc.fields || {}).Atividades || {}).arrayValue || {}).values || [];
+    var trocas = 0;
+    lista.forEach(function (v) {
+      var c = (v.mapValue || {}).fields || {};
+      if (c.Tipo && c.Tipo.stringValue === 'Conversa no WhatsApp' && c.Observacao &&
+          String(c.Observacao.stringValue || '').indexOf('Disparo de reativação:') === 0) {
+        c.Tipo = { stringValue: DISPARO_TIPO_ATIVIDADE };
+        trocas++;
+      }
+    });
+    if (!trocas) return;
+    leads++; atividades += trocas;
+    console.log((gravar ? 'Trocando ' : 'Trocaria ') + trocas + ' em ' + idLead + ' (' + (((doc.fields || {}).NomeCliente || {}).stringValue || '') + ')');
     if (!gravar) return;
-    var w = fsUpdate_(cfg, 'funil/' + idLead, {}, { exists: true });
-    w.updateTransforms = [{ fieldPath: 'Atividades', appendMissingElements: { values: [fsValorRico_({ Tipo: 'Conversa no WhatsApp', Em: emIso, Observacao: p.obs })] } }];
-    fsCommit_(cfg, [w]);
+    var w = fsUpdate_(cfg, 'funil/' + idLead, {}, { updateTime: doc.updateTime });
+    w.update.fields.Atividades = { arrayValue: { values: lista } };
+    w.updateMask.fieldPaths.push('Atividades');
+    if (!fsCommit_(cfg, [w])) { mexeram++; console.log('Pulado, mudou no meio: ' + idLead); }
   });
-  console.log((gravar ? 'Gravados: ' : 'Gravaria: ') + feitos + '. Pulados (já tinham, não são do disparo ou sumiram): ' + pulados + '.');
-  return { feitos: feitos, pulados: pulados };
+  console.log((gravar ? 'Trocadas: ' : 'Trocaria: ') + atividades + ' atividades em ' + leads + ' leads.' + (mexeram ? ' Mudaram no meio (rodar de novo): ' + mexeram + '.' : ''));
+  return { leads: leads, atividades: atividades, mexeram: mexeram };
 }
+
+// Tipo próprio (26/11): não conta como conversa do vendedor (TIPOS_CONVERSA).
+var DISPARO_TIPO_ATIVIDADE = 'Interação com disparo';
 
 // Texto da atividade da resposta ao disparo, igual no lead que já existia e no
 // lead criado pela resposta (26/11: o criado nascia sem a resposta).
@@ -5347,7 +5352,7 @@ function disparoCriarLead_(cfg, d, pipe, etapa, motivoPerda, obsAtividade) {
     TelefoneCliente: d.telLead, Pipeline: pipe.id, DataCriacao: Utilities.formatDate(agora, 'America/Belem', 'yyyy-MM-dd'),
     EtapasPassadas: [etapa], Transicoes: [{ Etapa: etapa, Em: agora.toISOString() }]
   };
-  if (obsAtividade) dados.Atividades = [{ Tipo: 'Conversa no WhatsApp', Em: agora.toISOString(), Observacao: obsAtividade }];
+  if (obsAtividade) dados.Atividades = [{ Tipo: DISPARO_TIPO_ATIVIDADE, Em: agora.toISOString(), Observacao: obsAtividade }];
   var w = fsUpdateRico_(cfg, 'funil/' + id, dados, { exists: false });
   w.update.fields.CriadoEm = { timestampValue: agora.toISOString() };
   w.updateMask.fieldPaths.push('CriadoEm');
@@ -5371,7 +5376,7 @@ function disparoMoverParaPerdido_(cfg, d) {
   w.updateTransforms = [
     { fieldPath: 'EtapasPassadas', appendMissingElements: { values: [fsValorRico_(pipe.perdido)] } },
     { fieldPath: 'Transicoes', appendMissingElements: { values: [fsValorRico_({ Etapa: pipe.perdido, Em: agoraIso })] } },
-    { fieldPath: 'Atividades', appendMissingElements: { values: [fsValorRico_({ Tipo: 'Conversa no WhatsApp', Em: agoraIso, Observacao: DISPARO_OBS_SAIR })] } }
+    { fieldPath: 'Atividades', appendMissingElements: { values: [fsValorRico_({ Tipo: DISPARO_TIPO_ATIVIDADE, Em: agoraIso, Observacao: DISPARO_OBS_SAIR })] } }
   ];
   fsCommit_(cfg, [w]);
 }
