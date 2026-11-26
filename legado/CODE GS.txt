@@ -5211,7 +5211,7 @@ function disparoRegistrar_(cfg, d, tipo, texto, idInteracao) {
       } else {
         // Contato sem funil: a primeira resposta ou toque abre o lead em Retomar Contato.
         var pipe = disparoPipelineComercial_(cfg);
-        var idLead = pipe ? disparoCriarLead_(cfg, d, pipe, DISPARO_ETAPA_RETORNO, '') : '';
+        var idLead = pipe ? disparoCriarLead_(cfg, d, pipe, DISPARO_ETAPA_RETORNO, '', disparoObsInteracao_(tipo, texto)) : '';
         if (idLead) {
           campos.idOportunidade = idLead;
           disparoDonoNoCliente_(cfg, d.idCliente, d.idVendedor);
@@ -5252,13 +5252,61 @@ function disparoMexerNoFunil_(cfg, d, tipo, texto, nomes) {
     extras.push({ fieldPath: 'EtapasPassadas', appendMissingElements: { values: [fsValorRico_(DISPARO_ETAPA_RETORNO)] } });
     extras.push({ fieldPath: 'Transicoes', appendMissingElements: { values: [fsValorRico_({ Etapa: DISPARO_ETAPA_RETORNO, Em: agoraIso })] } });
   }
-  var obs = tipo === 'toque' ? 'Disparo de reativação: tocou no botão e foi pro WhatsApp do vendedor.'
-    : 'Disparo de reativação: respondeu "' + String(texto || '').slice(0, 200) + '".';
-  extras.push({ fieldPath: 'Atividades', appendMissingElements: { values: [fsValorRico_({ Tipo: 'Conversa no WhatsApp', Em: agoraIso, Observacao: obs })] } });
+  extras.push({ fieldPath: 'Atividades', appendMissingElements: { values: [fsValorRico_({ Tipo: 'Conversa no WhatsApp', Em: agoraIso, Observacao: disparoObsInteracao_(tipo, texto) })] } });
   var w = fsUpdate_(cfg, caminho, campos, { exists: true });
   w.updateTransforms = extras;
   fsCommit_(cfg, [w]);
   disparoDonoNoCliente_(cfg, d.idCliente || f.IdCliente, d.idVendedor);
+}
+
+// Uma vez, pelo editor (26/11): leads criados pelo disparo antes da correção
+// ganham a resposta como atividade, com a data em que ela chegou. Só mexe em
+// lead com "Lead criado pelo disparo" nas observações e sem atividade do
+// disparo. Conferir mostra no log; Gravar grava.
+function disparoAtividadesConferir() { return disparoAtividadesAntigas_(false); }
+function disparoAtividadesGravar() { return disparoAtividadesAntigas_(true); }
+function disparoAtividadesAntigas_(gravar) {
+  var cfg = fbConfig_();
+  var porLead = {};
+  fsListar_(cfg, 'interacoes_disparo').forEach(function (it) {
+    if (it.tipo !== 'resposta' && it.tipo !== 'toque') return;
+    var idLead = it.idOportunidade || '';
+    if (!idLead && it.disparo) { var dd = fsGet_(cfg, 'disparos/' + it.disparo); idLead = dd ? (dd.dados.idOportunidade || '') : ''; }
+    if (!idLead) return;
+    var atual = porLead[idLead];
+    if (!atual || Number(it.criadoEmMs || 0) < atual.em) {
+      porLead[idLead] = { em: Number(it.criadoEmMs || 0), obs: disparoObsInteracao_(it.tipo, it.texto) };
+    }
+  });
+  fsConsulta_(cfg, 'disparos', 'status', 'saiu', 5000).forEach(function (d) {
+    if (d.idOportunidade && !porLead[d.idOportunidade]) porLead[d.idOportunidade] = { em: 0, obs: DISPARO_OBS_SAIR, sair: true };
+  });
+  var feitos = 0, pulados = 0;
+  Object.keys(porLead).forEach(function (idLead) {
+    var doc = fsGet_(cfg, 'funil/' + idLead);
+    if (!doc) { pulados++; return; }
+    var f = doc.dados;
+    var p = porLead[idLead];
+    var tem = (f.Atividades || []).some(function (a) { return String(a.Observacao || '') === p.obs; });
+    if (tem || String(f.Observacoes || '').indexOf('Lead criado pelo disparo') !== 0) { pulados++; return; }
+    var emIso = p.em ? new Date(p.em).toISOString() : String(((f.Transicoes || [])[0] || {}).Em || new Date().toISOString());
+    console.log((gravar ? 'Gravando ' : 'Gravaria ') + idLead + ' (' + (f.NomeCliente || '') + ', ' + emIso.slice(0, 10) + '): ' + p.obs);
+    feitos++;
+    if (!gravar) return;
+    var w = fsUpdate_(cfg, 'funil/' + idLead, {}, { exists: true });
+    w.updateTransforms = [{ fieldPath: 'Atividades', appendMissingElements: { values: [fsValorRico_({ Tipo: 'Conversa no WhatsApp', Em: emIso, Observacao: p.obs })] } }];
+    fsCommit_(cfg, [w]);
+  });
+  console.log((gravar ? 'Gravados: ' : 'Gravaria: ') + feitos + '. Pulados (já tinham, não são do disparo ou sumiram): ' + pulados + '.');
+  return { feitos: feitos, pulados: pulados };
+}
+
+// Texto da atividade da resposta ao disparo, igual no lead que já existia e no
+// lead criado pela resposta (26/11: o criado nascia sem a resposta).
+var DISPARO_OBS_SAIR = 'Disparo de reativação: tocou em "Não tenho interesse agora".';
+function disparoObsInteracao_(tipo, texto) {
+  return tipo === 'toque' ? 'Disparo de reativação: tocou no botão e foi pro WhatsApp do vendedor.'
+    : 'Disparo de reativação: respondeu "' + String(texto || '').slice(0, 200) + '".';
 }
 
 // Cliente sem Vendedor Responsavel ganha o vendedor do disparo (cobrança, venda e OS
@@ -5287,17 +5335,20 @@ function disparoPipelineComercial_(cfg) {
 }
 
 // Lead novo no Comercial, com os campos que o preparar-disparo.js grava para
-// cliente sem funil. Devolve o id, ou '' se não conseguiu criar.
-function disparoCriarLead_(cfg, d, pipe, etapa, motivoPerda) {
+// cliente sem funil. Com obsAtividade, o lead já nasce com a resposta como
+// atividade. Devolve o id, ou '' se não conseguiu criar.
+function disparoCriarLead_(cfg, d, pipe, etapa, motivoPerda, obsAtividade) {
   var agora = new Date();
   var id = Utilities.getUuid().replace(/-/g, '').substring(0, 8);
-  var w = fsUpdateRico_(cfg, 'funil/' + id, {
+  var dados = {
     IdOportunidade: id, IdCliente: d.idCliente || '', IdVendedor: String(d.idVendedor), IdServico: DISPARO_SERVICO_NOVO,
     Etapa: etapa, Observacoes: 'Lead criado pelo disparo de reativação (' + Utilities.formatDate(agora, 'America/Belem', 'dd/MM/yyyy') + ').',
     'Valor Estimado': DISPARO_VALOR_NOVO, MotivoPerda: motivoPerda || '', NomeCliente: d.nomeLeadCompleto || d.nomeLead || '',
     TelefoneCliente: d.telLead, Pipeline: pipe.id, DataCriacao: Utilities.formatDate(agora, 'America/Belem', 'yyyy-MM-dd'),
     EtapasPassadas: [etapa], Transicoes: [{ Etapa: etapa, Em: agora.toISOString() }]
-  }, { exists: false });
+  };
+  if (obsAtividade) dados.Atividades = [{ Tipo: 'Conversa no WhatsApp', Em: agora.toISOString(), Observacao: obsAtividade }];
+  var w = fsUpdateRico_(cfg, 'funil/' + id, dados, { exists: false });
   w.update.fields.CriadoEm = { timestampValue: agora.toISOString() };
   w.updateMask.fieldPaths.push('CriadoEm');
   return fsCommit_(cfg, [w]) ? id : '';
@@ -5309,7 +5360,7 @@ function disparoMoverParaPerdido_(cfg, d) {
   var pipe = disparoPipelineComercial_(cfg);
   if (!pipe || !pipe.perdido) { console.error('Comercial sem etapa de papel perdido: lead do disparo não movido.'); return; }
   if (!d.idOportunidade) {
-    var idLead = disparoCriarLead_(cfg, d, pipe, pipe.perdido, DISPARO_MOTIVO_PERDA);
+    var idLead = disparoCriarLead_(cfg, d, pipe, pipe.perdido, DISPARO_MOTIVO_PERDA, DISPARO_OBS_SAIR);
     if (idLead) { fsCommit_(cfg, [fsUpdate_(cfg, 'disparos/' + d._id, { idOportunidade: idLead })]); d.idOportunidade = idLead; }
     return;
   }
@@ -5320,7 +5371,7 @@ function disparoMoverParaPerdido_(cfg, d) {
   w.updateTransforms = [
     { fieldPath: 'EtapasPassadas', appendMissingElements: { values: [fsValorRico_(pipe.perdido)] } },
     { fieldPath: 'Transicoes', appendMissingElements: { values: [fsValorRico_({ Etapa: pipe.perdido, Em: agoraIso })] } },
-    { fieldPath: 'Atividades', appendMissingElements: { values: [fsValorRico_({ Tipo: 'Conversa no WhatsApp', Em: agoraIso, Observacao: 'Disparo de reativação: tocou em "Não tenho interesse agora".' })] } }
+    { fieldPath: 'Atividades', appendMissingElements: { values: [fsValorRico_({ Tipo: 'Conversa no WhatsApp', Em: agoraIso, Observacao: DISPARO_OBS_SAIR })] } }
   ];
   fsCommit_(cfg, [w]);
 }
