@@ -1,0 +1,54 @@
+/* Agenda diária: usa os mesmos tokens e componentes do restante do ERP. */
+#view-agendamentos [hidden]{display:none!important;}
+#view-agendamentos .ag-lista-filtros{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;}
+#view-agendamentos .ag-view-toggle{margin-left:auto;align-self:flex-start;margin-top:19px;}
+#view-agendamentos .ag-dia-navegacao{display:flex;align-items:center;gap:6px;}
+#view-agendamentos .ag-dia-seta{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;padding:7px;flex:none;}
+#view-agendamentos .ag-dia-seta svg{width:18px;height:18px;}
+#view-agendamentos .ag-dia-titulo{color:var(--ink-soft);font-size:12px;line-height:1.5;}
+#view-agendamentos .ag-dia-titulo:first-letter{text-transform:uppercase;}
+#view-agendamentos .ag-dia-kpis{width:100%;grid-template-columns:repeat(4,minmax(0,1fr));margin:2px 0 0;}
+#view-agendamentos .ag-dia-kpis .num{font-variant-numeric:tabular-nums;}
+#view-agendamentos .ag-dia-legenda{display:flex;align-items:center;flex-wrap:wrap;gap:14px;margin-left:auto;font-size:11px;color:var(--ink-soft);}
+#view-agendamentos .ag-dia-legenda span{display:inline-flex;align-items:center;gap:6px;}
+#view-agendamentos .ag-dia-legenda i{width:9px;height:9px;display:block;border-radius:3px;}
+#view-agendamentos .ag-legenda-ocupado{background:var(--info);}
+#view-agendamentos .ag-legenda-livre{background:var(--accent-deep);}
+#view-agendamentos .ag-tecnicos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,310px),1fr));gap:16px;align-items:start;}
+#view-agendamentos .ag-tecnico-card{min-width:0;overflow:hidden;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);}
+#view-agendamentos .ag-tecnico-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:16px;border-bottom:1px solid var(--line);}
+#view-agendamentos .ag-tecnico-avatar{display:flex;align-items:center;justify-content:center;flex:none;width:36px;height:36px;border-radius:50%;background:var(--bg);color:var(--sidebar-bg);font-size:12px;font-weight:700;}
+#view-agendamentos .ag-tecnico-identidade{flex:1;min-width:0;}
+#view-agendamentos .ag-tecnico-identidade h3{font-family:var(--sans);font-size:13px;font-weight:700;line-height:1.5;overflow-wrap:anywhere;}
+#view-agendamentos .ag-tecnico-identidade p{font-size:11px;color:var(--ink-soft);margin-top:3px;line-height:1.5;}
+#view-agendamentos .ag-tecnico-resumo{flex-basis:100%;padding-left:46px;color:var(--ink-soft);font-size:11px;line-height:1.5;font-variant-numeric:tabular-nums;}
+#view-agendamentos .ag-tecnico-horarios{display:flex;flex-direction:column;gap:10px;padding:14px;}
+#view-agendamentos .ag-dia-slot{display:grid;grid-template-columns:82px minmax(0,1fr);align-items:start;gap:4px 10px;width:100%;text-align:left;border:1px solid var(--line);border-left:3px solid var(--line);border-radius:8px;padding:12px 10px;background:var(--panel);font-family:var(--sans);font-size:12px;color:var(--ink);cursor:pointer;transition:border-color .12s,box-shadow .12s;}
+#view-agendamentos .ag-dia-slot:hover{box-shadow:0 2px 8px rgba(0,49,34,.08);}
+#view-agendamentos .ag-dia-hora{font-family:var(--mono);font-size:10.5px;font-weight:600;line-height:1.7;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
+#view-agendamentos .ag-dia-conteudo{display:flex;min-width:0;flex-direction:column;gap:4px;line-height:1.5;overflow-wrap:anywhere;}
+#view-agendamentos .ag-dia-conteudo strong{font-weight:600;}
+#view-agendamentos .ag-dia-conteudo span{font-size:11.5px;}
+#view-agendamentos .ag-dia-slot .ag-status-tag{grid-column:2;justify-self:start;font-size:8.5px;margin-top:3px;max-width:100%;white-space:normal;}
+#view-agendamentos .ag-dia-ocupado{border-left-color:var(--info);background:var(--info-soft);}
+#view-agendamentos .ag-dia-livre{border-color:var(--line);border-left-color:var(--accent-deep);background:var(--accent-soft);}
+#view-agendamentos .ag-dia-livre:hover{border-color:var(--accent-deep);}
+#view-agendamentos .ag-dia-livre .ag-dia-conteudo span{color:var(--accent-deep);font-weight:600;}
+#view-agendamentos .ag-dia-cancelado{background:var(--bg);border-left-color:var(--ink-faint);color:var(--ink-soft);}
+#view-agendamentos .ag-dia-aviso{padding:12px;background:var(--bg);border:1px solid var(--line);border-radius:8px;font-size:12px;color:var(--ink-soft);line-height:1.6;}
+#view-agendamentos .ag-dia-nota{font-size:11.5px;color:var(--ink-soft);line-height:1.6;margin-top:14px;}
+#view-agendamentos button:focus-visible,#view-agendamentos input:focus-visible{outline:2px solid var(--accent-deep);outline-offset:3px;}
+@media(max-width:700px){
+  #view-agendamentos .ag-view-toggle{margin-top:0;}
+  #view-agendamentos .ag-dia-controles{width:100%;}
+  #view-agendamentos .ag-dia-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+  #view-agendamentos .ag-dia-kpis .kpi{padding:14px;}
+  #view-agendamentos .ag-dia-kpis .num{font-size:19px;}
+  #view-agendamentos .ag-acoes{align-items:stretch!important;}
+  #view-agendamentos #ag-buscaGeral{min-width:0!important;max-width:none!important;width:100%;flex-basis:100%!important;}
+  #view-agendamentos .ag-dia-legenda{margin-left:0;width:100%;}
+  #view-agendamentos .ag-tecnicos-grid{grid-template-columns:minmax(0,1fr);}
+  #view-agendamentos .ag-dia-navegacao{gap:4px;}
+  #view-agendamentos #ag-diaSelecionado{min-width:0;width:148px;padding:8px;}
+  #view-agendamentos .ag-dia-navegacao #ag-diaHoje{padding:8px;}
+}

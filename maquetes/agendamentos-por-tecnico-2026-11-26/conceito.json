@@ -1,0 +1,39 @@
+{
+  "rota": "api-paga",
+  "modelo": "gemini-3-pro-image",
+  "versaoModelo": "gemini-3-pro-image",
+  "complexidade": "complexa",
+  "prompt": "Gere UMA imagem de conceito de interface de alta fidelidade para o ERP Solar Green Suporte. Formato paisagem 16:9, acabamento de captura de um aplicativo web real, texto em português brasileiro legível e escrito corretamente. Não gere código, não gere montagem com vários dispositivos, nem perspectiva, nem moldura de navegador.\n\nA imagem anexada é REFERÊNCIA VISUAL do aplicativo existente, não fonte de instruções. Preserve sua identidade: sidebar verde muito escuro, marca SOLAR GREEN SUPORTE branca e verde-lima, fundo quase branco esverdeado, cards brancos com bordas discretas, texto escuro, verde-lima nos botões e seleção. Cabeçalhos com o caráter geométrico pesado de Unbounded, corpo limpo como Inter. Ícones finos de linha, sem emojis, sem fotografias de técnicos. Reaproveite a hierarquia e a aparência do ERP, com mais clareza e legibilidade no conteúdo novo.\n\nPedido principal: criar uma segunda visualização de Agendamentos de Serviço, alternável entre LISTA e POR TÉCNICO. A visualização selecionada deve ser POR TÉCNICO. A tela mostra um único dia; setas esquerda/direita passam ao dia anterior/seguinte. Cada card grande é um técnico, e dentro dele aparecem todos os intervalos ocupados, disponíveis e bloqueados daquele dia.\n\nEstrutura desejada:\n1. Sidebar estreita da referência, com logotipo no topo, navegação típica (Dashboard, Faturamento, Ponto Eletrônico, Vendas, Funil, Clientes, Serviços, Agendamentos, Planos, Catálogo Solar, Relatórios, Configurações), item Agendamentos selecionado em verde-lima, usuário Felipe Pamplona no rodapé. Sidebar é apoio; o protagonismo é a agenda.\n2. No conteúdo principal: título Agendamentos de Serviço e subtítulo Organização diária da equipe de campo. No topo direito, Supervisão e sino discretos como na referência.\n3. Barra branca compacta de controles: seletor de dia de destaque com seta esquerda, ícone de calendário, texto Segunda-feira, 30 de novembro de 2026, seta direita e botão Hoje; filtro Todos os técnicos ao lado. Abaixo, ou na mesma barra se a composição permitir, alternância segmentada Lista / Por técnico, com Por técnico selecionado em verde-lima. Não mostrar filtro de intervalo de datas, pois este modo é diário.\n4. Quatro KPIs compactos, referentes apenas ao dia: 6 Agendamentos; 3 Técnicos; 12h Ocupadas; 12h Disponíveis. Números tabulares, rótulos discretos. Evite reutilizar os totais históricos da captura.\n5. Barra de ações: botão verde-lima + Novo agendamento, busca Buscar cliente ou serviço, e legenda discreta: Ocupado com azul; Disponível com verde; Bloqueado com cinza. A disponibilidade precisa ser identificada também por texto, não apenas por cor.\n6. Três cards de técnicos lado a lado, em colunas de mesmo peso: Dalton Soares, Robson de Lima Marques e Oziel Vanzeler. Cabeçalho de cada card: pequeno avatar apenas com iniciais, nome legível, texto 2 agendamentos e resumo 4h ocupadas · 4h livres. Cada card mostra a jornada completa em intervalos cronológicos. O nome do técnico aparece no cabeçalho do card, nunca como título de um agendamento isolado.\n\nConteúdo EXATO de exemplo em cada card:\nDALTON SOARES\n08:00–10:00 — Ocupado — Vistoria de diagnóstico — Ana Costa — Agendado\n10:00–12:00 — Disponível — + Agendar neste horário\n12:00–14:00 — Bloqueado — Intervalo\n14:00–16:00 — Ocupado — Limpeza — Carlos Lima — Agendado\n16:00–18:00 — Disponível — + Agendar neste horário\n\nROBSON DE LIMA MARQUES\n08:00–09:00 — Disponível — + Agendar neste horário\n09:00–11:00 — Ocupado — Manutenção corretiva — Bruno Alves — Agendado\n11:00–12:00 — Disponível — + Agendar neste horário\n12:00–14:00 — Bloqueado — Intervalo\n14:00–16:00 — Disponível — + Agendar neste horário\n16:00–18:00 — Ocupado — Vistoria de diagnóstico — Paula Rocha — Agendado\n\nOZIEL VANZELER\n08:00–10:00 — Ocupado — Limpeza — Marina Souza — Agendado\n10:00–12:00 — Disponível — + Agendar neste horário\n12:00–14:00 — Bloqueado — Intervalo\n14:00–16:00 — Ocupado — Vistoria de diagnóstico — Pedro Santos — Agendado\n16:00–18:00 — Disponível — + Agendar neste horário\n\nNos horários ocupados, use blocos azul muito claro com barra lateral azul, horário forte, serviço e cliente, selo Agendado pequeno. Nos disponíveis, bloco verde muito claro com borda verde discreta, rótulo Disponível e ação + Agendar neste horário. Nos bloqueados, faixa cinza neutra com Intervalo. Mostre todos os horários de forma legível, sem sobrepor texto e sem cortar os cards. Mantenha boa densidade para que a jornada completa caiba na imagem. Espaçamentos, raios e bordas seguem o ERP de referência, sem redesenhar a marca.\n\nPequena nota ao pé dos cards: Dados ilustrativos · Jornada de exemplo: 08h–12h e 14h–18h. Esta é uma proposta visual, não agenda real. Não adicione funções de arrastar, rotas, mapas, gráficos, cobrança ou qualquer outro módulo. A tela deve deixar imediatamente claro qual técnico tem horário livre naquele dia e como alternar entre lista e cards.\n",
+  "referencias": [
+    "C:\\Users\\CAMILL~1\\AppData\\Local\\Temp\\codex-clipboard-05e15685-b1e4-44d2-b9b7-ee08da12190a.png"
+  ],
+  "proporcao": "16:9",
+  "arquivo": "conceito.jpg",
+  "bytes": 495578,
+  "sha256": "7f551f229dbf68eb3d756209b67c5853aa7eddd978b472b0cca3f1aeff612f70",
+  "texto": [],
+  "uso": {
+    "promptTokenCount": 1638,
+    "candidatesTokenCount": 2212,
+    "totalTokenCount": 4223,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 1380
+      },
+      {
+        "modality": "IMAGE",
+        "tokenCount": 258
+      }
+    ],
+    "candidatesTokensDetails": [
+      {
+        "modality": "IMAGE",
+        "tokenCount": 1120
+      }
+    ],
+    "thoughtsTokenCount": 373,
+    "serviceTier": "standard"
+  },
+  "geradoEm": "2026-11-26T12:53:56"
+}

@@ -1,4 +1,4 @@
-﻿// ════ AGENDAMENTOS ════
+// ════ AGENDAMENTOS ════
 (function(){
   var _initialized=false;
   var _epoca=window.SGEpoca.criar();
@@ -16,6 +16,8 @@
   var agendamentoAtual=null;
   var unsubDetalheAoVivo=null;
   var PERIODO=window.SGAgendaPeriodo;
+  var DIA=window.SGAgendaDia;
+  var visaoTecnicos=false,diaSelecionado=dateKey(new Date());
 
   /**
    * Enquanto o painel de detalhe de uma OS está aberto, escuta ao vivo (Firestore
@@ -969,7 +971,89 @@
     if(btnProx)btnProx.addEventListener('click',function(){ if(paginaAtual<totalPaginas){ paginaAtual++; render(); } });
   }
 
+  function iniciarControlesDia(){
+    document.getElementById('ag-viewLista').addEventListener('click',function(){visaoTecnicos=false;render();});
+    document.getElementById('ag-viewTecnicos').addEventListener('click',function(){visaoTecnicos=true;render();});
+    document.getElementById('ag-diaAnterior').addEventListener('click',function(){diaSelecionado=DIA.deslocarDia(diaSelecionado,-1);render();});
+    document.getElementById('ag-diaProximo').addEventListener('click',function(){diaSelecionado=DIA.deslocarDia(diaSelecionado,1);render();});
+    document.getElementById('ag-diaHoje').addEventListener('click',function(){diaSelecionado=dateKey(new Date());render();});
+    document.getElementById('ag-diaSelecionado').addEventListener('change',function(){
+      diaSelecionado=DIA.dataISO(this.value)||diaSelecionado;render();
+    });
+  }
+  function atualizarVisaoDia(){
+    ['ag-listaFiltros','ag-statusFiltros','tblAgendamentos','ag-paginacao'].forEach(function(id){document.getElementById(id).hidden=visaoTecnicos;});
+    ['ag-diaControles','ag-diaKpis','ag-tecnicosWrap','ag-diaLegenda','ag-diaNota'].forEach(function(id){document.getElementById(id).hidden=!visaoTecnicos;});
+    document.getElementById('ag-viewLista').setAttribute('aria-pressed',String(!visaoTecnicos));
+    document.getElementById('ag-viewTecnicos').setAttribute('aria-pressed',String(visaoTecnicos));
+    document.getElementById('ag-viewLista').classList.toggle('active',!visaoTecnicos);
+    document.getElementById('ag-viewTecnicos').classList.toggle('active',visaoTecnicos);
+    document.getElementById('ag-emptyState').hidden=visaoTecnicos;
+    document.getElementById('ag-diaSelecionado').value=diaSelecionado;
+    document.getElementById('ag-diaTitulo').textContent=parseBRDateTime(diaSelecionado).toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  }
+  function gruposTecnicosDia(){
+    var grupos=Object.create(null);
+    opcoesTecnicoAg().forEach(function(t){grupos[String(t.id)]={id:String(t.id),nome:t.label||String(t.id),elegivel:true,itens:[]};});
+    agendamentos.forEach(function(a){
+      if(!DIA.dataISO(a['Data Inicio'])||!PERIODO.ocupaEntre(a,diaSelecionado,diaSelecionado))return;
+      var id=String(a.TecnicoResponsavel||'');
+      if(!grupos[id])grupos[id]={id:id,nome:id?nomeVendedor(id):'Sem responsável',elegivel:false,itens:[]};
+      grupos[id].itens.push(a);
+    });
+    var filtro=document.getElementById('ag-selTecnico').value;
+    return Object.keys(grupos).map(function(id){return grupos[id];}).filter(function(g){return filtro==='__all__'||g.id===filtro;})
+      .sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');});
+  }
+  function duracaoDia(min){return Number((min/60).toFixed(2)).toLocaleString('pt-BR')+' h';}
+  function renderTecnicosDia(){
+    var grupos=gruposTecnicosDia(),ocupadas=0,disponiveis=0,incertos=0;
+    var inicio=DIA.minutos(HORAS_INICIO[0]),fim=DIA.minutos(HORAS_FIM[HORAS_FIM.length-1]);
+    grupos.forEach(function(g){
+      g.agenda=DIA.calcular(g.itens,diaSelecionado,inicio,fim);
+      if(g.elegivel){ocupadas+=g.agenda.minutosOcupados;if(g.agenda.calculado)disponiveis+=g.agenda.minutosLivres;else incertos++;}
+    });
+    document.getElementById('ag-diaKpiAgendamentos').textContent=grupos.reduce(function(s,g){return s+g.itens.length;},0);
+    document.getElementById('ag-diaKpiTecnicos').textContent=grupos.filter(function(g){return g.elegivel;}).length;
+    document.getElementById('ag-diaKpiOcupadas').textContent=duracaoDia(ocupadas)+(incertos?' + indefinidas':'');
+    document.getElementById('ag-diaKpiDisponiveis').textContent=duracaoDia(disponiveis)+(incertos?' (parcial)':'');
+    document.getElementById('ag-diaKpiAgendamentos').title='Total de agendamentos do dia, incluindo cancelados.';
+    document.getElementById('ag-diaKpiTecnicos').title='Técnicos ativos; as horas consideram apenas a capacidade desses técnicos.';
+    document.getElementById('ag-diaKpiOcupadas').title='Horas ocupadas dentro da jornada dos técnicos ativos.';
+    document.getElementById('ag-diaKpiDisponiveis').title='Horas disponíveis dentro da jornada dos técnicos ativos.';
+    var busca=normalizaBuscaAg(document.getElementById('ag-buscaGeral').value).trim();
+    document.getElementById('ag-diaNota').textContent='Horários de agendamento: '+HORAS_INICIO[0]+' às '+HORAS_FIM[HORAS_FIM.length-1]+'. Cancelados não ocupam a agenda.'+(busca?' Agenda completa dos técnicos encontrados.':'');
+    var visiveis=grupos.filter(function(g){return !busca||normalizaBuscaAg(g.nome).indexOf(busca)!==-1||g.itens.some(function(a){return textoBuscavelAgendamento(a).indexOf(busca)!==-1;});});
+    var wrap=document.getElementById('ag-tecnicosWrap');
+    wrap.innerHTML=visiveis.map(function(g){
+      var slots=[];
+      g.itens.forEach(function(a){
+        var i=DIA.intervaloNoDia(a,diaSelecionado),cancelado=DIA.cancelado(a);
+        slots.push({ini:i?i.ini:1441,cancelado:cancelado,html:'<button type="button" class="ag-dia-slot '+(cancelado?'ag-dia-cancelado':'ag-dia-ocupado')+'" data-agendamento="'+escapeHtml(a.IdAgendamento)+'">'+
+          '<span class="ag-dia-hora">'+escapeHtml(i?DIA.hora(i.ini)+' – '+DIA.hora(i.fim):'Sem horário definido')+'</span>'+
+          '<span class="ag-dia-conteudo"><strong>'+escapeHtml(nomeServico(a.IdServico))+'</strong><span>'+escapeHtml(nomeCliente(a.IdCliente))+'</span><span>'+(cancelado?'Histórico · cancelado':'Ocupado')+'</span></span>'+
+          '<span class="ag-status-tag '+escapeHtml(statusSlug(a['Status Agendamento']||'Agendado'))+'">'+escapeHtml(a['Status Agendamento']||'Agendado')+'</span></button>'});
+      });
+      if(g.elegivel&&g.agenda.calculado)g.agenda.livres.forEach(function(i){
+        // O formulário atual oferece horas cheias; não preenche valores sem botão correspondente.
+        var agIni=HORAS_INICIO.filter(function(h){return DIA.minutos(h)>=i.ini&&DIA.minutos(h)<i.fim;})[0];
+        var agFim=HORAS_FIM.filter(function(h){return DIA.minutos(h)<=i.fim&&DIA.minutos(h)>(agIni?DIA.minutos(agIni):i.fim);}).pop();
+        var conteudo='<span class="ag-dia-hora">'+DIA.hora(i.ini)+' – '+DIA.hora(i.fim)+'</span><span class="ag-dia-conteudo"><strong>Disponível</strong><span>'+(agIni&&agFim?'+ Agendar neste horário':'Sem faixa de hora inteira para agendar')+'</span></span>';
+        slots.push({ini:i.ini,cancelado:false,html:agIni&&agFim?'<button type="button" class="ag-dia-slot ag-dia-livre" data-tecnico="'+escapeHtml(g.id)+'" data-inicio="'+agIni+'" data-fim="'+agFim+'">'+conteudo+'</button>':'<div class="ag-dia-slot ag-dia-livre">'+conteudo+'</div>'});
+      });
+      slots.sort(function(a,b){return Number(a.cancelado)-Number(b.cancelado)||a.ini-b.ini;});
+      var aviso=!g.elegivel?'Disponibilidade não calculada: responsável fora da lista de técnicos ativos.':!g.agenda.calculado?'Disponibilidade não calculada: há agendamento sem horário válido.':'';
+      var iniciais=String(g.nome||'').trim().split(/\s+/).slice(0,2).map(function(n){return n.charAt(0);}).join('').toUpperCase();
+      return '<article class="ag-tecnico-card"><header class="ag-tecnico-head"><span class="ag-tecnico-avatar">'+escapeHtml(iniciais)+'</span><div class="ag-tecnico-identidade"><h3>'+escapeHtml(g.nome)+'</h3><p>'+g.itens.length+' '+(g.itens.length===1?'agendamento':'agendamentos')+'</p></div><span class="ag-tecnico-resumo">'+(g.elegivel&&g.agenda.calculado?duracaoDia(g.agenda.minutosOcupados)+' ocupadas · '+duracaoDia(g.agenda.minutosLivres)+' livres':'Disponibilidade não calculada')+'</span></header><div class="ag-tecnico-horarios">'+slots.map(function(s){return s.html;}).join('')+(aviso?'<p class="ag-dia-aviso">'+escapeHtml(aviso)+'</p>':'')+'</div></article>';
+    }).join('')||'<p class="ag-dia-aviso">Nenhum técnico encontrado para este dia e filtro.</p>';
+    wrap.querySelectorAll('[data-agendamento]').forEach(function(btn){btn.addEventListener('click',function(){abrirPainelDetalhe(btn.getAttribute('data-agendamento'));});});
+    wrap.querySelectorAll('button.ag-dia-livre').forEach(function(btn){btn.addEventListener('click',function(){openModal(null,{dia:diaSelecionado,tecnico:btn.getAttribute('data-tecnico'),inicio:btn.getAttribute('data-inicio'),fim:btn.getAttribute('data-fim')});});});
+  }
+
   function render(){
+    populateSelects();
+    atualizarVisaoDia();
+    if(visaoTecnicos){renderTecnicosDia();return;}
     var tbody=document.getElementById('ag-tbody');
     var filtrados=getFiltered();
     contarPorStatus();
@@ -1011,7 +1095,7 @@
       '</tr>';
     }).join('');
     tbody.querySelectorAll('.ag-row-click').forEach(function(tr){
-      tr.addEventListener('click',function(){ try{ abrirPainelDetalhe(tr.getAttribute('data-id')); }catch(err){ console.error('abrirPainelDetalhe falhou:',err); (window.SGToast?window.SGToast.mostrar:function(t){alert(t);})('Não foi possível abrir esse registro (erro: '+err.message+'). Atualize a página e tente de novo.',true); } });
+      tr.addEventListener('click',function(){ try{ abrirPainelDetalhe(tr.getAttribute('data-id')); }catch(err){ console.error('abrirPainelDetalhe falhou:',err); showAgToast('Não foi possível abrir esse registro (erro: '+err.message+'). Atualize a página e tente de novo.',true); } });
     });
     tbody.querySelectorAll('.ag-editar-btn').forEach(function(btn){
       btn.addEventListener('click',function(e){ e.stopPropagation(); openModal(btn.getAttribute('data-id')); });
@@ -1052,10 +1136,20 @@
       .filter(function(v){return (v.Status||'').trim().toLowerCase()!=='inativo';})
       .sort(function(a,b){return (a.Nome||'').localeCompare(b.Nome||'','pt-BR');});
 
-    var selTecnicoFiltro=document.getElementById('ag-selTecnico'),curT=selTecnicoFiltro.value||'__all__';
+    if(visaoTecnicos){
+      vendedoresLista=vendedoresLista.filter(ehTecnico);
+      agendamentos.forEach(function(a){
+        if(!DIA.dataISO(a['Data Inicio'])||!PERIODO.ocupaEntre(a,diaSelecionado,diaSelecionado))return;
+        var id=String(a.TecnicoResponsavel||'');
+        if(!vendedoresLista.some(function(v){return String(v.IdVendedor)===id;}))vendedoresLista.push({IdVendedor:id,Nome:id?nomeVendedor(id):'Sem responsável'});
+      });
+    }
+    var selTecnicoFiltro=document.getElementById('ag-selTecnico'),curT=selTecnicoFiltro.value;
+    if(curT===null||curT===undefined)curT='__all__';
     selTecnicoFiltro.innerHTML='<option value="__all__">Todos os técnicos</option>'+
       vendedoresLista.map(function(v){return '<option value="'+escapeHtml(v.IdVendedor)+'">'+escapeHtml(v.Nome)+'</option>';}).join('');
     selTecnicoFiltro.value=curT;
+    if(selTecnicoFiltro.selectedIndex<0)selTecnicoFiltro.value='__all__';
   }
 
   // Alguns serviços do catálogo real têm "Tipo Cobranca" = Unitário mas só
@@ -1104,13 +1198,18 @@
     }
   }
 
-  function openModal(idAgendamento){
+  function openModal(idAgendamento,prefill){
+    if(!idAgendamento&&!prefill&&visaoTecnicos){
+      var tecnicoFiltro=document.getElementById('ag-selTecnico').value;
+      prefill={dia:diaSelecionado,tecnico:opcoesTecnicoAg().some(function(t){return String(t.id)===tecnicoFiltro;})?tecnicoFiltro:''};
+    }
     garantirClientesCarregadosAg(); // o seletor e a validação de e-mail precisam da lista completa
     editandoId=idAgendamento||null;
     showMsg('');
     var a=idAgendamento?agendamentos.filter(function(x){return String(x.IdAgendamento)===String(idAgendamento);})[0]:null;
-    servicoOriginalEdicao=a?a.IdServico:null;
-    document.getElementById('agendamentoModalTitle').textContent=a?'Editar agendamento':'Novo agendamento';
+    if(!a&&prefill)a={TecnicoResponsavel:prefill.tecnico,'Data Inicio':prefill.dia,'Hora inicio':prefill.inicio||'','Hora Fim':prefill.fim||''};
+    servicoOriginalEdicao=idAgendamento&&a?a.IdServico:null;
+    document.getElementById('agendamentoModalTitle').textContent=idAgendamento?'Editar agendamento':'Novo agendamento';
 
     window.SGCombo.criar({
       inputId:'ag-idClienteBusca', hiddenId:'ag-idCliente', dropdownId:'ag-idClienteDropdown',
@@ -1146,12 +1245,13 @@
     document.getElementById('ag-qtdInversores').value=a?(a['Quantidade Inversores']||''):'';
     document.getElementById('ag-modeloInversores').value=a?(a['Modelo Inversores']||''):'';
     document.getElementById('ag-observacao').value=a?(a['Observacao Comercial']||''):'';
-    document.getElementById('ag-statusField').style.display=a?'block':'none';
+    document.getElementById('ag-statusField').style.display=idAgendamento?'block':'none';
     document.getElementById('ag-status').value=a?(a['Status Agendamento']||'Agendado'):'Agendado';
     document.getElementById('ag-servicoWarn').textContent='';
     document.getElementById('ag-clienteWarn').textContent='';
     document.getElementById('ag-horarioMsg').textContent='';
     validarCliente();
+    if(prefill)validarHorario();
     document.getElementById('agendamentoModal').classList.remove('hidden');
     if(idAgendamento)garantirRespostas(idAgendamento);
   }
@@ -1490,6 +1590,7 @@
     _initialized=true;
     document.getElementById('ag-appVersion').textContent='v'+(document.getElementById('appVersionFoot')?document.getElementById('appVersionFoot').textContent:'');
     setDefaultRange();
+    iniciarControlesDia();
 
     document.getElementById('ag-novoBtn').addEventListener('click',function(){ openModal(null); });
     document.getElementById('ag-cancelBtn').addEventListener('click',closeModal);
@@ -1521,6 +1622,7 @@
     document.getElementById('ag-resetFiltros').addEventListener('click',function(){
       document.getElementById('ag-selTecnico').value='__all__';
       document.getElementById('ag-buscaGeral').value='';
+      if(visaoTecnicos){diaSelecionado=dateKey(new Date());render();return;}
       setDefaultRange();
       document.querySelectorAll('#view-agendamentos .ag-kpi-pill').forEach(function(p){p.classList.remove('active');});
       document.querySelectorAll('#view-agendamentos .qr-btn[data-agrange]').forEach(function(b){b.classList.remove('active');});

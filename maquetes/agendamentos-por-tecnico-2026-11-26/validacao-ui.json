@@ -1,0 +1,23 @@
+{
+  "ok": true,
+  "viewportDesktop": 1440,
+  "viewportMobile": 390,
+  "pageErrors": [],
+  "testes": [
+    "lista preservada",
+    "cards e KPIs",
+    "busca sem falsa disponibilidade",
+    "formulário preenchido por teclado",
+    "detalhe",
+    "virada mês/ano e Hoje",
+    "cancelado e união",
+    "OS vários dias",
+    "sem horário",
+    "responsáveis antigos",
+    "realtime",
+    "mobile sem overflow",
+    "texto longo",
+    "vazio",
+    "sem gravação real"
+  ]
+}
