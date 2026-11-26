@@ -6,6 +6,8 @@
   "testes": [
     "lista preservada",
     "cards e KPIs",
+    "cliente em caixa alta, serviço em negrito e vendedor",
+    "vendedor por cliente com cache e falha de consulta",
     "busca sem falsa disponibilidade",
     "formulário preenchido por teclado",
     "detalhe",

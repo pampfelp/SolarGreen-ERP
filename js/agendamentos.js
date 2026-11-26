@@ -18,6 +18,7 @@
   var PERIODO=window.SGAgendaPeriodo;
   var DIA=window.SGAgendaDia;
   var visaoTecnicos=true,diaSelecionado=dateKey(new Date());
+  var vendedoresCardsConsultados=Object.create(null);
 
   /**
    * Enquanto o painel de detalhe de uma OS está aberto, escuta ao vivo (Firestore
@@ -1005,6 +1006,24 @@
       .sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');});
   }
   function duracaoDia(min){return Number((min/60).toFixed(2)).toLocaleString('pt-BR')+' h';}
+  function carregarVendedoresCards(grupos){
+    var buscas=[];
+    grupos.forEach(function(g){g.itens.forEach(function(a){
+      var id=a.IdCliente,cliente=clientesMap[id];
+      if(!id||(cliente&&!cliente._parcial)||vendedoresCardsConsultados[id])return;
+      vendedoresCardsConsultados[id]='carregando';
+      buscas.push(window.SGFireReady.then(function(){return garantirClienteCarregadoAg(id);}).catch(function(){return null;}).then(function(){vendedoresCardsConsultados[id]='concluido';}));
+    });});
+    if(buscas.length)Promise.all(buscas).then(function(){if(visaoTecnicos)render();});
+  }
+  function vendedorClienteCard(idCliente){
+    var cliente=clientesMap[idCliente];
+    if(cliente&&!cliente._parcial){
+      var id=cliente['Vendedor Responsavel'];
+      return id?'Vendedor: '+nomeVendedor(id):'Vendedor não informado';
+    }
+    return vendedoresCardsConsultados[idCliente]==='carregando'?'Carregando vendedor…':'Vendedor indisponível';
+  }
   function renderTecnicosDia(){
     var grupos=gruposTecnicosDia(),ocupadas=0,disponiveis=0,incertos=0;
     var inicio=DIA.minutos(HORAS_INICIO[0]),fim=DIA.minutos(HORAS_FIM[HORAS_FIM.length-1]);
@@ -1023,6 +1042,7 @@
     var busca=normalizaBuscaAg(document.getElementById('ag-buscaGeral').value).trim();
     document.getElementById('ag-diaNota').textContent='Horários de agendamento: '+HORAS_INICIO[0]+' às '+HORAS_FIM[HORAS_FIM.length-1]+'. Cancelados não ocupam a agenda.'+(busca?' Agenda completa dos técnicos encontrados.':'');
     var visiveis=grupos.filter(function(g){return !busca||normalizaBuscaAg(g.nome).indexOf(busca)!==-1||g.itens.some(function(a){return textoBuscavelAgendamento(a).indexOf(busca)!==-1;});});
+    carregarVendedoresCards(visiveis);
     var wrap=document.getElementById('ag-tecnicosWrap');
     wrap.innerHTML=visiveis.map(function(g){
       var slots=[];
@@ -1030,7 +1050,7 @@
         var i=DIA.intervaloNoDia(a,diaSelecionado),cancelado=DIA.cancelado(a);
         slots.push({ini:i?i.ini:1441,cancelado:cancelado,html:'<button type="button" class="ag-dia-slot '+(cancelado?'ag-dia-cancelado':'ag-dia-ocupado')+'" data-agendamento="'+escapeHtml(a.IdAgendamento)+'">'+
           '<span class="ag-dia-hora">'+escapeHtml(i?DIA.hora(i.ini)+' – '+DIA.hora(i.fim):'Sem horário definido')+'</span>'+
-          '<span class="ag-dia-conteudo"><strong>'+escapeHtml(nomeServico(a.IdServico))+'</strong><span>'+escapeHtml(nomeCliente(a.IdCliente))+'</span><span>'+(cancelado?'Histórico · cancelado':'Ocupado')+'</span></span>'+
+          '<span class="ag-dia-conteudo"><span class="ag-dia-cliente">'+escapeHtml(String(nomeCliente(a.IdCliente)).toLocaleUpperCase('pt-BR'))+'</span><strong class="ag-dia-servico">'+escapeHtml(nomeServico(a.IdServico))+'</strong><span class="ag-dia-vendedor">'+escapeHtml(vendedorClienteCard(a.IdCliente))+'</span></span>'+
           '<span class="ag-status-tag '+escapeHtml(statusSlug(a['Status Agendamento']||'Agendado'))+'">'+escapeHtml(a['Status Agendamento']||'Agendado')+'</span></button>'});
       });
       if(g.agenda.calculado)g.agenda.livres.forEach(function(i){

@@ -7,10 +7,10 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright-core');
 const root=path.resolve(__dirname,'..');
 const out=path.join(root,'maquetes','agendamentos-por-tecnico-2026-11-26');
 fs.mkdirSync(out,{recursive:true});
-const vendedores=[{IdVendedor:'T1',Nome:'Dalton Soares',Tipo:'Técnico',Status:'Ativo'},{IdVendedor:'T2',Nome:'Robson de Lima Marques',Tipo:'Tecnico',Status:'Ativo'},{IdVendedor:'T3',Nome:'Oziel Vanzeler',Tipo:'Técnico',Status:'Ativo'},{IdVendedor:'A1',Nome:'Pessoa administrativa',Tipo:'Admin',Status:'Ativo'}];
+const vendedores=[{IdVendedor:'T1',Nome:'Dalton Soares',Tipo:'Técnico',Status:'Ativo'},{IdVendedor:'T2',Nome:'Robson de Lima Marques',Tipo:'Tecnico',Status:'Ativo'},{IdVendedor:'T3',Nome:'Oziel Vanzeler',Tipo:'Técnico',Status:'Ativo'},{IdVendedor:'A1',Nome:'Pessoa administrativa',Tipo:'Admin',Status:'Ativo'},{IdVendedor:'V1',Nome:'Vendedor de exemplo',Tipo:'Vendedor',Status:'Ativo'}];
 const servicos=[{IdServico:'S1','Nome Servico':'Vistoria de diagnóstico',TipoServico:'Campo'},{IdServico:'S2','Nome Servico':'Limpeza',TipoServico:'Campo'},{IdServico:'S3','Nome Servico':'Manutenção corretiva',TipoServico:'Campo'}];
 const nomes=['Ana Costa','Carlos Lima','Bruno Alves','Paula Rocha','Marina Souza','Pedro Santos'];
-const clientes=nomes.map((n,i)=>({IdCliente:'C'+i,'Nome Razao Social':n,Email:'exemplo'+i+'@example.com',Endereco:'Endereço de exemplo',Telefone:''}));
+const clientes=nomes.map((n,i)=>({IdCliente:'C'+i,'Nome Razao Social':n,'Vendedor Responsavel':i===5?'':'V1',Email:'exemplo'+i+'@example.com',Endereco:'Endereço de exemplo',Telefone:''}));
 const criar=(id,t,c,s,ini,fim,extra={})=>({IdAgendamento:id,TecnicoResponsavel:t,IdCliente:'C'+c,NomeCliente:nomes[c],IdServico:s,'Data Inicio':'2026-11-30','Hora inicio':ini,'Hora Fim':fim,'Status Agendamento':'Agendado',DataCriacao:'2026-11-26T12:00:00Z',Valor:100,...extra});
 const agendamentos=[criar('OS1','T1',0,'S1','08:00','10:00'),criar('OS2','T1',1,'S2','14:00','16:00'),criar('OS3','T2',2,'S3','09:00','11:00'),criar('OS4','T2',3,'S1','16:00','18:00'),criar('OS5','T3',4,'S2','08:00','10:00'),criar('OS6','T3',5,'S1','14:00','16:00')];
 const dados={agendamentos,clientes,vendedores,servicos,templates:[],respostas:[]};
@@ -35,12 +35,12 @@ const server=http.createServer((req,res)=>{
     await page.goto(origin,{waitUntil:'networkidle'});
     await page.addScriptTag({url:origin+'/js/sg-auth.js'});
     await page.evaluate((fixture)=>{
-      window.__fixture=fixture;window.__assinaturas={};window.__calls=[];
+      window.__fixture=fixture;window.__assinaturas={};window.__calls=[];window.__clientesLidos=[];
       window.SG_SESSION={idVendedor:'ADMIN-TESTE',nome:'Validação local',tipo:'Admin'};
       window.SGFireReady=Promise.resolve();
-      window.SGCache={get:()=>({dados:window.__fixture}),set:()=>{}};
+      window.SGCache={get:()=>({dados:{...window.__fixture,clientes:[]}}),set:()=>{}};
       window.SGUtil.assinarColecao=(nome,fn)=>{window.__assinaturas[nome]=fn;fn(window.__fixture[nome]||[]);return ()=>{};};
-      window.SGUtil.buscarClientePorId=(id)=>Promise.resolve(window.__fixture.clientes.find(c=>c.IdCliente===id));
+      window.SGUtil.buscarClientePorId=(id)=>{window.__clientesLidos.push(id);return Promise.resolve(window.__fixture.clientes.find(c=>c.IdCliente===id));};
       window.SGAuth.apiCall=(action,payload)=>{window.__calls.push({action,payload});return Promise.resolve({ok:true,respostas:[]});};
       window.SGAuth.isAdmin=()=>true;
       window.fetch=()=>Promise.reject(new Error('Rede de negócio desativada no teste local'));
@@ -69,6 +69,12 @@ const server=http.createServer((req,res)=>{
     assert.equal(await page.locator('.ag-tecnico-card').count(),3);
     assert.equal(await page.locator('#ag-diaKpiOcupadas').textContent(),'12 h');
     assert.equal(await page.locator('#ag-diaKpiDisponiveis').textContent(),'18 h');
+    await page.waitForFunction(()=>document.querySelector('[data-agendamento="OS1"] .ag-dia-vendedor')?.textContent==='Vendedor: Vendedor de exemplo');
+    assert.deepEqual(await page.locator('[data-agendamento="OS1"] .ag-dia-conteudo').evaluate(e=>[...e.children].map(x=>x.textContent)),['ANA COSTA','Vistoria de diagnóstico','Vendedor: Vendedor de exemplo']);
+    assert.equal(await page.locator('[data-agendamento="OS1"] .ag-dia-servico').evaluate(e=>e.tagName),'STRONG');
+    assert.equal(await page.locator('[data-agendamento="OS1"] .ag-status-tag').textContent(),'Agendado');
+    assert.equal(await page.locator('[data-agendamento="OS6"] .ag-dia-vendedor').textContent(),'Vendedor não informado');
+    assert.equal(await page.evaluate(()=>window.__clientesLidos.length),6);
     assert.equal(await page.locator('#tblAgendamentos').isVisible(),false);
     const ids=await page.evaluate(()=>{const ids=[...document.querySelectorAll('[id]')].map(e=>e.id);return ids.filter((id,i)=>id.startsWith('ag-')&&ids.indexOf(id)!==i);});assert.deepEqual(ids,[]);
     await page.locator('#ag-viewTecnicos').focus();
@@ -76,9 +82,16 @@ const server=http.createServer((req,res)=>{
     // Busca preserva toda a ocupação do técnico encontrado e não altera KPI.
     await page.locator('#ag-buscaGeral').fill('Ana Costa');
     assert.equal(await page.locator('.ag-tecnico-card').count(),1);
-    assert.match(await page.locator('.ag-tecnico-card').textContent(),/Carlos Lima/);
+    assert.match(await page.locator('.ag-tecnico-card').textContent(),/CARLOS LIMA/);
     assert.equal(await page.locator('#ag-diaKpiOcupadas').textContent(),'12 h');
     await page.locator('#ag-buscaGeral').fill('');
+    assert.equal(await page.evaluate(()=>window.__clientesLidos.length),6);
+    // Cliente indisponível não inventa vendedor nem repete consultas a cada render.
+    await page.evaluate(()=>{const a=window.__fixture.agendamentos;a.push({...a[0],IdAgendamento:'SEM-CLIENTE',IdCliente:'C404',NomeCliente:'Cliente indisponível'});window.__assinaturas.agendamentos(a);});
+    await page.waitForFunction(()=>document.querySelector('[data-agendamento="SEM-CLIENTE"] .ag-dia-vendedor')?.textContent==='Vendedor indisponível');
+    await page.evaluate(()=>window.__assinaturas.agendamentos(window.__fixture.agendamentos));
+    assert.equal(await page.evaluate(()=>window.__clientesLidos.filter(id=>id==='C404').length),1);
+    await page.evaluate(()=>{window.__fixture.agendamentos=window.__fixture.agendamentos.filter(a=>a.IdAgendamento!=='SEM-CLIENTE');window.__assinaturas.agendamentos(window.__fixture.agendamentos);});
     // Novo horário preenche formulário sem persistir.
     await page.locator('.ag-tecnico-card').filter({hasText:'Dalton Soares'}).locator('button.ag-dia-livre').first().focus();
     await page.keyboard.press('Enter');
@@ -143,7 +156,7 @@ const server=http.createServer((req,res)=>{
     assert.equal(await page.locator('#ag-diaControles').isVisible(),false);
     assert.equal((await page.evaluate(()=>window.__calls)).some(c=>c.action==='salvarAgendamento'),false);
     assert.deepEqual(errors,[]);
-    const result={ok:true,viewportDesktop:1440,viewportMobile:390,pageErrors:errors,testes:['lista preservada','cards e KPIs','busca sem falsa disponibilidade','formulário preenchido por teclado','detalhe','virada mês/ano e Hoje','cancelado e união','OS vários dias','sem horário','somente técnicos ativos','realtime','mobile sem overflow','texto longo','vazio','sem gravação real']};
+    const result={ok:true,viewportDesktop:1440,viewportMobile:390,pageErrors:errors,testes:['lista preservada','cards e KPIs','cliente em caixa alta, serviço em negrito e vendedor','vendedor por cliente com cache e falha de consulta','busca sem falsa disponibilidade','formulário preenchido por teclado','detalhe','virada mês/ano e Hoje','cancelado e união','OS vários dias','sem horário','somente técnicos ativos','realtime','mobile sem overflow','texto longo','vazio','sem gravação real']};
     fs.writeFileSync(path.join(out,'validacao-ui.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));
   }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1;});
