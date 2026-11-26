@@ -17,7 +17,7 @@
   var unsubDetalheAoVivo=null;
   var PERIODO=window.SGAgendaPeriodo;
   var DIA=window.SGAgendaDia;
-  var visaoTecnicos=false,diaSelecionado=dateKey(new Date());
+  var visaoTecnicos=true,diaSelecionado=dateKey(new Date());
 
   /**
    * Enquanto o painel de detalhe de uma OS está aberto, escuta ao vivo (Firestore
@@ -1583,6 +1583,7 @@
     document.getElementById('ag-appVersion').textContent='v'+(document.getElementById('appVersionFoot')?document.getElementById('appVersionFoot').textContent:'');
     setDefaultRange();
     iniciarControlesDia();
+    atualizarVisaoDia();
 
     document.getElementById('ag-novoBtn').addEventListener('click',function(){ openModal(null); });
     document.getElementById('ag-cancelBtn').addEventListener('click',closeModal);

@@ -54,6 +54,13 @@ const server=http.createServer((req,res)=>{
     },dados);
     for(const script of ['agenda-periodo.js','agendamentos-dia.js','agendamentos.js'])await page.addScriptTag({url:origin+'/js/'+script});
     await page.evaluate(()=>window.agendamentosApp.init());
+    assert.equal(await page.locator('#ag-viewTecnicos').getAttribute('aria-pressed'),'true');
+    assert.equal(await page.locator('#ag-viewLista').getAttribute('aria-pressed'),'false');
+    assert.equal(await page.locator('#ag-diaControles').isVisible(),true);
+    assert.equal(await page.locator('#tblAgendamentos').isVisible(),false);
+    assert.equal(await page.locator('.ag-tecnico-card').count(),3);
+    assert.equal(await page.locator('#ag-diaSelecionado').inputValue(),await page.evaluate(()=>window.SGUtil.dateKey(new Date())));
+    await page.locator('#ag-viewLista').click();
     assert.equal(await page.locator('#ag-viewLista').getAttribute('aria-pressed'),'true');
     assert.equal(await page.locator('#ag-tbody tr').count(),6);
     await page.locator('#ag-dateFrom').fill('2026-11-01');await page.locator('#ag-dateFrom').dispatchEvent('change');

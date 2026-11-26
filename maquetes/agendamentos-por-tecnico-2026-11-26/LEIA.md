@@ -8,6 +8,8 @@ Diferenças deliberadas em relação à imagem: jornada de agendamento contínua
 
 Ajuste solicitado em 26/11: a visão Por técnico mostra apenas os técnicos ativos, nos cards, no filtro e nos KPIs. Agendamentos de responsáveis inativos, desconhecidos ou sem responsável continuam acessíveis na Lista, mas não criam cards nesta visão. Mudanças de status do técnico atualizam os cards sem recarregar.
 
+Por técnico é a visualização inicial dos Agendamentos, no dia atual. Lista continua disponível no seletor de visualização.
+
 Conferência: 11 testes de cálculo/período; 15 cenários no navegador com Edge/Chromium, sem gravação em produção nem erros de JavaScript, incluindo teclado nas novas ações, viradas de data, cancelamento, sobreposição, serviços de vários dias, dados incompletos, filtro/busca, atualização ao vivo, texto longo e celular sem rolagem horizontal. `validacao-ui.json` registra o resultado. O teste pode ser repetido com `tests/agendamentos-ui.cjs` e playwright-core instalado no ambiente, ou indicado pela variável `PLAYWRIGHT_MODULE`.
 
 PWA: verificador existente executado com Chrome e seletor adaptado, em uma cópia temporária, ao banner real `#sg-install-banner.show`. Passou service worker, manifest, instalabilidade Chromium, instruções iPhone e estado já instalado. A emulação não substitui teste de instalação em um iPhone físico.

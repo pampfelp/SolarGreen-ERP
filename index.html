@@ -893,7 +893,7 @@
   </header>
 
   <div class="filters" style="align-items:flex-start;">
-    <div id="ag-listaFiltros" class="ag-lista-filtros">
+    <div id="ag-listaFiltros" class="ag-lista-filtros" hidden>
     <div class="field"><label>Período de</label><input type="date" id="ag-dateFrom"></div>
     <div class="field"><label>até</label><input type="date" id="ag-dateTo"></div>
     <div class="field"><label>Atalhos</label><div class="quickranges">
@@ -903,7 +903,7 @@
       <button class="qr-btn active" data-agrange="all">Tudo</button>
     </div></div>
     </div>
-    <div id="ag-diaControles" class="ag-dia-controles" hidden>
+    <div id="ag-diaControles" class="ag-dia-controles">
       <div class="field">
         <label for="ag-diaSelecionado">Dia da agenda</label>
         <div class="ag-dia-navegacao">
@@ -917,10 +917,10 @@
     </div>
     <div class="field"><label>Técnico</label><select id="ag-selTecnico"><option value="__all__">Todos os técnicos</option></select></div>
     <div class="view-toggle ag-view-toggle" role="group" aria-label="Visualização dos agendamentos">
-      <button type="button" class="view-toggle-btn active" id="ag-viewLista" aria-pressed="true"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></span>Lista</button>
-      <button type="button" class="view-toggle-btn" id="ag-viewTecnicos" aria-pressed="false"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="16" rx="1"/><path d="M5.5 8h2M5.5 12h2M16.5 8h2M16.5 12h2"/></svg></span>Por técnico</button>
+      <button type="button" class="view-toggle-btn" id="ag-viewLista" aria-pressed="false"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></span>Lista</button>
+      <button type="button" class="view-toggle-btn active" id="ag-viewTecnicos" aria-pressed="true"><span class="inline-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="16" rx="1"/><path d="M5.5 8h2M5.5 12h2M16.5 8h2M16.5 12h2"/></svg></span>Por técnico</button>
     </div>
-    <div class="stage-filter-group" id="ag-statusFiltros" style="width:100%;">
+    <div class="stage-filter-group" id="ag-statusFiltros" style="width:100%;" hidden>
       <label>Status <span style="font-weight:400;color:var(--ink-faint);">(clique pra filtrar; clique de novo pra limpar)</span></label>
       <div class="kpis ag-status-kpis">
         <div class="kpi ag-kpi-pill" data-agstatus="Agendado"><div class="tag">Pendente</div><div class="num" id="ag-kpiAgendado">0</div><div class="bar" style="background:var(--warn);"></div></div>
@@ -929,7 +929,7 @@
         <div class="kpi ag-kpi-pill" data-agstatus="Cancelado"><div class="tag">Cancelado</div><div class="num" id="ag-kpiCancelado">0</div><div class="bar" style="background:var(--debit);"></div></div>
       </div>
     </div>
-    <div class="kpis ag-dia-kpis" id="ag-diaKpis" hidden>
+    <div class="kpis ag-dia-kpis" id="ag-diaKpis">
       <div class="kpi"><div class="tag">Agendamentos</div><div class="num" id="ag-diaKpiAgendamentos">0</div><div class="bar" style="background:var(--info);"></div></div>
       <div class="kpi"><div class="tag">Técnicos</div><div class="num" id="ag-diaKpiTecnicos">0</div><div class="bar" style="background:var(--ink-soft);"></div></div>
       <div class="kpi"><div class="tag">Horas ocupadas</div><div class="num" id="ag-diaKpiOcupadas">0h</div><div class="bar" style="background:var(--info);"></div></div>
@@ -942,13 +942,13 @@
   <div class="ag-acoes" style="margin:16px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
     <button class="connect-btn" id="ag-novoBtn" style="width:auto;padding:11px 22px;">+ Novo agendamento</button>
     <input type="text" id="ag-buscaGeral" placeholder="Buscar cliente, serviço, técnico, status, data…" style="font-size:13px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;min-width:260px;flex:1;max-width:360px;">
-    <div class="ag-dia-legenda" id="ag-diaLegenda" hidden><span><i class="ag-legenda-ocupado" aria-hidden="true"></i>Ocupado</span><span><i class="ag-legenda-livre" aria-hidden="true"></i>Disponível</span></div>
+    <div class="ag-dia-legenda" id="ag-diaLegenda"><span><i class="ag-legenda-ocupado" aria-hidden="true"></i>Ocupado</span><span><i class="ag-legenda-livre" aria-hidden="true"></i>Disponível</span></div>
   </div>
 
-  <div id="ag-tecnicosWrap" class="ag-tecnicos-grid" hidden></div>
-  <p id="ag-diaNota" class="ag-dia-nota" hidden>Horários de agendamento: 08h às 18h.</p>
+  <div id="ag-tecnicosWrap" class="ag-tecnicos-grid"></div>
+  <p id="ag-diaNota" class="ag-dia-nota">Horários de agendamento: 08h às 18h.</p>
 
-  <div class="table-wrap" id="tblAgendamentos">
+  <div class="table-wrap" id="tblAgendamentos" hidden>
     <table>
       <thead>
         <tr>
@@ -966,9 +966,9 @@
     </table>
   </div>
 
-  <div id="ag-paginacao" class="paginacao"></div>
+  <div id="ag-paginacao" class="paginacao" hidden></div>
 
-  <div class="empty" id="ag-emptyState">
+  <div class="empty" id="ag-emptyState" hidden>
     <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></div>
     <p>Carregando os agendamentos…</p>
   </div>
@@ -2201,7 +2201,7 @@
 <script src="js/supervisor-mensagens.js?v=20261105c"></script>
 <script src="js/funil.js?v=20261116a"></script>
 <script src="js/agendamentos-dia.js?v=20261126a"></script>
-<script src="js/agendamentos.js?v=20261126b"></script>
+<script src="js/agendamentos.js?v=20261126c"></script>
 <script src="js/clientes.js?v=20261116a"></script>
 <script src="js/relatorios.js?v=20260829f"></script>
 <script src="js/custos-venda.js?v=20261027a"></script>
