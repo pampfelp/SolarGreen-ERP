@@ -103,7 +103,11 @@
     const kwhNovos = residual / fracaoUtil;
     const kwpTeorico = kwhNovos / produtividade;
     const numeroExato = kwhNovos * 1000 / produtividade / wp;
-    const placasNovas = Math.ceil(numeroExato - Number.EPSILON * numeroExato);
+    if (p.placasNovas !== undefined && (!Number.isInteger(p.placasNovas) || p.placasNovas < 0)) {
+      throw new RangeError('Informe uma quantidade inteira de placas novas maior ou igual a zero.');
+    }
+    const placasNovas = p.placasNovas === undefined
+      ? Math.ceil(numeroExato - Number.EPSILON * numeroExato) : p.placasNovas;
     const kwpAdicional = placasNovas * wp / 1000;
     const geracaoNova = kwpAdicional * produtividade;
 

@@ -21,7 +21,7 @@
     '.kpis{display:flex;gap:3mm;margin:0 0 4mm;break-inside:avoid}.kpi{flex:1;background:#f2f7f2;border:1pt solid #dde8dd;padding:3mm}' +
     '.kpi span{display:block;color:#42564b;font-size:9pt}.kpi strong{display:block;font-size:15pt;color:#003122}.kpi small{display:block;color:#42564b;font-size:8pt}' +
     '.kpi.ganho strong{color:#4d7a17}.kpi.alerta{background:#fdf0ef;border-color:#efc4bf}.kpi.alerta strong,.kpi.alerta small{color:#b3261e}' +
-    'figure{margin:3mm 0;text-align:center}img{max-width:100%;max-height:217mm;object-fit:contain}.telhado{break-inside:avoid}.telhado img{max-height:115mm}' +
+    'figure{margin:3mm 0;text-align:center}img{max-width:100%;max-height:217mm;object-fit:contain}.telhado{break-inside:avoid}.telhado img{max-height:115mm}.telhado.croqui img{max-height:65mm}' +
     '.fatura-original{margin:0 0 4mm;break-inside:avoid}.fatura-original img{max-height:200mm;border:1pt solid #c9d6cb}.fd{border:1pt solid #c9d6cb;border-radius:2mm;overflow:hidden;margin:0 0 4mm}.fd table{margin:0}' +
     '.fd-topo{display:flex;justify-content:space-between;align-items:center;gap:4mm;background:#003122;color:#fff;padding:3.5mm 4mm}' +
     '.fd .total td{white-space:nowrap}' +
@@ -178,7 +178,8 @@
       { titulo: 'Fatura sem energia solar', cenario: semSolar, total: semSolar.total, kpis: [
         { titulo: 'Valor a mais que a fatura atual', valor: diferenca(semSolar.total, contaHoje), sinal: true, classe: 'alerta' }
       ] },
-      { titulo: 'Fatura com 100% de abatimento', cenario: simulada, total: simulada.total, kpis: [
+      { titulo: Number.isFinite(simulada.semCompensacao) && simulada.semCompensacao <= 0.005
+        ? 'Fatura com 100% de abatimento' : 'Fatura simulada com a expansão', cenario: simulada, total: simulada.total, kpis: [
         { titulo: 'Economia frente à fatura atual', valor: diferenca(contaHoje, simulada.total), classe: 'ganho' }
       ] }
     ] : [
@@ -226,17 +227,28 @@
     // Total = geração nova na proporção da potência total (mesma produtividade da geração nova).
     const geracaoTotal = d.kwpAdicional > 0 && Number.isFinite(d.kwpTotal) && Number.isFinite(d.geracaoNova)
       ? d.geracaoNova * d.kwpTotal / d.kwpAdicional : null;
-    const telhado = imagemLocal(imagemTelhado) ? '<figure class="telhado"><img alt="Arranjo ilustrativo dos módulos" src="' +
+    const croqui = imagemLocal(expansao.croquiImagem) ? expansao.croquiImagem : null;
+    const telhado = croqui ? '<figure class="telhado croqui"><img alt="Croqui da expansão" src="' + croqui +
+      '"><figcaption>Croqui da expansão</figcaption></figure>' : imagemLocal(imagemTelhado) ? '<figure class="telhado"><img alt="Arranjo ilustrativo dos módulos" src="' +
       imagemTelhado + '"><figcaption>' + esc(numero(d.placasExistentes, 0)) + ' existentes · ' + esc(numero(d.placasNovas, 0)) +
       ' a adicionar · Desenho ilustrativo</figcaption></figure>' : '<p class="lembrete">Ilustração indisponível.</p>';
+    const limiteCC = inversor.modelos?.[0]?.PotenciaMaxCC;
+    const notaInversor = inversor.selecaoManual ? '<p class="lembrete">Seleção manual: a compatibilidade elétrica depende do projeto e da distribuidora.' +
+      (Number.isFinite(limiteCC) && limiteCC > 0 && d.kwpTotal > limiteCC
+        ? ' A potência total de ' + esc(numero(d.kwpTotal, 2, ' kWp')) + ' excede o limite CC informado de ' +
+          esc(numero(limiteCC, 2, ' kW')) + ' do inversor selecionado.' : '') + '</p>' : '';
     const resumo = secao('Resumo da expansão', '<div class="potencias">' + potencia('Atual', d.kwpAtual) +
       potencia('A adicionar', d.kwpAdicional) + potencia('Total', d.kwpTotal) + '</div>' +
       kpis([{ titulo: 'Geração por mês', valor: d.geracaoNova, texto: '+' + numero(d.geracaoNova, 2, ' kWh'),
         nota: Number.isFinite(geracaoTotal) ? 'Total: ' + numero(geracaoTotal, 2, ' kWh') : '', classe: 'ganho' }]) + grupos([
       ['Placas existentes', numero(d.placasExistentes, 0)], ['Placas novas', numero(d.placasNovas, 0)],
-      ['Inversor sugerido', numero(inversor.kw, 2, ' kW')], ['Cidade', expansao.Cidade ?? expansao.cidade],
+      ...(Number.isFinite(expansao.wp) ? [['Potência unitária dos módulos', numero(expansao.wp, 0, ' Wp')]] : []),
+      [inversor.selecaoManual ? 'Inversor selecionado' : 'Inversor sugerido', numero(inversor.kw, 2, ' kW') +
+        (inversor.selecaoManual ? ' · ' + (inversor.modelos || []).map(m => [m.Marca, m.Modelo].filter(Boolean).join(' ')).join(', ') : '')],
+      ...(Number.isFinite(expansao.valorInvestimento) ? [['Investimento', reais(expansao.valorInvestimento)]] : []),
+      ['Cidade', expansao.Cidade ?? expansao.cidade],
       ['Produtividade', numero(expansao.Produtividade ?? expansao.produtividade, 2, ' kWh/kWp/mês')]
-    ]) + telhado);
+    ]) + notaInversor + telhado);
 
     const comparacao = comparacaoFaturas({ simulacao, dimensionamento: d, fatura });
     const financeiros = fatura.itensFinanceiros || [];
@@ -250,6 +262,8 @@
         fatura, cliente }))));
 
     const partes = [identificacao, resumo, ...faturas];
+    if (croqui) partes.push(secao('Croqui da expansão', '<figure><img alt="Croqui da expansão" src="' +
+      croqui + '"><figcaption>Croqui da expansão</figcaption></figure>'));
     const paginas = paginasDocumento.filter(imagemLocal);
     if (!paginas.length) partes.push(secao('Documento do cliente anexado', '<p>Documento não informado.</p>'));
     paginas.forEach((img, i) => partes.push(secao('Documento do cliente anexado',

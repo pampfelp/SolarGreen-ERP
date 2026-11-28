@@ -309,10 +309,26 @@
     });
     if (dimensionamento.kwpAtual === null) avisos.push('A potência da usina atual não foi informada. Confira o total e a seleção do inversor.');
     else if (dimensionamento.placasExistentes === null) avisos.push('Informe os módulos existentes para exibir a contagem no telhado.');
-    const inversor = calc.sugerirInversor({
+    let inversor = calc.sugerirInversor({
       kwpTotal: dimensionamento.kwpTotal, catalogo, potenciasInversorKW: config.potenciasInversorKW,
       fornecimento: fatura.tipoFornecimento, inversorAtual: usinaAtual.inversorAtual, overloadMax: config.overloadMax
     });
+    if (expansao.inversorSelecionado != null) {
+      const escolhido = expansao.inversorSelecionado;
+      if (!(numero(escolhido.kw) && escolhido.kw > 0)
+          || (escolhido.potenciaMaxCC != null && !(numero(escolhido.potenciaMaxCC) && escolhido.potenciaMaxCC > 0))) {
+        throw new Error('Revise a potência do inversor selecionado e o limite CC informado.');
+      }
+      inversor = { kw: escolhido.kw, fonte: 'manual', selecaoManual: true,
+        overload: dimensionamento.kwpTotal === null ? null : dimensionamento.kwpTotal / escolhido.kw,
+        atualSuporta: null, modelos: [{ Marca: escolhido.marca, Modelo: escolhido.modelo,
+          PotenciaAtivaNomCA: escolhido.kw, PotenciaMaxCC: escolhido.potenciaMaxCC ?? null }] };
+      avisos.push('Inversor selecionado manualmente. A compatibilidade elétrica depende do projeto e da distribuidora.');
+      if (escolhido.potenciaMaxCC > 0 && dimensionamento.kwpTotal > escolhido.potenciaMaxCC) {
+        avisos.push('A potência total de ' + dimensionamento.kwpTotal.toLocaleString('pt-BR') +
+          ' kWp excede o limite CC informado de ' + escolhido.potenciaMaxCC.toLocaleString('pt-BR') + ' kW do inversor selecionado.');
+      }
+    }
     const tarifasFatura = calc.tarifasDaFatura(fatura, { ...expansao, regimeAtual });
     if (tarifasFatura.faixasDaFatura && !expansao.tarifasRevisadas?.faixasConsumo?.length) {
       const f = tarifasFatura.faixasConsumo;

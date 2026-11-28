@@ -706,6 +706,10 @@
     function dadosCalculo({ rascunho = false } = {}) {
       const u = dataCampos('usina');
       const e = dataCampos('expansao');
+      const extras = {};
+      for (const campo of ['placasNovas', 'inversorSelecionado', 'valorInvestimento', 'custoBase', 'margemVenda', 'croquiImagem']) {
+        if (Object.prototype.hasOwnProperty.call(salvo?.Expansao || {}, campo)) extras[campo] = salvo.Expansao[campo];
+      }
       const inversorAtual = catalogo.inversores.find(i => i.IdInversor === u.idInversor);
       const fonte = window.SGExpansaoProdutividade.produtividadeManual({ valor: e.produtividade, fonte: e.fonteProdutividade });
       if (!rascunho && fonte.status !== 'ok') throw new Error('Informe a produtividade e a fonte usadas.');
@@ -720,7 +724,7 @@
           desempenho: u.desempenho == null ? null : u.desempenho / 100,
           desempenhoAlvo: u.desempenhoAlvo == null ? null : u.desempenhoAlvo / 100,
           prReferencia: u.prReferencia == null ? null : u.prReferencia / 100 },
-        expansao: { ...e, cidadeManual, origemCidade: produto?.origemCidade || '',
+        expansao: { ...e, ...extras, cidadeManual, origemCidade: produto?.origemCidade || '',
           produtividade: fonte.mediaMensal ?? e.produtividade, fonteProdutividade: fonte.fonte ?? e.fonteProdutividade,
           fracaoUtil: e.fracaoUtil ?? 1, faixasConsumo: tarifas, produtividadeMensal: mensal,
           tarifasRevisadas: rascunho ? null : tarifasRevisadas(),
