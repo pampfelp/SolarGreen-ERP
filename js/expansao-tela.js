@@ -707,7 +707,8 @@
       const u = dataCampos('usina');
       const e = dataCampos('expansao');
       const extras = {};
-      for (const campo of ['placasNovas', 'inversorSelecionado', 'valorInvestimento', 'custoBase', 'margemVenda', 'croquiImagem']) {
+      for (const campo of ['placasNovas', 'inversorSelecionado', 'valorInvestimento', 'custoBase', 'margemVenda', 'croquiImagem',
+        'observacoesFinais', 'geracaoAtualEstimadaMensal', 'perdaSombreamento', 'produtividadeBase']) {
         if (Object.prototype.hasOwnProperty.call(salvo?.Expansao || {}, campo)) extras[campo] = salvo.Expansao[campo];
       }
       const inversorAtual = catalogo.inversores.find(i => i.IdInversor === u.idInversor);

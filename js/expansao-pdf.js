@@ -224,8 +224,10 @@
     ]));
 
     const potencia = (titulo, kwp) => '<div>' + titulo + '<strong>' + esc(numero(kwp, 2, ' kWp')) + '</strong></div>';
-    // Total = geração nova na proporção da potência total (mesma produtividade da geração nova).
-    const geracaoTotal = d.kwpAdicional > 0 && Number.isFinite(d.kwpTotal) && Number.isFinite(d.geracaoNova)
+    // A estimativa atual explícita permite perdas diferentes entre a usina antiga e a expansão.
+    const geracaoTotal = Number.isFinite(expansao.geracaoAtualEstimadaMensal) && Number.isFinite(d.geracaoNova)
+      ? expansao.geracaoAtualEstimadaMensal + d.geracaoNova
+      : d.kwpAdicional > 0 && Number.isFinite(d.kwpTotal) && Number.isFinite(d.geracaoNova)
       ? d.geracaoNova * d.kwpTotal / d.kwpAdicional : null;
     const croqui = imagemLocal(expansao.croquiImagem) ? expansao.croquiImagem : null;
     const telhado = croqui ? '<figure class="telhado croqui"><img alt="Croqui da expansão" src="' + croqui +
@@ -239,7 +241,8 @@
           esc(numero(limiteCC, 2, ' kW')) + ' do inversor selecionado.' : '') + '</p>' : '';
     const resumo = secao('Resumo da expansão', '<div class="potencias">' + potencia('Atual', d.kwpAtual) +
       potencia('A adicionar', d.kwpAdicional) + potencia('Total', d.kwpTotal) + '</div>' +
-      kpis([{ titulo: 'Geração por mês', valor: d.geracaoNova, texto: '+' + numero(d.geracaoNova, 2, ' kWh'),
+      kpis([{ titulo: expansao.perdaSombreamento > 0 ? 'Geração estimada após sombreamento' : 'Geração por mês',
+        valor: d.geracaoNova, texto: '+' + numero(d.geracaoNova, 2, ' kWh'),
         nota: Number.isFinite(geracaoTotal) ? 'Total: ' + numero(geracaoTotal, 2, ' kWh') : '', classe: 'ganho' }]) + grupos([
       ['Placas existentes', numero(d.placasExistentes, 0)], ['Placas novas', numero(d.placasNovas, 0)],
       ...(Number.isFinite(expansao.wp) ? [['Potência unitária dos módulos', numero(expansao.wp, 0, ' Wp')]] : []),
@@ -264,6 +267,10 @@
     const partes = [identificacao, resumo, ...faturas];
     if (croqui) partes.push(secao('Croqui da expansão', '<figure><img alt="Croqui da expansão" src="' +
       croqui + '"><figcaption>Croqui da expansão</figcaption></figure>'));
+    if (typeof expansao.observacoesFinais === 'string' && expansao.observacoesFinais.trim()) {
+      partes.push(secao('Observações finais', expansao.observacoesFinais.trim().replace(/\r\n?/g, '\n')
+        .split(/\n\s*\n/).map(p => '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>').join('')));
+    }
     const paginas = paginasDocumento.filter(imagemLocal);
     if (!paginas.length) partes.push(secao('Documento do cliente anexado', '<p>Documento não informado.</p>'));
     paginas.forEach((img, i) => partes.push(secao('Documento do cliente anexado',

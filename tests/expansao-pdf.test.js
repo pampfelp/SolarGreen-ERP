@@ -176,6 +176,41 @@ test('a tela recebe as mesmas faturas e KPIs do PDF', () => {
 
 module.exports = { model, figura };
 
+test('observações finais escapam texto e preservam parágrafos e quebras após o croqui', () => {
+  const html = pdf.montarHtml({ ...model, expansao: { croquiImagem: figura,
+    observacoesFinais: '  Nota <script>teste</script> & "texto"\r\nSegunda linha\r\n\r\nOutro parágrafo  ' } });
+  assert.match(html, /<h2>Observações finais<\/h2><p>Nota &lt;script&gt;teste&lt;\/script&gt; &amp; &quot;texto&quot;<br>Segunda linha<\/p><p>Outro parágrafo<\/p>/);
+  assert.doesNotMatch(html, /<script>/);
+  const secoes = [...html.matchAll(/<h2>(.*?)<\/h2>/g)].map(m => m[1]);
+  assert.deepEqual(secoes.slice(-3), ['Croqui da expansão', 'Observações finais', 'Documento do cliente anexado']);
+  assert.match(pdf.montarHtml({ expansao: { observacoesFinais: 'Sem croqui' } }), /<h2>Observações finais<\/h2>/);
+});
+
+test('observações finais só aparecem para string com conteúdo', () => {
+  for (const observacoesFinais of [undefined, null, '', ' \r\n\t ', 123, {}]) {
+    assert.doesNotMatch(pdf.montarHtml({ expansao: { observacoesFinais } }), /<h2>Observações finais/);
+  }
+});
+
+test('geração total soma a estimativa atual explícita à nova com perdas distintas', () => {
+  const dimensionamento = { kwpAtual: 4, kwpAdicional: 6, kwpTotal: 10, geracaoNova: 540 };
+  for (const [geracaoAtualEstimadaMensal, total] of [[480, '1.020,00'], [0, '540,00']]) {
+    const html = pdf.montarHtml({ dimensionamento, expansao: { geracaoAtualEstimadaMensal, perdaSombreamento: 0.15 } });
+    assert.deepEqual(kpis(html)[0], ['ganho', 'Geração estimada após sombreamento', '+540,00 kWh', 'Total: ' + total + ' kWh']);
+  }
+});
+
+test('sem estimativa atual numérica preserva o total proporcional e o título original', () => {
+  for (const geracaoAtualEstimadaMensal of [undefined, null, '', '480', NaN, Infinity]) {
+    for (const perdaSombreamento of [undefined, 0, -0.1]) {
+      const html = pdf.montarHtml({ dimensionamento: { kwpAdicional: 6, kwpTotal: 10, geracaoNova: 540 },
+        expansao: { geracaoAtualEstimadaMensal, perdaSombreamento } });
+      assert.deepEqual(kpis(html)[0], ['ganho', 'Geração por mês', '+540,00 kWh', 'Total: 900,00 kWh']);
+    }
+  }
+  assert.equal(kpis(pdf.montarHtml({ dimensionamento: { kwpAdicional: 0, kwpTotal: 10, geracaoNova: 540 } }))[0][3], '');
+});
+
 test('com a página da fatura original, ela entra no lugar da fatura desenhada', () => {
   const html = pdf.montarHtml(model, { paginaFatura: figura });
   assert.match(html, /<figure class="fatura-original"><img alt="Primeira página da fatura do cliente"/);
