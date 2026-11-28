@@ -81,7 +81,7 @@ test('recalcular e rascunho preservam somente os extras explícitos da expansão
   const fim = fonte.indexOf('\n    function calcularAgora(', inicio);
   const extras = { placasNovas: 0, inversorSelecionado: { kw: 20 }, valorInvestimento: 0,
     custoBase: 100, margemVenda: 0.1, croquiImagem: figura,
-    observacoesFinais: 'Nota sintética', geracaoAtualEstimadaMensal: 450,
+    observacoesFinais: 'Nota sintética', apresentacaoComercial: { titulo: 'Capa sintética' }, geracaoAtualEstimadaMensal: 450,
     perdaSombreamento: 0.15, produtividadeBase: 120 };
   const contexto = { salvo: { Expansao: { ...extras, desconhecido: 123 } },
     dataCampos: () => ({}), catalogo: { inversores: [] },

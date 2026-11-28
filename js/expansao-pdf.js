@@ -79,6 +79,32 @@
       '<h2>' + titulo + '</h2>' + conteudo + '</section>';
   }
 
+  const cssComercial = '.commercialdocument{overflow-wrap:anywhere}' +
+    '.commercial-investimento{background:#f2f7f2;border:2pt solid #78a527;padding:5mm;margin:6mm 0;break-inside:avoid}' +
+    '.commercial-preco{display:block;font-size:34pt;color:#003122;line-height:1.15}' +
+    '.commercial-beneficios{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3mm;margin:5mm 0}' +
+    '.commercial-beneficio{background:#f2f7f2;border:1pt solid #dde8dd;padding:3mm;break-inside:avoid}' +
+    '.commercial-beneficio h3{margin:0 0 2mm}.commercialdocument ul{padding-left:5mm;margin:3mm 0}' +
+    '.commercialdocument li{margin:2mm 0}.commercial-proximo{border-left:3pt solid #78a527;padding:2mm 4mm;margin:5mm 0}';
+
+  function capaComercial(e, cliente, numeroProposta) {
+    const a = e.apresentacaoComercial;
+    const texto = valor => typeof valor === 'string' && valor.trim().length > 0;
+    if (!a || typeof a !== 'object' || Array.isArray(a) || !Number.isFinite(e.valorInvestimento) || e.valorInvestimento < 0 ||
+        !['titulo', 'subtitulo', 'proximoPasso', 'nota'].every(campo => texto(a[campo])) ||
+        !Array.isArray(a.beneficios) || a.beneficios.length !== 3 ||
+        !Array.from(a.beneficios).every(b => b && typeof b === 'object' && !Array.isArray(b) && texto(b.titulo) && texto(b.texto)) ||
+        !Array.isArray(a.escopo) || !a.escopo.length || !Array.from(a.escopo).every(texto)) return '';
+    return secao(esc(a.titulo), '<p>' + esc(a.subtitulo) + '</p>' +
+      grupos([['Cliente', cliente.Nome ?? cliente.nome], ['Proposta', numeroProposta]]) +
+      '<div class="commercial-investimento"><span>Investimento</span><strong class="commercial-preco">' +
+      esc(reais(e.valorInvestimento)) + '</strong></div><div class="commercial-beneficios">' +
+      a.beneficios.map(b => '<div class="commercial-beneficio"><h3>' + esc(b.titulo) + '</h3><p>' + esc(b.texto) + '</p></div>').join('') +
+      '</div><h3>Escopo da proposta</h3><ul>' + a.escopo.map(item => '<li>' + esc(item) + '</li>').join('') +
+      '</ul><div class="commercial-proximo"><h3>Próximo passo</h3><p>' + esc(a.proximoPasso) +
+      '</p></div><p class="lembrete">' + esc(a.nota) + '</p>', 'commercialdocument');
+  }
+
   function imagemLocal(url) {
     return typeof url === 'string' && /^data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/.test(url);
   }
@@ -264,7 +290,8 @@
       : documentoFatura({ titulo: f.titulo, itens: f.cenario.linhas, total: f.cenario.total, financeirosDaFatura: financeiros,
         fatura, cliente }))));
 
-    const partes = [identificacao, resumo, ...faturas];
+    const capa = capaComercial(expansao, cliente, numeroProposta);
+    const partes = [...(capa ? [capa] : []), identificacao, resumo, ...faturas];
     if (croqui) partes.push(secao('Croqui da expansão', '<figure><img alt="Croqui da expansão" src="' +
       croqui + '"><figcaption>Croqui da expansão</figcaption></figure>'));
     if (typeof expansao.observacoesFinais === 'string' && expansao.observacoesFinais.trim()) {
@@ -276,7 +303,7 @@
     paginas.forEach((img, i) => partes.push(secao('Documento do cliente anexado',
       '<figure><img alt="Documento do cliente, página ' + (i + 1) + '" src="' + img + '"></figure>', 'anexo')));
     return '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Proposta de Expansão' +
-      (numeroProposta ? ' · ' + esc(numeroProposta) : '') + '</title><style>' + css + '</style></head><body><main>' +
+      (numeroProposta ? ' · ' + esc(numeroProposta) : '') + '</title><style>' + css + (capa ? cssComercial : '') + '</style></head><body><main>' +
       partes.join('') + '</main><footer>' + esc(rodape) + '</footer></body></html>';
   }
 
